@@ -1,4 +1,4 @@
-package com.resukisu.resukisu.baselineprofile
+package com.originsu.manager.baselineprofile
 
 import androidx.benchmark.macro.MacrobenchmarkScope
 

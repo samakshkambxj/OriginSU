@@ -1,4 +1,4 @@
-package com.resukisu.resukisu.baselineprofile
+package com.originsu.manager.baselineprofile
 
 import androidx.benchmark.macro.BaselineProfileMode
 import androidx.benchmark.macro.CompilationMode
@@ -21,7 +21,7 @@ class StartupBenchmark(
 
     @Test
     fun startup() = benchmarkRule.measureRepeated(
-        packageName = "com.resukisu.resukisu",
+        packageName = "com.originsu.manager",
         metrics = listOf(StartupTimingMetric()),
         compilationMode = compilationMode,
         startupMode = StartupMode.COLD,

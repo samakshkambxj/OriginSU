@@ -1,4 +1,4 @@
-package com.resukisu.resukisu.baselineprofile
+package com.originsu.manager.baselineprofile
 
 import androidx.benchmark.macro.junit4.BaselineProfileRule
 import org.junit.Rule
@@ -11,7 +11,7 @@ class BaselineProfileGenerator {
 
     @Test
     fun startup() = baselineProfileRule.collect(
-        packageName = "com.resukisu.resukisu",
+        packageName = "com.originsu.manager",
         includeInStartupProfile = true,
     ) {
         pressHome()
@@ -20,7 +20,7 @@ class BaselineProfileGenerator {
 
     @Test
     fun homePagerUserScroll() = baselineProfileRule.collect(
-        packageName = "com.resukisu.resukisu",
+        packageName = "com.originsu.manager",
         includeInStartupProfile = false,
     ) {
         pressHome()

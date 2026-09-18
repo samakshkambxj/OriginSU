@@ -1,4 +1,4 @@
-package com.resukisu.resukisu.lint
+package com.originsu.manager.lint
 
 import com.android.tools.lint.client.api.IssueRegistry
 import com.android.tools.lint.detector.api.CURRENT_API

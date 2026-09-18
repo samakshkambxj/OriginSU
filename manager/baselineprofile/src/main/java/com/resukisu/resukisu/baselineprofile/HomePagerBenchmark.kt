@@ -1,4 +1,4 @@
-package com.resukisu.resukisu.baselineprofile
+package com.originsu.manager.baselineprofile
 
 import androidx.benchmark.macro.BaselineProfileMode
 import androidx.benchmark.macro.CompilationMode
@@ -19,7 +19,7 @@ class HomePagerBenchmark(
 
     @Test
     fun userScroll() = benchmarkRule.measureRepeated(
-        packageName = "com.resukisu.resukisu",
+        packageName = "com.originsu.manager",
         metrics = listOf(FrameTimingMetric()),
         compilationMode = compilationMode,
         iterations = 10,

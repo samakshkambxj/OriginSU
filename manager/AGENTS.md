@@ -19,7 +19,7 @@ identify the nearest existing implementation pattern and preserve the project st
 
 ## Repository package layout
 
-The application code is rooted at `com.resukisu.resukisu`.
+The application code is rooted at `com.originsu.manager`.
 
 * `data/` — data repositories and related data-layer implementation.
 * `ui/` — user-interface code, including pages, state, and reusable Compose components.
@@ -29,7 +29,7 @@ complete a change faster.
 
 ### Data layer
 
-Repository implementations belong under `com.resukisu.resukisu.data` and its subpackages. Keep
+Repository implementations belong under `com.originsu.manager.data` and its subpackages. Keep
 persistence, data loading, mapping, and repository concerns in this layer. Do not embed UI
 composition or presentation-only behavior in repositories.
 
@@ -42,7 +42,7 @@ composition or presentation-only behavior in repositories.
 All reusable UI components must be placed under:
 
 ```text
-com.resukisu.resukisu.ui.component
+com.originsu.manager.ui.component
 ```
 
 Do not create parallel reusable-component packages inside individual pages, features, or view
@@ -52,16 +52,16 @@ components intended for reuse must live in `ui.component`.
 ### Dialog
 
 Every custom dialog should manage by
-`com.resukisu.resukisu.ui.component.Dialog#rememberCustomDialog`,
-if you need confirmDialog, use `com.resukisu.resukisu.ui.component.Dialog#rememberConfirmDialog`,
-if you need loadingDialog, use `com.resukisu.resukisu.ui.component.Dialog#rememberLoadingDialog`
+`com.originsu.manager.ui.component.Dialog#rememberCustomDialog`,
+if you need confirmDialog, use `com.originsu.manager.ui.component.Dialog#rememberConfirmDialog`,
+if you need loadingDialog, use `com.originsu.manager.ui.component.Dialog#rememberLoadingDialog`
 
 ### Settings UI
 
 Use the settings component system under:
 
 ```text
-com.resukisu.resukisu.ui.component.settings
+com.originsu.manager.ui.component.settings
 ```
 
 Do not hand-build settings rows, dividers, switch rows, page-navigation rows, or similar settings
@@ -100,7 +100,7 @@ handler, divider, shape, and trailing icon/switch just to reproduce a standard s
 When a component needs a dynamic rounded-corner animation, use the implementation in:
 
 ```text
-com.resukisu.resukisu.ui.component.settings.material3internal.AnimatedShape.kt
+com.originsu.manager.ui.component.settings.material3internal.AnimatedShape.kt
 ```
 
 Do not introduce duplicate animated-shape implementations or manually interpolate equivalent corner
@@ -170,8 +170,8 @@ For implementation tasks:
 
 Before completing a UI or settings task, verify:
 
-* Reusable components are under `com.resukisu.resukisu.ui.component`.
-* Settings screens use `com.resukisu.resukisu.ui.component.settings` components.
+* Reusable components are under `com.originsu.manager.ui.component`.
+* Settings screens use `com.originsu.manager.ui.component.settings` components.
 * Static settings groups use `SegmentedColumn`; runtime-changing groups use `LazySegmentedColumn`.
 * Standard settings rows use the relevant `SettingsBaseWidget` wrapper instead of a hand-built
   equivalent.
