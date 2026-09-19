@@ -64,7 +64,7 @@ fn copy_key(dst: &mut [libc::c_char], src: &str) {
 
 fn read_profile(package: &str, uid: u32) -> Result<uapi::app_profile> {
     let mut profile: uapi::app_profile = unsafe { std::mem::zeroed() };
-    profile.version = uapi::KSU_APP_PROFILE_VER as u32;
+    profile.version = uapi::KSU_APP_PROFILE_VER;
     copy_key(&mut profile.key, package);
     profile.curr_uid = uid as i32;
     let mut cmd = uapi::ksu_get_app_profile_cmd { profile };

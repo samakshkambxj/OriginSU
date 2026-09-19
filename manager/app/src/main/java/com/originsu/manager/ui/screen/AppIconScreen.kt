@@ -156,13 +156,13 @@ fun AppIconScreen() {
                                             .clip(RoundedCornerShape(14.dp)),
                                     )
                                 },
-                                trailingContent = {
+                                foreContent = {
                                     RadioButton(
                                         selected = selected,
                                         onClick = { viewModel.select(option.icon) },
                                     )
                                 },
-                            ) {}
+                            )
                         }
                     }
                 }

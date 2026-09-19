@@ -6,12 +6,12 @@
 
 /* Blocking root prompt queue. Caller sleeps until manager answers or timeout. */
 struct ksu_su_request_info {
-	__u64 id;
-	__u32 uid;
-	__u32 euid;
-	__u32 pid;
-	char comm[16];
-	__u64 ts_ns;
+    __u64 id;
+    __u32 uid;
+    __u32 euid;
+    __u32 pid;
+    char comm[16];
+    __u64 ts_ns;
 };
 
 /*

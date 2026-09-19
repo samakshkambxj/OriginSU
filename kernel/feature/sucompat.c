@@ -55,14 +55,14 @@
  * original execve and fail). Sleepable process context only (execve). */
 static bool ksu_sucompat_prompt_allow(void)
 {
-	__u32 uid = ksu_get_uid_t(current_uid());
-	__u32 euid = ksu_get_uid_t(current_euid());
+    __u32 uid = ksu_get_uid_t(current_uid());
+    __u32 euid = ksu_get_uid_t(current_euid());
 
-	if (uid == 0)
-		return false;
-	if (!ksu_su_prompt_is_enabled())
-		return false;
-	return ksu_su_request_prompt(uid, euid) == 1;
+    if (uid == 0)
+        return false;
+    if (!ksu_su_prompt_is_enabled())
+        return false;
+    return ksu_su_request_prompt(uid, euid) == 1;
 }
 
 #ifdef KSU_COMPAT_USE_STATIC_KEY
@@ -269,8 +269,7 @@ static long ksu_handle_execve_sucompat_common_internal(const char __user **filen
     /* Fast path: not allowed + prompt disabled -> original behavior without
      * extra copy. When prompt is enabled we must copy the filename first to
      * know whether this is a /system/bin/su request before queueing. */
-    if (!ksu_is_allow_uid_for_current(ksu_get_uid_t(current_uid())) &&
-        !ksu_su_prompt_is_enabled())
+    if (!ksu_is_allow_uid_for_current(ksu_get_uid_t(current_uid())) && !ksu_su_prompt_is_enabled())
         goto do_orig_execve;
 
     addr = untagged_addr((unsigned long)*filename_user);
