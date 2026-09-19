@@ -1,9 +1,6 @@
 <div align="center">
 
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/OriginSU-dark.svg">
-    <img src="docs/OriginSU-light.svg" width="160" alt="OriginSU Logo">
-  </picture>
+  <img src="docs/OriginSU-default.png" width="160" alt="OriginSU Logo">
 
   # OriginSU
 

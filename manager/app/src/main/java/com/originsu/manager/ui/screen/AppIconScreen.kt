@@ -73,6 +73,11 @@ private val APP_ICON_OPTIONS = listOf(
         titleRes = R.string.app_icon_origin_light,
     ),
     AppIconOption(
+        icon = AppIcon.ORIGIN_DEFAULT,
+        preview = R.drawable.app_icon_preview_default,
+        titleRes = R.string.app_icon_origin_default,
+    ),
+    AppIconOption(
         icon = AppIcon.KSU_OFFICIAL,
         preview = R.drawable.app_icon_preview_ksu,
         titleRes = R.string.app_icon_ksu_official,
@@ -86,11 +91,6 @@ private val APP_ICON_OPTIONS = listOf(
         icon = AppIcon.RESUKISU_ALT,
         preview = R.drawable.app_icon_preview_resukisu_alt,
         titleRes = R.string.app_icon_resukisu_alt,
-    ),
-    AppIconOption(
-        icon = AppIcon.YIN_YANG_MONO,
-        preview = R.drawable.app_icon_preview_mono,
-        titleRes = R.string.app_icon_yin_yang_mono,
     ),
 )
 

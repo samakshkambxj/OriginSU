@@ -89,6 +89,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -108,6 +109,8 @@ import com.originsu.manager.ui.component.YinYangLogo
 import com.originsu.manager.ui.component.popupBlur
 import com.originsu.manager.ui.component.popupContainerColor
 import com.originsu.manager.ui.component.rememberLoadingDialog
+import com.originsu.manager.data.appearance.TopBarLogo
+import com.originsu.manager.data.appearance.TopBarLogoRepository
 import com.originsu.manager.ui.component.settings.SegmentedColumn
 import com.originsu.manager.ui.component.settings.SettingsBaseWidget
 import com.originsu.manager.ui.navigation.LocalNavigator
@@ -465,6 +468,8 @@ private fun TopBar(
     val themeConfig: ThemeConfig = koinInject()
     val cardConfig: CardConfig = koinInject()
     val navigator = LocalNavigator.current
+    val topBarLogoRepository: TopBarLogoRepository = koinInject()
+    val topBarLogo by topBarLogoRepository.state.collectAsStateWithLifecycle()
 
     LargeFlexibleTopAppBar(
         modifier = Modifier.blurEffect(),
@@ -497,13 +502,35 @@ private fun TopBar(
                     }
                 }
             ) {
-                YinYangLogo(
-                    modifier = Modifier
-                        .size(32.dp)
-                        .graphicsLayer {
-                            rotationZ = rotation
-                        }
-                )
+                when (topBarLogo) {
+                    TopBarLogo.FILLED_LEAF -> Icon(
+                        painter = painterResource(R.drawable.topbar_leaf),
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier
+                            .size(32.dp)
+                            .graphicsLayer {
+                                rotationZ = rotation
+                            }
+                    )
+                    TopBarLogo.WHITE_LEAF -> Icon(
+                        painter = painterResource(R.drawable.topbar_leaf),
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier
+                            .size(32.dp)
+                            .graphicsLayer {
+                                rotationZ = rotation
+                            }
+                    )
+                    else -> YinYangLogo(
+                        modifier = Modifier
+                            .size(32.dp)
+                            .graphicsLayer {
+                                rotationZ = rotation
+                            }
+                    )
+                }
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     text = stringResource(R.string.app_name)

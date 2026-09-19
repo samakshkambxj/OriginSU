@@ -11,14 +11,16 @@ import org.koin.compose.koinInject
 
 /**
  * Container color for popup surfaces (dialogs, menus, bottom sheets) that
- * matches the Apple-style blurred navbar: translucent when blur is enabled,
- * opaque otherwise.
+ * matches the Apple-style blurred navbar: translucent whenever any blur
+ * mode is enabled, opaque otherwise. The navbar itself runs on
+ * [ThemeConfig.isEnableBlur], so popups must not gate on the experimental
+ * flag alone or they stay solid while the navbar blurs.
  */
 @Composable
 fun popupContainerColor(): Color {
     val themeConfig: ThemeConfig = koinInject()
     val cardConfig: CardConfig = koinInject()
-    return if (themeConfig.isEnableBlurExp) {
+    return if (themeConfig.isEnableBlur || themeConfig.isEnableBlurExp) {
         MaterialTheme.colorScheme.surfaceContainerHigh.copy(
             alpha = if (cardConfig.isCustomBackgroundEnabled) {
                 cardConfig.cardAlpha

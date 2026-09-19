@@ -13,6 +13,8 @@ import com.originsu.manager.domain.model.coerceCompatibleWith
 import com.originsu.manager.domain.usecase.ConfigureSuLogUseCase
 import com.originsu.manager.domain.usecase.ConfigureVeilUseCase
 import com.originsu.manager.domain.usecase.ClearBootloopNoticeUseCase
+import com.originsu.manager.data.appearance.TopBarLogo
+import com.originsu.manager.data.appearance.TopBarLogoRepository
 import com.originsu.manager.data.grant.GrantToastRepository
 import com.originsu.manager.data.shortcuts.AppShortcutsRepository
 import com.originsu.manager.data.su.SuRequestRepository
@@ -120,6 +122,7 @@ data class SettingsUiState(
     val isThemedShortcutsEnabled: Boolean = false,
     val isOriginZygiskEnabled: Boolean = false,
     val isOriginZygiskRunning: Boolean = false,
+    val topBarLogo: TopBarLogo = TopBarLogo.YIN_YANG,
     val isBootloopEnabled: Boolean = true,
     val bootloopMax: Int = 3,
     val bootloopFailedCount: Int = 0,
@@ -176,6 +179,8 @@ sealed interface SettingsUiAction {
     data class SetBootloopEnabled(val enabled: Boolean) : SettingsUiAction
     data class SetBootloopMax(val count: Int) : SettingsUiAction
     data object DismissBootloopNotice : SettingsUiAction
+    data object RefreshTopBarLogo : SettingsUiAction
+    data class SetTopBarLogo(val logo: TopBarLogo) : SettingsUiAction
 }
 
 sealed interface SettingsUiEvent {
@@ -207,6 +212,7 @@ class SettingsViewModel(
     private val setBootloopEnabled: SetBootloopEnabledUseCase,
     private val setBootloopMax: SetBootloopMaxUseCase,
     private val clearBootloopNotice: ClearBootloopNoticeUseCase,
+    private val topBarLogoRepository: TopBarLogoRepository,
 ) : ViewModel() {
     private val mutableState = MutableStateFlow(SettingsUiState())
     val state: StateFlow<SettingsUiState> = mutableState.asStateFlow()
@@ -224,6 +230,7 @@ class SettingsViewModel(
             it.copy(
                 isSecureRootEnabled = getBooleanPreference(SECURE_ROOT_PREF_KEY, false),
                 isThemedShortcutsEnabled = appShortcutsRepository.isThemed(),
+                topBarLogo = topBarLogoRepository.state.value,
             )
         }
         loadFeatureSettings()
@@ -570,6 +577,17 @@ class SettingsViewModel(
         }
     }
 
+    fun refreshTopBarLogo() {
+        topBarLogoRepository.refresh()
+        mutableState.update { it.copy(topBarLogo = topBarLogoRepository.state.value) }
+    }
+
+    fun handleTopBarLogoChange(logo: TopBarLogo) {
+        if (topBarLogoRepository.set(logo)) {
+            mutableState.update { it.copy(topBarLogo = logo) }
+        }
+    }
+
     fun handleDismissBootloopNotice() {
         viewModelScope.launch {
             if (clearBootloopNotice()) {
@@ -638,6 +656,9 @@ fun dispatch(action: SettingsUiAction) {
             is SettingsUiAction.SetBootloopMax ->
                 handleBootloopMaxChange(action.count)
             SettingsUiAction.DismissBootloopNotice -> handleDismissBootloopNotice()
+            SettingsUiAction.RefreshTopBarLogo -> refreshTopBarLogo()
+            is SettingsUiAction.SetTopBarLogo ->
+                handleTopBarLogoChange(action.logo)
         }
     }
 

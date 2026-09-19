@@ -62,7 +62,7 @@ class SuRequestPollService : Service() {
             return
         }
         val notification = androidx.core.app.NotificationCompat.Builder(this, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setSmallIcon(R.mipmap.ic_launcher_foreground)
             .setContentTitle(getString(R.string.su_request_title))
             .setContentText(getString(R.string.settings_su_prompt_summary))
             .setOngoing(true)
@@ -140,7 +140,7 @@ class SuRequestPollService : Service() {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
         val prompt = androidx.core.app.NotificationCompat.Builder(this, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setSmallIcon(R.mipmap.ic_launcher_foreground)
             .setContentTitle(getString(R.string.su_request_notification_title, label))
             .setContentText(getString(R.string.su_request_notification_text))
             .setPriority(androidx.core.app.NotificationCompat.PRIORITY_HIGH)

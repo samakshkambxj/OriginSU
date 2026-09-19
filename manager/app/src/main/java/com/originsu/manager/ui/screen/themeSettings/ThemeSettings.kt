@@ -43,6 +43,7 @@ import androidx.compose.material.icons.twotone.DarkMode
 import androidx.compose.material.icons.twotone.DesignServices
 import androidx.compose.material.icons.twotone.Dock
 import androidx.compose.material.icons.twotone.Draw
+import androidx.compose.material.icons.twotone.Eco
 import androidx.compose.material.icons.twotone.Extension
 import androidx.compose.material.icons.twotone.FormatColorFill
 import androidx.compose.material.icons.twotone.FormatSize
@@ -90,6 +91,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.materialkolor.PaletteStyle
 import com.materialkolor.dynamiccolor.ColorSpec
 import com.originsu.manager.R
+import com.originsu.manager.data.appearance.TopBarLogo
 import com.originsu.manager.domain.model.availablePaletteStyles
 import com.originsu.manager.ui.component.ConfirmResult
 import com.originsu.manager.ui.component.KeyPointSlider
@@ -679,6 +681,26 @@ private fun CustomizationSettings(
                 onClick = {
                     navigator.push(Route.AppIcon)
                 }
+            )
+        }
+
+        item {
+            val logoItems = listOf(
+                stringResource(R.string.top_bar_logo_yin_yang),
+                stringResource(R.string.top_bar_logo_filled_leaf),
+                stringResource(R.string.top_bar_logo_white_leaf),
+            )
+            SettingsChooseWidget(
+                icon = Icons.TwoTone.Eco,
+                title = stringResource(R.string.top_bar_logo_title),
+                description = logoItems[settingsUiState.topBarLogo.ordinal],
+                items = logoItems,
+                selectedIndex = settingsUiState.topBarLogo.ordinal,
+                onSelectedIndexChange = { index ->
+                    TopBarLogo.entries.getOrNull(index)?.let { logo ->
+                        settingsViewModel.dispatch(SettingsUiAction.SetTopBarLogo(logo))
+                    }
+                },
             )
         }
 

@@ -96,7 +96,7 @@ class GrantToastService : Service() {
             return
         }
         val notification = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setSmallIcon(R.mipmap.ic_launcher_foreground)
             .setContentTitle(getString(R.string.grant_toast_monitoring))
             .setContentText(getString(R.string.grant_toast_monitoring_summary))
             .setOngoing(true)
@@ -350,7 +350,7 @@ class GrantToastService : Service() {
                 background = getDrawable(R.drawable.grant_toast_background)
             }
             val icon = ImageView(context).apply {
-                setImageResource(R.drawable.ic_launcher_foreground)
+                setImageResource(R.mipmap.ic_launcher_foreground)
                 val size = dp(32)
                 layoutParams = LinearLayout.LayoutParams(size, size).apply {
                     marginEnd = dp(10)
@@ -384,7 +384,7 @@ class GrantToastService : Service() {
     private fun showFallbackNotification(message: String) {
         runCatching {
             val notification = NotificationCompat.Builder(this, CHANNEL_ID)
-                .setSmallIcon(R.drawable.ic_launcher_foreground)
+                .setSmallIcon(R.mipmap.ic_launcher_foreground)
                 .setContentTitle(getString(R.string.grant_toast_channel))
                 .setContentText(message)
                 .setPriority(NotificationCompat.PRIORITY_HIGH)

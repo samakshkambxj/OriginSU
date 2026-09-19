@@ -3,8 +3,8 @@
     <!-- Static fallback for API < 31. On API 31+ values-v31 redirects this
         to the dynamic system accent so the launcher icon themes natively. -->
     <color name="ic_launcher_background">#142A37</color>
+    <color name="ic_launcher_light_background">#D0BCFF</color>
     <color name="ic_launcher_resukisu_background">#FFFFFF</color>
-    <color name="ic_launcher_mono_background">#142A37</color>
     <color name="ic_modules_background">#FFFFFF</color>
     <color name="ic_superuser_background">#FFFFFF</color>
     <color name="ic_settings_background">#FFFFFF</color>
