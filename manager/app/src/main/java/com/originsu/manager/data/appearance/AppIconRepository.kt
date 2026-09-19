@@ -11,6 +11,9 @@ enum class AppIcon(
     ORIGIN_BLACK(null),
     ORIGIN_LIGHT("MainActivityLight"),
     KSU_OFFICIAL("MainActivityKsu"),
+    RESUKISU("MainActivityResukisu"),
+    RESUKISU_ALT("MainActivityResukisuAlt"),
+    YIN_YANG_MONO("MainActivityMono"),
     ;
 
     companion object {
@@ -58,6 +61,12 @@ class AppIconRepository(
                     (icon == AppIcon.ORIGIN_LIGHT),
             ComponentName(context.packageName, "$uiPackage.MainActivityKsu") to
                     (icon == AppIcon.KSU_OFFICIAL),
+            ComponentName(context.packageName, "$uiPackage.MainActivityResukisu") to
+                    (icon == AppIcon.RESUKISU),
+            ComponentName(context.packageName, "$uiPackage.MainActivityResukisuAlt") to
+                    (icon == AppIcon.RESUKISU_ALT),
+            ComponentName(context.packageName, "$uiPackage.MainActivityMono") to
+                    (icon == AppIcon.YIN_YANG_MONO),
         )
         for ((component, enabled) in states) {
             pm.setComponentEnabledSetting(

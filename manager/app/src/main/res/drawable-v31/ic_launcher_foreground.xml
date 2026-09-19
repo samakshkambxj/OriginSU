@@ -5,7 +5,7 @@
     android:viewportWidth="512"
     android:viewportHeight="512">
     <path
-        android:fillColor="#21465B"
+        android:fillColor="@android:color/system_accent1_900"
         android:pathData="M90,256 a166,166 0 1,0 332,0 a166,166 0 1,0 -332,0" />
     <path
         android:fillColor="#FFFFFF"
@@ -14,10 +14,10 @@
         android:fillColor="#FFFFFF"
         android:pathData="M173,173 a83,83 0 1,0 166,0 a83,83 0 1,0 -166,0" />
     <path
-        android:fillColor="#21465B"
+        android:fillColor="@android:color/system_accent1_900"
         android:pathData="M173,339 a83,83 0 1,0 166,0 a83,83 0 1,0 -166,0" />
     <path
-        android:fillColor="#21465B"
+        android:fillColor="@android:color/system_accent1_900"
         android:pathData="M235,173 a21,21 0 1,0 42,0 a21,21 0 1,0 -42,0" />
     <path
         android:fillColor="#FFFFFF"

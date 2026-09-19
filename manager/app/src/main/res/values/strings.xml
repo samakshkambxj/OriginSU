@@ -712,12 +712,18 @@
     <string name="feature_temporarily_unavailable">Temporarily unavailable</string>
     <string name="app_icon_title">App icon</string>
     <string name="app_icon_summary">Choose the launcher icon</string>
-    <string name="app_icon_origin_black">Origin Black</string>
-    <string name="app_icon_origin_black_summary">White leaf on black</string>
-    <string name="app_icon_origin_light">Origin Light</string>
-    <string name="app_icon_origin_light_summary">Black leaf on white</string>
+    <string name="app_icon_origin_black">Origin Yin Yang</string>
+    <string name="app_icon_origin_black_summary">Yin-yang on dynamic system accent</string>
+    <string name="app_icon_origin_light">Origin Yin Yang Light</string>
+    <string name="app_icon_origin_light_summary">Yin-yang on light tonal</string>
     <string name="app_icon_ksu_official">KernelSU Official</string>
     <string name="app_icon_ksu_official_summary">Upstream KernelSU mark</string>
+    <string name="app_icon_resukisu">ReSukiSU</string>
+    <string name="app_icon_resukisu_summary">Upstream ReSukiSU mark</string>
+    <string name="app_icon_resukisu_alt">ReSukiSU Alt</string>
+    <string name="app_icon_resukisu_alt_summary">Upstream ReSukiSU geometric mark</string>
+    <string name="app_icon_yin_yang_mono">Yin Yang Mono</string>
+    <string name="app_icon_yin_yang_mono_summary">White silhouette on slate</string>
     <string name="enable_floating_bottom_bar">Floating bottom bar</string>
     <string name="enable_floating_bottom_bar_summary">Use Apple style floating bottom bar.</string>
 </resources>
