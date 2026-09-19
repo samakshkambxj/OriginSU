@@ -2,6 +2,7 @@ package com.originsu.manager.data.shell
 
 import android.content.Context
 import android.net.Uri
+import android.os.Build
 import android.os.Environment
 import android.os.SystemClock
 import android.system.Os
@@ -344,8 +345,9 @@ class KsuCliRepository(context: Context) {
 
     /**
      * Offline patch: inject the kernel from an AnyKernel3 zip into a stock
-     * boot.img using the vendored magiskboot. Pure file surgery, no root
-     * required. Output goes to Downloads for manual flashing.
+     * boot.img using ksud's own boot parser. Pure file surgery, no root and
+     * no external binaries required. Output goes to Downloads for manual
+     * flashing.
      */
     fun patchBootWithAnyKernel(
         context: Context,
@@ -405,9 +407,13 @@ class KsuCliRepository(context: Context) {
                 onFinish(false, 1)
                 return false
             }
-            val magiskboot = File(workDir, "magiskboot")
-            magiskbootLib.copyTo(magiskboot, overwrite = true)
-            magiskboot.setExecutable(true)
+
+            val outDir = File(workDir, "out")
+            if (!outDir.mkdirs()) {
+                onStderr(context.getString(R.string.patch_workdir_failed))
+                onFinish(false, 1)
+                return false
+            }
 
             val shell = runCatching { Shell.Builder.create().build("sh") }.getOrNull()
             if (shell == null) {
@@ -415,38 +421,34 @@ class KsuCliRepository(context: Context) {
                 onFinish(false, 1)
                 return false
             }
-            shell.use {
-                fun sh(cmd: String): Shell.Result {
-                    val stdoutCallback = object : CallbackList<String?>() {
-                        override fun onAddElement(s: String?) {
-                            onStdout(s ?: "")
-                        }
+            val patchResult = shell.use {
+                val stdoutCallback = object : CallbackList<String?>() {
+                    override fun onAddElement(s: String?) {
+                        onStdout(s ?: "")
                     }
-                    val stderrCallback = object : CallbackList<String?>() {
-                        override fun onAddElement(s: String?) {
-                            onStderr(s ?: "")
-                        }
+                }
+                val stderrCallback = object : CallbackList<String?>() {
+                    override fun onAddElement(s: String?) {
+                        onStderr(s ?: "")
                     }
-                    return it.newJob().add(cmd).to(stdoutCallback, stderrCallback).exec()
                 }
-
-                var result = sh("cd ${shellQuote(workDir.absolutePath)} && ./magiskboot unpack boot.img")
-                if (!result.isSuccess) {
-                    onFinish(false, result.code)
-                    return false
-                }
-                result = sh(
-                    "cd ${shellQuote(workDir.absolutePath)} && cat kernel-new > kernel " +
-                        "&& ./magiskboot repack boot.img"
-                )
-                if (!result.isSuccess) {
-                    onFinish(false, result.code)
-                    return false
-                }
+                // App-private binaries are not directly executable on most
+                // ROMs, so patch natively with ksud instead of magiskboot.
+                it.newJob().add(
+                    "${getKsuDaemonPath()} boot-patch" +
+                        " -b ${shellQuote(bootImg.absolutePath)}" +
+                        " -k ${shellQuote(newKernel.absolutePath)}" +
+                        " --no-install -o ${shellQuote(outDir.absolutePath)}"
+                ).to(stdoutCallback, stderrCallback).exec()
+            }
+            if (!patchResult.isSuccess) {
+                onFinish(false, patchResult.code)
+                return false
             }
 
-            val patched = File(workDir, "new-boot.img")
-            if (!patched.isFile) {
+            val patched = outDir.listFiles { file -> file.isFile && file.extension == "img" }
+                ?.maxByOrNull { it.lastModified() }
+            if (patched == null) {
                 onStderr(context.getString(R.string.patch_repack_failed))
                 onFinish(false, 1)
                 return false
