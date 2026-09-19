@@ -1021,6 +1021,9 @@ private fun ModuleList(
                 item(key = "batch-bar") {
                     BatchActionBar(
                         countText = selectedCountFmt.format(uiState.selectedModuleIds.size),
+                        enableText = batchEnable,
+                        disableText = batchDisable,
+                        uninstallText = batchUninstall,
                         onEnable = {
                             viewModel.dispatch(ModuleUiAction.BatchSetEnabled(true))
                         },
