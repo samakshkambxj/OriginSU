@@ -7,6 +7,7 @@ import com.originsu.manager.data.network.NetworkRequestRepository
 import com.originsu.manager.domain.model.ManagerApkSource
 import com.originsu.manager.domain.model.ManagerUpdateChannel
 import com.originsu.manager.domain.model.ManagerUpdateInfo
+import com.originsu.manager.domain.model.ManagerVariant
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
@@ -20,7 +21,8 @@ class ManagerUpdateRepository(
         const val REPOSITORY = "samakshkambxj/OriginSU"
         const val WORKFLOW_FILE = "build-manager.yml"
         const val BRANCH = "main"
-        const val RELEASE_ARTIFACT = "Manager-release"
+        const val NORMAL_ARTIFACT = "Manager-release"
+        const val SPOOFED_ARTIFACT = "Spoofed-Manager-release"
         val GITHUB_HEADERS = mapOf("Accept" to "application/vnd.github+json")
 
         // sync with build.gradle.kts
@@ -34,11 +36,24 @@ class ManagerUpdateRepository(
     )
     private val commitCountLinkPattern = Regex("""[?&]page=(\d+)>; rel="last"""")
 
-    suspend fun checkStableUpdate(): ManagerUpdateInfo? = withContext(Dispatchers.IO) {
+    suspend fun checkStableUpdate(
+        variant: ManagerVariant = ManagerVariant.NORMAL,
+    ): ManagerUpdateInfo? = withContext(Dispatchers.IO) {
         val supportedAbis = Build.SUPPORTED_ABIS.toList()
         val release = requestJson("https://api.github.com/repos/$REPOSITORY/releases/latest")
             ?: return@withContext null
         val changelog = release.optString("body")
+
+        if (variant == ManagerVariant.SPOOFED) {
+            // Releases only publish normal APKs; the spoofed APKs for a
+            // release live in the CI artifacts of the tag's workflow run.
+            return@withContext checkTagNightlyUpdate(
+                tag = release.optString("tag_name"),
+                supportedAbis = supportedAbis,
+                changelog = changelog,
+            )
+        }
+
         val assets = release.optJSONArray("assets") ?: return@withContext null
         val candidates = mutableListOf<ManagerApkCandidate>()
 
@@ -61,36 +76,91 @@ class ManagerUpdateRepository(
             ?.toUpdateInfo(ManagerUpdateChannel.STABLE, changelog)
     }
 
-    suspend fun checkBetaUpdate(): ManagerUpdateInfo? = withContext(Dispatchers.IO) {
-        val supportedAbis = Build.SUPPORTED_ABIS.toList()
-        val currentVersionCode = BuildConfig.VERSION_CODE
+    suspend fun checkBetaUpdate(
+        variant: ManagerVariant = ManagerVariant.NORMAL,
+    ): ManagerUpdateInfo? = withContext(Dispatchers.IO) {
         val workflowRuns = requestJson(
             "https://api.github.com/repos/$REPOSITORY/actions/workflows/$WORKFLOW_FILE/runs" +
                     "?branch=$BRANCH&status=success&per_page=1&event=push"
         )?.optJSONArray("workflow_runs") ?: return@withContext null
         val run = workflowRuns.optJSONObject(0) ?: return@withContext null
+        return@withContext nightlyUpdateFromRun(
+            run = run,
+            channel = ManagerUpdateChannel.BETA,
+            variant = variant,
+            changelog = run.optJSONObject("head_commit")?.optString("message").orEmpty(),
+        )
+    }
+
+    /**
+     * Spoofed APK matching a release tag, resolved through the tag's CI
+     * workflow run instead of the release assets (which are normal-only).
+     */
+    private suspend fun checkTagNightlyUpdate(
+        tag: String,
+        supportedAbis: List<String>,
+        changelog: String,
+    ): ManagerUpdateInfo? {
+        if (tag.isBlank()) return null
+        val tagSha = requestJson("https://api.github.com/repos/$REPOSITORY/commits/$tag")
+            ?.optString("sha")
+            .orEmpty()
+        if (tagSha.isBlank()) return null
+        val workflowRuns = requestJson(
+            "https://api.github.com/repos/$REPOSITORY/actions/workflows/$WORKFLOW_FILE/runs" +
+                    "?head_sha=$tagSha&per_page=5"
+        )?.optJSONArray("workflow_runs") ?: return null
+        for (index in 0 until workflowRuns.length()) {
+            val run = workflowRuns.optJSONObject(index) ?: continue
+            if (run.optString("status") != "completed") continue
+            if (run.optString("conclusion") != "success") continue
+            return nightlyUpdateFromRun(
+                run = run,
+                channel = ManagerUpdateChannel.STABLE,
+                variant = ManagerVariant.SPOOFED,
+                changelog = changelog,
+                supportedAbis = supportedAbis,
+                versionName = tag,
+            )
+        }
+        return null
+    }
+
+    private suspend fun nightlyUpdateFromRun(
+        run: JSONObject,
+        channel: ManagerUpdateChannel,
+        variant: ManagerVariant,
+        changelog: String,
+        supportedAbis: List<String> = Build.SUPPORTED_ABIS.toList(),
+        versionName: String? = null,
+    ): ManagerUpdateInfo? {
+        val currentVersionCode = BuildConfig.VERSION_CODE
         val runId = run.optLong("id", -1L)
         val headSha = run.optString("head_sha")
-        if (runId <= 0L || headSha.isBlank()) return@withContext null
+        if (runId <= 0L || headSha.isBlank()) return null
 
-        val commitCount = requestCommitCount(headSha) ?: return@withContext null
+        val commitCount = requestCommitCount(headSha) ?: return null
         val versionCode = CI_MANAGER_VERSION_CODE_OFFSET + commitCount
-        if (versionCode <= currentVersionCode) return@withContext null
+        if (versionCode <= currentVersionCode) return null
 
+        val artifact = if (variant == ManagerVariant.SPOOFED) SPOOFED_ARTIFACT else NORMAL_ARTIFACT
         val preferredAbi = supportedAbis.firstOrNull() ?: UNIVERSAL_ABI
-        return@withContext ManagerUpdateInfo(
-            channel = ManagerUpdateChannel.BETA,
+        val displayName = versionName?.takeIf { it.isNotBlank() }
+            ?: headSha.take(SHORT_SHA_LENGTH)
+        return ManagerUpdateInfo(
+            channel = channel,
+            variant = variant,
             versionCode = versionCode,
-            versionName = headSha.take(SHORT_SHA_LENGTH),
+            versionName = displayName,
             abi = preferredAbi,
-            fileName = "OriginSU_${headSha.take(SHORT_SHA_LENGTH)}_" +
-                    "$versionCode-$preferredAbi-release.apk",
+            fileName = (if (variant == ManagerVariant.SPOOFED) "OriginSU-Spoofed_" else "OriginSU_") +
+                    "${headSha.take(SHORT_SHA_LENGTH)}_$versionCode-$preferredAbi-release.apk",
             source = ManagerApkSource.NightlyArtifact(
-                url = "https://nightly.link/$REPOSITORY/actions/runs/$runId/$RELEASE_ARTIFACT.zip",
+                url = "https://nightly.link/$REPOSITORY/actions/runs/$runId/$artifact.zip",
                 preferredAbi = preferredAbi,
                 expectedVersionCode = versionCode,
             ),
-            changelog = run.optJSONObject("head_commit")?.optString("message").orEmpty(),
+            changelog = changelog,
         )
     }
 

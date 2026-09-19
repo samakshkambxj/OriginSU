@@ -664,6 +664,27 @@
     <string name="manager_update_details">Version: %1$s (%2$d)\nArchitecture: %3$s</string>
     <string name="settings_check_beta_update">Check beta updates</string>
     <string name="settings_check_beta_update_summary">Auto-check beta builds from the main branch</string>
+    <string name="updater">Updater</string>
+    <string name="updater_summary">Check and install manager updates</string>
+    <string name="updater_channel">Channel</string>
+    <string name="updater_channel_stable">Stable</string>
+    <string name="updater_channel_beta">Beta</string>
+    <string name="updater_variant">Variant</string>
+    <string name="updater_variant_normal">Normal</string>
+    <string name="updater_variant_spoofed">Spoofed</string>
+    <string name="updater_variant_normal_summary">Standard manager package</string>
+    <string name="updater_variant_spoofed_summary">Randomized package name, installs as a separate app</string>
+    <string name="updater_current_version">Current: %1$s (%2$d)</string>
+    <string name="updater_check">Check for updates</string>
+    <string name="updater_checking">Checking…</string>
+    <string name="updater_up_to_date">You are on the latest version</string>
+    <string name="updater_available">Update available: %1$s (%2$d)</string>
+    <string name="updater_download_install">Download and install</string>
+    <string name="updater_downloading">Downloading… %1$d%%</string>
+    <string name="updater_download_failed">Download failed: %1$s</string>
+    <string name="updater_download_complete">Download complete</string>
+    <string name="updater_install">Install</string>
+    <string name="updater_check_failed">Update check failed. Check your connection and try again.</string>
     <string name="enable_floating_bottom_bar">Floating bottom bar</string>
     <string name="enable_floating_bottom_bar_summary">Use Apple style floating bottom bar.</string>
 </resources>

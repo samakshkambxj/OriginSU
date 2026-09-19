@@ -555,6 +555,17 @@ fun SettingsPage(bottomPadding: Dp) {
                         }
 
                         item {
+                            SettingsJumpPageWidget(
+                                icon = Icons.TwoTone.Update,
+                                title = stringResource(R.string.updater),
+                                description = stringResource(R.string.updater_summary),
+                                onClick = {
+                                    navigator.push(Route.Updater)
+                                }
+                            )
+                        }
+
+                        item {
                             // 更多设置
                             SettingsJumpPageWidget(
                                 icon = Icons.TwoTone.Settings,

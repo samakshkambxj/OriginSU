@@ -74,6 +74,7 @@ import com.originsu.manager.ui.screen.FlashIt
 import com.originsu.manager.ui.screen.FlashScreen
 import com.originsu.manager.ui.screen.InstallScreen
 import com.originsu.manager.ui.screen.SulogScreen
+import com.originsu.manager.ui.screen.UpdaterScreen
 import com.originsu.manager.ui.screen.VeilScreen
 import com.originsu.manager.ui.screen.TemplateEditorScreen
 import com.originsu.manager.ui.screen.UmountManagerScreen
@@ -435,6 +436,17 @@ fun NavContainer(
                     useBlur = useBlur,
                 ) {
                     SulogScreen()
+                }
+            }
+            entry<Route.Updater>(swipeDismiss = swipeBackDirection) {
+                ManagerNavEntry(
+                    interceptPredictiveBack = interceptPredictiveBack,
+                    onBack = onBack,
+                    themeConfig = themeConfig,
+                    backgroundRenderState = backgroundRenderState,
+                    useBlur = useBlur,
+                ) {
+                    UpdaterScreen()
                 }
             }
             entry<Route.Veil>(swipeDismiss = swipeBackDirection) {

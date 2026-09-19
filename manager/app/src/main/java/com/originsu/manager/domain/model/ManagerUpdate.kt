@@ -5,6 +5,11 @@ enum class ManagerUpdateChannel {
     BETA,
 }
 
+enum class ManagerVariant {
+    NORMAL,
+    SPOOFED,
+}
+
 sealed interface ManagerApkSource {
     val url: String
 
@@ -19,6 +24,7 @@ sealed interface ManagerApkSource {
 
 data class ManagerUpdateInfo(
     val channel: ManagerUpdateChannel,
+    val variant: ManagerVariant = ManagerVariant.NORMAL,
     val versionCode: Int,
     val versionName: String,
     val abi: String,

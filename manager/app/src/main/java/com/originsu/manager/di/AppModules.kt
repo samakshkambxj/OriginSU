@@ -179,6 +179,7 @@ import com.originsu.manager.ui.viewmodel.SuperUserViewModel
 import com.originsu.manager.ui.viewmodel.TemplateEditorViewModel
 import com.originsu.manager.ui.viewmodel.TemplateViewModel
 import com.originsu.manager.ui.viewmodel.UmountManagerScreenViewModel
+import com.originsu.manager.ui.viewmodel.UpdaterViewModel
 import com.originsu.manager.ui.viewmodel.VeilViewModel
 import com.originsu.manager.ui.webui.MonetColorsProvider
 import kotlinx.coroutines.CoroutineScope
@@ -455,6 +456,7 @@ val viewModelModule = module {
     viewModelOf(::SettingsViewModel)
     viewModelOf(::ModuleViewModel)
     viewModelOf(::SuperUserViewModel)
+    viewModelOf(::UpdaterViewModel)
     viewModelOf(::SuSFSViewModel)
     viewModelOf(::ModuleRepoViewModel)
     viewModel { parameters -> ModuleDetailViewModel(parameters[0], get()) }
