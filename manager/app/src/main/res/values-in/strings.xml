@@ -155,6 +155,9 @@
     <string name="patch_workdir_failed">Could not create working directory!</string>
     <string name="patch_shell_failed">Could not start shell!</string>
     <string name="patch_repack_failed">Repacking the boot image failed!</string>
+    <string name="select_boot_image_first">Select the stock boot image first</string>
+    <string name="select_anykernel_zip_next">Now select the AnyKernel zip</string>
+    <string name="patch_boot_picked">Boot: %1$s\nKernel zip: %2$s</string>
     <string name="show_module_banners">Show module banners</string>
     <string name="root_required">Butuh izin root</string>
     <string name="failed_reboot">Reboot Gagal</string>

@@ -16,7 +16,17 @@ Status: ✅ done · 🚧 in progress · ⏳ queued · ⏸️ deferred.
 - ✅ `flashAnyKernelZip`: legacy busybox runner for the zip's own
   `update-binary`, new Install entry (Route/FlashIt/FlashOperation chain).
 - ✅ Offline patcher (no root): stock `boot.img` + AK3 kernel →
-  `Downloads/OriginSU/`, via vendored magiskboot unpack/swap/repack.
+  `Downloads/OriginSU/`, via ksud's own `boot-patch --kernel --no-install`
+  (proven rootless on-device; magiskboot exec abandoned — Wild's blob is
+  non-PIE and app exec is SELinux-denied, kept only for AK3 installer
+  scripts that call it under root).
+
+## Phase 1b — Module banners (WildKSU/KSU-Next) ★☆☆☆☆ ✅
+(manager only)
+- ✅ `banner=` from `module.prop` parsed (flows through ksud JSON untouched).
+- ✅ Faded Coil backdrop on installed-module cards (URL direct, local file
+  via SuFile with `modules_update` fallback), `show_banners` preference +
+  dropdown toggle, strings for all 43 locales.
 
 ## Phase 2 — MIUI / official theme options ★☆☆☆☆ — DEFERRED
 (manager only; skipped per maintainer decision 2026-09-19: full dual-kit

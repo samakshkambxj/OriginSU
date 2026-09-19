@@ -532,9 +532,13 @@ private fun SelectInstallMethod(
     selectedMethod: InstallMethod? = null
 ) {
     val cardConfig: CardConfig = koinInject()
+    val context = LocalContext.current
     val horizonKernelSummary = stringResource(R.string.horizon_kernel_summary)
     val anyKernelZipSummary = stringResource(R.string.flash_anykernel_zip_summary)
     val patchBootImageSummary = stringResource(R.string.patch_boot_anykernel_summary)
+    val selectBootFirst = stringResource(R.string.select_boot_image_first)
+    val selectZipNext = stringResource(R.string.select_anykernel_zip_next)
+    val patchBootPickedFmt = stringResource(R.string.patch_boot_picked)
     val selectFileTip = stringResource(
         id = R.string.select_file_tip, defaultPartitionName
     )
@@ -559,15 +563,28 @@ private fun SelectInstallMethod(
     var currentSelectingMethod by remember { mutableStateOf<InstallMethod?>(null) }
     var akPatchBootUri by remember { mutableStateOf<Uri?>(null) }
 
+    fun Uri.displayName(): String {
+        return runCatching {
+            context.contentResolver.query(this, null, null, null, null)?.use { cursor ->
+                val index = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                if (index >= 0 && cursor.moveToFirst()) cursor.getString(index) else null
+            }
+        }.getOrNull() ?: lastPathSegment.orEmpty()
+    }
+
     val akPatchZipPicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
     ) {
         if (it.resultCode == Activity.RESULT_OK) {
             it.data?.data?.let { zipUri ->
+                val bootUri = akPatchBootUri
                 val opt = InstallMethod.PatchBootImage(
-                    bootUri = akPatchBootUri,
+                    bootUri = bootUri,
                     zipUri = zipUri,
-                    summary = patchBootImageSummary
+                    summary = patchBootPickedFmt.format(
+                        bootUri?.displayName().orEmpty(),
+                        zipUri.displayName()
+                    )
                 )
                 selectedOption = opt
                 onSelected(opt)
@@ -581,6 +598,7 @@ private fun SelectInstallMethod(
         if (it.resultCode == Activity.RESULT_OK) {
             it.data?.data?.let { bootUri ->
                 akPatchBootUri = bootUri
+                Toast.makeText(context, selectZipNext, Toast.LENGTH_SHORT).show()
                 akPatchZipPicker.launch(Intent(Intent.ACTION_GET_CONTENT).apply {
                     type = "application/zip"
                     addCategory(Intent.CATEGORY_OPENABLE)
@@ -639,6 +657,7 @@ private fun SelectInstallMethod(
         currentSelectingMethod = option
         when (option) {
             is InstallMethod.PatchBootImage -> {
+                Toast.makeText(context, selectBootFirst, Toast.LENGTH_SHORT).show()
                 akPatchBootPicker.launch(Intent(Intent.ACTION_GET_CONTENT).apply {
                     type = "application/*"
                     putExtra(

@@ -463,20 +463,32 @@ class KsuCliRepository(context: Context) {
     }
 
     private fun saveToDownloads(context: Context, file: File, displayName: String) {
-        val values = android.content.ContentValues().apply {
-            put(android.provider.MediaStore.Downloads.DISPLAY_NAME, displayName)
-            put(android.provider.MediaStore.Downloads.MIME_TYPE, "application/octet-stream")
-            put(
-                android.provider.MediaStore.Downloads.RELATIVE_PATH,
-                android.os.Environment.DIRECTORY_DOWNLOADS + "/OriginSU"
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            val values = android.content.ContentValues().apply {
+                put(android.provider.MediaStore.Downloads.DISPLAY_NAME, displayName)
+                put(android.provider.MediaStore.Downloads.MIME_TYPE, "application/octet-stream")
+                put(
+                    android.provider.MediaStore.Downloads.RELATIVE_PATH,
+                    Environment.DIRECTORY_DOWNLOADS + "/OriginSU"
+                )
+            }
+            val resolver = context.contentResolver
+            val uri = resolver.insert(
+                android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI, values
+            ) ?: throw IllegalStateException("MediaStore insert failed")
+            resolver.openOutputStream(uri)?.use { out ->
+                file.inputStream().use { it.copyTo(out) }
+            }
+        } else {
+            @Suppress("DEPRECATION")
+            val dir = File(
+                Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
+                "OriginSU"
             )
-        }
-        val resolver = context.contentResolver
-        val uri = resolver.insert(
-            android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI, values
-        ) ?: throw IllegalStateException("MediaStore insert failed")
-        resolver.openOutputStream(uri)?.use { out ->
-            file.inputStream().use { it.copyTo(out) }
+            if (!dir.exists() && !dir.mkdirs()) {
+                throw IllegalStateException("Downloads dir unavailable")
+            }
+            file.copyTo(File(dir, displayName), overwrite = true)
         }
     }
 
