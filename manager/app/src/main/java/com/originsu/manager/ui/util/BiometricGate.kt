@@ -1,6 +1,7 @@
 package com.originsu.manager.ui.util
 
 import android.content.Context
+import android.content.ContextWrapper
 import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_STRONG
 import androidx.biometric.BiometricManager.Authenticators.DEVICE_CREDENTIAL
@@ -12,6 +13,19 @@ fun canAuthenticateSecureRoot(context: Context): Boolean {
     return BiometricManager.from(context)
         .canAuthenticate(BIOMETRIC_STRONG or DEVICE_CREDENTIAL) ==
         BiometricManager.BIOMETRIC_SUCCESS
+}
+
+/**
+ * LocalContext.current is often a [ContextWrapper] (e.g. locale wrapper from
+ * attachBaseContext), not the Activity itself, so a direct cast fails.
+ */
+fun findFragmentActivity(context: Context): FragmentActivity? {
+    var current: Context? = context
+    while (current != null) {
+        if (current is FragmentActivity) return current
+        current = (current as? ContextWrapper)?.baseContext
+    }
+    return null
 }
 
 fun authenticateSecureRoot(

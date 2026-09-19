@@ -89,6 +89,7 @@ import com.originsu.manager.ui.util.ActivityResumeEffect
 import com.originsu.manager.ui.util.LocalSnackbarHost
 import com.originsu.manager.ui.util.adaptiveScaffoldWindowInsets
 import com.originsu.manager.ui.util.authenticateSecureRoot
+import com.originsu.manager.ui.util.findFragmentActivity
 import com.originsu.manager.ui.util.showReplacingSnackbar
 import com.originsu.manager.ui.viewmodel.AppProfileUiAction
 import com.originsu.manager.ui.viewmodel.AppProfileUiEvent
@@ -240,8 +241,7 @@ fun AppProfileScreen(
                         }
                         val previouslyGranted = uiState.profile?.allowSu == true
                         if (!previouslyGranted && uiState.isSecureRootEnabled) {
-                            val activity =
-                                context as? androidx.fragment.app.FragmentActivity
+                            val activity = findFragmentActivity(context)
                             if (activity == null) {
                                 snackBarHost.showReplacingSnackbar(secureRootNoActivity)
                                 return@launch
