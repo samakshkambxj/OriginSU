@@ -178,6 +178,13 @@
     <string name="conflict_with_apatch">Detected APatch, everything might stop working.</string>
     <string name="settings_umount_modules_default">Umount modules by default</string>
     <string name="settings_umount_modules_default_summary">The global default value for \"Umount modules\" in App Profile. If enabled, it will remove all module modifications to the system for apps that don\'t have a profile set</string>
+    <string name="settings_bootloop_protection">Bootloop protection</string>
+    <string name="settings_bootloop_protection_summary">Automatically disable all modules after %1$d consecutive boots that never finish. The counter resets on every successful boot.</string>
+    <string name="settings_bootloop_threshold">Failed boots before rescue</string>
+    <string name="settings_bootloop_threshold_summary">Rescue after %1$d failed boots</string>
+    <string name="settings_bootloop_rescued_title">Bootloop protection rescued this device</string>
+    <string name="settings_bootloop_rescued_summary">All modules were disabled after %1$d failed boots. Re-enable your modules one by one to find the culprit.</string>
+    <string name="settings_bootloop_dismiss">Dismiss</string>
     <string name="profile_umount_modules_summary">Enabling this option will allow KernelSU to restore any modified files by the modules for this app</string>
     <string name="profile_selinux_domain">Domain</string>
     <string name="profile_selinux_rules">Rules</string>

@@ -40,6 +40,7 @@ import androidx.compose.material.icons.twotone.Info
 import androidx.compose.material.icons.twotone.Notifications
 import androidx.compose.material.icons.twotone.Policy
 import androidx.compose.material.icons.twotone.Psychology
+import androidx.compose.material.icons.twotone.RestartAlt
 import androidx.compose.material.icons.twotone.RemoveCircle
 import androidx.compose.material.icons.twotone.RemoveModerator
 import androidx.compose.material.icons.twotone.Save
@@ -138,6 +139,7 @@ fun SettingsPage(bottomPadding: Dp) {
     LaunchedEffect(Unit) {
         settingsViewModel.dispatch(SettingsUiAction.LoadFeatureSettings)
         settingsViewModel.dispatch(SettingsUiAction.RefreshOriginZygisk)
+        settingsViewModel.dispatch(SettingsUiAction.RefreshBootloop)
     }
 
     ActivityResumeEffect {
@@ -191,6 +193,31 @@ fun SettingsPage(bottomPadding: Dp) {
                 bottom = innerPadding.calculateBottomPadding() + bottomPadding + 15.dp
             )
         ) {
+            if (uiState.bootloopRescued) {
+                item {
+                    SegmentedColumn(
+                        title = stringResource(R.string.settings_bootloop_rescued_title),
+                        content = {
+                            item {
+                                SettingsBaseWidget(
+                                    icon = Icons.TwoTone.RestartAlt,
+                                    title = stringResource(R.string.settings_bootloop_dismiss),
+                                    description = stringResource(
+                                        R.string.settings_bootloop_rescued_summary,
+                                        uiState.bootloopRescuedBoots ?: uiState.bootloopMax,
+                                    ),
+                                    isError = true,
+                                    onClick = {
+                                        settingsViewModel.dispatch(
+                                            SettingsUiAction.DismissBootloopNotice
+                                        )
+                                    },
+                                )
+                            }
+                        }
+                    )
+                }
+            }
             // 配置卡片
             if (homeState.systemStatus.isFullFeatured) {
                 item {
@@ -376,6 +403,46 @@ fun SettingsPage(bottomPadding: Dp) {
                                             SettingsUiAction.SetDefaultUmountModules(
                                                 enabled
                                             )
+                                        )
+                                    },
+                                )
+                            }
+
+                            item {
+                                // 自动 bootloop 保护
+                                SettingsSwitchWidget(
+                                    icon = Icons.TwoTone.RestartAlt,
+                                    title = stringResource(id = R.string.settings_bootloop_protection),
+                                    description = stringResource(
+                                        id = R.string.settings_bootloop_protection_summary,
+                                        uiState.bootloopMax,
+                                    ),
+                                    checked = uiState.isBootloopEnabled,
+                                    onCheckedChange = { enabled ->
+                                        settingsViewModel.dispatch(
+                                            SettingsUiAction.SetBootloopEnabled(
+                                                enabled
+                                            )
+                                        )
+                                    },
+                                )
+                            }
+
+                            item(visible = uiState.isBootloopEnabled) {
+                                val thresholdItems = (2..10).map { it.toString() }
+                                SettingsChooseWidget(
+                                    icon = Icons.TwoTone.Timer,
+                                    title = stringResource(id = R.string.settings_bootloop_threshold),
+                                    description = stringResource(
+                                        id = R.string.settings_bootloop_threshold_summary,
+                                        uiState.bootloopMax,
+                                    ),
+                                    items = thresholdItems,
+                                    selectedIndex = (uiState.bootloopMax - 2)
+                                        .coerceIn(0, thresholdItems.lastIndex),
+                                    onSelectedIndexChange = { index ->
+                                        settingsViewModel.dispatch(
+                                            SettingsUiAction.SetBootloopMax(index + 2)
                                         )
                                     },
                                 )

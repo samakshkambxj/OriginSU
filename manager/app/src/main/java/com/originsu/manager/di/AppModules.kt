@@ -12,6 +12,7 @@ import com.originsu.manager.data.kernel.KernelRepository
 import com.originsu.manager.data.kernel.UmountRepository
 import com.originsu.manager.data.grant.GrantToastRepository
 import com.originsu.manager.data.appearance.AppIconRepository
+import com.originsu.manager.data.bootloop.BootloopRepository
 import com.originsu.manager.data.su.SuRequestRepository
 import com.originsu.manager.data.grant.TempGrantRepository
 import com.originsu.manager.data.kernel.VeilRepository
@@ -50,6 +51,7 @@ import com.originsu.manager.data.webui.WebUiRepository
 import com.originsu.manager.domain.text.TextTransliterator
 import com.originsu.manager.domain.usecase.AddUmountPathUseCase
 import com.originsu.manager.domain.usecase.ApplyLanguageUseCase
+import com.originsu.manager.domain.usecase.ClearBootloopNoticeUseCase
 import com.originsu.manager.domain.usecase.BackupAllowlistUseCase
 import com.originsu.manager.domain.usecase.CalculateInstalledModuleSizeUseCase
 import com.originsu.manager.domain.usecase.CheckFlashModuleMountUseCase
@@ -73,6 +75,7 @@ import com.originsu.manager.domain.usecase.ExtractModuleIdUseCase
 import com.originsu.manager.domain.usecase.ExtractModuleNameUseCase
 import com.originsu.manager.domain.usecase.FetchRemoteTextUseCase
 import com.originsu.manager.domain.usecase.GenerateBugreportUseCase
+import com.originsu.manager.domain.usecase.GetBootloopStatusUseCase
 import com.originsu.manager.domain.usecase.GrantTempAccessUseCase
 import com.originsu.manager.domain.usecase.GetAppProfileUseCase
 import com.originsu.manager.domain.usecase.GetAppSepolicyUseCase
@@ -135,6 +138,8 @@ import com.originsu.manager.domain.usecase.SelectDynamicManagerUseCase
 import com.originsu.manager.domain.usecase.SetAppProfileUseCase
 import com.originsu.manager.domain.usecase.SetAppSepolicyUseCase
 import com.originsu.manager.domain.usecase.SetBooleanPreferenceUseCase
+import com.originsu.manager.domain.usecase.SetBootloopEnabledUseCase
+import com.originsu.manager.domain.usecase.SetBootloopMaxUseCase
 import com.originsu.manager.domain.usecase.SetLongPreferenceUseCase
 import com.originsu.manager.domain.usecase.SetDefaultUmountModulesUseCase
 import com.originsu.manager.domain.usecase.SetKernelUmountEnabledUseCase
@@ -309,6 +314,7 @@ val repositoryModule = module {
     singleOf(::ProfileTemplateRepository)
     singleOf(::SuSFSConfigHelper)
     singleOf(::SuSFSRepository)
+    singleOf(::BootloopRepository)
     singleOf(::MonetCompatColorSource)
     singleOf(::ThemeRepository)
     single {
@@ -410,6 +416,10 @@ val useCaseModule = module {
     factoryOf(::RefreshVeilUseCase)
     factoryOf(::AddUmountPathUseCase)
     factoryOf(::RemoveUmountPathUseCase)
+    factoryOf(::GetBootloopStatusUseCase)
+    factoryOf(::SetBootloopEnabledUseCase)
+    factoryOf(::SetBootloopMaxUseCase)
+    factoryOf(::ClearBootloopNoticeUseCase)
     factoryOf(::ObserveKernelFlashUseCase)
     factoryOf(::StartKernelFlashUseCase)
     factoryOf(::RemovePreferenceUseCase)

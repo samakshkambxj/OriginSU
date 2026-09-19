@@ -12,15 +12,19 @@ import com.originsu.manager.domain.model.SettingsPlatformSnapshot
 import com.originsu.manager.domain.model.coerceCompatibleWith
 import com.originsu.manager.domain.usecase.ConfigureSuLogUseCase
 import com.originsu.manager.domain.usecase.ConfigureVeilUseCase
+import com.originsu.manager.domain.usecase.ClearBootloopNoticeUseCase
 import com.originsu.manager.data.grant.GrantToastRepository
 import com.originsu.manager.data.shortcuts.AppShortcutsRepository
 import com.originsu.manager.data.su.SuRequestRepository
 import com.originsu.manager.domain.usecase.GetBooleanPreferenceUseCase
+import com.originsu.manager.domain.usecase.GetBootloopStatusUseCase
 import com.originsu.manager.domain.usecase.GetKernelFeatureSettingsUseCase
 import com.originsu.manager.domain.usecase.GetPlatformFeatureStatusUseCase
 import com.originsu.manager.domain.usecase.LoadSettingsPlatformUseCase
 import com.originsu.manager.domain.usecase.SECURE_ROOT_PREF_KEY
 import com.originsu.manager.domain.usecase.SetBooleanPreferenceUseCase
+import com.originsu.manager.domain.usecase.SetBootloopEnabledUseCase
+import com.originsu.manager.domain.usecase.SetBootloopMaxUseCase
 import com.originsu.manager.domain.usecase.SetDefaultUmountModulesUseCase
 import com.originsu.manager.domain.usecase.SetKernelUmountEnabledUseCase
 import com.originsu.manager.domain.usecase.SetSelinuxHideEnabledUseCase
@@ -116,6 +120,11 @@ data class SettingsUiState(
     val isThemedShortcutsEnabled: Boolean = false,
     val isOriginZygiskEnabled: Boolean = false,
     val isOriginZygiskRunning: Boolean = false,
+    val isBootloopEnabled: Boolean = true,
+    val bootloopMax: Int = 3,
+    val bootloopFailedCount: Int = 0,
+    val bootloopRescued: Boolean = false,
+    val bootloopRescuedBoots: Int? = null,
 )
 
 sealed interface SettingsUiAction {
@@ -163,6 +172,10 @@ sealed interface SettingsUiAction {
     data class SetThemedShortcutsEnabled(val enabled: Boolean) : SettingsUiAction
     data class SetOriginZygiskEnabled(val enabled: Boolean) : SettingsUiAction
     data object RefreshOriginZygisk : SettingsUiAction
+    data object RefreshBootloop : SettingsUiAction
+    data class SetBootloopEnabled(val enabled: Boolean) : SettingsUiAction
+    data class SetBootloopMax(val count: Int) : SettingsUiAction
+    data object DismissBootloopNotice : SettingsUiAction
 }
 
 sealed interface SettingsUiEvent {
@@ -190,6 +203,10 @@ class SettingsViewModel(
     private val getBooleanPreference: GetBooleanPreferenceUseCase,
     private val setBooleanPreference: SetBooleanPreferenceUseCase,
     private val ksuCliRepository: KsuCliRepository,
+    private val getBootloopStatus: GetBootloopStatusUseCase,
+    private val setBootloopEnabled: SetBootloopEnabledUseCase,
+    private val setBootloopMax: SetBootloopMaxUseCase,
+    private val clearBootloopNotice: ClearBootloopNoticeUseCase,
 ) : ViewModel() {
     private val mutableState = MutableStateFlow(SettingsUiState())
     val state: StateFlow<SettingsUiState> = mutableState.asStateFlow()
@@ -520,6 +537,49 @@ class SettingsViewModel(
         }
     }
 
+    fun refreshBootloop() {
+        viewModelScope.launch {
+            val status = runCatching { getBootloopStatus() }.getOrNull() ?: return@launch
+            mutableState.update {
+                it.copy(
+                    isBootloopEnabled = status.enabled,
+                    bootloopMax = status.maxFailed,
+                    bootloopFailedCount = status.failedCount,
+                    bootloopRescued = status.rescued,
+                    bootloopRescuedBoots = status.rescuedFailedBoots,
+                )
+            }
+        }
+    }
+
+    fun handleBootloopEnabledChange(enabled: Boolean) {
+        viewModelScope.launch {
+            if (setBootloopEnabled(enabled)) {
+                mutableState.update { it.copy(isBootloopEnabled = enabled) }
+            }
+            refreshBootloop()
+        }
+    }
+
+    fun handleBootloopMaxChange(count: Int) {
+        viewModelScope.launch {
+            if (setBootloopMax(count)) {
+                mutableState.update { it.copy(bootloopMax = count) }
+            }
+            refreshBootloop()
+        }
+    }
+
+    fun handleDismissBootloopNotice() {
+        viewModelScope.launch {
+            if (clearBootloopNotice()) {
+                mutableState.update {
+                    it.copy(bootloopRescued = false, bootloopRescuedBoots = null)
+                }
+            }
+        }
+    }
+
 fun dispatch(action: SettingsUiAction) {
         when (action) {
             SettingsUiAction.Initialize -> initialize()
@@ -572,6 +632,12 @@ fun dispatch(action: SettingsUiAction) {
             is SettingsUiAction.SetOriginZygiskEnabled ->
                 handleOriginZygiskChange(action.enabled)
             SettingsUiAction.RefreshOriginZygisk -> refreshOriginZygisk()
+            SettingsUiAction.RefreshBootloop -> refreshBootloop()
+            is SettingsUiAction.SetBootloopEnabled ->
+                handleBootloopEnabledChange(action.enabled)
+            is SettingsUiAction.SetBootloopMax ->
+                handleBootloopMaxChange(action.count)
+            SettingsUiAction.DismissBootloopNotice -> handleDismissBootloopNotice()
         }
     }
 

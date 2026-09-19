@@ -42,6 +42,13 @@ pub fn on_post_data_fs() -> Result<()> {
         return Ok(());
     }
 
+    // Automatic bootloop protection: counts boots that reach post-fs-data
+    // but never complete, disabling all modules after too many failures.
+    // Runs before any module script so a hanging script still counts.
+    if let Err(e) = crate::android::bootloop::on_post_fs_data() {
+        warn!("bootloop protection failed: {e:#}");
+    }
+
     let safe_mode = crate::android::utils::is_safe_mode();
 
     if safe_mode {
@@ -195,6 +202,10 @@ pub fn on_boot_completed() {
     // Load susfs boot-completed
     if !is_safe_mode() {
         crate::android::susfs::init_event::on_boot_completed();
+    }
+    // This boot succeeded: reset the bootloop-protection counter.
+    if let Err(e) = crate::android::bootloop::on_boot_completed() {
+        warn!("bootloop protection reset failed: {e:#}");
     }
 }
 

@@ -7,7 +7,7 @@ use log::{LevelFilter, error, info};
 
 use crate::{
     android::{
-        debug, dynamic_manager, feature, init_event, ksucalls,
+        bootloop, debug, dynamic_manager, feature, init_event, ksucalls,
         module::{self, module_config, regenerate_preinit_rc},
         profile, sepolicy, su, sulog, susfs, tempgrant, uapi, umount_config, utils,
     },
@@ -204,6 +204,12 @@ enum Commands {
 
     /// Manage susfs component
     Susfs(susfs::cli::SusfsArgs),
+
+    /// Manage automatic bootloop protection
+    Bootloop {
+        #[command(subcommand)]
+        command: BootloopOp,
+    },
 
     /// Manage initrc injection
     Initrc {
@@ -601,6 +607,23 @@ enum UmountOp {
 }
 
 #[derive(clap::Subcommand, Debug)]
+enum BootloopOp {
+    /// Show protection status as JSON
+    Status,
+    /// Enable protection
+    Enable,
+    /// Disable protection
+    Disable,
+    /// Set failed-boot threshold (2-10)
+    SetMax {
+        /// consecutive incomplete boots before all modules are disabled
+        count: u32,
+    },
+    /// Dismiss the rescue notice shown by the manager
+    ClearRescued,
+}
+
+#[derive(clap::Subcommand, Debug)]
 enum Initrc {
     /// Regenerate preinit rc file
     Refresh,
@@ -835,6 +858,13 @@ pub fn run() -> Result<()> {
             Feature::Save => feature::save_config(),
         },
 
+        Commands::Bootloop { command } => match command {
+            BootloopOp::Status => bootloop::status(),
+            BootloopOp::Enable => bootloop::set_enabled(true),
+            BootloopOp::Disable => bootloop::set_enabled(false),
+            BootloopOp::SetMax { count } => bootloop::set_max(count),
+            BootloopOp::ClearRescued => bootloop::clear_rescued(),
+        },
         Commands::Debug { command } => match command {
             Debug::SetManager { apk } => debug::set_manager(&apk),
             Debug::GetSign { apk } => {
