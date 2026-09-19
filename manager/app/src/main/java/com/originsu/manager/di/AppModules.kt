@@ -72,6 +72,7 @@ import com.originsu.manager.domain.usecase.GetCatalogModuleUseCase
 import com.originsu.manager.domain.usecase.GetDefaultUmountModulesUseCase
 import com.originsu.manager.domain.usecase.GetHomeBasicInfoUseCase
 import com.originsu.manager.domain.usecase.GetInstallEnvironmentUseCase
+import com.originsu.manager.domain.usecase.GetLongPreferenceUseCase
 import com.originsu.manager.domain.usecase.GetKernelFeatureSettingsUseCase
 import com.originsu.manager.domain.usecase.GetKernelStatusUseCase
 import com.originsu.manager.domain.usecase.GetManagerRuntimeInfoUseCase
@@ -120,6 +121,7 @@ import com.originsu.manager.domain.usecase.SelectDynamicManagerUseCase
 import com.originsu.manager.domain.usecase.SetAppProfileUseCase
 import com.originsu.manager.domain.usecase.SetAppSepolicyUseCase
 import com.originsu.manager.domain.usecase.SetBooleanPreferenceUseCase
+import com.originsu.manager.domain.usecase.SetLongPreferenceUseCase
 import com.originsu.manager.domain.usecase.SetDefaultUmountModulesUseCase
 import com.originsu.manager.domain.usecase.SetKernelUmountEnabledUseCase
 import com.originsu.manager.domain.usecase.SetManualDynamicManagerUseCase
