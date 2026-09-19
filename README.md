@@ -1,54 +1,68 @@
 # OriginSU
-<img align='right' src='docs/ReSukiSU_blue.svg' width='220px' alt="OriginSU Icon">
+<img align='right' src='docs/OriginSU.svg' width='220px' alt="OriginSU Icon">
 
 **English**
 
-A KernelSU-based root solution for Android, forked from
-[ReSukiSU](https://github.com/ReSukiSU/ReSukiSU) with its own official
-manager signing identity and release automation.
+A kernel-based root solution for Android, built on
+[ReSukiSU](https://github.com/ReSukiSU/ReSukiSU) with its own kernel +
+manager signing identity, UAPI baseline and release pipeline.
 
 [![Latest release](https://img.shields.io/github/v/release/samakshkambxj/OriginSU?label=Release&logo=github)](https://github.com/samakshkambxj/OriginSU/releases/latest)
 [![Kernel License: GPL v2](https://img.shields.io/badge/License-GPL%20v2-orange.svg?logo=gnu)](https://www.gnu.org/licenses/old-licenses/gpl-2.0.en.html)
 [![Other part License：GPL v3](https://img.shields.io/github/license/samakshkambxj/OriginSU?logo=gnu)](/LICENSE)
-
-## Current focus
-
-Full compliance with the **Origin kernel**: the manager and the kernel
-share one signing identity, one UAPI baseline and one release pipeline, so
-an official build pair always detects root, never warns about unofficial
-signatures, and supports large (4096-bit) release certificates on both
-sides. See `docs/feature-porting-plan.md` for the roadmap.
-
-## Features
-
-OriginSU keeps **all original ReSukiSU features** — kernel-based `su`,
-metamodule system, App Profile cage, non-GKI/GKI 1.0 support, manager theme
-tweaks, built-in SuSFS management tool and multi-manager support — and adds
-its own identity and automation on top:
-
-1. Kernel-based `su` and root access management
-2. Module system based on [metamodules](https://kernelsu.org/guide/metamodule.html): pluggable infrastructure for systemless modifications
-3. [App Profile](https://kernelsu.org/guide/app-profile.html): lock up the root power in a cage
-4. Support non-GKI and GKI 1.0
-5. Tweaks to the manager theme and the built-in susfs management tool
-6. Multi-manager support: the official OriginSU manager plus
-   [ReSukiSU](https://github.com/ReSukiSU/ReSukiSU),
-   [Official KernelSU](https://github.com/tiann/KernelSU),
-   [RKSU](https://github.com/rsuntk/KernelSU),
-   [MKSU](https://github.com/5ec1cff/KernelSU),
-   [SukiSU-Ultra](https://github.com/SukiSU-Ultra/SukiSU-Ultra) and
-   [KOWX712/KernelSU](https://github.com/KOWX712/KernelSU) all work as
-   managers with OriginSU's kernel
-7. Automated releases: tag pushes build and publish the signed manager APK
-   and LKM modules via GitHub Actions (see `docs/feature-porting-plan.md`
-   for the roadmap)
 
 > **Note:** install only the official `Manager-release` APK from the
 > [Releases](https://github.com/samakshkambxj/OriginSU/releases) page.
 > Debug, PR, dev or resigned builds use a different certificate and the
 > kernel will reject them as unofficial.
 
-## Compatibility Status
+## Highlights
+
+**Root access, your way**
+
+- Magisk-style grant toasts: an overlay shows which app just got root
+- Time-limited grants: give root for N minutes, auto-revoked by a
+  persistent waiter plus a sweep on every `ksud` start
+- Secure root (opt-in): biometric / device-credential authentication before
+  any new root grant is saved
+- Per-app profiles with templates, per-app mount namespace control and a
+  searchable `sulog` event history
+
+**Hiding**
+
+- Built-in SuSFS management (spoofing, paths, TryControl) with a guided UI
+- Origin Veil: kernel-side root-probe detection with a per-app cloak set
+  that hides module mounts from probing apps
+- Kernel umount, SELinux-hide and ADB-root toggles
+
+**Modules**
+
+- Install from ZIP, online catalog with update checks and one-tap update-all
+- Module banners, batch enable/disable/uninstall, WebUI with shortcuts
+- AnyKernel ZIP flashing via busybox and offline `boot.img` patching with
+  vendored `magiskboot` — no root or PC required
+- `ZYGISK_ENABLED=true` is exported to installers when Origin Zygisk runs
+
+**Built-in Zygisk**
+
+- Origin Zygisk (BreZygisk-based) ships inside the manager: deploy, status
+  and kill-switch in Settings, no provider module needed. Conflicting
+  third-party Zygisk providers are blocked while it is on.
+
+**Manager extras**
+
+- Themed app shortcuts (Superuser / Modules / Settings) with a Settings
+  toggle to switch back to the stock icons
+- Filled-leaf launcher art with adaptive + monochrome variants and a
+  Play Store icon, first-run setup wizard, copy-device-info, last-flash
+  timeline and floating bottom bar options
+
+OriginSU also keeps everything it inherited: kernel-based `su`, App
+Profile cage, non-GKI/GKI 1.0 support and multi-manager support (the
+official OriginSU manager plus ReSukiSU, official KernelSU, RKSU, MKSU,
+SukiSU-Ultra and KOWX712/KernelSU all work with the OriginSU kernel).
+
+## Compatibility
 
 - Officially supports Android GKI 2.0 devices (kernel 5.10+).
 - Older kernels (3.4+) are also compatible, but the kernel has to be built manually.
@@ -73,15 +87,14 @@ project release key. Pushing a `v*` tag publishes a GitHub Release with the
 manager APKs and LKM modules. Required Actions secrets: `KEYSTORE`,
 `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD`.
 
-## Upcoming features
+## Roadmap
 
-- Boot tooling: `magiskboot` support and AnyKernel-zip flashing from the manager
-- **Inbuilt kernel manager**: flash, back up and manage kernels from inside the app
-- Built-in Zygisk (no separate provider needed)
-- Origin Veil: kernel-side root-probe detection with per-app cloaking
 - KPM (KernelPatch module) support
+- **Inbuilt kernel manager**: flash, back up and manage kernels from inside the app
 - MIUI / official-style theme options
 - Magic Mount for wider module compatibility
+
+See `docs/feature-porting-plan.md` for the full porting status.
 
 ## License
 
@@ -104,4 +117,5 @@ manager APKs and LKM modules. Required Actions secrets: `KEYSTORE`,
 - [Magisk](https://github.com/topjohnwu/Magisk): the powerful root tool
 - [genuine](https://github.com/brevent/genuine/): APK v2 signature validation
 - [Diamorphine](https://github.com/m0nad/Diamorphine): some rootkit skills
-- [WildKSU](https://github.com/WildKernels/Wild_KSU): launcher icon artwork and animated home logo concept
+- [WildKSU](https://github.com/WildKernels/Wild_KSU): launcher icon artwork, themed app-shortcut icons and animated home logo concept
+- [BreZygisk](https://github.com/rrr333nnn333/BreZygisk): base of the Origin Zygisk engine

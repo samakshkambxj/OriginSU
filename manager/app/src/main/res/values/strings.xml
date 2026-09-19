@@ -332,6 +332,8 @@
     <string name="secure_root_prompt_subtitle">Authenticate to grant root to %1$s</string>
     <string name="secure_root_denied">Authentication failed, root not granted</string>
     <string name="secure_root_unavailable">Authentication unavailable</string>
+    <string name="settings_themed_shortcuts">Themed app shortcuts</string>
+    <string name="settings_themed_shortcuts_summary">Use themed icons for the Superuser, Modules and Settings shortcuts</string>
     <string name="settings_origin_zygisk">Origin Zygisk</string>
     <string name="settings_origin_zygisk_summary">Built-in Zygisk engine, no provider module needed</string>
     <string name="origin_zygisk_running">Running</string>

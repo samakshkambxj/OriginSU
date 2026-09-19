@@ -888,6 +888,12 @@ private fun ShortcutIntentHandler(
         val intent = activity.intent
         val type = intent?.getStringExtra("shortcut_type") ?: return@LaunchedEffect
         when (type) {
+            "tab_superuser" -> navigator.push(Route.SuperUser)
+
+            "tab_modules" -> navigator.push(Route.Module)
+
+            "tab_settings" -> navigator.push(Route.Settings)
+
             "module_action" -> {
                 val moduleId = intent.getStringExtra("module_id") ?: return@LaunchedEffect
                 navigator.push(Route.ExecuteModuleAction(moduleId))

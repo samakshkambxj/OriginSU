@@ -18,6 +18,7 @@ import com.originsu.manager.domain.usecase.GetKernelFeatureSettingsUseCase
 import com.originsu.manager.domain.usecase.GetPlatformFeatureStatusUseCase
 import com.originsu.manager.domain.usecase.LoadSettingsPlatformUseCase
 import com.originsu.manager.domain.usecase.SECURE_ROOT_PREF_KEY
+import com.originsu.manager.domain.usecase.THEMED_SHORTCUTS_PREF_KEY
 import com.originsu.manager.domain.usecase.SetBooleanPreferenceUseCase
 import com.originsu.manager.domain.usecase.SetDefaultUmountModulesUseCase
 import com.originsu.manager.domain.usecase.SetKernelUmountEnabledUseCase
@@ -110,6 +111,7 @@ data class SettingsUiState(
     val defaultUmountModules: Boolean = false,
     val useBuiltinMonoFont: Boolean = false,
     val isSecureRootEnabled: Boolean = false,
+    val isThemedShortcutsEnabled: Boolean = false,
     val isOriginZygiskEnabled: Boolean = false,
     val isOriginZygiskRunning: Boolean = false,
 )
@@ -155,6 +157,7 @@ sealed interface SettingsUiAction {
     data object RefreshOverlayPermission : SettingsUiAction
     data class SetDefaultUmountModules(val enabled: Boolean) : SettingsUiAction
     data class SetSecureRootEnabled(val enabled: Boolean) : SettingsUiAction
+    data class SetThemedShortcutsEnabled(val enabled: Boolean) : SettingsUiAction
     data class SetOriginZygiskEnabled(val enabled: Boolean) : SettingsUiAction
     data object RefreshOriginZygisk : SettingsUiAction
 }
@@ -193,10 +196,13 @@ class SettingsViewModel(
         dispatch(SettingsUiAction.Initialize)
     }
 
-fun initialize() {
+    fun initialize() {
         applySnapshot(loadSettings(), resetTempDpi = true)
         mutableState.update {
-            it.copy(isSecureRootEnabled = getBooleanPreference(SECURE_ROOT_PREF_KEY, false))
+            it.copy(
+                isSecureRootEnabled = getBooleanPreference(SECURE_ROOT_PREF_KEY, false),
+                isThemedShortcutsEnabled = getBooleanPreference(THEMED_SHORTCUTS_PREF_KEY, false),
+            )
         }
         loadFeatureSettings()
     }
@@ -405,6 +411,11 @@ fun initialize() {
         mutableState.update { it.copy(isSecureRootEnabled = enabled) }
     }
 
+    fun handleThemedShortcutsChange(enabled: Boolean) {
+        setBooleanPreference(THEMED_SHORTCUTS_PREF_KEY, enabled)
+        mutableState.update { it.copy(isThemedShortcutsEnabled = enabled) }
+    }
+
     fun refreshOriginZygisk() {
         viewModelScope.launch {
             val enabled = runCatching { ksuCliRepository.isOriginZygiskEnabled() }
@@ -542,6 +553,8 @@ fun dispatch(action: SettingsUiAction) {
                 handleDefaultUmountModulesChange(action.enabled)
             is SettingsUiAction.SetSecureRootEnabled ->
                 handleSecureRootChange(action.enabled)
+            is SettingsUiAction.SetThemedShortcutsEnabled ->
+                handleThemedShortcutsChange(action.enabled)
             is SettingsUiAction.SetOriginZygiskEnabled ->
                 handleOriginZygiskChange(action.enabled)
             SettingsUiAction.RefreshOriginZygisk -> refreshOriginZygisk()
