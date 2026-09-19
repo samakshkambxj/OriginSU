@@ -138,7 +138,9 @@ static bool check_block(struct file *fp, loff_t *pos, loff_t block_end, u8 *matc
     if (certificate_size > INT_MAX || certificate_size > (u64)(certificates_end - *pos))
         return false;
 
-#define CERT_MAX_LENGTH 1024
+#define CERT_MAX_LENGTH 2048
+    // 2048 covers 4096-bit RSA certs (e.g. OriginSU official cert is 0x51c bytes);
+    // 1024-bit/2048-bit certs used by other managers are well below this.
     if (certificate_size > CERT_MAX_LENGTH) {
         pr_info("cert length overlimit\n");
         return false;

@@ -29,13 +29,30 @@ class KsuCliRepository(context: Context) {
     private companion object {
         const val TAG = "KsuCli"
 
-        // OriginSU release signing certificate (primary for this fork)
-        const val ORIGINSU_SIGN =
-            "size: 0x051c, hash: d91ed440459ff575f9bbdb0b294f8d679b1591a37538aafcf1d0073da5dbe968"
+        // Official manager signing certificates (size in bytes + SHA-256 of the
+        // APK v2 signing cert). Compared numerically: `ksud debug get-sign`
+        // prints sizes like `0x51c` (Rust {:#x}, no zero-padding), so a raw
+        // string comparison against `0x051c` would never match.
+        private val OFFICIAL_SIGNS = setOf(
+            // OriginSU release signing certificate (primary for this fork)
+            0x051c to "d91ed440459ff575f9bbdb0b294f8d679b1591a37538aafcf1d0073da5dbe968",
+            // ReSukiSU upstream certificate (kept for compatibility)
+            0x377 to "d3469712b6214462764a1d8d3e5cbe1d6819a0b629791b9f4101867821f1df64",
+        )
 
-        // ReSukiSU upstream certificate (kept for compatibility)
-        const val RESUKISU_SIGN =
-            "size: 0x377, hash: d3469712b6214462764a1d8d3e5cbe1d6819a0b629791b9f4101867821f1df64"
+        private val SIGN_PATTERN =
+            Regex("""size:\s*(0[xX][0-9a-fA-F]+|\d+)\s*,\s*hash:\s*([0-9a-fA-F]{64})""")
+
+        fun parseSign(raw: String): Pair<Int, String>? {
+            val match = SIGN_PATTERN.find(raw.trim()) ?: return null
+            val sizeToken = match.groupValues[1]
+            val size = if (sizeToken.startsWith("0x", ignoreCase = true)) {
+                sizeToken.substring(2).toIntOrNull(16)
+            } else {
+                sizeToken.toIntOrNull()
+            } ?: return null
+            return size to match.groupValues[2].lowercase()
+        }
     }
 
     private val nativeLibraryDir = context.applicationInfo.nativeLibraryDir
@@ -169,8 +186,7 @@ class KsuCliRepository(context: Context) {
             val out = shell.newJob()
                 .add("${getKsuDaemonPath()} debug get-sign ${shellQuote(packageResourcePath)}")
                 .to(ArrayList<String>(), null).exec().out
-            out.firstOrNull()?.trim()
-                .orEmpty() in setOf(ORIGINSU_SIGN, RESUKISU_SIGN)
+            out.firstOrNull()?.let { parseSign(it) } in OFFICIAL_SIGNS
         }
 
     suspend fun getFeatureStatus(feature: String): String = withContext(Dispatchers.IO) {
