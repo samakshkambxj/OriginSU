@@ -193,31 +193,6 @@ fun SettingsPage(bottomPadding: Dp) {
                 bottom = innerPadding.calculateBottomPadding() + bottomPadding + 15.dp
             )
         ) {
-            if (uiState.bootloopRescued) {
-                item {
-                    SegmentedColumn(
-                        title = stringResource(R.string.settings_bootloop_rescued_title),
-                        content = {
-                            item {
-                                SettingsBaseWidget(
-                                    icon = Icons.TwoTone.RestartAlt,
-                                    title = stringResource(R.string.settings_bootloop_dismiss),
-                                    description = stringResource(
-                                        R.string.settings_bootloop_rescued_summary,
-                                        uiState.bootloopRescuedBoots ?: uiState.bootloopMax,
-                                    ),
-                                    isError = true,
-                                    onClick = {
-                                        settingsViewModel.dispatch(
-                                            SettingsUiAction.DismissBootloopNotice
-                                        )
-                                    },
-                                )
-                            }
-                        }
-                    )
-                }
-            }
             // 配置卡片
             if (homeState.systemStatus.isFullFeatured) {
                 item {
@@ -407,46 +382,6 @@ fun SettingsPage(bottomPadding: Dp) {
                                     },
                                 )
                             }
-
-                            item {
-                                // 自动 bootloop 保护
-                                SettingsSwitchWidget(
-                                    icon = Icons.TwoTone.RestartAlt,
-                                    title = stringResource(id = R.string.settings_bootloop_protection),
-                                    description = stringResource(
-                                        id = R.string.settings_bootloop_protection_summary,
-                                        uiState.bootloopMax,
-                                    ),
-                                    checked = uiState.isBootloopEnabled,
-                                    onCheckedChange = { enabled ->
-                                        settingsViewModel.dispatch(
-                                            SettingsUiAction.SetBootloopEnabled(
-                                                enabled
-                                            )
-                                        )
-                                    },
-                                )
-                            }
-
-                            item(visible = uiState.isBootloopEnabled) {
-                                val thresholdItems = (2..10).map { it.toString() }
-                                SettingsChooseWidget(
-                                    icon = Icons.TwoTone.Timer,
-                                    title = stringResource(id = R.string.settings_bootloop_threshold),
-                                    description = stringResource(
-                                        id = R.string.settings_bootloop_threshold_summary,
-                                        uiState.bootloopMax,
-                                    ),
-                                    items = thresholdItems,
-                                    selectedIndex = (uiState.bootloopMax - 2)
-                                        .coerceIn(0, thresholdItems.lastIndex),
-                                    onSelectedIndexChange = { index ->
-                                        settingsViewModel.dispatch(
-                                            SettingsUiAction.SetBootloopMax(index + 2)
-                                        )
-                                    },
-                                )
-                            }
                         }
                     )
                 }
@@ -556,6 +491,66 @@ fun SettingsPage(bottomPadding: Dp) {
                                 onCheckedChange = { enabled ->
                                     settingsViewModel.dispatch(
                                         SettingsUiAction.SetTempGrant(enabled)
+                                    )
+                                },
+                            )
+                        }
+
+                        item(visible = uiState.bootloopRescued) {
+                            SettingsBaseWidget(
+                                icon = Icons.TwoTone.RestartAlt,
+                                title = stringResource(R.string.settings_bootloop_rescued_title),
+                                description = stringResource(
+                                    R.string.settings_bootloop_rescued_summary,
+                                    uiState.bootloopRescuedBoots ?: uiState.bootloopMax,
+                                ),
+                                isError = true,
+                                onClick = {
+                                    settingsViewModel.dispatch(
+                                        SettingsUiAction.DismissBootloopNotice
+                                    )
+                                },
+                            )
+                        }
+
+                        item(visible = homeState.systemStatus.isFullFeatured) {
+                            // 自动 bootloop 保护
+                            SettingsSwitchWidget(
+                                icon = Icons.TwoTone.RestartAlt,
+                                title = stringResource(id = R.string.settings_bootloop_protection),
+                                description = stringResource(
+                                    id = R.string.settings_bootloop_protection_summary,
+                                    uiState.bootloopMax,
+                                ),
+                                checked = uiState.isBootloopEnabled,
+                                onCheckedChange = { enabled ->
+                                    settingsViewModel.dispatch(
+                                        SettingsUiAction.SetBootloopEnabled(
+                                            enabled
+                                        )
+                                    )
+                                },
+                            )
+                        }
+
+                        item(
+                            visible = homeState.systemStatus.isFullFeatured &&
+                                uiState.isBootloopEnabled
+                        ) {
+                            val thresholdItems = (2..10).map { it.toString() }
+                            SettingsChooseWidget(
+                                icon = Icons.TwoTone.Timer,
+                                title = stringResource(id = R.string.settings_bootloop_threshold),
+                                description = stringResource(
+                                    id = R.string.settings_bootloop_threshold_summary,
+                                    uiState.bootloopMax,
+                                ),
+                                items = thresholdItems,
+                                selectedIndex = (uiState.bootloopMax - 2)
+                                    .coerceIn(0, thresholdItems.lastIndex),
+                                onSelectedIndexChange = { index ->
+                                    settingsViewModel.dispatch(
+                                        SettingsUiAction.SetBootloopMax(index + 2)
                                     )
                                 },
                             )
