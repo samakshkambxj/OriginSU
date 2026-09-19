@@ -18,6 +18,7 @@
 #include <linux/ptrace.h>
 
 #include "feature/veil.h"
+#include "arch.h"
 #include "infra/event_queue.h"
 #include "klog.h" // IWYU pragma: keep
 #include "policy/feature.h"
