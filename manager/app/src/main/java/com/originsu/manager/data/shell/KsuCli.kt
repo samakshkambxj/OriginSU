@@ -7,6 +7,7 @@ import android.os.SystemClock
 import android.system.Os
 import android.util.Log
 import androidx.core.net.toUri
+import com.originsu.manager.R
 import com.originsu.manager.BuildConfig
 import com.originsu.manager.Natives
 import com.originsu.manager.domain.model.LkmSelection
@@ -19,7 +20,11 @@ import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import java.util.Properties
+import java.util.zip.ZipFile
 
 /**
  * @author weishu
@@ -28,6 +33,7 @@ import java.util.Properties
 class KsuCliRepository(context: Context) {
     private companion object {
         const val TAG = "KsuCli"
+        private const val BUSYBOX = "/data/adb/ksu/bin/busybox"
 
         // Official manager signing certificates (size in bytes + SHA-256 of the
         // APK v2 signing cert). Compared numerically: `ksud debug get-sign`
@@ -211,7 +217,9 @@ class KsuCliRepository(context: Context) {
     fun install() {
         val start = SystemClock.elapsedRealtime()
         val libadbroot = getNativeLibraryPath("adbroot")
-        val result = execKsud("install --libadbroot $libadbroot", true)
+        val magiskbootArg = runCatching { getNativeLibraryPath("magiskboot") }
+            .getOrNull()?.let { " --magiskboot $it" }.orEmpty()
+        val result = execKsud("install --libadbroot $libadbroot$magiskbootArg", true)
         Log.w(TAG, "install result: $result, cost: ${SystemClock.elapsedRealtime() - start}ms")
     }
 
@@ -322,6 +330,72 @@ class KsuCliRepository(context: Context) {
         val result = flashWithIO(command, onStdout, onStderr)
         Log.i(TAG, "AnyKernel3 flash result: ${result.isSuccess}, code: ${result.code}")
         return result.isSuccess
+    }
+
+    /**
+     * Legacy AnyKernel3 flash: runs the zip's own update-binary via busybox
+     * ash, like magiskboot-era flashing. Handles zips that [flashAnyKernel]
+     * (ksud's parser, mkbootfs-marker only) cannot process.
+     */
+    fun flashAnyKernelZip(
+        context: Context,
+        uri: Uri,
+        onFinish: (Boolean, Int) -> Unit,
+        onStdout: (String) -> Unit,
+        onStderr: (String) -> Unit
+    ): Boolean {
+        val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
+        val tmpFile = File(context.cacheDir, "anykernel_$timestamp.zip")
+        context.contentResolver.openInputStream(uri).use { input ->
+            tmpFile.outputStream().use { out ->
+                input?.copyTo(out)
+            }
+        }
+
+        val destZip = tmpFile.absolutePath
+        val destDir = File(context.cacheDir, "anykernel3_$timestamp").absolutePath
+        val destZipName = File(destZip).name
+
+        val hasInstaller = runCatching {
+            ZipFile(tmpFile).use { zip ->
+                zip.getEntry("META-INF/com/google/android/update-binary") != null
+            }
+        }.getOrDefault(false)
+
+        if (!hasInstaller) {
+            tmpFile.delete()
+            val errMsg = context.getString(R.string.invalid_anykernel_zip)
+            onStderr(errMsg)
+            onFinish(false, 1)
+            return false
+        }
+
+        val cmd = """
+            mkdir -p '$destDir' && \
+            $BUSYBOX unzip -p -o '$destZip' "META-INF/com/google/android/update-binary" > '$destDir/update-binary' 2>/dev/null && \
+            cp '$destZip' '$destDir/$destZipName' 2>/dev/null || true && \
+            $BUSYBOX chmod 755 '$destDir/update-binary' && \
+            $BUSYBOX chown root:root '$destDir/update-binary' && \
+            (cd '$destDir' && \
+                if [ -f './update-binary' ]; then \
+                    AKHOME='$destDir/tmp' $BUSYBOX ash '$destDir/update-binary' 3 1 '$destDir/$destZipName'; \
+                else \
+                    echo 'No installer script found' >&2; exit 1; \
+                fi)
+        """.trimIndent().replace(Regex("\\s+\\\\\\s*"), " ")
+
+        return try {
+            val result = flashWithIO(cmd, onStdout, onStderr)
+            Log.i(TAG, "AnyKernel3 legacy flash result: $result")
+            onFinish(result.isSuccess, result.code)
+            result.isSuccess
+        } finally {
+            runCatching {
+                withNewRootShell(true) {
+                    newJob().add("rm -rf '$destDir' '$destZip'").exec()
+                }
+            }
+        }
     }
 
     fun runModuleAction(

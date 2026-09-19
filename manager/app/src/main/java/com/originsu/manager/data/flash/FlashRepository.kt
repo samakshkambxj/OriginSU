@@ -136,6 +136,14 @@ class FlashRepository(
                         onStderr,
                     )
 
+                    is FlashOperation.AnyKernelZip -> ksuCliRepository.flashAnyKernelZip(
+                        application,
+                        operation.uri.toUri(),
+                        onFinish,
+                        onStdout,
+                        onStderr,
+                    )
+
                     FlashOperation.Restore -> ksuCliRepository.restoreBoot(
                         onFinish,
                         onStdout,

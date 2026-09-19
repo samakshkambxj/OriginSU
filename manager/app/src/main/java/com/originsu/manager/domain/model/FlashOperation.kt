@@ -9,6 +9,7 @@ sealed interface FlashOperation {
     ) : FlashOperation
 
     data class Module(val uri: String) : FlashOperation
+    data class AnyKernelZip(val uri: String) : FlashOperation
     data object Restore : FlashOperation
     data object Uninstall : FlashOperation
 }

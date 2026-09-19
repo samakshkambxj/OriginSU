@@ -234,6 +234,9 @@
     <string name="choose_theme_color">選擇主題顏色</string>
     <string name="horizon_kernel">刷寫 AnyKernel3 壓縮包</string>
     <string name="horizon_kernel_summary">刷寫 AnyKernel3 內核</string>
+    <string name="flash_anykernel_zip">Flash AnyKernel ZIP (legacy)</string>
+    <string name="flash_anykernel_zip_summary">Run the zip\'s own installer, for kernels ksud cannot parse</string>
+    <string name="invalid_anykernel_zip">Invalid AnyKernel3 zip: installer script not found!</string>
     <string name="root_required">需要 Root 權限</string>
     <string name="failed_reboot">重新啟動失敗</string>
     <string name="custom_settings">個人化設定</string>

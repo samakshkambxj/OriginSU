@@ -58,4 +58,8 @@
     <string name="failed_to_update_sepolicy">Opdatering af SELinux-regler for: %s fejlede</string>
     <string name="save_log">Gem Logfiler</string>
     <string name="settings_sucompat">Omdiriger su binary</string>
+
+    <string name="flash_anykernel_zip">Flash AnyKernel ZIP (legacy)</string>
+    <string name="flash_anykernel_zip_summary">Run the zip\'s own installer, for kernels ksud cannot parse</string>
+    <string name="invalid_anykernel_zip">Invalid AnyKernel3 zip: installer script not found!</string>
 </resources>

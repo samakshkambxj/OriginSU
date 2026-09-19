@@ -251,6 +251,9 @@
     <string name="choose_theme_color">Choose a theme colour</string>
     <string name="horizon_kernel">Install Anykernel3</string>
     <string name="horizon_kernel_summary">Flash AnyKernel3 kernel file</string>
+    <string name="flash_anykernel_zip">Flash AnyKernel ZIP (legacy)</string>
+    <string name="flash_anykernel_zip_summary">Run the zip\'s own installer, for kernels ksud cannot parse</string>
+    <string name="invalid_anykernel_zip">Invalid AnyKernel3 zip: installer script not found!</string>
     <string name="root_required">Requires root privileges</string>
     <string name="failed_reboot">Reboot Failed</string>
     <string name="custom_settings">Custom settings</string>

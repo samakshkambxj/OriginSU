@@ -105,6 +105,9 @@ enum Commands {
         libadbroot: Option<PathBuf>,
 
         #[arg(long, default_value = None)]
+        magiskboot: Option<PathBuf>,
+
+        #[arg(long, default_value = None)]
         data_path: Option<PathBuf>,
     },
 
@@ -720,8 +723,9 @@ pub fn run() -> Result<()> {
         }
         Commands::Install {
             libadbroot,
+            magiskboot,
             data_path,
-        } => utils::install(libadbroot, data_path),
+        } => utils::install(libadbroot, magiskboot, data_path),
         Commands::Unload => crate::android::unload::unload(),
         Commands::Uninstall { package_name } => utils::uninstall(&package_name),
         Commands::Sepolicy { command } => match command {

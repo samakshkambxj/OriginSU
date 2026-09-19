@@ -173,6 +173,11 @@ fun InstallScreen(
                         )
                     }
                 }
+                is InstallMethod.AnyKernelZip -> {
+                    method.uri?.let { uri ->
+                        navigator.push(Route.Flash.anyKernelZip(uri.toString()))
+                    }
+                }
                 else -> {
                     val isOta = method is InstallMethod.DirectInstallToInactiveSlot
                     val partitionSelection = partitionsState.getOrNull(partitionSelectionIndex)
@@ -493,6 +498,12 @@ sealed class InstallMethod {
         override val summary: String? = null
     ) : InstallMethod()
 
+    data class AnyKernelZip(
+        val uri: Uri? = null,
+        @param:StringRes override val label: Int = R.string.flash_anykernel_zip,
+        override val summary: String? = null
+    ) : InstallMethod()
+
     abstract val label: Int
     open val summary: String? = null
 }
@@ -508,6 +519,7 @@ private fun SelectInstallMethod(
 ) {
     val cardConfig: CardConfig = koinInject()
     val horizonKernelSummary = stringResource(R.string.horizon_kernel_summary)
+    val anyKernelZipSummary = stringResource(R.string.flash_anykernel_zip_summary)
     val selectFileTip = stringResource(
         id = R.string.select_file_tip, defaultPartitionName
     )
@@ -522,6 +534,7 @@ private fun SelectInstallMethod(
             radioOptions.add(InstallMethod.DirectInstallToInactiveSlot)
         }
         radioOptions.add(InstallMethod.HorizonKernel(summary = horizonKernelSummary))
+        radioOptions.add(InstallMethod.AnyKernelZip(summary = anyKernelZipSummary))
     }
 
     var selectedOption by remember { mutableStateOf<InstallMethod?>(null) }
@@ -545,6 +558,11 @@ private fun SelectInstallMethod(
                     is InstallMethod.HorizonKernel -> InstallMethod.HorizonKernel(
                         uri,
                         summary = horizonKernelSummary
+                    )
+
+                    is InstallMethod.AnyKernelZip -> InstallMethod.AnyKernelZip(
+                        uri,
+                        summary = anyKernelZipSummary
                     )
 
                     else -> null
@@ -571,7 +589,7 @@ private fun SelectInstallMethod(
     val onClick = { option: InstallMethod ->
         currentSelectingMethod = option
         when (option) {
-            is InstallMethod.SelectFile, is InstallMethod.HorizonKernel -> {
+            is InstallMethod.SelectFile, is InstallMethod.HorizonKernel, is InstallMethod.AnyKernelZip -> {
                 selectImageLauncher.launch(Intent(Intent.ACTION_GET_CONTENT).apply {
                     type = "application/*"
                     putExtra(
