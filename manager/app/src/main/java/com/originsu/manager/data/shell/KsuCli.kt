@@ -344,6 +344,9 @@ class KsuCliRepository(context: Context) {
 
     /**
      * Offline patch: inject the kernel from an AnyKernel3 zip into a stock
+     * boot.img using the vendored magiskboot. Pure file surgery, no root
+     * required. Output goes to Downloads for manual flashing.
+     */
     fun patchBootWithAnyKernel(
         context: Context,
         bootUri: Uri,
