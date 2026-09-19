@@ -140,6 +140,7 @@
     <string name="patch_workdir_failed">Could not create working directory!</string>
     <string name="patch_shell_failed">Could not start shell!</string>
     <string name="patch_repack_failed">Repacking the boot image failed!</string>
+    <string name="show_module_banners">Show module banners</string>
     <string name="root_required">Erfordert Root-Rechte</string>
     <string name="failed_reboot">Neustart fehlgeschlagen</string>
     <string name="custom_settings">Eigene Einstellungen</string>

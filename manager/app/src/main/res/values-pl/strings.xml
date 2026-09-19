@@ -249,6 +249,7 @@
     <string name="patch_workdir_failed">Could not create working directory!</string>
     <string name="patch_shell_failed">Could not start shell!</string>
     <string name="patch_repack_failed">Repacking the boot image failed!</string>
+    <string name="show_module_banners">Show module banners</string>
     <string name="root_required">Wymaga uprawnień root</string>
     <string name="failed_reboot">Ponowne uruchomienie nie powiodło się</string>
     <string name="theme_color">Kolor motywu</string>

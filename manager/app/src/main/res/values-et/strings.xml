@@ -122,4 +122,5 @@
     <string name="patch_workdir_failed">Could not create working directory!</string>
     <string name="patch_shell_failed">Could not start shell!</string>
     <string name="patch_repack_failed">Repacking the boot image failed!</string>
+    <string name="show_module_banners">Show module banners</string>
 </resources>

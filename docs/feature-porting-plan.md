@@ -1,41 +1,44 @@
 # OriginSU Feature-Porting Plan
 
 Sources: WildKernels/Wild_KSU (archived), spacealtctrl/ReSukiSU-Ultima,
-tiann/KernelSU (official manager). Phases are ordered so each ships and
+tiann/KernelSU (official manager). Phases run in order; each ships and
 tests independently. Baseline: CI green, `CERT_MAX_LENGTH=2048` fix in.
 
 Difficulty scale: ★☆☆☆☆ trivial → ★★★★★ deep kernel surgery.
+Status: ✅ done · 🚧 in progress · ⏳ queued · ⏸️ deferred.
 
-## Phase 1 — Wild_KSU boot tooling ★★☆☆☆
+## Phase 1 — Wild_KSU boot tooling ★★☆☆☆ ✅
 (userspace + manager, no kernel change)
 - Problem: `anykernel3.rs` bails on any AK3 zip without the mkbootfs
   injection marker; nothing provides `magiskboot` for scripts that need it.
-- Vendor `libmagiskboot.so` (arm64 + x86_64, from Wild_KSU) into
-  `manager/app/src/main/jniLibs`; `install --magiskboot <path>` copies it to
-  ksud's bin dir (Wild `utils.rs:189`, `defs.rs:16`, `KsuCli.kt:122`).
-- Port `flashAnyKernelZip`: update-binary presence validation, extract to
-  cache, execute via busybox ash with AKHOME, root cleanup; wire as an
-  Install-screen option.
-- Verify: flash a non-mkbootfs AK3 zip on device.
+- ✅ Vendored `libmagiskboot.so` (arm64 + x86_64); `install --magiskboot`
+  deploys it to `/data/adb/ksu/bin`.
+- ✅ `flashAnyKernelZip`: legacy busybox runner for the zip's own
+  `update-binary`, new Install entry (Route/FlashIt/FlashOperation chain).
+- ✅ Offline patcher (no root): stock `boot.img` + AK3 kernel →
+  `Downloads/OriginSU/`, via vendored magiskboot unpack/swap/repack.
 
-## Phase 2 — MIUI / official theme options ★☆☆☆☆
-(manager only)
-- Diff `tiann/KernelSU` manager Settings theme block against
-  `ThemeSettings` / `SettingsViewModel`; port missing options.
-- Follow `manager/AGENTS.md` (settings widgets, `stringResource`, all locales).
+## Phase 2 — MIUI / official theme options ★☆☆☆☆ — DEFERRED
+(manager only; skipped per maintainer decision 2026-09-19: full dual-kit
+material↔miuix port is a rewrite, not a port)
 - Why ★: pure UI work, zero risk to root functionality.
 
-## Phase 3 — Built-in Zygisk ★★★☆☆
+## Phase 3 — Built-in Zygisk ★★★☆☆ 🚧
 (userspace + manager + CI, no kernel change)
 - Port Ultima `manager/.../assets/zygisk` engine (ReZygisk-derived, GPL-3.0;
-  keep attribution), ksud deploy path, Settings toggle (off by default) +
-  `post-fs-data.d` kill-switch.
-- Extend `getZygiskImplement()` to report the built-in engine.
-- CI: package zygisk assets in repack.
-- Why ★★★: ptrace injector lifecycle is fiddly (boot loops risk), but no
+  keep attribution): `payload.zip` + `setup.sh` + `launch.sh`, deployed under
+  `/data/adb/ksu/zygisk` (NOT a module).
+- Settings toggle (off by default) + `post-fs-data.d` launch hook doubling
+  as kill-switch (`enable` flag + hook removal + pkill).
+- Status checks: engine deployed (`enable` file + hook) vs monitor alive
+  (`pgrep zygisk-ptrace`); report built-in engine in `getZygiskImplement()`;
+  block conflicting Zygisk *provider* module installs (zygisksu, rezygisk,
+  zygisk_next…), modules themselves stay installable.
+- CI: package zygisk assets in repack (assets ship in APK, no build change).
+- Why ★★★: ptrace injector lifecycle is fiddly (boot-loop risk), but no
   kernel changes; kill-switch bounds the blast radius.
 
-## Phase 4 — Origin Veil ★★★★☆
+## Phase 4 — Origin Veil ★★★★☆ ⏳
 (kernel + UAPI + manager; formerly "Sentinel")
 - `kernel/feature/sentinel.{c,h}` + `uapi/sentinel.h` (renamed to veil),
   `CONFIG_KSU_ORIGIN_VEIL` (default y, `depends on KSU`); new supercall/UAPI
@@ -47,7 +50,7 @@ Difficulty scale: ★☆☆☆☆ trivial → ★★★★★ deep kernel surger
 - Why ★★★★: new syscalls + LSM hooks + UAPI version discipline; a mistake
   breaks manager↔kernel compat for every user.
 
-## Phase 5 — KPM support ★★★★★
+## Phase 5 — KPM support ★★★★★ ⏳
 (kernel + manager, last)
 - `kernel/kpm/*` (SukiSU_KernelPatch_patch lineage), `CONFIG_KPM`,
   KALLSYMS requirements for non-GKI; coexistence check with tracepoint-hook

@@ -29,8 +29,10 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.matchParentSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -97,12 +99,18 @@ import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
+import com.topjohnwu.superuser.io.SuFile
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -504,7 +512,7 @@ private fun ModuleDropdown(
                 text = { Text(stringResource(R.string.module_sort_action_first)) },
                 shapes = MenuDefaults.itemShape(
                     index = 0,
-                    count = 2,
+                    count = 3,
                 ),
             )
             CheckableDropdownMenuItem(
@@ -517,7 +525,20 @@ private fun ModuleDropdown(
                 text = { Text(stringResource(R.string.module_sort_enabled_first)) },
                 shapes = MenuDefaults.itemShape(
                     index = 1,
-                    count = 2,
+                    count = 3,
+                ),
+            )
+            CheckableDropdownMenuItem(
+                checked = uiState.showBanners,
+                onCheckedChange = {
+                    viewModel.dispatch(
+                        ModuleUiAction.SetShowBanners(it)
+                    )
+                },
+                text = { Text(stringResource(R.string.show_module_banners)) },
+                shapes = MenuDefaults.itemShape(
+                    index = 2,
+                    count = 3,
                 ),
             )
         }
@@ -964,6 +985,7 @@ private fun ModuleList(
                         onModuleAddShortcut(it)
                     },
                     showMoreModuleInfo = uiState.showMoreModuleInfo,
+                    showBanners = uiState.showBanners,
                 )
 
                 Spacer(modifier = Modifier.height(16.dp))
@@ -1179,6 +1201,71 @@ private fun ModuleList(
 
 @SuppressLint("LocalContextGetResourceValueCall")
 @Composable
+private fun ModuleBannerBackdrop(
+    moduleId: String,
+    banner: String,
+) {
+    val context = LocalContext.current
+    val fadeColor = MaterialTheme.colorScheme.surface
+    Box(
+        modifier = Modifier.matchParentSize(),
+        contentAlignment = Alignment.Center
+    ) {
+        if (banner.startsWith("http", ignoreCase = true)) {
+            AsyncImage(
+                model = banner,
+                contentDescription = null,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .fillMaxHeight(),
+                contentScale = ContentScale.Crop,
+                alpha = 0.18f
+            )
+        } else {
+            val bannerData = remember(moduleId, banner) {
+                runCatching {
+                    val file = SuFile("/data/adb/modules/$moduleId/$banner")
+                    if (file.exists()) {
+                        return@runCatching file
+                    }
+                    SuFile("/data/adb/modules_update/$moduleId/$banner")
+                }.getOrNull()?.let { file ->
+                    runCatching { file.newInputStream().use { it.readBytes() } }.getOrNull()
+                }
+            }
+            if (bannerData != null) {
+                AsyncImage(
+                    model = ImageRequest.Builder(context)
+                        .data(bannerData)
+                        .build(),
+                    contentDescription = null,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .fillMaxHeight(),
+                    contentScale = ContentScale.Crop,
+                    alpha = 0.18f
+                )
+            }
+        }
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .fillMaxHeight()
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(
+                            fadeColor.copy(alpha = 0.0f),
+                            fadeColor.copy(alpha = 0.8f)
+                        ),
+                        startY = 0f,
+                        endY = Float.POSITIVE_INFINITY
+                    )
+                )
+        )
+    }
+}
+
+@Composable
 fun ModuleItem(
     viewModel: ModuleViewModel,
     module: InstalledModule,
@@ -1190,6 +1277,7 @@ fun ModuleItem(
     onClick: (InstalledModule) -> Unit,
     onModuleAddShortcut: (InstalledModule) -> Unit,
     showMoreModuleInfo: Boolean,
+    showBanners: Boolean,
 ) {
     val themeConfig: ThemeConfig = koinInject()
     val cardConfig: CardConfig = koinInject()
@@ -1225,6 +1313,13 @@ fun ModuleItem(
 
         val sizeStr = moduleSizes[module.dirId]
 
+        Box(modifier = Modifier.fillMaxWidth()) {
+            if (showBanners && module.banner.isNotEmpty()) {
+                ModuleBannerBackdrop(
+                    moduleId = module.dirId,
+                    banner = module.banner,
+                )
+            }
         Column(
             modifier = Modifier
                 .run {
@@ -1504,6 +1599,7 @@ fun ModuleItem(
                     }
                 }
             }
+        }
         }
     }
 }

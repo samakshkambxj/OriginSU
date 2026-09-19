@@ -18,6 +18,7 @@ data class InstalledModule(
     val webUiIconPath: String?,
     val dirId: String,
     val moduleUpdate: ModuleUpdateMetadata?,
+    val banner: String = "",
 )
 
 data class InstalledModulesState(
@@ -32,6 +33,7 @@ data class ModulePreferences(
     val sortEnabledFirst: Boolean = false,
     val sortActionFirst: Boolean = false,
     val showMoreModuleInfo: Boolean = false,
+    val showBanners: Boolean = true,
 )
 
 enum class MetaModuleStatus {

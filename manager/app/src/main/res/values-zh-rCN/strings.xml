@@ -261,6 +261,7 @@
     <string name="patch_workdir_failed">Could not create working directory!</string>
     <string name="patch_shell_failed">Could not start shell!</string>
     <string name="patch_repack_failed">Repacking the boot image failed!</string>
+    <string name="show_module_banners">Show module banners</string>
     <string name="root_required">需要 root 权限</string>
     <string name="failed_reboot">重启失败</string>
     <string name="custom_settings">个性化设置</string>

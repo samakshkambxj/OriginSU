@@ -30,15 +30,22 @@ class ModulePreferencesRepository(
         settings.putBoolean(PREF_SHOW_MORE_INFO, enabled)
     }
 
+    fun setShowBanners(enabled: Boolean) {
+        mutablePreferences.update { it.copy(showBanners = enabled) }
+        settings.putBoolean(PREF_SHOW_BANNERS, enabled)
+    }
+
     private fun readPreferences() = ModulePreferences(
         sortEnabledFirst = settings.getBoolean(PREF_SORT_ENABLED, false),
         sortActionFirst = settings.getBoolean(PREF_SORT_ACTION, false),
         showMoreModuleInfo = settings.getBoolean(PREF_SHOW_MORE_INFO, false),
+        showBanners = settings.getBoolean(PREF_SHOW_BANNERS, true),
     )
 
     private companion object {
         const val PREF_SORT_ENABLED = "module_sort_enabled_first"
         const val PREF_SORT_ACTION = "module_sort_action_first"
         const val PREF_SHOW_MORE_INFO = "show_more_module_info"
+        const val PREF_SHOW_BANNERS = "show_module_banners"
     }
 }

@@ -39,6 +39,7 @@ data class ModuleUiState(
     val metaModuleStatus: MetaModuleStatus = MetaModuleStatus.MISSING,
     val isNeedRefresh: Boolean = false,
     val showMoreModuleInfo: Boolean = false,
+    val showBanners: Boolean = true,
 )
 
 sealed interface ModuleUiAction {
@@ -47,6 +48,7 @@ sealed interface ModuleUiAction {
     data class Search(val query: String) : ModuleUiAction
     data class Sort(val enabledFirst: Boolean, val actionFirst: Boolean) : ModuleUiAction
     data class SetShowMoreInfo(val enabled: Boolean) : ModuleUiAction
+    data class SetShowBanners(val enabled: Boolean) : ModuleUiAction
     data class LoadSize(val moduleId: String) : ModuleUiAction
     data object MarkNeedRefresh : ModuleUiAction
     data class UpdateCachedEnabled(val moduleId: String, val enabled: Boolean) : ModuleUiAction
@@ -115,6 +117,7 @@ class ModuleViewModel(
             metaModuleStatus = source.metaModuleStatus,
             isNeedRefresh = local.isNeedRefresh,
             showMoreModuleInfo = preferences.showMoreModuleInfo,
+            showBanners = preferences.showBanners,
         )
     }.stateIn(viewModelScope, SharingStarted.Eagerly, ModuleUiState())
     val uiState: StateFlow<ModuleUiState> = state
@@ -130,6 +133,10 @@ class ModuleViewModel(
 
             is ModuleUiAction.SetShowMoreInfo -> {
                 modulePreferences.setShowMoreInfo(action.enabled)
+            }
+
+            is ModuleUiAction.SetShowBanners -> {
+                modulePreferences.setShowBanners(action.enabled)
             }
 
             is ModuleUiAction.LoadSize -> viewModelScope.launch {

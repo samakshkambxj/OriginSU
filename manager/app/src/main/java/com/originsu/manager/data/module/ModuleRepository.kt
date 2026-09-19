@@ -182,6 +182,7 @@ class ModuleRepository(
                 webUiIconPath = value.optString("webuiIcon").takeIf(String::isNotBlank),
                 dirId = value.optString("dir_id", id),
                 moduleUpdate = null,
+                banner = value.optString("banner"),
             )
         }
     }
