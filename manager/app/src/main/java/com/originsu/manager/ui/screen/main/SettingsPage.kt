@@ -560,7 +560,7 @@ fun SettingsPage(bottomPadding: Dp) {
                                 title = stringResource(R.string.updater),
                                 description = stringResource(R.string.updater_summary),
                                 onClick = {
-                                    navigator.push(Route.Updater)
+                                    navigator.push(Route.Updater())
                                 }
                             )
                         }

@@ -438,7 +438,7 @@ fun NavContainer(
                     SulogScreen()
                 }
             }
-            entry<Route.Updater>(swipeDismiss = swipeBackDirection) {
+            entry<Route.Updater>(swipeDismiss = swipeBackDirection) { key ->
                 ManagerNavEntry(
                     interceptPredictiveBack = interceptPredictiveBack,
                     onBack = onBack,
@@ -446,7 +446,10 @@ fun NavContainer(
                     backgroundRenderState = backgroundRenderState,
                     useBlur = useBlur,
                 ) {
-                    UpdaterScreen()
+                    UpdaterScreen(
+                        initialChannel = key.channel,
+                        initialVariant = key.variant,
+                    )
                 }
             }
             entry<Route.Veil>(swipeDismiss = swipeBackDirection) {

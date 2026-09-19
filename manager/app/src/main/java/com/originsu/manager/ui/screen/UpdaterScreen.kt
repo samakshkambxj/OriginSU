@@ -34,6 +34,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -66,13 +67,23 @@ import java.io.File
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-fun UpdaterScreen() {
+fun UpdaterScreen(
+    initialChannel: String = ManagerUpdateChannel.STABLE.name,
+    initialVariant: String = ManagerVariant.NORMAL.name,
+) {
     val themeConfig: ThemeConfig = koinInject()
     val cardConfig: CardConfig = koinInject()
     val viewModel = koinViewModel<UpdaterViewModel>()
     val uiState by viewModel.state.collectAsStateWithLifecycle()
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     val context = LocalContext.current
+
+    LaunchedEffect(initialChannel, initialVariant) {
+        runCatching { ManagerUpdateChannel.valueOf(initialChannel) }
+            .getOrNull()?.let { viewModel.dispatch(UpdaterUiAction.SelectChannel(it)) }
+        runCatching { ManagerVariant.valueOf(initialVariant) }
+            .getOrNull()?.let { viewModel.dispatch(UpdaterUiAction.SelectVariant(it)) }
+    }
 
     val channels = ManagerUpdateChannel.entries
     val variants = ManagerVariant.entries

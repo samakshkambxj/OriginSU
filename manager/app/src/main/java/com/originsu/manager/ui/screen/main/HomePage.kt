@@ -100,12 +100,10 @@ import com.originsu.manager.domain.model.HomeSystemInfo
 import com.originsu.manager.domain.model.KernelStatus
 import com.originsu.manager.domain.model.ManagerUpdateChannel
 import com.originsu.manager.domain.model.ManagerUpdateInfo
-import com.originsu.manager.domain.usecase.EnqueueManagerUpdateUseCase
 import com.originsu.manager.magica.MagicaService
 import com.originsu.manager.ui.component.KsuIsValid
 import com.originsu.manager.ui.component.SwipeableSnackbarHost
 import com.originsu.manager.ui.component.WarningCard
-import com.originsu.manager.ui.component.rememberConfirmDialog
 import com.originsu.manager.ui.component.rememberLoadingDialog
 import com.originsu.manager.ui.component.settings.SegmentedColumn
 import com.originsu.manager.ui.component.settings.SettingsBaseWidget
@@ -116,10 +114,8 @@ import com.originsu.manager.ui.theme.CardConfig
 import com.originsu.manager.ui.theme.ThemeConfig
 import com.originsu.manager.ui.theme.blurEffect
 import com.originsu.manager.ui.theme.blurSource
-import com.originsu.manager.ui.util.LocalPermissionRequestInterface
 import com.originsu.manager.ui.util.LocalSnackbarHost
 import com.originsu.manager.ui.util.adaptiveScaffoldWindowInsets
-import com.originsu.manager.ui.util.downloader.downloadManagerUpdate
 import com.originsu.manager.ui.viewmodel.HomeUiAction
 import com.originsu.manager.ui.viewmodel.HomeUiEvent
 import com.originsu.manager.ui.viewmodel.HomeUiState
@@ -411,43 +407,12 @@ private fun ManagerUpdateCard(update: ManagerUpdateInfo?) {
 
 @Composable
 private fun ManagerUpdateCardContent(updateInfo: ManagerUpdateInfo) {
-    val context = LocalContext.current
-    val permissionRequestInterface = LocalPermissionRequestInterface.current
-    val enqueueManagerUpdate = koinInject<EnqueueManagerUpdateUseCase>()
-    val channelTitle = stringResource(
-        if (updateInfo.channel == ManagerUpdateChannel.STABLE) {
-            R.string.manager_update_stable
-        } else {
-            R.string.manager_update_beta
-        }
-    )
+    val navigator = LocalNavigator.current
     val message = if (updateInfo.channel == ManagerUpdateChannel.STABLE) {
         stringResource(R.string.new_version_available, updateInfo.versionCode)
     } else {
         stringResource(R.string.beta_version_available, updateInfo.versionCode)
     }
-    val updateText = stringResource(R.string.module_update)
-    val details = stringResource(
-        R.string.manager_update_details,
-        updateInfo.versionName,
-        updateInfo.versionCode,
-        updateInfo.abi,
-    )
-    val dialogContent = if (updateInfo.changelog.isBlank()) {
-        details
-    } else {
-        "$details\n\n${updateInfo.changelog}"
-    }
-    val updateDialog = rememberConfirmDialog(
-        onConfirm = {
-            downloadManagerUpdate(
-                context,
-                permissionRequestInterface,
-                updateInfo,
-                enqueueManagerUpdate,
-            )
-        }
-    )
 
     WarningCard(
         message = message,
@@ -460,11 +425,11 @@ private fun ManagerUpdateCardContent(updateInfo: ManagerUpdateInfo) {
             )
         },
         onClick = {
-            updateDialog.showConfirm(
-                title = channelTitle,
-                content = dialogContent,
-                markdown = updateInfo.changelog.isNotBlank(),
-                confirm = updateText,
+            navigator.push(
+                Route.Updater(
+                    channel = updateInfo.channel.name,
+                    variant = updateInfo.variant.name,
+                )
             )
         }
     )

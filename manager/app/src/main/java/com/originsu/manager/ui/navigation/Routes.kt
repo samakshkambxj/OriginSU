@@ -147,7 +147,10 @@ sealed interface Route : NavKey, Parcelable {
 
     @Parcelize
     @Serializable
-    data object Updater : Route
+    data class Updater(
+        val channel: String = "STABLE",
+        val variant: String = "NORMAL",
+    ) : Route
 
     @Parcelize
     @Serializable
