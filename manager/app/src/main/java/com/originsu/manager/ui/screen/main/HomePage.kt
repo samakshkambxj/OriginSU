@@ -88,7 +88,6 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -104,6 +103,7 @@ import com.originsu.manager.magica.MagicaService
 import com.originsu.manager.ui.component.KsuIsValid
 import com.originsu.manager.ui.component.SwipeableSnackbarHost
 import com.originsu.manager.ui.component.WarningCard
+import com.originsu.manager.ui.component.YinYangLogo
 import com.originsu.manager.ui.component.rememberLoadingDialog
 import com.originsu.manager.ui.component.settings.SegmentedColumn
 import com.originsu.manager.ui.component.settings.SettingsBaseWidget
@@ -494,10 +494,7 @@ private fun TopBar(
                     }
                 }
             ) {
-                Icon(
-                    painter = painterResource(R.drawable.ic_leaf_filled),
-                    contentDescription = null,
-                    tint = Color.Unspecified,
+                YinYangLogo(
                     modifier = Modifier
                         .size(32.dp)
                         .graphicsLayer {
