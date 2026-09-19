@@ -53,6 +53,8 @@ import com.mikepenz.aboutlibraries.ui.compose.util.author
 import com.mikepenz.aboutlibraries.util.withJson
 import com.originsu.manager.R
 import com.originsu.manager.ui.component.WarningCard
+import com.originsu.manager.ui.component.popupBlur
+import com.originsu.manager.ui.component.popupContainerColor
 import com.originsu.manager.ui.component.settings.AppBackButton
 import com.originsu.manager.ui.component.settings.SettingsBaseWidget
 import com.originsu.manager.ui.component.settings.lazySegmentColumn
@@ -166,6 +168,10 @@ fun OpenSourceLicenseScreen() {
             val uriHandler = LocalUriHandler.current
             AlertDialog(
                 onDismissRequest = { selectedLibrary = null },
+                modifier = Modifier
+                    .padding(24.dp)
+                    .popupBlur(),
+                containerColor = popupContainerColor(),
                 confirmButton = {
                     Button(onClick = { selectedLibrary = null }) {
                         Text(stringResource(R.string.close))
@@ -254,7 +260,6 @@ fun OpenSourceLicenseScreen() {
                     }
                 },
                 properties = DialogProperties(usePlatformDefaultWidth = false),
-                modifier = Modifier.padding(24.dp)
             )
         }
     }

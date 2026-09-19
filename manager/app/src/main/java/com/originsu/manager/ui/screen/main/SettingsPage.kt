@@ -87,6 +87,8 @@ import com.originsu.manager.R
 import com.originsu.manager.domain.usecase.GenerateBugreportUseCase
 import com.originsu.manager.ui.component.ConfirmResult
 import com.originsu.manager.ui.component.SwipeableSnackbarHost
+import com.originsu.manager.ui.component.popupBlur
+import com.originsu.manager.ui.component.popupContainerColor
 import com.originsu.manager.ui.component.rememberConfirmDialog
 import com.originsu.manager.ui.component.rememberLoadingDialog
 import com.originsu.manager.ui.component.settings.SegmentedColumn
@@ -767,7 +769,8 @@ private fun LogBottomSheet(
 ) {
     ModalBottomSheet(
         onDismissRequest = onDismiss,
-        containerColor = MaterialTheme.colorScheme.surfaceBright,
+        modifier = Modifier.popupBlur(),
+        containerColor = popupContainerColor(),
     ) {
         Row(
             modifier = Modifier

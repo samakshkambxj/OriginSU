@@ -37,6 +37,8 @@ import com.originsu.manager.profile.Capabilities
 import com.originsu.manager.profile.Groups
 import com.originsu.manager.toRawFlags
 import com.originsu.manager.toRootProfileFlags
+import com.originsu.manager.ui.component.popupBlur
+import com.originsu.manager.ui.component.popupContainerColor
 import com.originsu.manager.ui.component.settings.SegmentedColumn
 import com.originsu.manager.ui.component.settings.SegmentedColumnScope
 import com.originsu.manager.ui.component.settings.SettingsBaseWidget
@@ -364,6 +366,8 @@ private fun SELinuxPanel(
 
         AlertDialog(
             onDismissRequest = { showDialog = false },
+            modifier = Modifier.popupBlur(),
+            containerColor = popupContainerColor(),
             title = {
                 Text(text = stringResource(R.string.profile_selinux_context))
             },

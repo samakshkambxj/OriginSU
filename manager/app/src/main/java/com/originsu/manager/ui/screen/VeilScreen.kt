@@ -60,6 +60,8 @@ import com.originsu.manager.domain.model.veilTimestampText
 import com.originsu.manager.ui.component.ConfirmResult
 import com.originsu.manager.ui.component.SwipeableSnackbarHost
 import com.originsu.manager.ui.component.WarningCard
+import com.originsu.manager.ui.component.popupBlur
+import com.originsu.manager.ui.component.popupContainerColor
 import com.originsu.manager.ui.component.rememberConfirmDialog
 import com.originsu.manager.ui.component.settings.AppBackButton
 import com.originsu.manager.ui.component.settings.SegmentedColumn
@@ -146,6 +148,8 @@ fun VeilScreen() {
                         DropdownMenu(
                             expanded = showOverflow,
                             onDismissRequest = { showOverflow = false },
+                            modifier = Modifier.popupBlur(),
+                            containerColor = popupContainerColor(),
                         ) {
                             DropdownMenuItem(
                                 text = { Text(stringResource(R.string.veil_uncloak_all)) },

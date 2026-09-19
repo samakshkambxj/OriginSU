@@ -1,5 +1,5 @@
-pub mod cli;
 mod bootloop;
+pub mod cli;
 mod debug;
 mod dynamic_manager;
 mod feature;

@@ -34,6 +34,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.originsu.manager.R
+import com.originsu.manager.ui.component.popupBlur
 
 /**
  * 槽位选择对话框组件
@@ -65,6 +66,7 @@ fun SlotSelectionDialog(
 
         AlertDialog(
             onDismissRequest = onDismiss,
+            modifier = Modifier.popupBlur(),
             title = {
                 Text(
                     text = stringResource(id = R.string.select_slot_title),

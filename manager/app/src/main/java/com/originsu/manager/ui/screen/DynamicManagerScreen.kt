@@ -52,6 +52,8 @@ import com.originsu.manager.ui.component.DialogHandle
 import com.originsu.manager.ui.component.PackageIcon
 import com.originsu.manager.ui.component.SearchAppBar
 import com.originsu.manager.ui.component.SwipeableSnackbarHost
+import com.originsu.manager.ui.component.popupBlur
+import com.originsu.manager.ui.component.popupContainerColor
 import com.originsu.manager.ui.component.rememberConfirmDialog
 import com.originsu.manager.ui.component.rememberCustomDialog
 import com.originsu.manager.ui.component.rememberSearchAppBarScrollBehavior
@@ -415,6 +417,8 @@ private fun DynamicManagerManualDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
+        modifier = Modifier.popupBlur(),
+        containerColor = popupContainerColor(),
         title = { Text(stringResource(R.string.dynamic_manager_manual_config)) },
         text = {
             SegmentedColumn {

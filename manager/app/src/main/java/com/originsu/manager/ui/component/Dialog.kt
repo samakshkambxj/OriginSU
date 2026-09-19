@@ -417,7 +417,11 @@ private fun LoadingDialog() {
         properties = DialogProperties(dismissOnClickOutside = false, dismissOnBackPress = false)
     ) {
         Surface(
-            modifier = Modifier.size(100.dp), shape = RoundedCornerShape(8.dp)
+            modifier = Modifier
+                .size(100.dp)
+                .popupBlur(),
+            shape = RoundedCornerShape(8.dp),
+            color = popupContainerColor(),
         ) {
             Box(
                 contentAlignment = Alignment.Center,
@@ -434,6 +438,8 @@ private fun ConfirmDialog(visuals: ConfirmDialogVisuals, confirm: () -> Unit, di
         onDismissRequest = {
             dismiss()
         },
+        modifier = Modifier.popupBlur(),
+        containerColor = popupContainerColor(),
         title = {
             Text(text = visuals.title)
         },

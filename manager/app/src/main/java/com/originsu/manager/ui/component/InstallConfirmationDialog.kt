@@ -196,6 +196,10 @@ fun InstallConfirmationDialog(
     if (show && zipFiles.isNotEmpty()) {
         AlertDialog(
             onDismissRequest = onDismiss,
+            modifier = Modifier
+                .widthIn(min = 320.dp, max = 560.dp)
+                .popupBlur(),
+            containerColor = popupContainerColor(),
             title = {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -256,7 +260,6 @@ fun InstallConfirmationDialog(
                     )
                 }
             },
-            modifier = Modifier.widthIn(min = 320.dp, max = 560.dp)
         )
     }
 }

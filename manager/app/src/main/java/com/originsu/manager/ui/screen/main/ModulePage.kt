@@ -150,6 +150,8 @@ import com.originsu.manager.ui.component.WarningCard
 import com.originsu.manager.ui.component.ZipFileDetector
 import com.originsu.manager.ui.component.ZipFileInfo
 import com.originsu.manager.ui.component.ZipType
+import com.originsu.manager.ui.component.popupBlur
+import com.originsu.manager.ui.component.popupContainerColor
 import com.originsu.manager.ui.component.rememberConfirmDialog
 import com.originsu.manager.ui.component.rememberLoadingDialog
 import com.originsu.manager.ui.component.rememberSearchAppBarScrollBehavior
@@ -1202,7 +1204,9 @@ private fun ModuleList(
             onDismissRequest = {
                 showShortcutDialog.value = false
                 showShortcutTypeRow.value = false
-            }
+            },
+            modifier = Modifier.popupBlur(),
+            containerColor = popupContainerColor(),
         ) {
             var error by remember { mutableStateOf("") }
             Column(

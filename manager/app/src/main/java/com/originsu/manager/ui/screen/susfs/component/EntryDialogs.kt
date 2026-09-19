@@ -26,6 +26,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.originsu.manager.R
+import com.originsu.manager.ui.component.popupBlur
+import com.originsu.manager.ui.component.popupContainerColor
 import com.originsu.manager.ui.component.settings.SegmentedColumn
 import com.originsu.manager.ui.component.settings.SegmentedColumnScope
 import com.originsu.manager.ui.component.settings.SettingsDropdownWidget
@@ -56,6 +58,8 @@ fun EntryDetailDialog(
     if (showDialog) {
         AlertDialog(
             onDismissRequest = onDismiss,
+            modifier = Modifier.popupBlur(),
+            containerColor = popupContainerColor(),
             title = { Text(title) },
             text = {
                 Column(
@@ -168,6 +172,8 @@ fun ManualAddDialog(
     if (showDialog) {
         AlertDialog(
             onDismissRequest = onDismiss,
+            modifier = Modifier.popupBlur(),
+            containerColor = popupContainerColor(),
             title = { Text(title) },
             text = {
                 Column(

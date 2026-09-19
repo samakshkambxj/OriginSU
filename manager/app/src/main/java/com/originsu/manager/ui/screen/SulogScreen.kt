@@ -75,6 +75,8 @@ import com.originsu.manager.domain.model.SulogFile
 import com.originsu.manager.domain.model.toSulogDisplayName
 import com.originsu.manager.ui.component.SearchAppBar
 import com.originsu.manager.ui.component.WarningCard
+import com.originsu.manager.ui.component.popupBlur
+import com.originsu.manager.ui.component.popupContainerColor
 import com.originsu.manager.ui.component.rememberSearchAppBarScrollBehavior
 import com.originsu.manager.ui.component.settings.SettingsBaseWidget
 import com.originsu.manager.ui.component.settings.SettingsChooseWidget
@@ -710,6 +712,8 @@ private fun SulogDetailDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
+        modifier = Modifier.popupBlur(),
+        containerColor = popupContainerColor(),
         title = { Text(sulogEntryTitle(entry)) },
         text = {
             Column(

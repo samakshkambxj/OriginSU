@@ -68,6 +68,7 @@ import androidx.compose.material3.LargeFlexibleTopAppBar
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuDefaults
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.TopAppBarScrollBehavior
@@ -104,6 +105,8 @@ import com.originsu.manager.ui.component.KsuIsValid
 import com.originsu.manager.ui.component.SwipeableSnackbarHost
 import com.originsu.manager.ui.component.WarningCard
 import com.originsu.manager.ui.component.YinYangLogo
+import com.originsu.manager.ui.component.popupBlur
+import com.originsu.manager.ui.component.popupContainerColor
 import com.originsu.manager.ui.component.rememberLoadingDialog
 import com.originsu.manager.ui.component.settings.SegmentedColumn
 import com.originsu.manager.ui.component.settings.SettingsBaseWidget
@@ -587,6 +590,11 @@ private fun TopBar(
                             DropdownMenuPopup(expanded = showDropdown, onDismissRequest = {
                                 showDropdown = false
                             }) {
+                                Surface(
+                                    shape = MaterialTheme.shapes.extraSmall,
+                                    color = popupContainerColor(),
+                                    modifier = Modifier.popupBlur(),
+                                ) {
                                 DropdownMenuGroup(
                                     shapes = MenuDefaults.groupShapes()
                                 ) {
@@ -607,6 +615,7 @@ private fun TopBar(
                                     }
 
                                     RebootDropdownItems(methods, onReboot)
+                                }
                                 }
                             }
                         }

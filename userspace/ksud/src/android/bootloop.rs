@@ -94,7 +94,10 @@ pub fn on_post_fs_data() -> Result<()> {
 
     let count = read_count().saturating_add(1);
     write_count(count)?;
-    info!("bootloop protection: incomplete-boot count {count}/{}", config.max_failed);
+    info!(
+        "bootloop protection: incomplete-boot count {count}/{}",
+        config.max_failed
+    );
 
     if count < config.max_failed {
         return Ok(());

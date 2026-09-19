@@ -43,6 +43,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import com.originsu.manager.ui.component.popupBlur
+import com.originsu.manager.ui.component.popupContainerColor
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -349,9 +351,10 @@ private fun SettingsChooseDialogFrame(
     Surface(
         modifier = Modifier
             .sizeIn(minWidth = 280.dp, maxWidth = 560.dp)
-            .padding(horizontal = 32.dp),
+            .padding(horizontal = 32.dp)
+            .popupBlur(),
         shape = MaterialTheme.shapes.extraLarge,
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        color = popupContainerColor(),
     ) {
         Column(
             modifier = Modifier

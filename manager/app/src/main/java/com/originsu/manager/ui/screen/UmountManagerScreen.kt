@@ -56,6 +56,8 @@ import com.originsu.manager.R
 import com.originsu.manager.ui.component.ConfirmResult
 import com.originsu.manager.ui.component.SwipeableSnackbarHost
 import com.originsu.manager.ui.component.WarningCard
+import com.originsu.manager.ui.component.popupBlur
+import com.originsu.manager.ui.component.popupContainerColor
 import com.originsu.manager.ui.component.rememberConfirmDialog
 import com.originsu.manager.ui.component.settings.AppBackButton
 import com.originsu.manager.ui.component.settings.SettingsBaseWidget
@@ -312,6 +314,8 @@ fun AddUmountPathDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
+        modifier = Modifier.popupBlur(),
+        containerColor = popupContainerColor(),
         title = { Text(stringResource(R.string.add_umount_path)) },
         text = {
             Column {
