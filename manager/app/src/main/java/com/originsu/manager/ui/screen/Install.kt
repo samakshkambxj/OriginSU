@@ -37,8 +37,10 @@ import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LargeFlexibleTopAppBar
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.TopAppBarScrollBehavior
@@ -104,6 +106,8 @@ fun InstallScreen(
     var lkmSelection by remember { mutableStateOf<LkmSelection>(LkmSelection.KmiNone) }
     var showSlotSelectionDialog by remember { mutableStateOf(false) }
     var tempKernelUri by remember { mutableStateOf<Uri?>(null) }
+    // 0 = LKM tab, 1 = GKI tab.
+    var selectedTabIndex by remember { mutableIntStateOf(0) }
 
     val isGKI = environment.isGki
     val isAbDevice = environment.isAbDevice
@@ -133,6 +137,7 @@ fun InstallScreen(
                 )
                 installMethod = horizonMethod
                 tempKernelUri = preselectedUri
+                selectedTabIndex = 1
 
                 if (isAbDevice) {
                     showSlotSelectionDialog = true
@@ -300,7 +305,10 @@ fun InstallScreen(
                 partitionSelectionIndex = partitionSelectionIndex,
                 onPartitionSelected = { partitionSelectionIndex = it },
                 installMethod = installMethod,
+                selectedTabIndex = selectedTabIndex,
+                onTabSelected = { selectedTabIndex = it },
                 onMethodSelected = { method ->
+                    selectedTabIndex = if (method is InstallMethod.HorizonKernel) 1 else 0
                     if (method is InstallMethod.HorizonKernel && method.uri != null) {
                         if (isAbDevice) {
                             tempKernelUri = method.uri
@@ -339,6 +347,8 @@ private fun InstallBody(
     partitionSelectionIndex: Int,
     onPartitionSelected: (Int) -> Unit,
     installMethod: InstallMethod?,
+    selectedTabIndex: Int,
+    onTabSelected: (Int) -> Unit,
     onMethodSelected: (InstallMethod) -> Unit,
     lkmSelection: LkmSelection,
     onLkmUpload: () -> Unit,
@@ -474,21 +484,18 @@ private fun InstallBody(
         }
     }
 
-    val quickMethods = buildList {
+    // LKM tab: everything except the GKI kernel flash. Offline patch
+    // needs no root: stock boot.img + AnyKernel kernel -> file.
+    val lkmMethods = buildList {
+        add(InstallMethod.SelectFile(summary = selectFileTip))
+        add(InstallMethod.PatchBootImage(summary = patchBootImageSummary))
         if (rootAvailable) {
             add(InstallMethod.DirectInstall)
             if (isAbDevice) add(InstallMethod.DirectInstallToInactiveSlot)
-        }
-    }
-    val fileMethods = buildList {
-        add(InstallMethod.SelectFile(summary = selectFileTip))
-        if (rootAvailable) {
-            add(InstallMethod.HorizonKernel(summary = horizonKernelSummary))
             add(InstallMethod.AnyKernelZip(summary = anyKernelZipSummary))
         }
     }
-    // Offline patch needs no root: stock boot.img + AnyKernel kernel -> file.
-    val offlineMethods = listOf(InstallMethod.PatchBootImage(summary = patchBootImageSummary))
+    val gkiMethods = listOf(InstallMethod.HorizonKernel(summary = horizonKernelSummary))
 
     if (showPartitionDialog) {
         val suffix = if (installMethod is InstallMethod.DirectInstallToInactiveSlot) {
@@ -520,61 +527,92 @@ private fun InstallBody(
             .padding(horizontal = 16.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
-        InstallMethodSection(
-            title = stringResource(R.string.install_section_quick),
-            methods = quickMethods,
-            selectedMethod = installMethod,
-            onSelect = onRowClick,
-        )
-
-        InstallMethodSection(
-            title = stringResource(R.string.install_section_from_file),
-            methods = fileMethods,
-            selectedMethod = installMethod,
-            onSelect = onRowClick,
-        )
-
-        InstallMethodSection(
-            title = stringResource(R.string.install_section_offline),
-            methods = offlineMethods,
-            selectedMethod = installMethod,
-            onSelect = onRowClick,
-        )
-
-        if (isDirectMethod && partitions.isNotEmpty()) {
-            InstallActionRow(
-                icon = Icons.TwoTone.Edit,
-                title = stringResource(R.string.install_select_partition),
-                description = partitions.getOrNull(partitionSelectionIndex),
-                onClick = { showPartitionDialog = true },
+        PrimaryTabRow(
+            selectedTabIndex = selectedTabIndex,
+            containerColor = Color.Transparent,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Tab(
+                selected = selectedTabIndex == 0,
+                onClick = { onTabSelected(0) },
+                text = { Text(stringResource(R.string.install_tab_lkm)) },
+                unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Tab(
+                selected = selectedTabIndex == 1,
+                onClick = { onTabSelected(1) },
+                text = { Text(stringResource(R.string.install_tab_gki)) },
+                unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
 
-        if (isGKI) {
-            InstallActionRow(
-                icon = Icons.AutoMirrored.TwoTone.Input,
-                title = stringResource(id = R.string.install_upload_lkm_file),
-                description = (lkmSelection as? LkmSelection.LkmUri)?.let {
-                    stringResource(
-                        id = R.string.selected_lkm,
-                        it.uri.toUri().lastPathSegment ?: "(file)"
+        when (selectedTabIndex) {
+            0 -> {
+                lkmMethods.forEach { method ->
+                    InstallMethodRow(
+                        title = stringResource(id = method.label),
+                        summary = method.summary,
+                        selected = installMethod?.javaClass == method.javaClass,
+                        onClick = { onRowClick(method) },
                     )
-                },
-                onClick = onLkmUpload,
-            )
-        }
+                }
 
-        (installMethod as? InstallMethod.HorizonKernel)?.slot?.let { slot ->
-            Text(
-                text = stringResource(
-                    id = R.string.selected_slot,
-                    if (slot == "a") stringResource(id = R.string.slot_a)
-                    else stringResource(id = R.string.slot_b)
-                ),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(vertical = 8.dp)
-            )
+                if (isDirectMethod && partitions.isNotEmpty()) {
+                    InstallActionRow(
+                        icon = Icons.TwoTone.Edit,
+                        title = stringResource(R.string.install_select_partition),
+                        description = partitions.getOrNull(partitionSelectionIndex),
+                        onClick = { showPartitionDialog = true },
+                    )
+                }
+
+                if (isGKI) {
+                    InstallActionRow(
+                        icon = Icons.AutoMirrored.TwoTone.Input,
+                        title = stringResource(id = R.string.install_upload_lkm_file),
+                        description = (lkmSelection as? LkmSelection.LkmUri)?.let {
+                            stringResource(
+                                id = R.string.selected_lkm,
+                                it.uri.toUri().lastPathSegment ?: "(file)"
+                            )
+                        },
+                        onClick = onLkmUpload,
+                    )
+                }
+            }
+
+            else -> {
+                if (rootAvailable) {
+                    gkiMethods.forEach { method ->
+                        InstallMethodRow(
+                            title = stringResource(id = method.label),
+                            summary = method.summary,
+                            selected = installMethod?.javaClass == method.javaClass,
+                            onClick = { onRowClick(method) },
+                        )
+                    }
+
+                    (installMethod as? InstallMethod.HorizonKernel)?.slot?.let { slot ->
+                        Text(
+                            text = stringResource(
+                                id = R.string.selected_slot,
+                                if (slot == "a") stringResource(id = R.string.slot_a)
+                                else stringResource(id = R.string.slot_b)
+                            ),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(vertical = 8.dp)
+                        )
+                    }
+                } else {
+                    Text(
+                        text = stringResource(R.string.root_required),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(vertical = 12.dp)
+                    )
+                }
+            }
         }
 
         Spacer(modifier = Modifier.height(8.dp))
@@ -603,34 +641,6 @@ private fun InstallBody(
         }
 
         Spacer(modifier = Modifier.height(innerPaddingBottom + 16.dp))
-    }
-}
-
-/**
- * One group of install methods under a section header. Wild KSU renders a
- * flat radio list; the headers are our tweak so six methods stay scannable.
- */
-@Composable
-private fun InstallMethodSection(
-    title: String,
-    methods: List<InstallMethod>,
-    selectedMethod: InstallMethod?,
-    onSelect: (InstallMethod) -> Unit,
-) {
-    if (methods.isEmpty()) return
-    Text(
-        text = title,
-        style = MaterialTheme.typography.titleSmall,
-        color = MaterialTheme.colorScheme.primary,
-        modifier = Modifier.padding(top = 8.dp)
-    )
-    methods.forEach { method ->
-        InstallMethodRow(
-            title = stringResource(id = method.label),
-            summary = method.summary,
-            selected = selectedMethod?.javaClass == method.javaClass,
-            onClick = { onSelect(method) },
-        )
     }
 }
 

@@ -1,6 +1,8 @@
 package com.originsu.manager.ui.screen.about
 
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -13,6 +15,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.twotone.Code
@@ -47,14 +50,17 @@ import androidx.compose.ui.text.TextLinkStyles
 import androidx.compose.ui.text.fromHtml
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import coil.compose.AsyncImage
 import com.google.accompanist.drawablepainter.rememberDrawablePainter
 import com.originsu.manager.BuildConfig
 import com.originsu.manager.R
 import com.originsu.manager.ui.component.WarningCard
 import com.originsu.manager.ui.component.settings.AppBackButton
 import com.originsu.manager.ui.component.settings.SegmentedColumn
+import com.originsu.manager.ui.component.settings.SettingsBaseWidget
 import com.originsu.manager.ui.component.settings.SettingsJumpPageWidget
 import com.originsu.manager.ui.navigation.LocalNavigator
 import com.originsu.manager.ui.navigation.Navigator
@@ -137,6 +143,20 @@ fun AboutScreen() {
             }
 
             item {
+                Box(
+                    modifier = Modifier
+                        .padding(horizontal = 16.dp)
+                        .padding(bottom = 12.dp)
+                ) {
+                    CreatorCard(
+                        onOpenRepo = {
+                            uriHandler.openUri("https://github.com/samakshkambxj/OriginSU")
+                        }
+                    )
+                }
+            }
+
+            item {
                 WarningCard(
                     modifier = Modifier
                         .padding(horizontal = 16.dp)
@@ -204,6 +224,31 @@ fun AboutScreen() {
             }
 
             item {
+                SegmentedColumn(
+                    title = stringResource(R.string.about_credits)
+                ) {
+                    CREDITS.forEach { credit ->
+                        item {
+                            SettingsBaseWidget(
+                                icon = null,
+                                iconPlaceholder = false,
+                                leadingContent = {
+                                    AvatarImage(
+                                        url = credit.avatarUrl,
+                                        fallbackLetter = credit.name.firstOrNull() ?: '?',
+                                        size = 40.dp,
+                                    )
+                                },
+                                title = credit.name,
+                                description = stringResource(credit.roleRes),
+                                onClick = { uriHandler.openUri(credit.url) },
+                            )
+                        }
+                    }
+                }
+            }
+
+            item {
                 Spacer(modifier = Modifier.height(innerPadding.calculateBottomPadding()))
             }
         }
@@ -225,8 +270,7 @@ fun AboutScreenPreview() {
 }
 
 @Composable
-private fun StatusCard() {
-    val themeConfig: ThemeConfig = koinInject()
+private fun StatusCard() {    val themeConfig: ThemeConfig = koinInject()
     val cardConfig: CardConfig = koinInject()
     Surface(
         modifier = Modifier
@@ -285,3 +329,168 @@ private fun StatusCard() {
         }
     }
 }
+
+private const val CREATOR_HANDLE = "samakshkambxj"
+private const val CREATOR_AVATAR_URL = "https://github.com/samakshkambxj.png"
+
+@Composable
+private fun CreatorCard(onOpenRepo: () -> Unit) {
+    val themeConfig: ThemeConfig = koinInject()
+    val cardConfig: CardConfig = koinInject()
+    Surface(
+        modifier = Modifier
+            .clip(RoundedCornerShape(16.dp))
+            .renderBackgroundBlur(),
+        color =
+            if (themeConfig.isEnableBlurExp)
+                Color.Transparent
+            else
+                MaterialTheme.colorScheme.primaryContainer.copy(cardConfig.cardAlpha),
+        shape = RoundedCornerShape(16.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onOpenRepo)
+                .padding(vertical = 24.dp, horizontal = 16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            AvatarImage(
+                url = CREATOR_AVATAR_URL,
+                fallbackLetter = CREATOR_HANDLE.firstOrNull() ?: '?',
+                size = 72.dp,
+            )
+            Text(
+                text = stringResource(id = R.string.about_created_by, CREATOR_HANDLE),
+                style = MaterialTheme.typography.titleMedium,
+            )
+            Text(
+                text = stringResource(id = R.string.get_source_code_detail),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+/**
+ * Circular remote avatar with an initial-letter fallback that stays visible
+ * while loading or when offline.
+ */
+@Composable
+private fun AvatarImage(url: String?, fallbackLetter: Char, size: Dp) {
+    Box(
+        modifier = Modifier
+            .size(size)
+            .clip(CircleShape)
+            .background(MaterialTheme.colorScheme.secondaryContainer),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = fallbackLetter.uppercaseChar().toString(),
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onSecondaryContainer,
+        )
+        if (url != null) {
+            AsyncImage(
+                model = url,
+                contentDescription = null,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clip(CircleShape),
+                contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+            )
+        }
+    }
+}
+
+private data class Credit(
+    val name: String,
+    val roleRes: Int,
+    val url: String,
+    val avatarUrl: String?,
+)
+
+private fun githubAvatar(userOrOrg: String) = "https://github.com/$userOrOrg.png"
+
+private val CREDITS = listOf(
+    Credit(
+        name = "ReSukiSU",
+        roleRes = R.string.about_credit_role_resukisu,
+        url = "https://github.com/ReSukiSU/ReSukiSU",
+        avatarUrl = githubAvatar("ReSukiSU"),
+    ),
+    Credit(
+        name = "SukiSU-Ultra",
+        roleRes = R.string.about_credit_role_sukisu,
+        url = "https://github.com/SukiSU-Ultra/SukiSU-Ultra",
+        avatarUrl = githubAvatar("SukiSU-Ultra"),
+    ),
+    Credit(
+        name = "KernelSU",
+        roleRes = R.string.about_credit_role_kernelsu,
+        url = "https://github.com/tiann/KernelSU",
+        avatarUrl = githubAvatar("tiann"),
+    ),
+    Credit(
+        name = "MKSU",
+        roleRes = R.string.about_credit_role_mksu,
+        url = "https://github.com/5ec1cff/KernelSU",
+        avatarUrl = githubAvatar("5ec1cff"),
+    ),
+    Credit(
+        name = "RKSU",
+        roleRes = R.string.about_credit_role_rksu,
+        url = "https://github.com/rsuntk/KernelSU",
+        avatarUrl = githubAvatar("rsuntk"),
+    ),
+    Credit(
+        name = "SuSFS",
+        roleRes = R.string.about_credit_role_susfs,
+        url = "https://gitlab.com/simonpunk/susfs4ksu",
+        avatarUrl = null,
+    ),
+    Credit(
+        name = "KernelPatch",
+        roleRes = R.string.about_credit_role_kernelpatch,
+        url = "https://github.com/bmax121/KernelPatch",
+        avatarUrl = githubAvatar("bmax121"),
+    ),
+    Credit(
+        name = "Kernel-Assisted Superuser",
+        roleRes = R.string.about_credit_role_kasu,
+        url = "https://git.zx2c4.com/kernel-assisted-superuser/about/",
+        avatarUrl = null,
+    ),
+    Credit(
+        name = "Magisk",
+        roleRes = R.string.about_credit_role_magisk,
+        url = "https://github.com/topjohnwu/Magisk",
+        avatarUrl = githubAvatar("topjohnwu"),
+    ),
+    Credit(
+        name = "genuine",
+        roleRes = R.string.about_credit_role_genuine,
+        url = "https://github.com/brevent/genuine/",
+        avatarUrl = githubAvatar("brevent"),
+    ),
+    Credit(
+        name = "Diamorphine",
+        roleRes = R.string.about_credit_role_diamorphine,
+        url = "https://github.com/m0nad/Diamorphine",
+        avatarUrl = githubAvatar("m0nad"),
+    ),
+    Credit(
+        name = "WildKSU",
+        roleRes = R.string.about_credit_role_wildksu,
+        url = "https://github.com/WildKernels/Wild_KSU",
+        avatarUrl = githubAvatar("WildKernels"),
+    ),
+    Credit(
+        name = "BreZygisk",
+        roleRes = R.string.about_credit_role_brezygisk,
+        url = "https://github.com/rrr333nnn333/BreZygisk",
+        avatarUrl = githubAvatar("rrr333nnn333"),
+    ),
+)
