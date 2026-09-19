@@ -35,6 +35,16 @@ class KsuCliRepository(context: Context) {
         const val TAG = "KsuCli"
         private const val BUSYBOX = "/data/adb/ksu/bin/busybox"
 
+        // Kernel image names searched inside an AnyKernel zip, in order.
+        // .gz is decompressed on the fly; other compression is rejected.
+        private val AKERNEL_CANDIDATES = listOf(
+            "Image",
+            "Image.gz",
+            "zImage",
+            "zImage-dtb",
+            "kernel",
+        )
+
         // Official manager signing certificates (size in bytes + SHA-256 of the
         // APK v2 signing cert). Compared numerically: `ksud debug get-sign`
         // prints sizes like `0x51c` (Rust {:#x}, no zero-padding), so a raw
@@ -330,6 +340,139 @@ class KsuCliRepository(context: Context) {
         val result = flashWithIO(command, onStdout, onStderr)
         Log.i(TAG, "AnyKernel3 flash result: ${result.isSuccess}, code: ${result.code}")
         return result.isSuccess
+    }
+
+    /**
+     * Offline patch: inject the kernel from an AnyKernel3 zip into a stock
+    fun patchBootWithAnyKernel(
+        context: Context,
+        bootUri: Uri,
+        zipUri: Uri,
+        onFinish: (Boolean, Int) -> Unit,
+        onStdout: (String) -> Unit,
+        onStderr: (String) -> Unit
+    ): Boolean {
+        val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
+        val workDir = File(context.cacheDir, "akpatch_$timestamp")
+        if (!workDir.mkdirs()) {
+            onStderr(context.getString(R.string.patch_workdir_failed))
+            onFinish(false, 1)
+            return false
+        }
+        try {
+            val resolver = context.contentResolver
+            val bootImg = File(workDir, "boot.img")
+            resolver.openInputStream(bootUri).use { input ->
+                bootImg.outputStream().use { out -> input?.copyTo(out) }
+            }
+            val zipFile = File(workDir, "ak.zip")
+            resolver.openInputStream(zipUri).use { input ->
+                zipFile.outputStream().use { out -> input?.copyTo(out) }
+            }
+
+            val newKernel = File(workDir, "kernel-new")
+            val found = runCatching {
+                ZipFile(zipFile).use { zip ->
+                    val entry = AKERNEL_CANDIDATES.firstNotNullOfOrNull { name ->
+                        zip.getEntry(name)?.let { name to it }
+                    } ?: return@runCatching false
+                    zip.getInputStream(entry.second).use { input ->
+                        val stream = if (entry.first.endsWith(".gz")) {
+                            java.util.zip.GZIPInputStream(input)
+                        } else {
+                            input
+                        }
+                        stream.use { it.copyTo(newKernel.outputStream()) }
+                    }
+                    true
+                }
+            }.getOrDefault(false)
+            if (!found || !newKernel.isFile) {
+                onStderr(context.getString(R.string.invalid_anykernel_kernel))
+                onFinish(false, 1)
+                return false
+            }
+
+            val magiskbootLib = runCatching {
+                File(nativeLibraryDir, System.mapLibraryName("magiskboot"))
+                    .takeIf { it.isFile }
+            }.getOrNull()
+            if (magiskbootLib == null) {
+                onStderr(context.getString(R.string.magiskboot_unavailable))
+                onFinish(false, 1)
+                return false
+            }
+            val magiskboot = File(workDir, "magiskboot")
+            magiskbootLib.copyTo(magiskboot, overwrite = true)
+            magiskboot.setExecutable(true)
+
+            val shell = runCatching { Shell.Builder.create().build("sh") }.getOrNull()
+            if (shell == null) {
+                onStderr(context.getString(R.string.patch_shell_failed))
+                onFinish(false, 1)
+                return false
+            }
+            shell.use {
+                fun sh(cmd: String): Shell.Result {
+                    val stdoutCallback = object : CallbackList<String?>() {
+                        override fun onAddElement(s: String?) {
+                            onStdout(s ?: "")
+                        }
+                    }
+                    val stderrCallback = object : CallbackList<String?>() {
+                        override fun onAddElement(s: String?) {
+                            onStderr(s ?: "")
+                        }
+                    }
+                    return it.newJob().add(cmd).to(stdoutCallback, stderrCallback).exec()
+                }
+
+                var result = sh("cd ${shellQuote(workDir.absolutePath)} && ./magiskboot unpack boot.img")
+                if (!result.isSuccess) {
+                    onFinish(false, result.code)
+                    return false
+                }
+                result = sh(
+                    "cd ${shellQuote(workDir.absolutePath)} && cat kernel-new > kernel " +
+                        "&& ./magiskboot repack boot.img"
+                )
+                if (!result.isSuccess) {
+                    onFinish(false, result.code)
+                    return false
+                }
+            }
+
+            val patched = File(workDir, "new-boot.img")
+            if (!patched.isFile) {
+                onStderr(context.getString(R.string.patch_repack_failed))
+                onFinish(false, 1)
+                return false
+            }
+            saveToDownloads(context, patched, "originsu-patched-boot-$timestamp.img")
+            Log.i(TAG, "boot patched with AnyKernel kernel, size: ${patched.length()}")
+            onFinish(true, 0)
+            return true
+        } finally {
+            runCatching { workDir.deleteRecursively() }
+        }
+    }
+
+    private fun saveToDownloads(context: Context, file: File, displayName: String) {
+        val values = android.content.ContentValues().apply {
+            put(android.provider.MediaStore.Downloads.DISPLAY_NAME, displayName)
+            put(android.provider.MediaStore.Downloads.MIME_TYPE, "application/octet-stream")
+            put(
+                android.provider.MediaStore.Downloads.RELATIVE_PATH,
+                android.os.Environment.DIRECTORY_DOWNLOADS + "/OriginSU"
+            )
+        }
+        val resolver = context.contentResolver
+        val uri = resolver.insert(
+            android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI, values
+        ) ?: throw IllegalStateException("MediaStore insert failed")
+        resolver.openOutputStream(uri)?.use { out ->
+            file.inputStream().use { it.copyTo(out) }
+        }
     }
 
     /**

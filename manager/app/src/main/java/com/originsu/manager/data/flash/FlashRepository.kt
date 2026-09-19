@@ -144,6 +144,15 @@ class FlashRepository(
                         onStderr,
                     )
 
+                    is FlashOperation.PatchBootImage -> ksuCliRepository.patchBootWithAnyKernel(
+                        application,
+                        operation.bootUri.toUri(),
+                        operation.zipUri.toUri(),
+                        onFinish,
+                        onStdout,
+                        onStderr,
+                    )
+
                     FlashOperation.Restore -> ksuCliRepository.restoreBoot(
                         onFinish,
                         onStdout,

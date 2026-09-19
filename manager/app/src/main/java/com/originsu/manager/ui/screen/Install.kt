@@ -178,6 +178,13 @@ fun InstallScreen(
                         navigator.push(Route.Flash.anyKernelZip(uri.toString()))
                     }
                 }
+                is InstallMethod.PatchBootImage -> {
+                    val bootUri = method.bootUri
+                    val zipUri = method.zipUri
+                    if (bootUri != null && zipUri != null) {
+                        navigator.push(Route.Flash.patchBootImage(bootUri.toString(), zipUri.toString()))
+                    }
+                }
                 else -> {
                     val isOta = method is InstallMethod.DirectInstallToInactiveSlot
                     val partitionSelection = partitionsState.getOrNull(partitionSelectionIndex)
@@ -504,6 +511,13 @@ sealed class InstallMethod {
         override val summary: String? = null
     ) : InstallMethod()
 
+    data class PatchBootImage(
+        val bootUri: Uri? = null,
+        val zipUri: Uri? = null,
+        @param:StringRes override val label: Int = R.string.patch_boot_anykernel,
+        override val summary: String? = null
+    ) : InstallMethod()
+
     abstract val label: Int
     open val summary: String? = null
 }
@@ -520,6 +534,7 @@ private fun SelectInstallMethod(
     val cardConfig: CardConfig = koinInject()
     val horizonKernelSummary = stringResource(R.string.horizon_kernel_summary)
     val anyKernelZipSummary = stringResource(R.string.flash_anykernel_zip_summary)
+    val patchBootImageSummary = stringResource(R.string.patch_boot_anykernel_summary)
     val selectFileTip = stringResource(
         id = R.string.select_file_tip, defaultPartitionName
     )
@@ -527,6 +542,9 @@ private fun SelectInstallMethod(
     val radioOptions = mutableListOf<InstallMethod>(
         InstallMethod.SelectFile(summary = selectFileTip)
     )
+
+    // Offline patch needs no root: stock boot.img + AnyKernel kernel -> file.
+    radioOptions.add(InstallMethod.PatchBootImage(summary = patchBootImageSummary))
 
     if (rootAvailable) {
         radioOptions.add(InstallMethod.DirectInstall)
@@ -539,6 +557,37 @@ private fun SelectInstallMethod(
 
     var selectedOption by remember { mutableStateOf<InstallMethod?>(null) }
     var currentSelectingMethod by remember { mutableStateOf<InstallMethod?>(null) }
+    var akPatchBootUri by remember { mutableStateOf<Uri?>(null) }
+
+    val akPatchZipPicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) {
+        if (it.resultCode == Activity.RESULT_OK) {
+            it.data?.data?.let { zipUri ->
+                val opt = InstallMethod.PatchBootImage(
+                    bootUri = akPatchBootUri,
+                    zipUri = zipUri,
+                    summary = patchBootImageSummary
+                )
+                selectedOption = opt
+                onSelected(opt)
+            }
+        }
+    }
+
+    val akPatchBootPicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) {
+        if (it.resultCode == Activity.RESULT_OK) {
+            it.data?.data?.let { bootUri ->
+                akPatchBootUri = bootUri
+                akPatchZipPicker.launch(Intent(Intent.ACTION_GET_CONTENT).apply {
+                    type = "application/zip"
+                    addCategory(Intent.CATEGORY_OPENABLE)
+                })
+            }
+        }
+    }
 
     LaunchedEffect(selectedMethod) {
         selectedOption = selectedMethod
@@ -589,6 +638,15 @@ private fun SelectInstallMethod(
     val onClick = { option: InstallMethod ->
         currentSelectingMethod = option
         when (option) {
+            is InstallMethod.PatchBootImage -> {
+                akPatchBootPicker.launch(Intent(Intent.ACTION_GET_CONTENT).apply {
+                    type = "application/*"
+                    putExtra(
+                        Intent.EXTRA_MIME_TYPES,
+                        arrayOf("application/octet-stream", "application/x-boot-image")
+                    )
+                })
+            }
             is InstallMethod.SelectFile, is InstallMethod.HorizonKernel, is InstallMethod.AnyKernelZip -> {
                 selectImageLauncher.launch(Intent(Intent.ACTION_GET_CONTENT).apply {
                     type = "application/*"

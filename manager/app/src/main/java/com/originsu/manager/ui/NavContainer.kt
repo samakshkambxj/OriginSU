@@ -722,6 +722,10 @@ private fun Route.Flash.toFlashIt(): FlashIt = when (type) {
 
     Route.Flash.TYPE_MODULE -> FlashIt.FlashModule(uris.firstOrNull().orEmpty())
     Route.Flash.TYPE_ANYKERNEL_ZIP -> FlashIt.FlashAnyKernelZip(uris.firstOrNull().orEmpty())
+    Route.Flash.TYPE_PATCH_BOOT -> FlashIt.FlashPatchBootImage(
+        boot = uris.getOrNull(0).orEmpty(),
+        zip = uris.getOrNull(1).orEmpty(),
+    )
     Route.Flash.TYPE_MODULES -> FlashIt.FlashModules(uris, currentIndex)
     Route.Flash.TYPE_MODULE_UPDATE -> FlashIt.FlashModuleUpdate(uris.firstOrNull().orEmpty())
     Route.Flash.TYPE_RESTORE -> FlashIt.FlashRestore

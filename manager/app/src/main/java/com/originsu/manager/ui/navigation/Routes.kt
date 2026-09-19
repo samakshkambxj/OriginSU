@@ -87,6 +87,7 @@ sealed interface Route : NavKey, Parcelable {
             const val TYPE_BOOT = "boot"
             const val TYPE_MODULE = "module"
             const val TYPE_ANYKERNEL_ZIP = "anykernel_zip"
+            const val TYPE_PATCH_BOOT = "patch_boot"
             const val TYPE_MODULES = "modules"
             const val TYPE_MODULE_UPDATE = "module_update"
             const val TYPE_RESTORE = "restore"
@@ -109,6 +110,8 @@ sealed interface Route : NavKey, Parcelable {
 
             fun module(uri: String) = Flash(TYPE_MODULE, uris = listOf(uri))
             fun anyKernelZip(uri: String) = Flash(TYPE_ANYKERNEL_ZIP, uris = listOf(uri))
+            fun patchBootImage(bootUri: String, zipUri: String) =
+                Flash(TYPE_PATCH_BOOT, uris = listOf(bootUri, zipUri))
             fun modules(uris: List<String>, currentIndex: Int = 0) =
                 Flash(TYPE_MODULES, uris = uris, currentIndex = currentIndex)
 
