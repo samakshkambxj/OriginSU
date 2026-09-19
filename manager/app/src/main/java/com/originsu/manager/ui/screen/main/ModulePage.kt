@@ -1201,13 +1201,14 @@ private fun ModuleList(
 @SuppressLint("LocalContextGetResourceValueCall")
 @Composable
 private fun ModuleBannerBackdrop(
+    modifier: Modifier = Modifier,
     moduleId: String,
     banner: String,
 ) {
     val context = LocalContext.current
     val fadeColor = MaterialTheme.colorScheme.surface
     Box(
-        modifier = Modifier.matchParentSize(),
+        modifier = modifier,
         contentAlignment = Alignment.Center
     ) {
         if (banner.startsWith("http", ignoreCase = true)) {
@@ -1315,6 +1316,7 @@ fun ModuleItem(
         Box(modifier = Modifier.fillMaxWidth()) {
             if (showBanners && module.banner.isNotEmpty()) {
                 ModuleBannerBackdrop(
+                    modifier = Modifier.matchParentSize(),
                     moduleId = module.dirId,
                     banner = module.banner,
                 )
