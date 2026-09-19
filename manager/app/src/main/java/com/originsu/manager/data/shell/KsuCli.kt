@@ -8,9 +8,9 @@ import android.os.SystemClock
 import android.system.Os
 import android.util.Log
 import androidx.core.net.toUri
-import com.originsu.manager.R
 import com.originsu.manager.BuildConfig
 import com.originsu.manager.Natives
+import com.originsu.manager.R
 import com.originsu.manager.domain.model.LkmSelection
 import com.topjohnwu.superuser.CallbackList
 import com.topjohnwu.superuser.Shell
@@ -35,6 +35,22 @@ class KsuCliRepository(context: Context) {
     private companion object {
         const val TAG = "KsuCli"
         private const val BUSYBOX = "/data/adb/ksu/bin/busybox"
+
+        // Origin Zygisk deploy locations (built-in engine, not a module).
+        const val ORIGIN_ZYGISK_DIR = "/data/adb/ksu/originzygisk"
+        const val ORIGIN_ZYGISK_HOOK = "/data/adb/post-fs-data.d/originzygisk.sh"
+
+        // Zygisk *provider* module ids that conflict with the built-in
+        // engine. Zygisk *modules* (e.g. LSPosed) are NOT blocked.
+        val BLOCKED_ZYGISK_IMPL_IDS = setOf(
+            "zygisksu",
+            "rezygisk",
+            "brezygisk",
+            "shirokozygisk",
+            "zygisk_next",
+            "zygisknext",
+            "neozygisk",
+        )
 
         // Kernel image names searched inside an AnyKernel zip, in order.
         // .gz is decompressed on the fly; other compression is rejected.
@@ -73,6 +89,7 @@ class KsuCliRepository(context: Context) {
     }
 
     private val nativeLibraryDir = context.applicationInfo.nativeLibraryDir
+    private val appContext = context.applicationContext
 
     private fun getNativeLibraryPath(name: String): String {
         val library = File(nativeLibraryDir, System.mapLibraryName(name))
@@ -876,6 +893,10 @@ class KsuCliRepository(context: Context) {
     }
 
     fun getZygiskImplement(): String {
+        if (isOriginZygiskDeployed()) {
+            Log.i(TAG, "Zygisk implement: OriginZygisk")
+            return "OriginZygisk"
+        }
         val zygiskModuleIds = listOf(
             "zygisksu",
             "rezygisk"
@@ -898,6 +919,85 @@ class KsuCliRepository(context: Context) {
         Log.i(TAG, "Zygisk implement: None")
         return "None"
     }
+
+    private fun isOriginZygiskDeployed(): Boolean {
+        return runCatching {
+            SuFile.open("$ORIGIN_ZYGISK_DIR/enable").isFile &&
+                SuFile.open(ORIGIN_ZYGISK_HOOK).isFile
+        }.getOrDefault(false)
+    }
+
+    suspend fun isOriginZygiskEnabled(): Boolean = withContext(Dispatchers.IO) {
+        if (!rootAvailable()) {
+            return@withContext isOriginZygiskDeployed()
+        }
+        val shell = getRootShell()
+        ShellUtils.fastCmdResult(
+            shell,
+            "[ -f $ORIGIN_ZYGISK_DIR/enable ] && [ -f $ORIGIN_ZYGISK_HOOK ]"
+        )
+    }
+
+    suspend fun isOriginZygiskRunning(): Boolean = withContext(Dispatchers.IO) {
+        if (!rootAvailable()) {
+            return@withContext false
+        }
+        val shell = getRootShell()
+        ShellUtils.fastCmdResult(shell, "pgrep -f zygisk-ptrace >/dev/null 2>&1")
+    }
+
+    private fun copyAssetToCacheDir(name: String): File? {
+        return runCatching {
+            val out = File(appContext.cacheDir, name.substringAfterLast('/'))
+            appContext.assets.open(name).use { input ->
+                out.outputStream().use { input.copyTo(it) }
+            }
+            out
+        }.getOrNull()
+    }
+
+    suspend fun setOriginZygiskEnabled(enabled: Boolean): Boolean =
+        withContext(Dispatchers.IO) {
+            val shell = getRootShell()
+            if (!enabled) {
+                return@withContext ShellUtils.fastCmdResult(
+                    shell,
+                    "rm -f $ORIGIN_ZYGISK_DIR/enable $ORIGIN_ZYGISK_HOOK; " +
+                        "pkill -f zygisk-ptrace 2>/dev/null; " +
+                        "pkill -f zygiskd 2>/dev/null; true"
+                )
+            }
+            val payload = copyAssetToCacheDir("originzygisk/payload.zip")
+            val setup = copyAssetToCacheDir("originzygisk/setup.sh")
+            val launch = copyAssetToCacheDir("originzygisk/launch.sh")
+            if (payload == null || setup == null || launch == null) {
+                Log.w(TAG, "OriginZygisk assets missing in APK")
+                payload?.delete()
+                setup?.delete()
+                launch?.delete()
+                return@withContext false
+            }
+            val script = """
+                set -e
+                rm -rf $ORIGIN_ZYGISK_DIR
+                mkdir -p $ORIGIN_ZYGISK_DIR/payload /data/adb/post-fs-data.d
+                cp '${payload.absolutePath}' $ORIGIN_ZYGISK_DIR/payload.zip
+                cp '${setup.absolutePath}' $ORIGIN_ZYGISK_DIR/setup.sh
+                cp '${launch.absolutePath}' $ORIGIN_ZYGISK_DIR/launch.sh
+                cd $ORIGIN_ZYGISK_DIR/payload && unzip -o $ORIGIN_ZYGISK_DIR/payload.zip >/dev/null
+                cd $ORIGIN_ZYGISK_DIR && sh setup.sh $ORIGIN_ZYGISK_DIR
+                ${getKsuDaemonPath()} sepolicy apply $ORIGIN_ZYGISK_DIR/payload/sepolicy.rule || true
+                touch $ORIGIN_ZYGISK_DIR/enable
+                cp $ORIGIN_ZYGISK_DIR/launch.sh $ORIGIN_ZYGISK_HOOK
+                chmod 0755 $ORIGIN_ZYGISK_HOOK
+            """.trimIndent()
+            val ok = shell.newJob().add(script).exec().isSuccess
+            payload.delete()
+            setup.delete()
+            launch.delete()
+            Log.i(TAG, "set OriginZygisk enabled=$enabled result: $ok")
+            ok
+        }
 
     fun addKernelUmountPath(path: String, flags: Int): Boolean {
         val shell = getRootShell()

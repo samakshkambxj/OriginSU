@@ -188,6 +188,12 @@
     <string name="secure_root_prompt_subtitle">Authenticate to grant root to %1$s</string>
     <string name="secure_root_denied">Authentication failed, root not granted</string>
     <string name="secure_root_unavailable">Authentication unavailable</string>
+    <string name="settings_origin_zygisk">Origin Zygisk</string>
+    <string name="settings_origin_zygisk_summary">Built-in Zygisk engine, no provider module needed</string>
+    <string name="origin_zygisk_running">Running</string>
+    <string name="origin_zygisk_needs_reboot">Deployed, reboot to activate</string>
+    <string name="origin_zygisk_failed">Origin Zygisk change failed</string>
+    <string name="zygisk_provider_blocked">Conflicting Zygisk provider blocked while Origin Zygisk is on</string>
     <string name="onboarding_title_welcome">Welcome to OriginSU</string>
     <string name="onboarding_desc_welcome">Kernel-based root, modules and app profiles, all managed from here.</string>
     <string name="onboarding_title_status">Root status</string>

@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.materialkolor.PaletteStyle
 import com.materialkolor.dynamiccolor.ColorSpec
 import com.originsu.manager.R
+import com.originsu.manager.data.shell.KsuCliRepository
 import com.originsu.manager.domain.model.AppearanceSetting
 import com.originsu.manager.domain.model.PlatformSetting
 import com.originsu.manager.domain.model.SettingsPlatformSnapshot
@@ -102,6 +103,8 @@ data class SettingsUiState(
     val defaultUmountModules: Boolean = false,
     val useBuiltinMonoFont: Boolean = false,
     val isSecureRootEnabled: Boolean = false,
+    val isOriginZygiskEnabled: Boolean = false,
+    val isOriginZygiskRunning: Boolean = false,
 )
 
 sealed interface SettingsUiAction {
@@ -141,6 +144,8 @@ sealed interface SettingsUiAction {
     data class SetSuLog(val enabled: Boolean) : SettingsUiAction
     data class SetDefaultUmountModules(val enabled: Boolean) : SettingsUiAction
     data class SetSecureRootEnabled(val enabled: Boolean) : SettingsUiAction
+    data class SetOriginZygiskEnabled(val enabled: Boolean) : SettingsUiAction
+    data object RefreshOriginZygisk : SettingsUiAction
 }
 
 sealed interface SettingsUiEvent {
@@ -162,6 +167,7 @@ class SettingsViewModel(
     private val setDefaultUmountModules: SetDefaultUmountModulesUseCase,
     private val getBooleanPreference: GetBooleanPreferenceUseCase,
     private val setBooleanPreference: SetBooleanPreferenceUseCase,
+    private val ksuCliRepository: KsuCliRepository,
 ) : ViewModel() {
     private val mutableState = MutableStateFlow(SettingsUiState())
     val state: StateFlow<SettingsUiState> = mutableState.asStateFlow()
@@ -380,6 +386,32 @@ fun initialize() {
         mutableState.update { it.copy(isSecureRootEnabled = enabled) }
     }
 
+    fun refreshOriginZygisk() {
+        viewModelScope.launch {
+            val enabled = runCatching { ksuCliRepository.isOriginZygiskEnabled() }
+                .getOrDefault(false)
+            val running = if (enabled) {
+                runCatching { ksuCliRepository.isOriginZygiskRunning() }.getOrDefault(false)
+            } else {
+                false
+            }
+            mutableState.update {
+                it.copy(isOriginZygiskEnabled = enabled, isOriginZygiskRunning = running)
+            }
+        }
+    }
+
+    fun handleOriginZygiskChange(enabled: Boolean) {
+        viewModelScope.launch {
+            val ok = runCatching { ksuCliRepository.setOriginZygiskEnabled(enabled) }
+                .getOrDefault(false)
+            if (!ok) {
+                mutableEvents.tryEmit(SettingsUiEvent.Message(R.string.origin_zygisk_failed))
+            }
+            refreshOriginZygisk()
+        }
+    }
+
     fun handleAdbRootChange(checked: Boolean) {
         mutableState.update { it.copy(isAdbRootEnabled = checked) }
         updatePlatformAsync(PlatformSetting.AdbRoot(checked))
@@ -459,6 +491,9 @@ fun dispatch(action: SettingsUiAction) {
                 handleDefaultUmountModulesChange(action.enabled)
             is SettingsUiAction.SetSecureRootEnabled ->
                 handleSecureRootChange(action.enabled)
+            is SettingsUiAction.SetOriginZygiskEnabled ->
+                handleOriginZygiskChange(action.enabled)
+            SettingsUiAction.RefreshOriginZygisk -> refreshOriginZygisk()
         }
     }
 
