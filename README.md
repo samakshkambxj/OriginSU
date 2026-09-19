@@ -1,6 +1,9 @@
 <div align="center">
 
-  <img src="docs/OriginSU-light.svg" width="160" alt="OriginSU Light Logo">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/OriginSU-dark.svg">
+    <img src="docs/OriginSU-light.svg" width="160" alt="OriginSU Logo">
+  </picture>
 
   # OriginSU
 
@@ -24,7 +27,6 @@
 ## Contents
 
 - [Features](#features)
-- [Origin features](#origin-features)
 - [Installation](#installation)
 - [Compatibility](#compatibility)
 - [Hook mode](#hook-mode)
@@ -35,18 +37,23 @@
 
 ## Features
 
+**Core**
+
 1. Kernel-based `su` and root access management
 2. Module system based on [metamodules](https://kernelsu.org/guide/metamodule.html): Pluggable infrastructure for systemless modifications.
 3. [App Profile](https://kernelsu.org/guide/app-profile.html): Lock up the root power in a cage
-4. Support non-GKI and GKI 1.0
-5. Tweaks to the manager theme and the built-in susfs management tool.
-6. Multi manager support, for default [Official KernelSU](https://github.com/tiann/KernelSU)/[RKSU](https://github.com/rsuntk/KernelSU)/[MKSU](https://github.com/5ec1cff/KernelSU)/[SukiSU](https://github.com/SukiSU-Ultra/SukiSU-Ultra) is supported work as manager with OriginSU's kernel
+4. GKI 2.0, GKI 1.0 and non-GKI (3.4+) support
+5. Works as manager with the official [KernelSU](https://github.com/tiann/KernelSU), [RKSU](https://github.com/rsuntk/KernelSU), [MKSU](https://github.com/5ec1cff/KernelSU) and [SukiSU](https://github.com/SukiSU-Ultra/SukiSU-Ultra) kernels
 
-## Origin features
+**Origin Lab**
 
 1. Time-limited grants: give root for N minutes, auto-revoked by a persistent waiter plus a sweep on every `ksud` start
 2. Origin Veil: kernel-side root-probe detection with a per-app cloak set that hides module mounts from probing apps
 3. Origin Zygisk (BreZygisk-based) ships inside the manager: deploy, status and kill-switch in Settings, no provider module needed
+4. Built-in SuSFS manager with a one-tap strong-hiding preset
+5. Automatic bootloop protection: disables all modules after consecutive failed boots and tells you about the rescue
+6. Inbuilt kernel flasher: direct install, AnyKernel zips, offline `boot.img` patching and Horizon kernels, with LKM and GKI flows
+7. Manager updater with stable/beta channels, dynamic manager support and a multi-icon app-icon picker
 
 ## Installation
 
