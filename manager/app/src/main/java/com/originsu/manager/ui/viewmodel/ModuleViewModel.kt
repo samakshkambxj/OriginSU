@@ -40,6 +40,7 @@ data class ModuleUiState(
     val isNeedRefresh: Boolean = false,
     val showMoreModuleInfo: Boolean = false,
     val showBanners: Boolean = true,
+    val selectedModuleIds: Set<String> = emptySet(),
 )
 
 sealed interface ModuleUiAction {
@@ -49,6 +50,10 @@ sealed interface ModuleUiAction {
     data class Sort(val enabledFirst: Boolean, val actionFirst: Boolean) : ModuleUiAction
     data class SetShowMoreInfo(val enabled: Boolean) : ModuleUiAction
     data class SetShowBanners(val enabled: Boolean) : ModuleUiAction
+    data class ToggleSelect(val moduleId: String) : ModuleUiAction
+    data object ClearSelection : ModuleUiAction
+    data class BatchSetEnabled(val enabled: Boolean) : ModuleUiAction
+    data object BatchSetRemoved : ModuleUiAction
     data class LoadSize(val moduleId: String) : ModuleUiAction
     data object MarkNeedRefresh : ModuleUiAction
     data class UpdateCachedEnabled(val moduleId: String, val enabled: Boolean) : ModuleUiAction
@@ -71,12 +76,19 @@ sealed interface ModuleUiEvent {
         val removed: Boolean,
         val successful: Boolean,
     ) : ModuleUiEvent
+
+    data class BatchCompleted(
+        val succeeded: Int,
+        val failed: Int,
+        val removed: Boolean,
+    ) : ModuleUiEvent
 }
 
 private data class ModuleControls(
     val search: String = "",
     val isNeedRefresh: Boolean = false,
     val moduleSizes: Map<String, String> = emptyMap(),
+    val selectedModuleIds: Set<String> = emptySet(),
 )
 
 class ModuleViewModel(
@@ -118,6 +130,7 @@ class ModuleViewModel(
             isNeedRefresh = local.isNeedRefresh,
             showMoreModuleInfo = preferences.showMoreModuleInfo,
             showBanners = preferences.showBanners,
+            selectedModuleIds = local.selectedModuleIds,
         )
     }.stateIn(viewModelScope, SharingStarted.Eagerly, ModuleUiState())
     val uiState: StateFlow<ModuleUiState> = state
@@ -137,6 +150,49 @@ class ModuleViewModel(
 
             is ModuleUiAction.SetShowBanners -> {
                 modulePreferences.setShowBanners(action.enabled)
+            }
+
+            is ModuleUiAction.ToggleSelect -> controls.update { current ->
+                val selected = current.selectedModuleIds.toMutableSet()
+                if (!selected.add(action.moduleId)) {
+                    selected.remove(action.moduleId)
+                }
+                current.copy(selectedModuleIds = selected)
+            }
+
+            ModuleUiAction.ClearSelection -> controls.update {
+                it.copy(selectedModuleIds = emptySet())
+            }
+
+            is ModuleUiAction.BatchSetEnabled -> viewModelScope.launch {
+                val ids = controls.value.selectedModuleIds.toList()
+                var succeeded = 0
+                for (id in ids) {
+                    if (setModuleEnabled(id, action.enabled).isSuccess) {
+                        succeeded++
+                    }
+                }
+                mutableEvents.emit(
+                    ModuleUiEvent.BatchCompleted(succeeded, ids.size - succeeded, removed = false)
+                )
+                controls.update { it.copy(selectedModuleIds = emptySet()) }
+                refreshNow(manual = false)
+            }
+
+            ModuleUiAction.BatchSetRemoved -> viewModelScope.launch {
+                val ids = controls.value.selectedModuleIds.toList()
+                var succeeded = 0
+                for (id in ids) {
+                    if (setModuleRemoved(id, true).isSuccess) {
+                        succeeded++
+                    }
+                }
+                mutableEvents.emit(
+                    ModuleUiEvent.BatchCompleted(succeeded, ids.size - succeeded, removed = true)
+                )
+                controls.update { it.copy(selectedModuleIds = emptySet()) }
+                controls.update { it.copy(isNeedRefresh = true) }
+                refreshNow(manual = false)
             }
 
             is ModuleUiAction.LoadSize -> viewModelScope.launch {

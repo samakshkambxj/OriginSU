@@ -20,6 +20,9 @@ Status: ✅ done · 🚧 in progress · ⏳ queued · ⏸️ deferred.
   (proven rootless on-device; magiskboot exec abandoned — Wild's blob is
   non-PIE and app exec is SELinux-denied, kept only for AK3 installer
   scripts that call it under root).
+- ✅ Guided UX: toasts at each pick step, chosen boot.img + zip names shown
+  in the option summary.
+- ✅ Terminal banner rebranded: ksud prints `OriginSU` figlet.
 
 ## Phase 1b — Module banners (WildKSU/KSU-Next) ★☆☆☆☆ ✅
 (manager only)

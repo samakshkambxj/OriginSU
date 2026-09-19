@@ -43,6 +43,7 @@ import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.twotone.Undo
 import androidx.compose.material.icons.automirrored.twotone.Wysiwyg
+import androidx.compose.material.icons.twotone.AddToHomeScreen
 import androidx.compose.material.icons.twotone.Check
 import androidx.compose.material.icons.twotone.ChevronRight
 import androidx.compose.material.icons.twotone.Close
@@ -58,6 +59,7 @@ import androidx.compose.material.icons.twotone.Restore
 import androidx.compose.material.icons.twotone.Warning
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CheckableDropdownMenuItem
 import androidx.compose.material3.DropdownMenuGroup
@@ -488,6 +490,53 @@ fun ModulePage(bottomPadding: Dp) {
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
+private fun BatchActionBar(
+    countText: String,
+    enableText: String,
+    disableText: String,
+    uninstallText: String,
+    onEnable: () -> Unit,
+    onDisable: () -> Unit,
+    onUninstall: () -> Unit,
+    onClear: () -> Unit,
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.6f),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            Text(
+                text = countText,
+                style = MaterialTheme.typography.titleSmall,
+                modifier = Modifier.weight(1f),
+            )
+            FilledTonalButton(onClick = onEnable) {
+                Text(enableText)
+            }
+            FilledTonalButton(onClick = onDisable) {
+                Text(disableText)
+            }
+            FilledTonalButton(onClick = onUninstall) {
+                Text(uninstallText)
+            }
+            IconButton(onClick = onClear) {
+                Icon(
+                    imageVector = Icons.TwoTone.Close,
+                    contentDescription = stringResource(android.R.string.cancel)
+                )
+            }
+        }
+    }
+}
+
+@Composable
 private fun ModuleDropdown(
     expanded: Boolean,
     onDismissRequest: () -> Unit,
@@ -616,6 +665,12 @@ private fun ModuleList(
     val uninstall = stringResource(R.string.uninstall)
     val cancel = stringResource(android.R.string.cancel)
     val moduleUninstallConfirm = stringResource(R.string.module_uninstall_confirm)
+    val batchResult = stringResource(R.string.batch_result)
+    val batchUninstallConfirm = stringResource(R.string.batch_uninstall_confirm)
+    val batchEnable = stringResource(R.string.batch_enable)
+    val batchDisable = stringResource(R.string.batch_disable)
+    val batchUninstall = stringResource(R.string.batch_uninstall)
+    val selectedCountFmt = stringResource(R.string.selected_count)
     val metaModuleUninstallConfirm = stringResource(R.string.metamodule_uninstall_confirm)
     val updateText = stringResource(R.string.module_update)
     val changelogText = stringResource(R.string.module_changelog)
@@ -668,6 +723,23 @@ private fun ModuleList(
 
                 is ModuleUiEvent.Error -> if (event.message.isNotBlank()) {
                     snackBarHost.showReplacingSnackbar(event.message)
+                }
+
+                is ModuleUiEvent.BatchCompleted -> {
+                    viewModel.dispatch(ModuleUiAction.MarkNeedRefresh)
+                    val message = if (event.failed == 0) {
+                        rebootToApply
+                    } else {
+                        batchResult.format(event.succeeded, event.failed)
+                    }
+                    val result = snackBarHost.showReplacingSnackbar(
+                        message = message,
+                        actionLabel = reboot.takeIf { event.failed == 0 },
+                        duration = SnackbarDuration.Long,
+                    )
+                    if (result == SnackbarResult.ActionPerformed) {
+                        viewModel.dispatch(ModuleUiAction.Reboot)
+                    }
                 }
 
                 ModuleUiEvent.RefreshCompleted -> Unit
@@ -945,6 +1017,47 @@ private fun ModuleList(
                 }
             }
 
+            if (uiState.selectedModuleIds.isNotEmpty()) {
+                item(key = "batch-bar") {
+                    BatchActionBar(
+                        countText = selectedCountFmt.format(uiState.selectedModuleIds.size),
+                        onEnable = {
+                            viewModel.dispatch(ModuleUiAction.BatchSetEnabled(true))
+                        },
+                        onDisable = {
+                            viewModel.dispatch(ModuleUiAction.BatchSetEnabled(false))
+                        },
+                        onUninstall = {
+                            scope.launch {
+                                val confirmResult = confirmDialog.awaitConfirm(
+                                    moduleStr,
+                                    content = batchUninstallConfirm.format(uiState.selectedModuleIds.size),
+                                    confirm = uninstall,
+                                    dismiss = cancel
+                                )
+                                if (confirmResult != ConfirmResult.Confirmed) {
+                                    return@launch
+                                }
+                                withContext(Dispatchers.IO) {
+                                    val modulesById = uiState.moduleList.associateBy { it.dirId }
+                                    uiState.selectedModuleIds.forEach { dirId ->
+                                        modulesById[dirId]?.let { module ->
+                                            shortcut.deleteModuleActionShortcut(context, module.id)
+                                            shortcut.deleteModuleWebUiShortcut(context, module.id)
+                                        }
+                                    }
+                                }
+                                viewModel.dispatch(ModuleUiAction.BatchSetRemoved)
+                            }
+                        },
+                        onClear = {
+                            viewModel.dispatch(ModuleUiAction.ClearSelection)
+                        },
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                }
+            }
+
             items(
                 items = uiState.moduleList,
                 key = { "module-$it.id" }
@@ -985,6 +1098,11 @@ private fun ModuleList(
                     },
                     showMoreModuleInfo = uiState.showMoreModuleInfo,
                     showBanners = uiState.showBanners,
+                    selected = module.dirId in uiState.selectedModuleIds,
+                    selectionMode = uiState.selectedModuleIds.isNotEmpty(),
+                    onToggleSelect = {
+                        viewModel.dispatch(ModuleUiAction.ToggleSelect(module.dirId))
+                    },
                 )
 
                 Spacer(modifier = Modifier.height(16.dp))
@@ -1278,6 +1396,9 @@ fun ModuleItem(
     onModuleAddShortcut: (InstalledModule) -> Unit,
     showMoreModuleInfo: Boolean,
     showBanners: Boolean,
+    selected: Boolean,
+    selectionMode: Boolean,
+    onToggleSelect: () -> Unit,
 ) {
     val themeConfig: ThemeConfig = koinInject()
     val cardConfig: CardConfig = koinInject()
@@ -1321,24 +1442,38 @@ fun ModuleItem(
                     banner = module.banner,
                 )
             }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            if (selectionMode) {
+                Checkbox(
+                    checked = selected,
+                    onCheckedChange = { onToggleSelect() },
+                    modifier = Modifier.padding(start = 8.dp)
+                )
+            }
         Column(
             modifier = Modifier
-                .run {
-                    if (module.hasActionScript || module.hasWebUi) {
-                        combinedClickable(
-                            onLongClick = {
-                                onModuleAddShortcut(module)
-                            },
-                            onClick = {
-                                if (module.hasWebUi) {
-                                    onClick(module)
-                                }
-                            }
-                        )
-                    } else {
-                        this
+                .weight(1f, fill = false)
+                .combinedClickable(
+                    onLongClick = {
+                        if (selectionMode) {
+                            onToggleSelect()
+                        } else if (module.hasActionScript || module.hasWebUi) {
+                            onModuleAddShortcut(module)
+                        } else {
+                            onToggleSelect()
+                        }
+                    },
+                    onClick = {
+                        if (selectionMode) {
+                            onToggleSelect()
+                        } else if (module.hasWebUi) {
+                            onClick(module)
+                        }
                     }
-                }
+                )
                 .padding(horizontal = 16.dp)
                 .padding(top = 12.dp)
         ) {
@@ -1506,6 +1641,25 @@ fun ModuleItem(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                if (module.hasActionScript || module.hasWebUi) {
+                    FilledTonalButton(
+                        modifier = Modifier.defaultMinSize(minWidth = 52.dp, minHeight = 32.dp),
+                        enabled = !module.remove,
+                        onClick = { onModuleAddShortcut(module) },
+                        contentPadding = PaddingValues(
+                            start = 12.dp,
+                            top = 7.dp,
+                            end = 12.dp,
+                            bottom = 7.dp,
+                        ),
+                    ) {
+                        Icon(
+                            modifier = Modifier.size(20.dp),
+                            imageVector = Icons.TwoTone.AddToHomeScreen,
+                            contentDescription = stringResource(R.string.module_shortcut_title)
+                        )
+                    }
+                }
                 if (module.hasActionScript) {
                     FilledTonalButton(
                         modifier = Modifier.defaultMinSize(minWidth = 52.dp, minHeight = 32.dp),
@@ -1602,6 +1756,7 @@ fun ModuleItem(
             }
         }
         }
+        }
     }
 }
 
@@ -1639,5 +1794,8 @@ fun ModuleItemPreview() {
         {},
         false,
         true,
+        false,
+        false,
+        {},
     )
 }

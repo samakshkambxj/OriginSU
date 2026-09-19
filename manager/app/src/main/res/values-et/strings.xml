@@ -127,4 +127,10 @@
     <string name="patch_boot_picked">Boot: %1$s\nKernel zip: %2$s</string>
     <string name="show_module_banners">Show module banners</string>
     <string name="show_module_banners_summary">Faded artwork behind module cards</string>
+    <string name="batch_enable">Enable</string>
+    <string name="batch_disable">Disable</string>
+    <string name="batch_uninstall">Uninstall</string>
+    <string name="batch_uninstall_confirm">Uninstall %1$d selected modules?</string>
+    <string name="batch_result">%1$d succeeded, %2$d failed</string>
+    <string name="selected_count">%1$d selected</string>
 </resources>
