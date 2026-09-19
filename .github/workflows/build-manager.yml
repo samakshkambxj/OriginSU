@@ -159,7 +159,15 @@ jobs:
               echo KEY_PASSWORD='${{ secrets.KEY_PASSWORD }}'
               echo KEYSTORE_FILE='key.jks'
             } >> gradle.properties
-            echo "${{ secrets.KEYSTORE }}" | base64 -d > key.jks
+            echo "${{ secrets.KEYSTORE }}" | tr -d ' \t\r\n' | base64 -d -i > key.jks
+          fi
+
+      - name: Require signing key for tag releases
+        if: github.ref_type == 'tag'
+        run: |
+          if [ -z "${{ secrets.KEYSTORE }}" ]; then
+            echo "::error::KEYSTORE secret is not set. Tag builds would produce debug-signed APKs that the kernel rejects as unofficial."
+            exit 1
           fi
 
       - name: Write PR key

@@ -13,6 +13,8 @@ jobs:
     needs:
       - build-manager
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Download Manager artifacts
         uses: actions/download-artifact@v8
@@ -20,6 +22,12 @@ jobs:
           path: manager
           name: "Manager-release"
           merge-multiple: true
+
+      - name: Download LKM artifacts
+        uses: actions/download-artifact@v8
+        with:
+          path: lkm
+          pattern: "*-lkm"
 
       - name: Check is rc tags
         id: is_rc_tag
@@ -34,5 +42,7 @@ jobs:
         uses: softprops/action-gh-release@v3
         with:
           prerelease: ${{ steps.is_rc_tag.outputs.IS_RC_TAG == 'true' }}
+          generate_release_notes: true
           files: |
             manager/*.apk
+            lkm/**/*.ko
