@@ -1,5 +1,7 @@
 package com.originsu.manager.ui.screen.main
 
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.os.Build
@@ -35,6 +37,7 @@ import androidx.compose.material.icons.twotone.Error
 import androidx.compose.material.icons.twotone.Extension
 import androidx.compose.material.icons.twotone.FilterList
 import androidx.compose.material.icons.twotone.Group
+import androidx.compose.material.icons.twotone.ContentCopy
 import androidx.compose.material.icons.twotone.Info
 import androidx.compose.material.icons.twotone.Memory
 import androidx.compose.material.icons.twotone.PowerSettingsNew
@@ -504,6 +507,45 @@ private fun TopBar(
         ),
         actions = {
             if (uiState.isCoreDataLoaded) {
+                val copyScope = rememberCoroutineScope()
+                val copySnackbar = LocalSnackbarHost.current
+                val copyContext = LocalContext.current
+                val copiedText = stringResource(R.string.device_info_copied)
+                // 复制设备信息
+                IconButton(onClick = {
+                    val status = uiState.systemStatus
+                    val info = uiState.systemInfo
+                    val mode = when {
+                        status.isSafeMode -> "Safe"
+                        status.lkmMode == true -> "LKM"
+                        status.isLateLoadMode -> "Late-load"
+                        else -> "Built-in"
+                    }
+                    val text = buildString {
+                        appendLine("OriginSU device info")
+                        appendLine("Manager: ${info.managerVersion.first} (${info.managerVersion.second})")
+                        appendLine("Kernel: ${info.kernelRelease}")
+                        appendLine("Android: ${info.androidVersion} (SDK ${Build.VERSION.SDK_INT})")
+                        appendLine("Device: ${info.deviceModel}")
+                        appendLine("KernelSU: ${status.ksuFullVersion}")
+                        appendLine("UAPI: kernel ${status.kernelUAPIVersion} / manager ${status.managerUAPIVersion}")
+                        appendLine("Hook: ${status.hookType}")
+                        appendLine("Mode: $mode")
+                        appendLine("SELinux: ${info.selinuxStatus}")
+                        appendLine("Zygisk: ${info.zygiskImplement}")
+                    }.trimEnd()
+                    val clipboard =
+                        copyContext.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                    clipboard.setPrimaryClip(ClipData.newPlainText("OriginSU", text))
+                    copyScope.launch {
+                        copySnackbar.showSnackbar(copiedText)
+                    }
+                }) {
+                    Icon(
+                        imageVector = Icons.TwoTone.ContentCopy,
+                        contentDescription = stringResource(R.string.copy_device_info)
+                    )
+                }
                 // SuSFS 配置按钮
                 if (uiState.systemInfo.susfsVersionSupported) {
                     IconButton(onClick = {
