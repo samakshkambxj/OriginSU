@@ -106,6 +106,9 @@ pub fn on_post_data_fs() -> Result<()> {
         warn!("init features failed: {e}");
     }
 
+    // revoke temporary root grants that expired while powered off
+    crate::android::tempgrant::sweep_expired();
+
     // Load susfs config entries that must capture metadata before mounts/overlays.
     crate::android::susfs::init_event::on_post_fs_data();
 

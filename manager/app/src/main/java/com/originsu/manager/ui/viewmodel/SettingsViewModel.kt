@@ -12,6 +12,7 @@ import com.originsu.manager.domain.model.SettingsPlatformSnapshot
 import com.originsu.manager.domain.model.coerceCompatibleWith
 import com.originsu.manager.domain.usecase.ConfigureSuLogUseCase
 import com.originsu.manager.domain.usecase.ConfigureVeilUseCase
+import com.originsu.manager.data.grant.GrantToastRepository
 import com.originsu.manager.domain.usecase.GetBooleanPreferenceUseCase
 import com.originsu.manager.domain.usecase.GetKernelFeatureSettingsUseCase
 import com.originsu.manager.domain.usecase.GetPlatformFeatureStatusUseCase
@@ -101,6 +102,9 @@ data class SettingsUiState(
     val isSuLogEnabled: Boolean = false,
     val veilStatus: String = "",
     val isVeilEnabled: Boolean = false,
+    val isGrantToastEnabled: Boolean = false,
+    val isTempGrantEnabled: Boolean = false,
+    val overlayGranted: Boolean = false,
     val selinuxHideStatus: String = "",
     val isSelinuxHideEnabled: Boolean = false,
     val defaultUmountModules: Boolean = false,
@@ -146,6 +150,9 @@ sealed interface SettingsUiAction {
     data class SetAdbRoot(val enabled: Boolean) : SettingsUiAction
     data class SetSuLog(val enabled: Boolean) : SettingsUiAction
     data class SetVeil(val enabled: Boolean) : SettingsUiAction
+    data class SetGrantToast(val enabled: Boolean) : SettingsUiAction
+    data class SetTempGrant(val enabled: Boolean) : SettingsUiAction
+    data object RefreshOverlayPermission : SettingsUiAction
     data class SetDefaultUmountModules(val enabled: Boolean) : SettingsUiAction
     data class SetSecureRootEnabled(val enabled: Boolean) : SettingsUiAction
     data class SetOriginZygiskEnabled(val enabled: Boolean) : SettingsUiAction
@@ -156,6 +163,7 @@ sealed interface SettingsUiEvent {
     data class Error(val message: String) : SettingsUiEvent
     data class Message(val stringResource: Int, val formatArg: Int? = null) : SettingsUiEvent
     data object RestartActivity : SettingsUiEvent
+    data object OpenOverlayPermission : SettingsUiEvent
 }
 
 class SettingsViewModel(
@@ -168,6 +176,7 @@ class SettingsViewModel(
     private val setKernelUmountEnabled: SetKernelUmountEnabledUseCase,
     private val setSuLogEnabled: ConfigureSuLogUseCase,
     private val setVeilEnabled: ConfigureVeilUseCase,
+    private val grantToastRepository: GrantToastRepository,
     private val setSelinuxHideEnabled: SetSelinuxHideEnabledUseCase,
     private val setDefaultUmountModules: SetDefaultUmountModulesUseCase,
     private val getBooleanPreference: GetBooleanPreferenceUseCase,
@@ -215,6 +224,9 @@ fun initialize() {
                     isSuLogEnabled = features.suLogEnabled,
                     veilStatus = platform.veilStatus,
                     isVeilEnabled = features.veilEnabled,
+                    isGrantToastEnabled = grantToastRepository.isToastEnabled(),
+                    isTempGrantEnabled = grantToastRepository.isTempGrantEnabled(),
+                    overlayGranted = grantToastRepository.hasOverlayPermission(),
                     selinuxHideStatus = platform.selinuxHideStatus,
                     isSelinuxHideEnabled = features.selinuxHideEnabled,
                     defaultUmountModules = features.defaultUmountModules,
@@ -436,6 +448,28 @@ fun initialize() {
         }
     }
 
+    fun handleGrantToastChange(checked: Boolean) {
+        if (checked && !grantToastRepository.hasOverlayPermission()) {
+            mutableEvents.tryEmit(SettingsUiEvent.OpenOverlayPermission)
+            return
+        }
+        grantToastRepository.setToastEnabled(checked)
+        mutableState.update { it.copy(isGrantToastEnabled = checked) }
+    }
+
+    fun handleTempGrantChange(checked: Boolean) {
+        grantToastRepository.setTempGrantEnabled(checked)
+        mutableState.update { it.copy(isTempGrantEnabled = checked) }
+    }
+
+    fun refreshOverlayPermission() {
+        val granted = grantToastRepository.hasOverlayPermission()
+        mutableState.update { it.copy(overlayGranted = granted) }
+        if (granted && mutableState.value.isGrantToastEnabled) {
+            grantToastRepository.startMonitor()
+        }
+    }
+
     fun handleSelinuxHideChange(checked: Boolean) {
         viewModelScope.launch {
             val status = setSelinuxHideEnabled(checked)
@@ -501,6 +535,9 @@ fun dispatch(action: SettingsUiAction) {
             is SettingsUiAction.SetAdbRoot -> handleAdbRootChange(action.enabled)
             is SettingsUiAction.SetSuLog -> handleSuLogChange(action.enabled)
             is SettingsUiAction.SetVeil -> handleVeilChange(action.enabled)
+            is SettingsUiAction.SetGrantToast -> handleGrantToastChange(action.enabled)
+            is SettingsUiAction.SetTempGrant -> handleTempGrantChange(action.enabled)
+            SettingsUiAction.RefreshOverlayPermission -> refreshOverlayPermission()
             is SettingsUiAction.SetDefaultUmountModules ->
                 handleDefaultUmountModulesChange(action.enabled)
             is SettingsUiAction.SetSecureRootEnabled ->

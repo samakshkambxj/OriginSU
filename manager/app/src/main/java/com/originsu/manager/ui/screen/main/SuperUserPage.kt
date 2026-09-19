@@ -371,6 +371,7 @@ private fun SuperUserContent(
                 AppGroupItem(
                     appGroup = appGroup,
                     isManager = appGroup.uid in uiState.managerUids,
+                    tempRemainingSecs = uiState.tempRemainingSecs[appGroup.uid],
                 ) {
                     navigator.push(Route.AppProfile(appGroup.uid, appGroup.profileKey))
                 }
@@ -477,6 +478,7 @@ private fun SuperUserDropdown(
 private fun AppGroupItem(
     appGroup: InstalledAppGroup,
     isManager: Boolean,
+    tempRemainingSecs: Long?,
     onClick: () -> Unit,
 ) {
     val mainApp = appGroup.mainApp
@@ -506,6 +508,23 @@ private fun AppGroupItem(
                             containerColor = MaterialTheme.colorScheme.secondaryContainer,
                         )
                     }
+                }
+                if (tempRemainingSecs != null) {
+                    LabelText(
+                        label = stringResource(
+                            if (tempRemainingSecs >= 3600) {
+                                R.string.temp_grant_remaining_hour
+                            } else {
+                                R.string.temp_grant_remaining_min
+                            },
+                            if (tempRemainingSecs >= 3600) {
+                                tempRemainingSecs / 3600
+                            } else {
+                                (tempRemainingSecs / 60).coerceAtLeast(1L)
+                            },
+                        ),
+                        containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                    )
                 }
                 if (appGroup.hasCustomProfile) {
                     LabelText(

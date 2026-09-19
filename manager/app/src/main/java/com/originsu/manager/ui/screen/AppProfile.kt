@@ -26,6 +26,8 @@ import androidx.compose.material.icons.twotone.AccountCircle
 import androidx.compose.material.icons.twotone.Android
 import androidx.compose.material.icons.twotone.Edit
 import androidx.compose.material.icons.twotone.Security
+import androidx.compose.material.icons.twotone.Timer
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
@@ -36,6 +38,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -62,6 +65,7 @@ import com.originsu.manager.domain.model.AppControlAction
 import com.originsu.manager.domain.model.AppProfile
 import com.originsu.manager.domain.model.InstalledApp
 import com.originsu.manager.domain.model.InstalledAppGroup
+import com.originsu.manager.domain.model.TempGrantDuration
 import com.originsu.manager.ui.component.PackageIcon
 import com.originsu.manager.ui.component.SwipeableSnackbarHost
 import com.originsu.manager.ui.component.profile.AppProfileConfig
@@ -263,6 +267,10 @@ fun AppProfileScreen(
                 }
             },
             onControlApp = { viewModel.dispatch(AppProfileUiAction.ControlApp(it)) },
+            tempRemainingSecs = uiState.tempRemainingSecs,
+            isTempGrantEnabled = uiState.isTempGrantEnabled,
+            onGrantTemp = { viewModel.dispatch(AppProfileUiAction.GrantTemp(it)) },
+            onRevokeTemp = { viewModel.dispatch(AppProfileUiAction.RevokeTemp) },
         )
     }
 }
@@ -284,6 +292,10 @@ private fun AppProfileInner(
     onManageTemplate: () -> Unit = {},
     onControlApp: (AppControlAction) -> Unit,
     onProfileChange: (AppProfile) -> Unit,
+    tempRemainingSecs: Long? = null,
+    isTempGrantEnabled: Boolean = false,
+    onGrantTemp: (TempGrantDuration) -> Unit = {},
+    onRevokeTemp: () -> Unit = {},
 ) {
     val cardConfig: CardConfig = koinInject()
     val themeConfig: ThemeConfig = koinInject()
@@ -350,6 +362,64 @@ private fun AppProfileInner(
                         title = stringResource(id = R.string.superuser),
                         checked = isRootGranted,
                         onCheckedChange = { onProfileChange(profile.copy(allowSu = it)) },
+                    )
+                }
+            }
+        }
+
+        if (!isSpecial && isTempGrantEnabled) {
+            item {
+                var showTempDialog by remember { mutableStateOf(false) }
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    color = MaterialTheme.colorScheme.surfaceBright.copy(
+                        alpha = cardConfig.cardAlpha
+                    ),
+                    contentColor = MaterialTheme.colorScheme.onSurface,
+                ) {
+                    if (tempRemainingSecs != null) {
+                        SettingsBaseWidget(
+                            icon = Icons.TwoTone.Timer,
+                            title = stringResource(id = R.string.temp_grant_title),
+                            description = stringResource(
+                                if (tempRemainingSecs >= 3600) {
+                                    R.string.temp_grant_remaining_hour
+                                } else {
+                                    R.string.temp_grant_remaining_min
+                                },
+                                if (tempRemainingSecs >= 3600) {
+                                    tempRemainingSecs / 3600
+                                } else {
+                                    (tempRemainingSecs / 60).coerceAtLeast(1L)
+                                },
+                            ),
+                        ) {
+                            TextButton(onClick = onRevokeTemp) {
+                                Text(stringResource(id = R.string.temp_grant_revoke))
+                            }
+                        }
+                    } else {
+                        SettingsBaseWidget(
+                            icon = Icons.TwoTone.Timer,
+                            title = stringResource(id = R.string.temp_grant_title),
+                            description = stringResource(id = R.string.temp_grant_summary),
+                        ) {
+                            TextButton(onClick = { showTempDialog = true }) {
+                                Text(stringResource(id = R.string.temp_grant_action))
+                            }
+                        }
+                    }
+                }
+                if (showTempDialog) {
+                    TempGrantDurationDialog(
+                        onDismiss = { showTempDialog = false },
+                        onConfirm = {
+                            showTempDialog = false
+                            onGrantTemp(it)
+                        },
                     )
                 }
             }
@@ -635,4 +705,33 @@ private fun AppProfilePreview() {
             },
         )
     }
+}
+
+@Composable
+private fun TempGrantDurationDialog(
+    onDismiss: () -> Unit,
+    onConfirm: (TempGrantDuration) -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.temp_grant_title)) },
+        text = {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                TempGrantDuration.entries.forEach { duration ->
+                    TextButton(
+                        onClick = { onConfirm(duration) },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text(stringResource(duration.titleRes))
+                    }
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(android.R.string.cancel))
+            }
+        },
+    )
 }

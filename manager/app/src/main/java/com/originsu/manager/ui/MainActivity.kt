@@ -2,6 +2,7 @@ package com.originsu.manager.ui
 
 import android.content.Context
 import android.content.Intent
+import android.provider.Settings
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -101,6 +102,10 @@ class MainActivity : ComponentActivity() {
                         }
 
                         SettingsUiEvent.RestartActivity -> recreate()
+
+                        SettingsUiEvent.OpenOverlayPermission -> startActivity(
+                            Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION)
+                        )
                     }
                 }
             }

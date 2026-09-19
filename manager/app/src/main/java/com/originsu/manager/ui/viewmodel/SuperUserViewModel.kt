@@ -11,7 +11,9 @@ import com.originsu.manager.domain.usecase.GetManagerRuntimeInfoUseCase
 import com.originsu.manager.domain.usecase.GetStringPreferenceUseCase
 import com.originsu.manager.domain.usecase.ImportAllowlistUseCase
 import com.originsu.manager.domain.usecase.ObserveSuperUserStateUseCase
+import com.originsu.manager.domain.usecase.ObserveTempGrantsUseCase
 import com.originsu.manager.domain.usecase.RefreshSuperUsersUseCase
+import com.originsu.manager.domain.usecase.RefreshTempGrantsUseCase
 import com.originsu.manager.domain.usecase.SetBooleanPreferenceUseCase
 import com.originsu.manager.domain.usecase.SetStringPreferenceUseCase
 import com.originsu.manager.domain.usecase.TransliterateTextUseCase
@@ -46,6 +48,7 @@ data class SuperUserUiState(
     val currentSortType: SortType = SortType.NAME,
     val reverseOrder: Boolean = false,
     val managerUids: Set<Int> = emptySet(),
+    val tempRemainingSecs: Map<Int, Long> = emptyMap(),
     val isRefreshing: Boolean = false,
 )
 
@@ -77,7 +80,9 @@ private data class SuperUserControls(
 
 class SuperUserViewModel(
     observeSuperUserState: ObserveSuperUserStateUseCase,
+    observeTempGrants: ObserveTempGrantsUseCase,
     private val refreshSuperUsers: RefreshSuperUsersUseCase,
+    private val refreshTempGrants: RefreshTempGrantsUseCase,
     private val backupAllowlistUseCase: BackupAllowlistUseCase,
     private val importAllowlistUseCase: ImportAllowlistUseCase,
     getBooleanPreference: GetBooleanPreferenceUseCase,
@@ -112,8 +117,8 @@ class SuperUserViewModel(
     }
 
     val state: StateFlow<SuperUserUiState> = combine(
-        sourceState, controls, managerUids,
-    ) { source, local, uids ->
+        sourceState, controls, managerUids, observeTempGrants(),
+    ) { source, local, uids, temp ->
         SuperUserUiState(
             appGroupList = buildAppGroupList(
                 groups = source.groups,
@@ -127,6 +132,7 @@ class SuperUserViewModel(
             currentSortType = local.sortType,
             reverseOrder = local.reverseOrder,
             managerUids = uids,
+            tempRemainingSecs = temp.grants.associate { it.uid to it.remainingSecs },
             isRefreshing = source.refreshing,
         )
     }.stateIn(viewModelScope, SharingStarted.Eagerly, SuperUserUiState())
@@ -182,6 +188,7 @@ class SuperUserViewModel(
     suspend fun fetchAppList() {
         refreshSuperUsers()
             .onFailure { mutableEvents.tryEmit(SuperUserUiEvent.Error(it.message.orEmpty())) }
+        refreshTempGrants()
     }
 
     private fun notifySuperuserStatusChanged() {

@@ -12,6 +12,7 @@ import com.originsu.manager.BuildConfig
 import com.originsu.manager.Natives
 import com.originsu.manager.R
 import com.originsu.manager.domain.model.LkmSelection
+import com.originsu.manager.domain.model.TempGrantRecord
 import com.topjohnwu.superuser.CallbackList
 import com.topjohnwu.superuser.Shell
 import com.topjohnwu.superuser.ShellUtils
@@ -75,6 +76,8 @@ class KsuCliRepository(context: Context) {
 
         private val SIGN_PATTERN =
             Regex("""size:\s*(0[xX][0-9a-fA-F]+|\d+)\s*,\s*hash:\s*([0-9a-fA-F]{64})""")
+
+        private val PACKAGE_PATTERN = Regex("""[A-Za-z0-9_.]+""")
 
         fun parseSign(raw: String): Pair<Int, String>? {
             val match = SIGN_PATTERN.find(raw.trim()) ?: return null
@@ -240,6 +243,41 @@ class KsuCliRepository(context: Context) {
         val valueLine =
             out.firstOrNull { it.trim().startsWith("Value:") } ?: return@withContext null
         valueLine.substringAfter("Value:").trim().toLongOrNull()
+    }
+
+    /**
+     * Grant root to [packageName]/[uid] for [timeoutSecs] seconds. The grant
+     * is revoked automatically by ksud; it also expires on reboot via sweep.
+     */
+    suspend fun grantTempRoot(packageName: String, uid: Int, timeoutSecs: Long): Boolean =
+        withContext(Dispatchers.IO) {
+            if (!PACKAGE_PATTERN.matches(packageName) || uid < 0 || timeoutSecs <= 0) return@withContext false
+            execKsud("grant-temp --package $packageName --uid $uid --timeout $timeoutSecs", true)
+        }
+
+    suspend fun listTempGrants(): List<TempGrantRecord> = withContext(Dispatchers.IO) {
+        val shell = getRootShell()
+        val out = shell.newJob()
+            .add("${getKsuDaemonPath()} grant-temp-list").to(ArrayList<String>(), null)
+            .exec().out
+        runCatching {
+            JSONArray(out.joinToString("\n")).let { array ->
+                (0 until array.length()).map { index ->
+                    array.getJSONObject(index).let { entry ->
+                        TempGrantRecord(
+                            uid = entry.getInt("uid"),
+                            packageName = entry.getString("package"),
+                            expiresAtEpoch = entry.getLong("expires_at"),
+                        )
+                    }
+                }
+            }
+        }.getOrDefault(emptyList())
+    }
+
+    suspend fun revokeTempGrant(uid: Int): Boolean = withContext(Dispatchers.IO) {
+        if (uid < 0) return@withContext false
+        execKsud("grant-temp-revoke --uid $uid", true)
     }
 
     fun install() {

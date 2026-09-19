@@ -10,6 +10,8 @@ import com.originsu.manager.data.file.ModuleFileRepository
 import com.originsu.manager.data.flash.FlashRepository
 import com.originsu.manager.data.kernel.KernelRepository
 import com.originsu.manager.data.kernel.UmountRepository
+import com.originsu.manager.data.grant.GrantToastRepository
+import com.originsu.manager.data.grant.TempGrantRepository
 import com.originsu.manager.data.kernel.VeilRepository
 import com.originsu.manager.data.logging.BugreportRepository
 import com.originsu.manager.data.logging.SulogRepository
@@ -69,6 +71,7 @@ import com.originsu.manager.domain.usecase.ExtractModuleIdUseCase
 import com.originsu.manager.domain.usecase.ExtractModuleNameUseCase
 import com.originsu.manager.domain.usecase.FetchRemoteTextUseCase
 import com.originsu.manager.domain.usecase.GenerateBugreportUseCase
+import com.originsu.manager.domain.usecase.GrantTempAccessUseCase
 import com.originsu.manager.domain.usecase.GetAppProfileUseCase
 import com.originsu.manager.domain.usecase.GetAppSepolicyUseCase
 import com.originsu.manager.domain.usecase.GetBooleanPreferenceUseCase
@@ -108,6 +111,7 @@ import com.originsu.manager.domain.usecase.ObserveProfileTemplatesUseCase
 import com.originsu.manager.domain.usecase.ObserveStartupStateUseCase
 import com.originsu.manager.domain.usecase.ObserveSulogStateUseCase
 import com.originsu.manager.domain.usecase.ObserveSuperUserStateUseCase
+import com.originsu.manager.domain.usecase.ObserveTempGrantsUseCase
 import com.originsu.manager.domain.usecase.ObserveUmountStateUseCase
 import com.originsu.manager.domain.usecase.ObserveVeilStateUseCase
 import com.originsu.manager.domain.usecase.RebootUseCase
@@ -117,10 +121,12 @@ import com.originsu.manager.domain.usecase.RefreshModuleCatalogUseCase
 import com.originsu.manager.domain.usecase.RefreshProfileTemplatesUseCase
 import com.originsu.manager.domain.usecase.RefreshSulogUseCase
 import com.originsu.manager.domain.usecase.RefreshSuperUsersUseCase
+import com.originsu.manager.domain.usecase.RefreshTempGrantsUseCase
 import com.originsu.manager.domain.usecase.RefreshUmountPathsUseCase
 import com.originsu.manager.domain.usecase.RefreshVeilUseCase
 import com.originsu.manager.domain.usecase.RemovePreferenceUseCase
 import com.originsu.manager.domain.usecase.RemoveUmountPathUseCase
+import com.originsu.manager.domain.usecase.RevokeTempAccessUseCase
 import com.originsu.manager.domain.usecase.SaveModuleActionLogUseCase
 import com.originsu.manager.domain.usecase.SaveProfileTemplateUseCase
 import com.originsu.manager.domain.usecase.SelectDynamicManagerUseCase
@@ -271,6 +277,8 @@ val repositoryModule = module {
     singleOf(::DynamicManagerRepository)
     singleOf(::SulogRepository)
     singleOf(::VeilRepository)
+    single { TempGrantRepository(androidApplication(), get()) }
+    single { GrantToastRepository(androidApplication(), get()) }
     singleOf(::BugreportRepository)
     singleOf(::UmountRepository)
     singleOf(::ModuleCatalogRepository)
@@ -391,7 +399,11 @@ val useCaseModule = module {
     factoryOf(::GetLongPreferenceUseCase)
     factoryOf(::SetLongPreferenceUseCase)
     factoryOf(::ObserveSuperUserStateUseCase)
+    factoryOf(::ObserveTempGrantsUseCase)
     factoryOf(::RefreshSuperUsersUseCase)
+    factoryOf(::RefreshTempGrantsUseCase)
+    factoryOf(::GrantTempAccessUseCase)
+    factoryOf(::RevokeTempAccessUseCase)
     factoryOf(::BackupAllowlistUseCase)
     factoryOf(::ImportAllowlistUseCase)
     factoryOf(::FetchRemoteTextUseCase)
@@ -424,6 +436,10 @@ val viewModelModule = module {
             controlApp = get(),
             validateSepolicy = get(),
             getBooleanPreference = get(),
+            grantTempAccess = get(),
+            revokeTempAccess = get(),
+            observeTempGrants = get(),
+            refreshTempGrants = get(),
         )
     }
     viewModelOf(::HomeViewModel)

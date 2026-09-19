@@ -37,6 +37,7 @@ import androidx.compose.material.icons.twotone.FolderDelete
 import androidx.compose.material.icons.twotone.FolderOff
 import androidx.compose.material.icons.twotone.Fingerprint
 import androidx.compose.material.icons.twotone.Info
+import androidx.compose.material.icons.twotone.Notifications
 import androidx.compose.material.icons.twotone.Policy
 import androidx.compose.material.icons.twotone.Psychology
 import androidx.compose.material.icons.twotone.RemoveCircle
@@ -47,6 +48,7 @@ import androidx.compose.material.icons.twotone.Security
 import androidx.compose.material.icons.twotone.Settings
 import androidx.compose.material.icons.twotone.Share
 import androidx.compose.material.icons.twotone.Shield
+import androidx.compose.material.icons.twotone.Timer
 import androidx.compose.material.icons.twotone.Update
 import androidx.compose.material.icons.twotone.Visibility
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -107,6 +109,7 @@ import com.originsu.manager.ui.viewmodel.SettingsViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import com.originsu.manager.ui.util.ActivityResumeEffect
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 import java.time.LocalDateTime
@@ -135,6 +138,10 @@ fun SettingsPage(bottomPadding: Dp) {
     LaunchedEffect(Unit) {
         settingsViewModel.dispatch(SettingsUiAction.LoadFeatureSettings)
         settingsViewModel.dispatch(SettingsUiAction.RefreshOriginZygisk)
+    }
+
+    ActivityResumeEffect {
+        settingsViewModel.dispatch(SettingsUiAction.RefreshOverlayPermission)
     }
 
     Scaffold(
@@ -392,6 +399,38 @@ fun SettingsPage(bottomPadding: Dp) {
                                     onClick = {
                                         navigator.push(Route.Veil)
                                     }
+                                )
+                            }
+
+                            item {
+                                SettingsSwitchWidget(
+                                    icon = Icons.TwoTone.Notifications,
+                                    title = stringResource(id = R.string.settings_grant_toast),
+                                    description = if (!uiState.overlayGranted) {
+                                        stringResource(id = R.string.settings_grant_toast_permission)
+                                    } else {
+                                        stringResource(id = R.string.settings_grant_toast_summary)
+                                    },
+                                    checked = uiState.isGrantToastEnabled,
+                                    onCheckedChange = { enabled ->
+                                        settingsViewModel.dispatch(
+                                            SettingsUiAction.SetGrantToast(enabled)
+                                        )
+                                    },
+                                )
+                            }
+
+                            item {
+                                SettingsSwitchWidget(
+                                    icon = Icons.TwoTone.Timer,
+                                    title = stringResource(id = R.string.settings_temp_grant),
+                                    description = stringResource(id = R.string.settings_temp_grant_summary),
+                                    checked = uiState.isTempGrantEnabled,
+                                    onCheckedChange = { enabled ->
+                                        settingsViewModel.dispatch(
+                                            SettingsUiAction.SetTempGrant(enabled)
+                                        )
+                                    },
                                 )
                             }
 

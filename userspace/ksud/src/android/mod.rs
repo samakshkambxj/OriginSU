@@ -13,6 +13,7 @@ mod sepolicy;
 mod su;
 mod sulog;
 pub mod susfs;
+mod tempgrant;
 #[allow(nonstandard_style, unused, unsafe_op_in_unsafe_fn)]
 pub mod uapi;
 mod umount_config;

@@ -9,7 +9,7 @@ use crate::{
     android::{
         debug, dynamic_manager, feature, init_event, ksucalls,
         module::{self, module_config, regenerate_preinit_rc},
-        profile, sepolicy, su, sulog, susfs, uapi, umount_config, utils,
+        profile, sepolicy, su, sulog, susfs, tempgrant, uapi, umount_config, utils,
     },
     anykernel3::{self, Slot},
     apk_sign, assets,
@@ -130,6 +130,39 @@ enum Commands {
     Profile {
         #[command(subcommand)]
         command: Profile,
+    },
+
+    /// Grant root to an app for a limited time (auto-revoked at expiry)
+    GrantTemp {
+        /// Package name of the app
+        #[arg(long)]
+        package: String,
+        /// UID of the app
+        #[arg(long)]
+        uid: u32,
+        /// Grant duration in seconds
+        #[arg(long)]
+        timeout: u64,
+    },
+
+    /// List active temporary root grants
+    GrantTempList,
+
+    /// Revoke a temporary root grant immediately
+    GrantTempRevoke {
+        /// UID of the app
+        #[arg(long)]
+        uid: u32,
+    },
+
+    /// Wait until a timestamp then revoke (internal, spawned detached)
+    GrantTempWait {
+        /// UID of the app
+        #[arg(long)]
+        uid: u32,
+        /// Expiry time as epoch seconds
+        #[arg(long)]
+        until: u64,
     },
 
     /// Manage kernel features
@@ -765,6 +798,14 @@ pub fn run() -> Result<()> {
             Ok(())
         }
         Commands::Sulogd => sulog::run_sulogd(),
+        Commands::GrantTemp {
+            package,
+            uid,
+            timeout,
+        } => tempgrant::grant(package, uid, timeout),
+        Commands::GrantTempList => tempgrant::list(),
+        Commands::GrantTempRevoke { uid } => tempgrant::revoke(uid).map(|_| ()),
+        Commands::GrantTempWait { uid, until } => tempgrant::wait_and_revoke(uid, until),
         Commands::Profile { command } => match command {
             Profile::GetSepolicy { package } => profile::get_sepolicy(package),
             Profile::SetSepolicy { package, policy } => profile::set_sepolicy(package, policy),
