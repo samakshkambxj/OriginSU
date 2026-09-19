@@ -208,6 +208,7 @@ dependencies {
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.foundation)
     implementation(libs.androidx.documentfile)
+    implementation(libs.androidx.biometric)
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.androidx.compose.foundation)
 

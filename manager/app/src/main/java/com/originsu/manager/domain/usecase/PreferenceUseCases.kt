@@ -2,6 +2,8 @@ package com.originsu.manager.domain.usecase
 
 import com.originsu.manager.data.AppSettingsRepository
 
+const val SECURE_ROOT_PREF_KEY = "secure_root"
+
 class GetBooleanPreferenceUseCase(private val repository: AppSettingsRepository) {
     operator fun invoke(key: String, defaultValue: Boolean = false) =
         repository.getBoolean(key, defaultValue)

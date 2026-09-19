@@ -45,6 +45,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -83,6 +84,7 @@ import com.originsu.manager.ui.theme.renderBackgroundBlur
 import com.originsu.manager.ui.util.ActivityResumeEffect
 import com.originsu.manager.ui.util.LocalSnackbarHost
 import com.originsu.manager.ui.util.adaptiveScaffoldWindowInsets
+import com.originsu.manager.ui.util.authenticateSecureRoot
 import com.originsu.manager.ui.util.showReplacingSnackbar
 import com.originsu.manager.ui.viewmodel.AppProfileUiAction
 import com.originsu.manager.ui.viewmodel.AppProfileUiEvent
@@ -106,6 +108,7 @@ fun AppProfileScreen(
 ) {
     val cardConfig: CardConfig = koinInject()
     val navigator = LocalNavigator.current
+    val context = LocalContext.current
     val snackBarHost = LocalSnackbarHost.current
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     val scope = rememberCoroutineScope()
@@ -121,6 +124,10 @@ fun AppProfileScreen(
     val failToUpdateSepolicy =
         stringResource(R.string.failed_to_update_sepolicy).format(appLabel)
     val suNotAllowed = stringResource(R.string.su_not_allowed).format(appLabel)
+    val biometricTitle = stringResource(R.string.secure_root_prompt_title)
+    val biometricSubtitle = stringResource(R.string.secure_root_prompt_subtitle)
+    val secureRootDenied = stringResource(R.string.secure_root_denied)
+    val secureRootNoActivity = stringResource(R.string.secure_root_unavailable)
 
     LaunchedEffect(viewModel) {
         viewModel.events.collectLatest { event ->
@@ -226,6 +233,30 @@ fun AppProfileScreen(
                         if (uid < 2000 && uid != 1000) {
                             snackBarHost.showReplacingSnackbar(suNotAllowed)
                             return@launch
+                        }
+                        val previouslyGranted = uiState.profile?.allowSu == true
+                        if (!previouslyGranted && uiState.isSecureRootEnabled) {
+                            val activity =
+                                context as? androidx.fragment.app.FragmentActivity
+                            if (activity == null) {
+                                snackBarHost.showReplacingSnackbar(secureRootNoActivity)
+                                return@launch
+                            }
+                            val granted = kotlinx.coroutines.suspendCancellableCoroutine { cont ->
+                                authenticateSecureRoot(
+                                    activity = activity,
+                                    title = biometricTitle,
+                                    subtitle = biometricSubtitle.format(appLabel),
+                                ) { success ->
+                                    if (!cont.isCompleted) {
+                                        cont.resume(success)
+                                    }
+                                }
+                            }
+                            if (!granted) {
+                                snackBarHost.showReplacingSnackbar(secureRootDenied)
+                                return@launch
+                            }
                         }
                     }
                     viewModel.dispatch(AppProfileUiAction.Save(it))

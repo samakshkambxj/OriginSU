@@ -400,6 +400,7 @@ val viewModelModule = module {
             setSepolicy = get(),
             controlApp = get(),
             validateSepolicy = get(),
+            getBooleanPreference = get(),
         )
     }
     viewModelOf(::HomeViewModel)

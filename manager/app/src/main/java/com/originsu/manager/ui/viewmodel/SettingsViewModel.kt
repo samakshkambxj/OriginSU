@@ -10,9 +10,12 @@ import com.originsu.manager.domain.model.PlatformSetting
 import com.originsu.manager.domain.model.SettingsPlatformSnapshot
 import com.originsu.manager.domain.model.coerceCompatibleWith
 import com.originsu.manager.domain.usecase.ConfigureSuLogUseCase
+import com.originsu.manager.domain.usecase.GetBooleanPreferenceUseCase
 import com.originsu.manager.domain.usecase.GetKernelFeatureSettingsUseCase
 import com.originsu.manager.domain.usecase.GetPlatformFeatureStatusUseCase
 import com.originsu.manager.domain.usecase.LoadSettingsPlatformUseCase
+import com.originsu.manager.domain.usecase.SECURE_ROOT_PREF_KEY
+import com.originsu.manager.domain.usecase.SetBooleanPreferenceUseCase
 import com.originsu.manager.domain.usecase.SetDefaultUmountModulesUseCase
 import com.originsu.manager.domain.usecase.SetKernelUmountEnabledUseCase
 import com.originsu.manager.domain.usecase.SetSelinuxHideEnabledUseCase
@@ -98,6 +101,7 @@ data class SettingsUiState(
     val isSelinuxHideEnabled: Boolean = false,
     val defaultUmountModules: Boolean = false,
     val useBuiltinMonoFont: Boolean = false,
+    val isSecureRootEnabled: Boolean = false,
 )
 
 sealed interface SettingsUiAction {
@@ -136,6 +140,7 @@ sealed interface SettingsUiAction {
     data class SetAdbRoot(val enabled: Boolean) : SettingsUiAction
     data class SetSuLog(val enabled: Boolean) : SettingsUiAction
     data class SetDefaultUmountModules(val enabled: Boolean) : SettingsUiAction
+    data class SetSecureRootEnabled(val enabled: Boolean) : SettingsUiAction
 }
 
 sealed interface SettingsUiEvent {
@@ -155,6 +160,8 @@ class SettingsViewModel(
     private val setSuLogEnabled: ConfigureSuLogUseCase,
     private val setSelinuxHideEnabled: SetSelinuxHideEnabledUseCase,
     private val setDefaultUmountModules: SetDefaultUmountModulesUseCase,
+    private val getBooleanPreference: GetBooleanPreferenceUseCase,
+    private val setBooleanPreference: SetBooleanPreferenceUseCase,
 ) : ViewModel() {
     private val mutableState = MutableStateFlow(SettingsUiState())
     val state: StateFlow<SettingsUiState> = mutableState.asStateFlow()
@@ -168,6 +175,9 @@ class SettingsViewModel(
 
 fun initialize() {
         applySnapshot(loadSettings(), resetTempDpi = true)
+        mutableState.update {
+            it.copy(isSecureRootEnabled = getBooleanPreference(SECURE_ROOT_PREF_KEY, false))
+        }
         loadFeatureSettings()
     }
 
@@ -365,6 +375,11 @@ fun initialize() {
         updatePlatformAsync(PlatformSetting.AutoJailbreak(enabled))
     }
 
+    fun handleSecureRootChange(enabled: Boolean) {
+        setBooleanPreference(SECURE_ROOT_PREF_KEY, enabled)
+        mutableState.update { it.copy(isSecureRootEnabled = enabled) }
+    }
+
     fun handleAdbRootChange(checked: Boolean) {
         mutableState.update { it.copy(isAdbRootEnabled = checked) }
         updatePlatformAsync(PlatformSetting.AdbRoot(checked))
@@ -442,6 +457,8 @@ fun dispatch(action: SettingsUiAction) {
             is SettingsUiAction.SetSuLog -> handleSuLogChange(action.enabled)
             is SettingsUiAction.SetDefaultUmountModules ->
                 handleDefaultUmountModulesChange(action.enabled)
+            is SettingsUiAction.SetSecureRootEnabled ->
+                handleSecureRootChange(action.enabled)
         }
     }
 

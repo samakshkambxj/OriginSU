@@ -35,6 +35,7 @@ import androidx.compose.material.icons.twotone.Extension
 import androidx.compose.material.icons.twotone.Fence
 import androidx.compose.material.icons.twotone.FolderDelete
 import androidx.compose.material.icons.twotone.FolderOff
+import androidx.compose.material.icons.twotone.Fingerprint
 import androidx.compose.material.icons.twotone.Info
 import androidx.compose.material.icons.twotone.Policy
 import androidx.compose.material.icons.twotone.RemoveCircle
@@ -95,6 +96,7 @@ import com.originsu.manager.ui.theme.blurEffect
 import com.originsu.manager.ui.theme.blurSource
 import com.originsu.manager.ui.util.LocalSnackbarHost
 import com.originsu.manager.ui.util.adaptiveScaffoldWindowInsets
+import com.originsu.manager.ui.util.canAuthenticateSecureRoot
 import com.originsu.manager.ui.util.showReplacingSnackbar
 import com.originsu.manager.ui.viewmodel.HomeViewModel
 import com.originsu.manager.ui.viewmodel.SettingsUiAction
@@ -219,6 +221,26 @@ fun SettingsPage(bottomPadding: Dp) {
                                         settingsViewModel.dispatch(
                                             SettingsUiAction.SetSuCompatMode(
                                                 index
+                                            )
+                                        )
+                                    },
+                                )
+                            }
+
+                            item {
+                                val biometricsAvailable = remember {
+                                    canAuthenticateSecureRoot(context)
+                                }
+                                SettingsSwitchWidget(
+                                    icon = Icons.TwoTone.Fingerprint,
+                                    title = stringResource(id = R.string.settings_secure_root),
+                                    description = stringResource(id = R.string.settings_secure_root_summary),
+                                    enabled = biometricsAvailable,
+                                    checked = uiState.isSecureRootEnabled && biometricsAvailable,
+                                    onCheckedChange = { enabled ->
+                                        settingsViewModel.dispatch(
+                                            SettingsUiAction.SetSecureRootEnabled(
+                                                enabled
                                             )
                                         )
                                     },

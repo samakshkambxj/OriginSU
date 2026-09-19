@@ -137,18 +137,6 @@ fun NavContainer(
     val mainIntentState by mainIntentViewModel.state.collectAsStateWithLifecycle()
 
     val appSettings = koinInject<AppSettingsRepository>()
-    var showOnboarding by remember {
-        mutableStateOf(!appSettings.getBoolean("onboarding_completed", false))
-    }
-    if (showOnboarding) {
-        OnboardingScreen(
-            onDone = {
-                appSettings.putBoolean("onboarding_completed", true)
-                showOnboarding = false
-            }
-        )
-        return
-    }
 
     LaunchedEffect(zipUri) {
         if (zipUri.isNullOrEmpty()) return@LaunchedEffect
@@ -396,6 +384,19 @@ fun NavContainer(
         }
         val interceptPredictiveBack =
             settings.predictiveBackAnimation == PredictiveBackAnimation.None && backStack.size > 1
+
+        var showOnboarding by remember {
+            mutableStateOf(!appSettings.getBoolean("onboarding_completed", false))
+        }
+        if (showOnboarding) {
+            OnboardingScreen(
+                onDone = {
+                    appSettings.putBoolean("onboarding_completed", true)
+                    showOnboarding = false
+                }
+            )
+            return
+        }
 
         NavDisplay(
             backStack = backStack,

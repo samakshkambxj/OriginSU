@@ -182,6 +182,12 @@
     <string name="selected_count">%1$d selected</string>
     <string name="copy_device_info">Copy device info</string>
     <string name="device_info_copied">Device info copied</string>
+    <string name="settings_secure_root">Secure root</string>
+    <string name="settings_secure_root_summary">Require biometrics before granting root to apps</string>
+    <string name="secure_root_prompt_title">Allow root access?</string>
+    <string name="secure_root_prompt_subtitle">Authenticate to grant root to %1$s</string>
+    <string name="secure_root_denied">Authentication failed, root not granted</string>
+    <string name="secure_root_unavailable">Authentication unavailable</string>
     <string name="onboarding_title_welcome">Welcome to OriginSU</string>
     <string name="onboarding_desc_welcome">Kernel-based root, modules and app profiles, all managed from here.</string>
     <string name="onboarding_title_status">Root status</string>

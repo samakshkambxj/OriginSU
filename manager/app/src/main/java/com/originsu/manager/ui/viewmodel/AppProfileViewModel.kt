@@ -9,8 +9,10 @@ import com.originsu.manager.domain.model.WEBVIEW_ZYGOTE_UID
 import com.originsu.manager.domain.usecase.ControlAppUseCase
 import com.originsu.manager.domain.usecase.GetAppProfileUseCase
 import com.originsu.manager.domain.usecase.GetAppSepolicyUseCase
+import com.originsu.manager.domain.usecase.GetBooleanPreferenceUseCase
 import com.originsu.manager.domain.usecase.GetDefaultUmountModulesUseCase
 import com.originsu.manager.domain.usecase.GetSuperUserAppGroupUseCase
+import com.originsu.manager.domain.usecase.SECURE_ROOT_PREF_KEY
 import com.originsu.manager.domain.usecase.SetAppProfileUseCase
 import com.originsu.manager.domain.usecase.SetAppSepolicyUseCase
 import com.originsu.manager.domain.usecase.ValidateSepolicyUseCase
@@ -32,6 +34,7 @@ data class AppProfileUiState(
     val defaultUmountModules: Boolean = true,
     val isLoading: Boolean = true,
     val sepolicyValid: Boolean = true,
+    val isSecureRootEnabled: Boolean = false,
 )
 
 sealed interface AppProfileUiAction {
@@ -58,6 +61,7 @@ class AppProfileViewModel(
     private val setSepolicy: SetAppSepolicyUseCase,
     private val controlApp: ControlAppUseCase,
     private val validateSepolicy: ValidateSepolicyUseCase,
+    private val getBooleanPreference: GetBooleanPreferenceUseCase,
 ) : ViewModel() {
     private val mutableState = MutableStateFlow(AppProfileUiState())
     val state: StateFlow<AppProfileUiState> = mutableState.asStateFlow()
@@ -100,6 +104,10 @@ class AppProfileViewModel(
                         profile = profile,
                         defaultUmountModules = defaultUmountModules,
                         isLoading = false,
+                        isSecureRootEnabled = getBooleanPreference(
+                            SECURE_ROOT_PREF_KEY,
+                            false,
+                        ),
                     )
                 }.onFailure { error ->
                     mutableState.update { it.copy(isLoading = false) }
