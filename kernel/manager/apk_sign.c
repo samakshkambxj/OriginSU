@@ -141,18 +141,25 @@ static bool check_block(struct file *fp, loff_t *pos, loff_t block_end, u8 *matc
 #define CERT_MAX_LENGTH 2048
     // 2048 covers 4096-bit RSA certs (e.g. OriginSU official cert is 0x51c bytes);
     // 1024-bit/2048-bit certs used by other managers are well below this.
+    // Heap-allocated: a stack array this size would exceed the kernel's
+    // frame-size limit (-Wframe-larger-than).
     if (certificate_size > CERT_MAX_LENGTH) {
         pr_info("cert length overlimit\n");
         return false;
     }
 
-    char cert[CERT_MAX_LENGTH];
-    if (!read_exact(fp, cert, certificate_size, pos, certificates_end))
+    char *cert = kmalloc(CERT_MAX_LENGTH, GFP_KERNEL);
+    if (!cert)
         return false;
+    if (!read_exact(fp, cert, certificate_size, pos, certificates_end)) {
+        kfree(cert);
+        return false;
+    }
 
     unsigned char digest[SHA256_DIGEST_SIZE];
     if (ksu_sha256(cert, certificate_size, digest)) {
         pr_info("sha256 error\n");
+        kfree(cert);
         return false;
     }
 
@@ -185,6 +192,7 @@ static bool check_block(struct file *fp, loff_t *pos, loff_t block_end, u8 *matc
             signature_valid = true;
         }
     }
+    kfree(cert);
     return signature_valid;
 }
 
