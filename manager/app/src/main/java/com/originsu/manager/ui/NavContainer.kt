@@ -395,8 +395,7 @@ fun NavContainer(
                     showOnboarding = false
                 }
             )
-            return
-        }
+        } else {
 
         NavDisplay(
             backStack = backStack,
@@ -639,6 +638,7 @@ fun NavContainer(
                     KernelFlashScreen(key.kernelUri, key.selectedSlot)
                 }
             }
+        }
         }
     }
 }

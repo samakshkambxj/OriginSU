@@ -249,7 +249,7 @@ fun AppProfileScreen(
                                     subtitle = biometricSubtitle.format(appLabel),
                                 ) { success ->
                                     if (!cont.isCompleted) {
-                                        cont.resume(success)
+                                        cont.resume(success, null)
                                     }
                                 }
                             }
