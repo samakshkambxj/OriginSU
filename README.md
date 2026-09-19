@@ -104,3 +104,4 @@ manager APKs and LKM modules. Required Actions secrets: `KEYSTORE`,
 - [Magisk](https://github.com/topjohnwu/Magisk): the powerful root tool
 - [genuine](https://github.com/brevent/genuine/): APK v2 signature validation
 - [Diamorphine](https://github.com/m0nad/Diamorphine): some rootkit skills
+- [WildKSU](https://github.com/WildKernels/Wild_KSU): launcher icon artwork and animated home logo concept
