@@ -1,84 +1,78 @@
-# OriginSU
-<img align='right' src='docs/OriginSU.svg' width='220px' alt="OriginSU Icon">
+<div align="center">
 
-**English**
+  <img src="docs/OriginSU-light.svg" width="160" alt="OriginSU Light Logo">
 
-A kernel-based root solution for Android, built on
-[ReSukiSU](https://github.com/ReSukiSU/ReSukiSU) with its own kernel +
-manager signing identity, UAPI baseline and release pipeline.
+  # OriginSU
 
-[![Latest release](https://img.shields.io/github/v/release/samakshkambxj/OriginSU?label=Release&logo=github)](https://github.com/samakshkambxj/OriginSU/releases/latest)
-[![Kernel License: GPL v2](https://img.shields.io/badge/License-GPL%20v2-orange.svg?logo=gnu)](https://www.gnu.org/licenses/old-licenses/gpl-2.0.en.html)
-[![Other part License：GPL v3](https://img.shields.io/github/license/samakshkambxj/OriginSU?logo=gnu)](/LICENSE)
+  **A kernel-based root solution for Android**
 
-> **Note:** install only the official `Manager-release` APK from the
+  Built on [ReSukiSU](https://github.com/ReSukiSU/ReSukiSU) with its own kernel +
+  manager signing identity, UAPI baseline and release pipeline.
+
+  [![Latest release](https://img.shields.io/github/v/release/samakshkambxj/OriginSU?label=Release&logo=github)](https://github.com/samakshkambxj/OriginSU/releases/latest)
+  [![Kernel License: GPL v2](https://img.shields.io/badge/License-GPL%20v2-orange.svg?logo=gnu)](https://www.gnu.org/licenses/old-licenses/gpl-2.0.en.html)
+  [![Other part License: GPL v3](https://img.shields.io/github/license/samakshkambxj/OriginSU?logo=gnu)](/LICENSE)
+
+</div>
+
+> [!IMPORTANT]
+> Install only the official `Manager-release` APK from the
 > [Releases](https://github.com/samakshkambxj/OriginSU/releases) page.
 > Debug, PR, dev or resigned builds use a different certificate and the
 > kernel will reject them as unofficial.
 
-## Highlights
+## Contents
 
-**Root access, your way**
+- [Features](#features)
+- [Origin features](#origin-features)
+- [Installation](#installation)
+- [Compatibility](#compatibility)
+- [Hook mode](#hook-mode)
+- [Building](#building)
+- [Roadmap](#roadmap)
+- [License](#license)
+- [Credits](#credits)
 
-- Magisk-style grant toasts: an overlay shows which app just got root
-- Time-limited grants: give root for N minutes, auto-revoked by a
-  persistent waiter plus a sweep on every `ksud` start
-- Secure root (opt-in): biometric / device-credential authentication before
-  any new root grant is saved
-- Per-app profiles with templates, per-app mount namespace control and a
-  searchable `sulog` event history
+## Features
 
-**Hiding**
+1. Kernel-based `su` and root access management
+2. Module system based on [metamodules](https://kernelsu.org/guide/metamodule.html): Pluggable infrastructure for systemless modifications.
+3. [App Profile](https://kernelsu.org/guide/app-profile.html): Lock up the root power in a cage
+4. Support non-GKI and GKI 1.0
+5. Tweaks to the manager theme and the built-in susfs management tool.
+6. Multi manager support, for default [Official KernelSU](https://github.com/tiann/KernelSU)/[RKSU](https://github.com/rsuntk/KernelSU)/[MKSU](https://github.com/5ec1cff/KernelSU)/[SukiSU](https://github.com/SukiSU-Ultra/SukiSU-Ultra) is supported work as manager with OriginSU's kernel
 
-- Built-in SuSFS management (spoofing, paths, TryControl) with a guided UI
-- Origin Veil: kernel-side root-probe detection with a per-app cloak set
-  that hides module mounts from probing apps
-- Kernel umount, SELinux-hide and ADB-root toggles
+## Origin features
 
-**Modules**
+1. Time-limited grants: give root for N minutes, auto-revoked by a persistent waiter plus a sweep on every `ksud` start
+2. Origin Veil: kernel-side root-probe detection with a per-app cloak set that hides module mounts from probing apps
+3. Origin Zygisk (BreZygisk-based) ships inside the manager: deploy, status and kill-switch in Settings, no provider module needed
 
-- Install from ZIP, online catalog with update checks and one-tap update-all
-- Module banners, batch enable/disable/uninstall, WebUI with shortcuts
-- AnyKernel ZIP flashing via busybox and offline `boot.img` patching with
-  vendored `magiskboot` — no root or PC required
-- `ZYGISK_ENABLED=true` is exported to installers when Origin Zygisk runs
+## Installation
 
-**Built-in Zygisk**
-
-- Origin Zygisk (BreZygisk-based) ships inside the manager: deploy, status
-  and kill-switch in Settings, no provider module needed. Conflicting
-  third-party Zygisk providers are blocked while it is on.
-
-**Manager extras**
-
-- Themed app shortcuts (Superuser / Modules / Settings) with a Settings
-  toggle to switch back to the stock icons
-- Filled-leaf launcher art with adaptive + monochrome variants and a
-  Play Store icon, first-run setup wizard, copy-device-info, last-flash
-  timeline and floating bottom bar options
-
-OriginSU also keeps everything it inherited: kernel-based `su`, App
-Profile cage, non-GKI/GKI 1.0 support and multi-manager support (the
-official OriginSU manager plus ReSukiSU, official KernelSU, RKSU, MKSU,
-SukiSU-Ultra and KOWX712/KernelSU all work with the OriginSU kernel).
+1. Flash an OriginSU-patched kernel (GKI `boot.img` or a manually built
+   kernel for older devices).
+2. Install the official `Manager-release` APK from the
+   [Releases](https://github.com/samakshkambxj/OriginSU/releases) page.
+3. Open the manager and follow the first-run setup wizard.
 
 ## Compatibility
 
-- Officially supports Android GKI 2.0 devices (kernel 5.10+).
-- Older kernels (3.4+) are also compatible, but the kernel has to be built manually.
-- Currently, only `arm64-v8a`, `armeabi-v7a` and `x86_64` are supported.
-- [SuSFS](https://gitlab.com/simonpunk/susfs4ksu) in this project **only**
-  supports backport to kernel 4.3+.
-- `Tracepoint Syscall Redirect hook` is only supported with GKI2 (5.10+) kernels.
+| Requirement | Support |
+| --- | --- |
+| GKI 2.0 devices (kernel 5.10+) | ✅ Officially supported |
+| Older kernels (3.4+) | ⚠️ Compatible, but the kernel has to be built manually |
+| Architectures | `arm64-v8a`, `armeabi-v7a`, `x86_64` |
+| [SuSFS](https://gitlab.com/simonpunk/susfs4ksu) backport | Kernel 4.3+ only |
+| Tracepoint Syscall Redirect hook | GKI2 (5.10+) kernels only |
 
-## Hook Mode
+## Hook mode
 
-- `Tracepoint Syscall Redirect hook`: the default hook mode, from
-  [upstream](https://github.com/tiann/KernelSU); only supports GKI2 kernels
-  with `arm64-v8a` or `x86_64` ABI.
-- `Manual Hook`: the most compatible hook, supports Linux kernels 3.4 – 6.18.
-- `SuSFS Inline Hook`: a hook from [SuSFS](https://github.com/simonpunk/susfs4ksu),
-  like `Manual Hook`, but provided by the SuSFS project.
+| Mode | Description |
+| --- | --- |
+| `Tracepoint Syscall Redirect hook` | Default mode, from [upstream](https://github.com/tiann/KernelSU); GKI2 kernels with `arm64-v8a` or `x86_64` ABI only |
+| `Manual Hook` | Most compatible; supports Linux kernels 3.4 – 6.18 |
+| `SuSFS Inline Hook` | From [SuSFS](https://github.com/simonpunk/susfs4ksu), like `Manual Hook` but provided by the SuSFS project |
 
 ## Building
 
@@ -104,7 +98,7 @@ See `docs/feature-porting-plan.md` for the full porting status.
   for this project, under the same terms as the manager (GPL-3.0-or-later).
 - Everything else is under [GPL-3.0-or-later](https://www.gnu.org/licenses/gpl-3.0.html).
 
-## Credit
+## Credits
 
 - [ReSukiSU](https://github.com/ReSukiSU/ReSukiSU): fork source
 - [SukiSU-Ultra](https://github.com/SukiSU-Ultra/SukiSU-Ultra): upstream of the fork source
