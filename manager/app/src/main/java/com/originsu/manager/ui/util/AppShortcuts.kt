@@ -1,5 +1,6 @@
 package com.originsu.manager.ui.util
 
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ShortcutInfo
@@ -7,7 +8,6 @@ import android.content.pm.ShortcutManager
 import android.graphics.drawable.Icon
 import android.util.Log
 import com.originsu.manager.R
-import com.originsu.manager.ui.MainActivity
 
 const val SHORTCUT_TYPE_EXTRA = "shortcut_type"
 const val SHORTCUT_TYPE_SUPERUSER = "tab_superuser"
@@ -29,7 +29,11 @@ const val ACTION_SHORTCUT_SETTINGS = "com.originsu.manager.action.SHORTCUT_SETTI
  * @return true when the shortcuts were applied, false when the system
  * rejected them (e.g. rate limiting) or an error occurred.
  */
-fun refreshAppShortcuts(context: Context, themed: Boolean): Boolean {
+fun refreshAppShortcuts(
+    context: Context,
+    themed: Boolean,
+    launcher: ComponentName,
+): Boolean {
     val shortcutManager = context.getSystemService(ShortcutManager::class.java)
         ?: return false
     if (shortcutManager.isRateLimitingActive) {
@@ -46,7 +50,8 @@ fun refreshAppShortcuts(context: Context, themed: Boolean): Boolean {
                 .setLongLabel(context.getString(R.string.superuser))
                 .setIcon(Icon.createWithResource(context, iconRes(R.mipmap.ic_superuser)))
                 .setIntent(
-                    Intent(ACTION_SHORTCUT_SUPERUSER, null, context, MainActivity::class.java)
+                    Intent(ACTION_SHORTCUT_SUPERUSER, null)
+                        .setComponent(launcher)
                         .putExtra(SHORTCUT_TYPE_EXTRA, SHORTCUT_TYPE_SUPERUSER),
                 )
                 .build(),
@@ -55,7 +60,8 @@ fun refreshAppShortcuts(context: Context, themed: Boolean): Boolean {
                 .setLongLabel(context.getString(R.string.module))
                 .setIcon(Icon.createWithResource(context, iconRes(R.mipmap.ic_modules)))
                 .setIntent(
-                    Intent(ACTION_SHORTCUT_MODULES, null, context, MainActivity::class.java)
+                    Intent(ACTION_SHORTCUT_MODULES, null)
+                        .setComponent(launcher)
                         .putExtra(SHORTCUT_TYPE_EXTRA, SHORTCUT_TYPE_MODULES),
                 )
                 .build(),
@@ -64,7 +70,8 @@ fun refreshAppShortcuts(context: Context, themed: Boolean): Boolean {
                 .setLongLabel(context.getString(R.string.settings))
                 .setIcon(Icon.createWithResource(context, iconRes(R.mipmap.ic_settings)))
                 .setIntent(
-                    Intent(ACTION_SHORTCUT_SETTINGS, null, context, MainActivity::class.java)
+                    Intent(ACTION_SHORTCUT_SETTINGS, null)
+                        .setComponent(launcher)
                         .putExtra(SHORTCUT_TYPE_EXTRA, SHORTCUT_TYPE_SETTINGS),
                 )
                 .build(),

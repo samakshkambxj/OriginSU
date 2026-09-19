@@ -18,9 +18,12 @@ import com.originsu.manager.domain.model.AppPreferences
 import com.originsu.manager.domain.model.PreferenceValue
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.IOException
@@ -62,6 +65,11 @@ class AppSettingsRepository(
 
     fun getBoolean(key: String, defaultValue: Boolean): Boolean =
         cachedPreferences.value[booleanPreferencesKey(key)] ?: defaultValue
+
+    fun observeBoolean(key: String, defaultValue: Boolean): Flow<Boolean> =
+        cachedPreferences
+            .map { it[booleanPreferencesKey(key)] ?: defaultValue }
+            .distinctUntilChanged()
 
     fun getInt(key: String, defaultValue: Int): Int =
         cachedPreferences.value[intPreferencesKey(key)] ?: defaultValue

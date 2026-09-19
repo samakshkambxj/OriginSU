@@ -682,6 +682,8 @@
     <string name="updater_download_complete">Download complete</string>
     <string name="updater_install">Install</string>
     <string name="updater_check_failed">Update check failed. Check your connection and try again.</string>
+    <string name="origin_section_title">Origin Lab</string>
+    <string name="feature_temporarily_unavailable">Temporarily unavailable</string>
     <string name="app_icon_title">App icon</string>
     <string name="app_icon_summary">Choose the launcher icon</string>
     <string name="app_icon_origin_black">Origin Black</string>

@@ -2,6 +2,7 @@ package com.originsu.manager.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.originsu.manager.data.AppSettingsRepository
 import com.originsu.manager.data.module.ModuleRepository
 import com.originsu.manager.data.packageinfo.SuperUserRepository
 import com.originsu.manager.data.shell.KsuCliRepository
@@ -13,6 +14,7 @@ import com.originsu.manager.domain.usecase.CheckManagerUpdateUseCase
 import com.originsu.manager.domain.usecase.GetBooleanPreferenceUseCase
 import com.originsu.manager.domain.usecase.GetLongPreferenceUseCase
 import com.originsu.manager.domain.usecase.LAST_FLASH_PREF_KEY
+import com.originsu.manager.domain.usecase.THEMED_SHORTCUTS_PREF_KEY
 import com.originsu.manager.domain.usecase.GetHomeBasicInfoUseCase
 import com.originsu.manager.domain.usecase.GetKernelStatusUseCase
 import com.originsu.manager.domain.usecase.GetManagerRuntimeInfoUseCase
@@ -50,6 +52,7 @@ sealed interface HomeUiEvent {
 
 class HomeViewModel(
     val homeStateRepository: HomeStateRepository,
+    appSettingsRepository: AppSettingsRepository,
     superUserRepository: SuperUserRepository,
     moduleRepository: ModuleRepository,
     private val ksuCliRepository: KsuCliRepository,
@@ -93,6 +96,13 @@ class HomeViewModel(
     init {
         // Every navigation-scoped instance publishes persisted toggles to the shared state source.
         applyUserSettings()
+        // Themed navbar icons must flip the moment the toggle changes.
+        viewModelScope.launch {
+            appSettingsRepository.observeBoolean(THEMED_SHORTCUTS_PREF_KEY, false)
+                .collect { enabled ->
+                    homeStateRepository.update { it.copy(isThemedShortcutsEnabled = enabled) }
+                }
+        }
     }
 
     suspend fun awaitInitialData() {

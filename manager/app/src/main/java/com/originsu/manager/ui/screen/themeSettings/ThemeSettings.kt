@@ -32,6 +32,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.twotone.Animation
+import androidx.compose.material.icons.twotone.Apps
 import androidx.compose.material.icons.twotone.Badge
 import androidx.compose.material.icons.twotone.BlurOn
 import androidx.compose.material.icons.twotone.Brush
@@ -102,6 +103,7 @@ import com.originsu.manager.ui.component.settings.SettingsChooseWidget
 import com.originsu.manager.ui.component.settings.SettingsJumpPageWidget
 import com.originsu.manager.ui.component.settings.SettingsSwitchWidget
 import com.originsu.manager.ui.navigation.LocalNavigator
+import com.originsu.manager.ui.navigation.Route
 import com.originsu.manager.ui.screen.themeSettings.component.LanguageSelectionDialog
 import com.originsu.manager.ui.screen.themeSettings.component.ThemeSettingsDialogs
 import com.originsu.manager.ui.screen.themeSettings.crop.BackgroundCropActivity
@@ -667,7 +669,19 @@ private fun CustomizationSettings(
     homeViewModel: HomeViewModel,
     moduleViewModel: ModuleViewModel,
 ) {
+    val navigator = LocalNavigator.current
     SegmentedColumn(title = stringResource(R.string.custom_settings)) {
+        item {
+            SettingsJumpPageWidget(
+                icon = Icons.TwoTone.Apps,
+                title = stringResource(R.string.app_icon_title),
+                description = stringResource(R.string.app_icon_summary),
+                onClick = {
+                    navigator.push(Route.AppIcon)
+                }
+            )
+        }
+
 
         item {
             // Themed app shortcuts (Superuser / Modules / Settings icons)

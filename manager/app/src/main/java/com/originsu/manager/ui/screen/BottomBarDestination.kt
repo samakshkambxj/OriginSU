@@ -21,6 +21,7 @@ enum class BottomBarDestination(
     val iconSelected: ImageVector,
     val iconNotSelected: ImageVector,
     val rootRequired: Boolean,
+    @param:androidx.annotation.DrawableRes val themedIconRes: Int? = null,
 ) {
     Home(
         { bottomPadding -> HomePage(bottomPadding) },
@@ -34,21 +35,24 @@ enum class BottomBarDestination(
         R.string.superuser,
         Icons.TwoTone.AdminPanelSettings,
         Icons.TwoTone.AdminPanelSettings,
-        true
+        true,
+        R.drawable.nav_icon_superuser
     ),
     Module(
         { bottomPadding -> ModulePage(bottomPadding) },
         R.string.module,
         Icons.TwoTone.Extension,
         Icons.TwoTone.Extension,
-        true
+        true,
+        R.drawable.nav_icon_modules
     ),
     Settings(
         { bottomPadding -> SettingsPage(bottomPadding) },
         R.string.settings,
         Icons.TwoTone.Settings,
         Icons.TwoTone.Settings,
-        false
+        false,
+        R.drawable.nav_icon_settings
     );
 
     companion object {

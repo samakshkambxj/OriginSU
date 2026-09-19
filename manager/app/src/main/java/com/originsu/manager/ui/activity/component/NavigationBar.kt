@@ -14,8 +14,10 @@ import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
@@ -36,6 +38,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -73,6 +78,7 @@ fun NavigationBar(
     val superuserCount = uiState.systemInfo.superuserCount
     val moduleCount = uiState.systemInfo.moduleCount
     val showNavigationBarBadge = uiState.showNavigationBarBadge
+    val themedIcons = uiState.isThemedShortcutsEnabled
     val page = LocalSelectedPage.current
     val handlePageChange = LocalHandlePageChange.current
     val pagerState = LocalPagerState.current
@@ -109,10 +115,10 @@ fun NavigationBar(
                             else -> 0
                         }
                         val icon: @Composable () -> Unit = {
-                            Icon(
+                            DestinationIcon(
+                                destination = destination,
+                                themed = themedIcons,
                                 imageVector = destination.iconSelected,
-                                contentDescription = stringResource(destination.label),
-                                tint = contentColor
                             )
                         }
                         if (count > 0 && showNavigationBarBadge) {
@@ -161,6 +167,7 @@ fun NavigationBar(
                     superuserCount = superuserCount,
                     moduleCount = moduleCount,
                     showNavigationBarBadge = showNavigationBarBadge,
+                    themedIcons = themedIcons,
                 )
             }
         }
@@ -197,9 +204,29 @@ fun NavigationBar(
                     superuserCount = superuserCount,
                     moduleCount = moduleCount,
                     showNavigationBarBadge = showNavigationBarBadge,
+                    themedIcons = themedIcons,
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun DestinationIcon(
+    destination: BottomBarDestination,
+    themed: Boolean,
+    imageVector: ImageVector,
+) {
+    val themedRes = if (themed) destination.themedIconRes else null
+    if (themedRes != null) {
+        Image(
+            painter = painterResource(themedRes),
+            contentDescription = stringResource(destination.label),
+            modifier = Modifier.size(24.dp),
+            colorFilter = ColorFilter.tint(LocalContentColor.current),
+        )
+    } else {
+        Icon(imageVector, stringResource(destination.label))
     }
 }
 
@@ -211,6 +238,7 @@ private fun NavigationRailItem(
     superuserCount: Int,
     moduleCount: Int,
     showNavigationBarBadge: Boolean,
+    themedIcons: Boolean,
 ) {
     WideNavigationRailItem(
         railExpanded = false,
@@ -228,9 +256,9 @@ private fun NavigationRailItem(
                 }
             ) {
                 if (isSelected) {
-                    Icon(destination.iconSelected, stringResource(destination.label))
+                    DestinationIcon(destination, themedIcons, destination.iconSelected)
                 } else {
-                    Icon(destination.iconNotSelected, stringResource(destination.label))
+                    DestinationIcon(destination, themedIcons, destination.iconNotSelected)
                 }
             }
         },
@@ -254,6 +282,7 @@ private fun RowScope.BottomBarNavigationItem(
     superuserCount: Int,
     moduleCount: Int,
     showNavigationBarBadge: Boolean,
+    themedIcons: Boolean,
 ) {
     NavigationBarItem(
         selected = isSelected,
@@ -270,9 +299,9 @@ private fun RowScope.BottomBarNavigationItem(
                 }
             ) {
                 if (isSelected) {
-                    Icon(destination.iconSelected, stringResource(destination.label))
+                    DestinationIcon(destination, themedIcons, destination.iconSelected)
                 } else {
-                    Icon(destination.iconNotSelected, stringResource(destination.label))
+                    DestinationIcon(destination, themedIcons, destination.iconNotSelected)
                 }
             }
         },

@@ -58,19 +58,19 @@ private data class AppIconOption(
 private val APP_ICON_OPTIONS = listOf(
     AppIconOption(
         icon = AppIcon.ORIGIN_BLACK,
-        preview = R.mipmap.ic_launcher,
+        preview = R.drawable.app_icon_preview_black,
         titleRes = R.string.app_icon_origin_black,
         summaryRes = R.string.app_icon_origin_black_summary,
     ),
     AppIconOption(
         icon = AppIcon.ORIGIN_LIGHT,
-        preview = R.mipmap.ic_launcher_light,
+        preview = R.drawable.app_icon_preview_light,
         titleRes = R.string.app_icon_origin_light,
         summaryRes = R.string.app_icon_origin_light_summary,
     ),
     AppIconOption(
         icon = AppIcon.KSU_OFFICIAL,
-        preview = R.mipmap.ic_launcher_ksu,
+        preview = R.drawable.app_icon_preview_ksu,
         titleRes = R.string.app_icon_ksu_official,
         summaryRes = R.string.app_icon_ksu_official_summary,
     ),

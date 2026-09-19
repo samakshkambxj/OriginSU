@@ -27,7 +27,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.twotone.Article
 import androidx.compose.material.icons.automirrored.twotone.Undo
 import androidx.compose.material.icons.twotone.Adb
-import androidx.compose.material.icons.twotone.Apps
 import androidx.compose.material.icons.twotone.BugReport
 import androidx.compose.material.icons.twotone.Delete
 import androidx.compose.material.icons.twotone.DeleteForever
@@ -260,35 +259,6 @@ fun SettingsPage(bottomPadding: Dp) {
                             }
 
                             item {
-                                val zygiskSummary = when {
-                                    uiState.isOriginZygiskRunning -> stringResource(
-                                        id = R.string.origin_zygisk_running
-                                    )
-
-                                    uiState.isOriginZygiskEnabled -> stringResource(
-                                        id = R.string.origin_zygisk_needs_reboot
-                                    )
-
-                                    else -> stringResource(
-                                        id = R.string.settings_origin_zygisk_summary
-                                    )
-                                }
-                                SettingsSwitchWidget(
-                                    icon = Icons.TwoTone.Psychology,
-                                    title = stringResource(id = R.string.settings_origin_zygisk),
-                                    description = zygiskSummary,
-                                    checked = uiState.isOriginZygiskEnabled,
-                                    onCheckedChange = { enabled ->
-                                        settingsViewModel.dispatch(
-                                            SettingsUiAction.SetOriginZygiskEnabled(
-                                                enabled
-                                            )
-                                        )
-                                    },
-                                )
-                            }
-
-                            item {
                                 val umountSummary = when (uiState.kernelUmountStatus) {
                                     "unsupported" -> stringResource(id = R.string.feature_status_unsupported_summary)
                                     "managed" -> stringResource(id = R.string.feature_status_managed_summary)
@@ -373,88 +343,6 @@ fun SettingsPage(bottomPadding: Dp) {
                             }
 
                             item {
-                                val veilSummary = when (uiState.veilStatus) {
-                                    "unsupported" -> stringResource(id = R.string.feature_status_unsupported_summary)
-                                    "managed" -> stringResource(id = R.string.feature_status_managed_summary)
-                                    else -> stringResource(id = R.string.settings_veil_summary)
-                                }
-                                SettingsSwitchWidget(
-                                    icon = Icons.TwoTone.Shield,
-                                    title = stringResource(id = R.string.settings_veil),
-                                    description = veilSummary,
-                                    enabled = uiState.veilStatus == "supported",
-                                    checked = uiState.isVeilEnabled,
-                                    onCheckedChange = { enabled ->
-                                        settingsViewModel.dispatch(SettingsUiAction.SetVeil(enabled))
-                                    },
-                                )
-                            }
-
-                            item(
-                                visible = uiState.veilStatus == "supported"
-                            ) {
-                                SettingsJumpPageWidget(
-                                    icon = Icons.TwoTone.Visibility,
-                                    title = stringResource(id = R.string.veil),
-                                    description = stringResource(id = R.string.veil_manage_summary),
-                                    onClick = {
-                                        navigator.push(Route.Veil)
-                                    }
-                                )
-                            }
-
-                            item {
-                                SettingsSwitchWidget(
-                                    icon = Icons.TwoTone.Notifications,
-                                    title = stringResource(id = R.string.settings_grant_toast),
-                                    description = if (!uiState.overlayGranted) {
-                                        stringResource(id = R.string.settings_grant_toast_permission)
-                                    } else {
-                                        stringResource(id = R.string.settings_grant_toast_summary)
-                                    },
-                                    checked = uiState.isGrantToastEnabled,
-                                    onCheckedChange = { enabled ->
-                                        settingsViewModel.dispatch(
-                                            SettingsUiAction.SetGrantToast(enabled)
-                                        )
-                                    },
-                                )
-                            }
-
-                            item {
-                                SettingsSwitchWidget(
-                                    icon = Icons.TwoTone.Security,
-                                    title = stringResource(id = R.string.settings_su_prompt),
-                                    description = if (!uiState.isSuPromptSupported) {
-                                        stringResource(id = R.string.settings_su_prompt_unsupported)
-                                    } else {
-                                        stringResource(id = R.string.settings_su_prompt_summary)
-                                    },
-                                    checked = uiState.isSuPromptEnabled,
-                                    enabled = uiState.isSuPromptSupported,
-                                    onCheckedChange = { enabled ->
-                                        settingsViewModel.dispatch(
-                                            SettingsUiAction.SetSuPrompt(enabled)
-                                        )
-                                    },
-                                )
-                            }
-
-                            item {
-                                SettingsSwitchWidget(
-                                    icon = Icons.TwoTone.Timer,
-                                    title = stringResource(id = R.string.settings_temp_grant),
-                                    description = stringResource(id = R.string.settings_temp_grant_summary),
-                                    checked = uiState.isTempGrantEnabled,
-                                    onCheckedChange = { enabled ->
-                                        settingsViewModel.dispatch(
-                                            SettingsUiAction.SetTempGrant(enabled)
-                                        )
-                                    },
-                                )
-                            }
-
-                            item {
                                 val selinuxHideSummary = when (uiState.selinuxHideStatus) {
                                     "unsupported" -> stringResource(id = R.string.feature_status_unsupported_summary)
                                     "managed" -> stringResource(id = R.string.feature_status_managed_summary)
@@ -495,6 +383,118 @@ fun SettingsPage(bottomPadding: Dp) {
                         }
                     )
                 }
+            }
+
+            item {
+                // Origin features
+                SegmentedColumn(
+                    title = stringResource(R.string.origin_section_title),
+                    content = {
+                        item {
+                            val zygiskSummary = when {
+                                uiState.isOriginZygiskRunning -> stringResource(
+                                    id = R.string.origin_zygisk_running
+                                )
+
+                                uiState.isOriginZygiskEnabled -> stringResource(
+                                    id = R.string.origin_zygisk_needs_reboot
+                                )
+
+                                else -> stringResource(
+                                    id = R.string.settings_origin_zygisk_summary
+                                )
+                            }
+                            SettingsSwitchWidget(
+                                icon = Icons.TwoTone.Psychology,
+                                title = stringResource(id = R.string.settings_origin_zygisk),
+                                description = zygiskSummary,
+                                checked = uiState.isOriginZygiskEnabled,
+                                onCheckedChange = { enabled ->
+                                    settingsViewModel.dispatch(
+                                        SettingsUiAction.SetOriginZygiskEnabled(
+                                            enabled
+                                        )
+                                    )
+                                },
+                            )
+                        }
+
+                        item {
+                            val veilSummary = when (uiState.veilStatus) {
+                                "unsupported" -> stringResource(id = R.string.feature_status_unsupported_summary)
+                                "managed" -> stringResource(id = R.string.feature_status_managed_summary)
+                                else -> stringResource(id = R.string.settings_veil_summary)
+                            }
+                            SettingsSwitchWidget(
+                                icon = Icons.TwoTone.Shield,
+                                title = stringResource(id = R.string.settings_veil),
+                                description = veilSummary,
+                                enabled = uiState.veilStatus == "supported",
+                                checked = uiState.isVeilEnabled,
+                                onCheckedChange = { enabled ->
+                                    settingsViewModel.dispatch(SettingsUiAction.SetVeil(enabled))
+                                },
+                            )
+                        }
+
+                        item(
+                            visible = uiState.veilStatus == "supported" && uiState.isVeilEnabled
+                        ) {
+                            SettingsJumpPageWidget(
+                                icon = Icons.TwoTone.Visibility,
+                                title = stringResource(id = R.string.veil),
+                                description = stringResource(id = R.string.veil_manage_summary),
+                                onClick = {
+                                    navigator.push(Route.Veil)
+                                }
+                            )
+                        }
+
+                        item {
+                            SettingsSwitchWidget(
+                                icon = Icons.TwoTone.Notifications,
+                                title = stringResource(id = R.string.settings_grant_toast),
+                                description = stringResource(id = R.string.feature_temporarily_unavailable),
+                                checked = uiState.isGrantToastEnabled,
+                                enabled = false,
+                                onCheckedChange = { enabled ->
+                                    settingsViewModel.dispatch(
+                                        SettingsUiAction.SetGrantToast(enabled)
+                                    )
+                                },
+                            )
+                        }
+
+                        item {
+                            SettingsSwitchWidget(
+                                icon = Icons.TwoTone.Security,
+                                title = stringResource(id = R.string.settings_su_prompt),
+                                description = stringResource(id = R.string.feature_temporarily_unavailable),
+                                checked = uiState.isSuPromptEnabled,
+                                enabled = false,
+                                onCheckedChange = { enabled ->
+                                    settingsViewModel.dispatch(
+                                        SettingsUiAction.SetSuPrompt(enabled)
+                                    )
+                                },
+                            )
+                        }
+
+                        item {
+                            SettingsSwitchWidget(
+                                icon = Icons.TwoTone.Timer,
+                                title = stringResource(id = R.string.settings_temp_grant),
+                                description = stringResource(id = R.string.settings_temp_grant_summary),
+                                checked = uiState.isTempGrantEnabled,
+                                onCheckedChange = { enabled ->
+                                    settingsViewModel.dispatch(
+                                        SettingsUiAction.SetTempGrant(enabled)
+                                    )
+                                },
+                            )
+                        }
+                    }
+                )
             }
 
             item {
@@ -566,16 +566,7 @@ fun SettingsPage(bottomPadding: Dp) {
                             )
                         }
 
-                        item {
-                            SettingsJumpPageWidget(
-                                icon = Icons.TwoTone.Apps,
-                                title = stringResource(R.string.app_icon_title),
-                                description = stringResource(R.string.app_icon_summary),
-                                onClick = {
-                                    navigator.push(Route.AppIcon)
-                                }
-                            )
-                        }
+
 
                         item {
                             // 更多设置
