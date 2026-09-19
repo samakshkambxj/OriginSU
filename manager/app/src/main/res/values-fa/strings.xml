@@ -67,4 +67,5 @@
     <string name="select_anykernel_zip_next">Now select the AnyKernel zip</string>
     <string name="patch_boot_picked">Boot: %1$s\nKernel zip: %2$s</string>
     <string name="show_module_banners">Show module banners</string>
+    <string name="show_module_banners_summary">Faded artwork behind module cards</string>
 </resources>

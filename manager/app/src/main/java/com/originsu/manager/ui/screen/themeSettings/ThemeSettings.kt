@@ -45,6 +45,7 @@ import androidx.compose.material.icons.twotone.Dock
 import androidx.compose.material.icons.twotone.Draw
 import androidx.compose.material.icons.twotone.FormatColorFill
 import androidx.compose.material.icons.twotone.FormatSize
+import androidx.compose.material.icons.twotone.Image
 import androidx.compose.material.icons.twotone.Info
 import androidx.compose.material.icons.twotone.LightMode
 import androidx.compose.material.icons.twotone.Opacity
@@ -689,6 +690,19 @@ private fun CustomizationSettings(
                 checked = moduleUiState.showMoreModuleInfo,
                 onCheckedChange = { enabled ->
                     moduleViewModel.dispatch(ModuleUiAction.SetShowMoreInfo(enabled))
+                }
+            )
+        }
+
+        item {
+            // 模块横幅
+            SettingsSwitchWidget(
+                icon = Icons.TwoTone.Image,
+                title = stringResource(R.string.show_module_banners),
+                description = stringResource(R.string.show_module_banners_summary),
+                checked = moduleUiState.showBanners,
+                onCheckedChange = { enabled ->
+                    moduleViewModel.dispatch(ModuleUiAction.SetShowBanners(enabled))
                 }
             )
         }

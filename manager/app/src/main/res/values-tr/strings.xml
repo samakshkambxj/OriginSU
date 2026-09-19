@@ -220,6 +220,7 @@
     <string name="select_anykernel_zip_next">Now select the AnyKernel zip</string>
     <string name="patch_boot_picked">Boot: %1$s\nKernel zip: %2$s</string>
     <string name="show_module_banners">Show module banners</string>
+    <string name="show_module_banners_summary">Faded artwork behind module cards</string>
     <string name="root_required">Root ayrıcalıkları gerektirir</string>
     <string name="failed_reboot">Yeniden başlatma başarısız</string>
     <string name="custom_settings">Özel ayarlar</string>
