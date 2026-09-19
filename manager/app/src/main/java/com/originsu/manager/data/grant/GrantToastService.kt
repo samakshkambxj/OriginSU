@@ -80,6 +80,12 @@ class GrantToastService : Service() {
     }
 
     private fun startMonitoring() {
+        // Boot receiver starts us unconditionally; exit early when disabled so
+        // we don't linger as a foreground service nobody asked for.
+        if (!repository.isToastEnabled()) {
+            stopSelf()
+            return
+        }
         val notification = NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setContentTitle(getString(R.string.grant_toast_monitoring))
@@ -100,18 +106,27 @@ class GrantToastService : Service() {
                 ),
             )
             .build()
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            startForeground(
-                NOTIFICATION_ID, notification,
-                ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE,
-            )
-        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            startForeground(
-                NOTIFICATION_ID, notification,
-                ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC,
-            )
-        } else {
-            startForeground(NOTIFICATION_ID, notification)
+        runCatching {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                startForeground(
+                    NOTIFICATION_ID, notification,
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE,
+                )
+            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                startForeground(
+                    NOTIFICATION_ID, notification,
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC,
+                )
+            } else {
+                startForeground(NOTIFICATION_ID, notification)
+            }
+        }.onFailure {
+            // startForeground can throw when started from background on
+            // Android 12+ (FGS-start restriction) or when the declared
+            // foregroundServiceType mismatches. Don't crash: without the
+            // foreground promotion the monitor would be killed, so stop.
+            stopSelf()
+            return
         }
         if (monitorJob?.isActive == true) return
         monitorJob = serviceScope.launch {
@@ -263,20 +278,22 @@ class GrantToastService : Service() {
     }
 
     private fun showFallbackNotification(message: String) {
-        val notification = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_launcher_foreground)
-            .setContentTitle(getString(R.string.grant_toast_channel))
-            .setContentText(message)
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
-            .setAutoCancel(true)
-            .setContentIntent(
-                PendingIntent.getActivity(
-                    this, 0, Intent(this, MainActivity::class.java),
-                    PendingIntent.FLAG_IMMUTABLE,
+        runCatching {
+            val notification = NotificationCompat.Builder(this, CHANNEL_ID)
+                .setSmallIcon(R.drawable.ic_launcher_foreground)
+                .setContentTitle(getString(R.string.grant_toast_channel))
+                .setContentText(message)
+                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setAutoCancel(true)
+                .setContentIntent(
+                    PendingIntent.getActivity(
+                        this, 0, Intent(this, MainActivity::class.java),
+                        PendingIntent.FLAG_IMMUTABLE,
+                    )
                 )
-            )
-            .build()
-        notificationManager.notify(FALLBACK_NOTIFICATION_ID + (System.currentTimeMillis() % 1000).toInt(), notification)
+                .build()
+            notificationManager.notify(FALLBACK_NOTIFICATION_ID + (System.currentTimeMillis() % 1000).toInt(), notification)
+        }
     }
 
     private fun hideToast() {

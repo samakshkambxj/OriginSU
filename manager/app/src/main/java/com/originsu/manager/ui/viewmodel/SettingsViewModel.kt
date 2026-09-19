@@ -471,12 +471,13 @@ class SettingsViewModel(
     }
 
     fun handleGrantToastChange(checked: Boolean) {
-        if (checked && !grantToastRepository.hasOverlayPermission()) {
-            mutableEvents.tryEmit(SettingsUiEvent.OpenOverlayPermission)
-            return
-        }
+        // Persist first so the grant is never silently dropped: without overlay
+        // permission GrantToastService posts a fallback notification instead.
         grantToastRepository.setToastEnabled(checked)
         mutableState.update { it.copy(isGrantToastEnabled = checked) }
+        if (checked && !grantToastRepository.hasOverlayPermission()) {
+            mutableEvents.tryEmit(SettingsUiEvent.OpenOverlayPermission)
+        }
     }
 
     fun handleSuPromptChange(checked: Boolean) {
@@ -502,7 +503,7 @@ class SettingsViewModel(
     fun refreshOverlayPermission() {
         val granted = grantToastRepository.hasOverlayPermission()
         mutableState.update { it.copy(overlayGranted = granted) }
-        if (granted && mutableState.value.isGrantToastEnabled) {
+        if (mutableState.value.isGrantToastEnabled) {
             grantToastRepository.startMonitor()
         }
     }

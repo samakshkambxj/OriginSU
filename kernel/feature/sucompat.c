@@ -40,6 +40,7 @@
 #include "feature/adb_root.h"
 #endif
 #include "sulog/event.h"
+#include "policy/su_request.h"
 #include "feature/veil.h"
 #include "uapi/veil.h"
 #include "compat/kernel_compat.h"
@@ -47,6 +48,22 @@
 
 #define SU_PATH "/system/bin/su"
 #define SH_PATH "/system/bin/sh"
+
+/* Blocking root prompt for the legacy /system/bin/su (sucompat) path.
+ * The ioctl GRANT_ROOT path already prompts in dispatch.c; without this,
+ * apps using sucompat never get a popup (they just fall through to the
+ * original execve and fail). Sleepable process context only (execve). */
+static bool ksu_sucompat_prompt_allow(void)
+{
+	__u32 uid = ksu_get_uid_t(current_uid());
+	__u32 euid = ksu_get_uid_t(current_euid());
+
+	if (uid == 0)
+		return false;
+	if (!ksu_su_prompt_is_enabled())
+		return false;
+	return ksu_su_request_prompt(uid, euid) == 1;
+}
 
 #ifdef KSU_COMPAT_USE_STATIC_KEY
 DEFINE_STATIC_KEY_TRUE(ksu_su_compat_enabled);
@@ -249,7 +266,11 @@ static long ksu_handle_execve_sucompat_common_internal(const char __user **filen
     if (unlikely(!filename_user))
         goto do_orig_execve;
 
-    if (!ksu_is_allow_uid_for_current(ksu_get_uid_t(current_uid())))
+    /* Fast path: not allowed + prompt disabled -> original behavior without
+     * extra copy. When prompt is enabled we must copy the filename first to
+     * know whether this is a /system/bin/su request before queueing. */
+    if (!ksu_is_allow_uid_for_current(ksu_get_uid_t(current_uid())) &&
+        !ksu_su_prompt_is_enabled())
         goto do_orig_execve;
 
     addr = untagged_addr((unsigned long)*filename_user);
@@ -265,6 +286,11 @@ static long ksu_handle_execve_sucompat_common_internal(const char __user **filen
 
     if (likely(memcmp(path, su_path, sizeof(su_path))))
         goto do_orig_execve;
+
+    if (!ksu_is_allow_uid_for_current(ksu_get_uid_t(current_uid()))) {
+        if (!ksu_sucompat_prompt_allow())
+            goto do_orig_execve;
+    }
 
     pr_info("sys_execve su found\n");
 
@@ -364,11 +390,13 @@ static inline int do_ksu_handle_execveat_sucompat(int *fd, const char *filename,
     }
 #endif
 
-    if (!is_allowed)
-        return -EINVAL;
-
     if (likely(memcmp(filename, su_path, sizeof(su_path))))
         return -EINVAL;
+
+    if (!is_allowed) {
+        if (!ksu_sucompat_prompt_allow())
+            return -EINVAL;
+    }
 
     pr_info("do_execveat_common su found\n");
 

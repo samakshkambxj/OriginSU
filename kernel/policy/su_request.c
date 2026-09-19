@@ -192,18 +192,10 @@ int ksu_su_request_prompt(__u32 uid, __u32 euid)
 		return 1;
 
 	mutex_lock(&su_req_lock);
-	/* Coalesce: if same uid already has a pending request, wait on it. */
-	{
-		struct su_request *iter;
-		list_for_each_entry(iter, &su_req_list, list) {
-			if (!iter->answered && iter->uid == uid) {
-				req = iter;
-				/* Hold a ref by keeping it in list; wait below without lock. */
-				goto wait_existing;
-			}
-		}
-	}
-
+	/* NOTE: no coalescing on purpose. Sharing one allocation between
+	 * several waiters caused use-after-free: the first woken waiter
+	 * list_del()s + kfrees() while the others still hold the pointer and
+	 * then read req->id. Each caller queues its own request instead. */
 	if (pending_count_locked() >= SU_REQUEST_MAX_PENDING) {
 		mutex_unlock(&su_req_lock);
 		pr_warn_ratelimited("su_request: queue full, deny uid=%u\n", uid);
@@ -233,15 +225,12 @@ int ksu_su_request_prompt(__u32 uid, __u32 euid)
 	pr_info("su_request: queued id=%llu uid=%u pid=%u comm=%s\n",
 		req->id, uid, req->pid, req->comm);
 
-	mutex_lock(&su_req_lock);
-wait_existing:
 	timeout_jiffies = msecs_to_jiffies((unsigned int)(READ_ONCE(su_prompt_timeout_secs) * 1000ULL));
-	mutex_unlock(&su_req_lock);
 
 	waited = wait_event_interruptible_timeout(req->wait, READ_ONCE(req->answered), timeout_jiffies);
 
 	mutex_lock(&su_req_lock);
-	/* Re-find: it is still in list (requester frees it). */
+	/* Exclusively owned: no other waiter can free it, just unlink. */
 	{
 		struct su_request *live = find_request_locked(req->id);
 		if (!live) {

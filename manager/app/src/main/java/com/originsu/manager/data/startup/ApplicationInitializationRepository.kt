@@ -39,9 +39,11 @@ class ApplicationInitializationRepository(
         }
         // Restore toast + blocking-prompt monitors after reboot / process restart.
         // Previously they only started on toggle, so after a reboot no popup
-        // ever appeared until the user toggled the switch again.
+        // ever appeared until the user toggled the switch again. Start the
+        // toast monitor whenever enabled: GrantToastService falls back to a
+        // notification when overlay permission is missing.
         runCatching {
-            if (grantToastRepository.isToastEnabled() && grantToastRepository.hasOverlayPermission()) {
+            if (grantToastRepository.isToastEnabled()) {
                 grantToastRepository.startMonitor()
             }
         }

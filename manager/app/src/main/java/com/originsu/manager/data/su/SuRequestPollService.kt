@@ -55,24 +55,35 @@ class SuRequestPollService : Service() {
     }
 
     private fun startPolling() {
+        // Boot receiver starts us unconditionally; exit early when disabled so
+        // we don't linger as a foreground service nobody asked for.
+        if (!repository.isPromptEnabled()) {
+            stopSelf()
+            return
+        }
         val notification = androidx.core.app.NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setContentTitle(getString(R.string.su_request_title))
             .setContentText(getString(R.string.settings_su_prompt_summary))
             .setOngoing(true)
             .build()
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            startForeground(
-                NOTIFICATION_ID, notification,
-                ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE,
-            )
-        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            startForeground(
-                NOTIFICATION_ID, notification,
-                ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC,
-            )
-        } else {
-            startForeground(NOTIFICATION_ID, notification)
+        runCatching {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                startForeground(
+                    NOTIFICATION_ID, notification,
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE,
+                )
+            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                startForeground(
+                    NOTIFICATION_ID, notification,
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC,
+                )
+            } else {
+                startForeground(NOTIFICATION_ID, notification)
+            }
+        }.onFailure {
+            stopSelf()
+            return
         }
         if (pollJob?.isActive == true) return
         repository.syncToKernel()
@@ -139,7 +150,9 @@ class SuRequestPollService : Service() {
             .setAutoCancel(true)
             .setTimeoutAfter(REQUEST_TIMEOUT_MILLIS)
             .build()
-        notificationManager.notify(REQUEST_NOTIFICATION_BASE + (req.id % 1000).toInt(), prompt)
+        runCatching {
+            notificationManager.notify(REQUEST_NOTIFICATION_BASE + (req.id % 1000).toInt(), prompt)
+        }
     }
 
     private fun createChannel() {
