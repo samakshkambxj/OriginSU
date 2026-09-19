@@ -69,7 +69,6 @@ class SettingsPlatformRepository(
             dynamicColorSpec = themeConfig.dynamicColorSpec,
             dynamicPaletteStyle = themeConfig.dynamicPaletteStyle,
             currentLocaleTag = localeHelper.getCurrentAppLocale(application)?.toLanguageTag(),
-            useAltIcon = settings.getBoolean("use_alt_icon", false),
             cardAlpha = cardConfig.cardAlpha,
             backgroundDim = themeConfig.backgroundDim,
             customBackgroundEnabled = customBackground,
@@ -162,11 +161,6 @@ class SettingsPlatformRepository(
                 settings.putString("predictive_back_exit_direction", setting.value)
 
             is PlatformSetting.Dpi -> settings.putInt("app_dpi", setting.value)
-            is PlatformSetting.AlternateIcon -> {
-                settings.putBoolean("use_alt_icon", setting.enabled)
-                toggleLauncherIcon(setting.enabled)
-            }
-
             is PlatformSetting.ManagerUpdateCheck -> {
                 settings.putBoolean("check_update", setting.enabled)
                 if (!setting.enabled) settings.putBoolean("check_beta_update", false)
@@ -287,22 +281,6 @@ class SettingsPlatformRepository(
             ShellUtils.fastCmd("setprop ctl.restart adbd")
             ksuCliRepository.execKsud("feature save", true)
         }
-    }
-
-    private fun toggleLauncherIcon(useAlt: Boolean) {
-        val packageName = application.packageName
-        val main = ComponentName(packageName, "com.resukisu.resukisu.ui.MainActivity")
-        val alias = ComponentName(packageName, "com.resukisu.resukisu.ui.MainActivityAlias")
-        application.packageManager.setComponentEnabledSetting(
-            if (useAlt) alias else main,
-            PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
-            PackageManager.DONT_KILL_APP,
-        )
-        application.packageManager.setComponentEnabledSetting(
-            if (useAlt) main else alias,
-            PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
-            PackageManager.DONT_KILL_APP,
-        )
     }
 
     private fun loadModuleUpdatePreference(): Boolean {

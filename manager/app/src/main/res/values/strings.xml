@@ -410,9 +410,6 @@
     <string name="back">Comeback</string>
     <string name="background_set_success">Background set successfully</string>
     <string name="background_removed">Removed custom backgrounds</string>
-    <string name="icon_switch_title">Alternate icon</string>
-    <string name="icon_switch_summary">Change the launcher icon to KernelSU\'s icon</string>
-    <string name="icon_switched">Icon switched</string>
     <string name="module_webui_alert">Message from Module %s</string>
     <string name="no_such_module">Module %s does not exist</string>
     <string name="module_unavailable">Module %s is disabled, or pending removal</string>
@@ -685,6 +682,14 @@
     <string name="updater_download_complete">Download complete</string>
     <string name="updater_install">Install</string>
     <string name="updater_check_failed">Update check failed. Check your connection and try again.</string>
+    <string name="app_icon_title">App icon</string>
+    <string name="app_icon_summary">Choose the launcher icon</string>
+    <string name="app_icon_origin_black">Origin Black</string>
+    <string name="app_icon_origin_black_summary">White leaf on black</string>
+    <string name="app_icon_origin_light">Origin Light</string>
+    <string name="app_icon_origin_light_summary">Black leaf on white</string>
+    <string name="app_icon_ksu_official">KernelSU Official</string>
+    <string name="app_icon_ksu_official_summary">Upstream KernelSU mark</string>
     <string name="enable_floating_bottom_bar">Floating bottom bar</string>
     <string name="enable_floating_bottom_bar_summary">Use Apple style floating bottom bar.</string>
 </resources>

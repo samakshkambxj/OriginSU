@@ -11,6 +11,7 @@ import com.originsu.manager.data.flash.FlashRepository
 import com.originsu.manager.data.kernel.KernelRepository
 import com.originsu.manager.data.kernel.UmountRepository
 import com.originsu.manager.data.grant.GrantToastRepository
+import com.originsu.manager.data.appearance.AppIconRepository
 import com.originsu.manager.data.su.SuRequestRepository
 import com.originsu.manager.data.grant.TempGrantRepository
 import com.originsu.manager.data.kernel.VeilRepository
@@ -178,6 +179,7 @@ import com.originsu.manager.ui.viewmodel.SulogViewModel
 import com.originsu.manager.ui.viewmodel.SuperUserViewModel
 import com.originsu.manager.ui.viewmodel.TemplateEditorViewModel
 import com.originsu.manager.ui.viewmodel.TemplateViewModel
+import com.originsu.manager.ui.viewmodel.AppIconViewModel
 import com.originsu.manager.ui.viewmodel.UmountManagerScreenViewModel
 import com.originsu.manager.ui.viewmodel.UpdaterViewModel
 import com.originsu.manager.ui.viewmodel.VeilViewModel
@@ -268,6 +270,7 @@ val repositoryModule = module {
             grantToastRepository = get(),
             suRequestRepository = get(),
             appShortcutsRepository = get(),
+            appIconRepository = get(),
         )
     }
     singleOf(::ManagerUpdateRepository)
@@ -285,6 +288,7 @@ val repositoryModule = module {
     single { TempGrantRepository(androidApplication(), get()) }
     single { GrantToastRepository(androidApplication(), get()) }
     single { SuRequestRepository(androidApplication(), get()) }
+    single { AppIconRepository(androidApplication(), get()) }
     single { com.originsu.manager.data.shortcuts.AppShortcutsRepository(androidApplication(), get()) }
     singleOf(::BugreportRepository)
     singleOf(::UmountRepository)
@@ -456,6 +460,7 @@ val viewModelModule = module {
     viewModelOf(::SettingsViewModel)
     viewModelOf(::ModuleViewModel)
     viewModelOf(::SuperUserViewModel)
+    viewModelOf(::AppIconViewModel)
     viewModelOf(::UpdaterViewModel)
     viewModelOf(::SuSFSViewModel)
     viewModelOf(::ModuleRepoViewModel)

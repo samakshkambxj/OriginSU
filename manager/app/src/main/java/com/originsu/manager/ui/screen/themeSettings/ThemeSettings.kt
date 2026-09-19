@@ -31,7 +31,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.twotone.Android
 import androidx.compose.material.icons.twotone.Animation
 import androidx.compose.material.icons.twotone.Badge
 import androidx.compose.material.icons.twotone.BlurOn
@@ -669,18 +668,6 @@ private fun CustomizationSettings(
     moduleViewModel: ModuleViewModel,
 ) {
     SegmentedColumn(title = stringResource(R.string.custom_settings)) {
-        item {
-            // 图标切换
-            SettingsSwitchWidget(
-                icon = Icons.TwoTone.Android,
-                title = stringResource(R.string.icon_switch_title),
-                description = stringResource(R.string.icon_switch_summary),
-                checked = settingsUiState.useAltIcon,
-                onCheckedChange = { enabled ->
-                    settingsViewModel.dispatch(SettingsUiAction.SetAlternateIcon(enabled))
-                }
-            )
-        }
 
         item {
             // Themed app shortcuts (Superuser / Modules / Settings icons)

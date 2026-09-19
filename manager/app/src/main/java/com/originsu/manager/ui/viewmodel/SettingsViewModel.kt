@@ -81,7 +81,6 @@ data class SettingsUiState(
     val showLanguageDialog: Boolean = false,
     val currentAppLocale: Locale? = null,
     val showThemeColorDialog: Boolean = false,
-    val useAltIcon: Boolean = false,
     val cardAlpha: Float = 1f,
     val backgroundDim: Float = 0f,
     val isCustomBackgroundEnabled: Boolean = false,
@@ -144,7 +143,7 @@ sealed interface SettingsUiAction {
     data object RestartActivity : SettingsUiAction
     data object ApplyDpi : SettingsUiAction
     data class SetTempDpi(val dpi: Int) : SettingsUiAction
-    data class SetAlternateIcon(val enabled: Boolean) : SettingsUiAction
+
     data class SetManagerUpdateCheck(val enabled: Boolean) : SettingsUiAction
     data class SetBetaUpdateCheck(val enabled: Boolean) : SettingsUiAction
     data class SetModuleUpdateCheck(val enabled: Boolean) : SettingsUiAction
@@ -354,18 +353,6 @@ class SettingsViewModel(
 
     fun saveCardConfig() = updateAppearanceAsync(AppearanceSetting.SaveCardConfig)
 
-    fun handleIconChange(enabled: Boolean) {
-        mutableState.update { it.copy(useAltIcon = enabled) }
-        viewModelScope.launch {
-            updatePlatform(PlatformSetting.AlternateIcon(enabled))
-                .onSuccess {
-                    applySnapshot(it, resetTempDpi = false)
-                    mutableEvents.tryEmit(SettingsUiEvent.Message(R.string.icon_switched))
-                }
-                .onFailure(::emitError)
-        }
-    }
-
     fun handleCheckManagerUpdateChange(enabled: Boolean) {
         mutableState.update {
             it.copy(
@@ -562,7 +549,6 @@ fun dispatch(action: SettingsUiAction) {
             SettingsUiAction.RestartActivity -> restartActivityForLanguage()
             SettingsUiAction.ApplyDpi -> handleDpiApply()
             is SettingsUiAction.SetTempDpi -> updateTempDpi(action.dpi)
-            is SettingsUiAction.SetAlternateIcon -> handleIconChange(action.enabled)
             is SettingsUiAction.SetManagerUpdateCheck -> handleCheckManagerUpdateChange(action.enabled)
             is SettingsUiAction.SetBetaUpdateCheck -> handleCheckBetaUpdateChange(action.enabled)
             is SettingsUiAction.SetModuleUpdateCheck -> handleCheckModuleUpdateChange(action.enabled)
@@ -623,7 +609,6 @@ fun dispatch(action: SettingsUiAction) {
                 dynamicColorSpec = snapshot.dynamicColorSpec,
                 dynamicPaletteStyle = snapshot.dynamicPaletteStyle,
                 currentAppLocale = snapshot.currentLocaleTag?.let(Locale::forLanguageTag),
-                useAltIcon = snapshot.useAltIcon,
                 cardAlpha = snapshot.cardAlpha,
                 backgroundDim = snapshot.backgroundDim,
                 isCustomBackgroundEnabled = snapshot.customBackgroundEnabled,

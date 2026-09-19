@@ -5,6 +5,7 @@ import android.app.Application
 import android.system.Os
 import coil.Coil
 import coil.ImageLoader
+import com.originsu.manager.data.appearance.AppIconRepository
 import com.originsu.manager.data.flash.FlashRepository
 import com.originsu.manager.data.grant.GrantToastRepository
 import com.originsu.manager.data.shell.KsuCliRepository
@@ -26,6 +27,7 @@ class ApplicationInitializationRepository(
     private val grantToastRepository: GrantToastRepository,
     private val suRequestRepository: SuRequestRepository,
     private val appShortcutsRepository: AppShortcutsRepository,
+    private val appIconRepository: AppIconRepository,
 ) {
     @SuppressLint("RestrictedApi")
     suspend fun initialize() {
@@ -50,6 +52,9 @@ class ApplicationInitializationRepository(
         // Re-apply saved shortcut icons: dynamic shortcuts can be cleared by
         // the launcher / system, so the toggle looked "not working" after restart.
         runCatching { appShortcutsRepository.applySaved() }
+        // Re-apply the chosen launcher icon: component states reset to the
+        // manifest defaults on app update, which would silently revert the icon.
+        runCatching { appIconRepository.applySaved() }
         runCatching {
             if (suRequestRepository.isPromptEnabled()) {
                 suRequestRepository.syncToKernel()

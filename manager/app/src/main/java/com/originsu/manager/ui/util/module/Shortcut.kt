@@ -1,7 +1,6 @@
 package com.originsu.manager.ui.util.module
 
 import android.app.AppOpsManager
-import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
@@ -16,16 +15,15 @@ import androidx.core.graphics.drawable.IconCompat
 import androidx.core.graphics.scale
 import androidx.core.net.toUri
 import com.originsu.manager.R
-import com.originsu.manager.data.AppSettingsRepository
+import com.originsu.manager.data.appearance.AppIconRepository
 import com.originsu.manager.data.shell.ShortcutRepository
-import com.originsu.manager.ui.MainActivity
 import com.originsu.manager.ui.util.isColorOS
 import com.originsu.manager.ui.util.isHyperOS
 import com.originsu.manager.ui.util.isMiui
 import com.originsu.manager.ui.webui.WebUIActivity
 
 class Shortcut(
-    private val settings: AppSettingsRepository,
+    private val appIconRepository: AppIconRepository,
     private val shortcutRepository: ShortcutRepository,
 ) {
 
@@ -39,13 +37,9 @@ class Shortcut(
         name: String,
         iconUri: String?
     ) {
-        val usingAltIcon = settings.getBoolean("use_alt_icon", false)
-        val mainActivity = ComponentName(context, MainActivity::class.java.name)
-        val mainActivityAlias = ComponentName(context, "${MainActivity::class.java.name}Alias")
-
         val shortcutId = "module_action_$moduleId"
         val shortcutIntent = Intent().apply {
-            component = if (usingAltIcon) mainActivityAlias else mainActivity
+            component = appIconRepository.launcherComponent()
             action = Intent.ACTION_VIEW
             putExtra("shortcut_type", "module_action")
             putExtra("module_id", moduleId)
