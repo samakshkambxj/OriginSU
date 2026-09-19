@@ -5,6 +5,7 @@ import android.content.Intent
 import android.content.pm.ShortcutInfo
 import android.content.pm.ShortcutManager
 import android.graphics.drawable.Icon
+import android.util.Log
 import com.originsu.manager.R
 import com.originsu.manager.ui.MainActivity
 
@@ -24,11 +25,18 @@ const val ACTION_SHORTCUT_SETTINGS = "com.originsu.manager.action.SHORTCUT_SETTI
  * WildKSU-style themed icons, otherwise the stock launcher icon. Implemented
  * with dynamic shortcuts so no package name is hardcoded and all build
  * flavors keep working.
+ *
+ * @return true when the shortcuts were applied, false when the system
+ * rejected them (e.g. rate limiting) or an error occurred.
  */
-fun refreshAppShortcuts(context: Context, themed: Boolean) {
-    runCatching {
-        val shortcutManager = context.getSystemService(ShortcutManager::class.java)
-            ?: return
+fun refreshAppShortcuts(context: Context, themed: Boolean): Boolean {
+    val shortcutManager = context.getSystemService(ShortcutManager::class.java)
+        ?: return false
+    if (shortcutManager.isRateLimitingActive) {
+        Log.w(TAG, "refreshAppShortcuts: rate limited, themed=$themed")
+        return false
+    }
+    return runCatching {
         val iconRes = { themedRes: Int ->
             if (themed) themedRes else R.mipmap.ic_launcher
         }
@@ -61,6 +69,11 @@ fun refreshAppShortcuts(context: Context, themed: Boolean) {
                 )
                 .build(),
         )
-        shortcutManager.dynamicShortcuts = shortcuts
-    }
+        shortcutManager.setDynamicShortcuts(shortcuts)
+        true
+    }.onFailure { error ->
+        Log.w(TAG, "refreshAppShortcuts failed, themed=$themed", error)
+    }.getOrDefault(false)
 }
+
+private const val TAG = "AppShortcuts"

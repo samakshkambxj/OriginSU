@@ -266,6 +266,7 @@ val repositoryModule = module {
             monetCompatColorSource = get(),
             grantToastRepository = get(),
             suRequestRepository = get(),
+            appShortcutsRepository = get(),
         )
     }
     singleOf(::ManagerUpdateRepository)
@@ -283,6 +284,7 @@ val repositoryModule = module {
     single { TempGrantRepository(androidApplication(), get()) }
     single { GrantToastRepository(androidApplication(), get()) }
     single { SuRequestRepository(androidApplication(), get()) }
+    single { com.originsu.manager.data.shortcuts.AppShortcutsRepository(androidApplication(), get()) }
     singleOf(::BugreportRepository)
     singleOf(::UmountRepository)
     singleOf(::ModuleCatalogRepository)

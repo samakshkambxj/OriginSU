@@ -43,6 +43,7 @@ import androidx.compose.material.icons.twotone.DarkMode
 import androidx.compose.material.icons.twotone.DesignServices
 import androidx.compose.material.icons.twotone.Dock
 import androidx.compose.material.icons.twotone.Draw
+import androidx.compose.material.icons.twotone.Extension
 import androidx.compose.material.icons.twotone.FormatColorFill
 import androidx.compose.material.icons.twotone.FormatSize
 import androidx.compose.material.icons.twotone.Image
@@ -677,6 +678,19 @@ private fun CustomizationSettings(
                 checked = settingsUiState.useAltIcon,
                 onCheckedChange = { enabled ->
                     settingsViewModel.dispatch(SettingsUiAction.SetAlternateIcon(enabled))
+                }
+            )
+        }
+
+        item {
+            // Themed app shortcuts (Superuser / Modules / Settings icons)
+            SettingsSwitchWidget(
+                icon = Icons.TwoTone.Extension,
+                title = stringResource(R.string.settings_themed_shortcuts),
+                description = stringResource(R.string.settings_themed_shortcuts_summary),
+                checked = settingsUiState.isThemedShortcutsEnabled,
+                onCheckedChange = { enabled ->
+                    settingsViewModel.dispatch(SettingsUiAction.SetThemedShortcutsEnabled(enabled))
                 }
             )
         }

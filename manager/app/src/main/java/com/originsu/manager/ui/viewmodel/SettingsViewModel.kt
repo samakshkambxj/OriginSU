@@ -13,13 +13,13 @@ import com.originsu.manager.domain.model.coerceCompatibleWith
 import com.originsu.manager.domain.usecase.ConfigureSuLogUseCase
 import com.originsu.manager.domain.usecase.ConfigureVeilUseCase
 import com.originsu.manager.data.grant.GrantToastRepository
+import com.originsu.manager.data.shortcuts.AppShortcutsRepository
 import com.originsu.manager.data.su.SuRequestRepository
 import com.originsu.manager.domain.usecase.GetBooleanPreferenceUseCase
 import com.originsu.manager.domain.usecase.GetKernelFeatureSettingsUseCase
 import com.originsu.manager.domain.usecase.GetPlatformFeatureStatusUseCase
 import com.originsu.manager.domain.usecase.LoadSettingsPlatformUseCase
 import com.originsu.manager.domain.usecase.SECURE_ROOT_PREF_KEY
-import com.originsu.manager.domain.usecase.THEMED_SHORTCUTS_PREF_KEY
 import com.originsu.manager.domain.usecase.SetBooleanPreferenceUseCase
 import com.originsu.manager.domain.usecase.SetDefaultUmountModulesUseCase
 import com.originsu.manager.domain.usecase.SetKernelUmountEnabledUseCase
@@ -185,6 +185,7 @@ class SettingsViewModel(
     private val setVeilEnabled: ConfigureVeilUseCase,
     private val grantToastRepository: GrantToastRepository,
     private val suRequestRepository: SuRequestRepository,
+    private val appShortcutsRepository: AppShortcutsRepository,
     private val setSelinuxHideEnabled: SetSelinuxHideEnabledUseCase,
     private val setDefaultUmountModules: SetDefaultUmountModulesUseCase,
     private val getBooleanPreference: GetBooleanPreferenceUseCase,
@@ -206,7 +207,7 @@ class SettingsViewModel(
         mutableState.update {
             it.copy(
                 isSecureRootEnabled = getBooleanPreference(SECURE_ROOT_PREF_KEY, false),
-                isThemedShortcutsEnabled = getBooleanPreference(THEMED_SHORTCUTS_PREF_KEY, false),
+                isThemedShortcutsEnabled = appShortcutsRepository.isThemed(),
             )
         }
         loadFeatureSettings()
@@ -419,8 +420,11 @@ class SettingsViewModel(
     }
 
     fun handleThemedShortcutsChange(enabled: Boolean) {
-        setBooleanPreference(THEMED_SHORTCUTS_PREF_KEY, enabled)
-        mutableState.update { it.copy(isThemedShortcutsEnabled = enabled) }
+        val applied = appShortcutsRepository.setThemed(enabled)
+        if (!applied) {
+            mutableEvents.tryEmit(SettingsUiEvent.Message(R.string.settings_themed_shortcuts_failed))
+        }
+        mutableState.update { it.copy(isThemedShortcutsEnabled = appShortcutsRepository.isThemed()) }
     }
 
     fun refreshOriginZygisk() {

@@ -8,6 +8,7 @@ import coil.ImageLoader
 import com.originsu.manager.data.flash.FlashRepository
 import com.originsu.manager.data.grant.GrantToastRepository
 import com.originsu.manager.data.shell.KsuCliRepository
+import com.originsu.manager.data.shortcuts.AppShortcutsRepository
 import com.originsu.manager.data.su.SuRequestRepository
 import com.originsu.manager.data.theme.MonetCompatColorSource
 import com.topjohnwu.superuser.internal.MainShell
@@ -24,6 +25,7 @@ class ApplicationInitializationRepository(
     private val monetCompatColorSource: MonetCompatColorSource,
     private val grantToastRepository: GrantToastRepository,
     private val suRequestRepository: SuRequestRepository,
+    private val appShortcutsRepository: AppShortcutsRepository,
 ) {
     @SuppressLint("RestrictedApi")
     suspend fun initialize() {
@@ -43,6 +45,9 @@ class ApplicationInitializationRepository(
                 grantToastRepository.startMonitor()
             }
         }
+        // Re-apply saved shortcut icons: dynamic shortcuts can be cleared by
+        // the launcher / system, so the toggle looked "not working" after restart.
+        runCatching { appShortcutsRepository.applySaved() }
         runCatching {
             if (suRequestRepository.isPromptEnabled()) {
                 suRequestRepository.syncToKernel()

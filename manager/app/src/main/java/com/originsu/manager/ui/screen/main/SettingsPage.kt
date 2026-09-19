@@ -102,7 +102,6 @@ import com.originsu.manager.ui.theme.blurSource
 import com.originsu.manager.ui.util.LocalSnackbarHost
 import com.originsu.manager.ui.util.adaptiveScaffoldWindowInsets
 import com.originsu.manager.ui.util.canAuthenticateSecureRoot
-import com.originsu.manager.ui.util.refreshAppShortcuts
 import com.originsu.manager.ui.util.showReplacingSnackbar
 import com.originsu.manager.ui.viewmodel.HomeViewModel
 import com.originsu.manager.ui.viewmodel.SettingsUiAction
@@ -252,23 +251,6 @@ fun SettingsPage(bottomPadding: Dp) {
                                     onCheckedChange = { enabled ->
                                         settingsViewModel.dispatch(
                                             SettingsUiAction.SetSecureRootEnabled(
-                                                enabled
-                                            )
-                                        )
-                                    },
-                                )
-                            }
-
-                            item {
-                                SettingsSwitchWidget(
-                                    icon = Icons.TwoTone.Extension,
-                                    title = stringResource(id = R.string.settings_themed_shortcuts),
-                                    description = stringResource(id = R.string.settings_themed_shortcuts_summary),
-                                    checked = uiState.isThemedShortcutsEnabled,
-                                    onCheckedChange = { enabled ->
-                                        refreshAppShortcuts(context, enabled)
-                                        settingsViewModel.dispatch(
-                                            SettingsUiAction.SetThemedShortcutsEnabled(
                                                 enabled
                                             )
                                         )
@@ -440,7 +422,7 @@ fun SettingsPage(bottomPadding: Dp) {
 
                             item {
                                 SettingsSwitchWidget(
-                                    icon = Icons.TwoTone.VpnKey,
+                                    icon = Icons.TwoTone.Security,
                                     title = stringResource(id = R.string.settings_su_prompt),
                                     description = if (!uiState.isSuPromptSupported) {
                                         stringResource(id = R.string.settings_su_prompt_unsupported)
