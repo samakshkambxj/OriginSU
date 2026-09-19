@@ -1601,6 +1601,7 @@ fun ModuleItem(
                     // 显示更多模块信息时添加updateJson
                     if (showMoreModuleInfo && module.updateJson.isNotEmpty()) {
                         val updateJsonLabel = stringResource(R.string.module_update_json)
+                        val updateJsonCopied = stringResource(R.string.module_update_json_copied)
                         Text(
                             text = "$updateJsonLabel: ${module.updateJson}",
                             fontSize = MaterialTheme.typography.bodySmall.fontSize,
@@ -1624,7 +1625,7 @@ fun ModuleItem(
 
                                         Toast.makeText(
                                             context,
-                                            context.getString(R.string.module_update_json_copied),
+                                            updateJsonCopied,
                                             Toast.LENGTH_SHORT
                                         ).show()
                                     }

@@ -36,7 +36,7 @@ fn now_epoch() -> u64 {
 
 fn load_grants() -> Result<Vec<TempGrant>> {
     let path = Path::new(TEMP_GRANTS_PATH);
-    if (!path.exists()) {
+    if !path.exists() {
         return Ok(Vec::new());
     }
     let data = std::fs::read_to_string(path).with_context(|| "Failed to read temp grants")?;
@@ -74,10 +74,8 @@ fn read_profile(package: &str, uid: u32) -> Result<uapi::app_profile> {
 }
 
 fn write_profile(profile: &uapi::app_profile) -> Result<()> {
-    let mut cmd = uapi::ksu_set_app_profile_cmd {
-        profile: *profile,
-    };
-    ksuctl(uapi::KSU_IOCTL_SET_APP_PROFILE_RUST, &raw mut cmd)
+    let mut cmd = uapi::ksu_set_app_profile_cmd { profile: *profile };
+    ksucalls::ksuctl(uapi::KSU_IOCTL_SET_APP_PROFILE_RUST, &raw mut cmd)
         .with_context(|| "Failed to set profile")?;
     Ok(())
 }
@@ -147,7 +145,10 @@ pub fn sweep_expired() {
     for entry in grants {
         if entry.expires_at <= now {
             if let Err(e) = set_allow_su(&entry.package, entry.uid, false) {
-                log::warn!("tempgrant: failed to revoke expired uid {}: {e:#}", entry.uid);
+                log::warn!(
+                    "tempgrant: failed to revoke expired uid {}: {e:#}",
+                    entry.uid
+                );
                 // Keep the entry so a later sweep retries.
                 remaining.push(entry);
             } else {
@@ -178,8 +179,7 @@ pub fn wait_and_revoke(uid: u32, expires_at: u64) -> Result<()> {
                 log::warn!("tempgrant: waiter failed to revoke uid {uid}: {e:#}");
                 return Ok(());
             }
-            let remaining: Vec<TempGrant> =
-                grants.into_iter().filter(|g| g.uid != uid).collect();
+            let remaining: Vec<TempGrant> = grants.into_iter().filter(|g| g.uid != uid).collect();
             save_grants(&remaining)?;
             log::info!("tempgrant: waiter revoked uid {uid}");
         }

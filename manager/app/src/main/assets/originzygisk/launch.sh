@@ -14,7 +14,7 @@ if [ "${#CPU_ABIS_PROP2}" -gt "${#CPU_ABIS_PROP1}" ]; then
 else
     CPU_ABIS=$CPU_ABIS_PROP1
 fi
-cd "$ZYGISK_DIR/payload"
+cd "$ZYGISK_DIR/payload" || exit 1
 case "$CPU_ABIS" in
     *arm64-v8a*|*x86_64*) exec ./bin/zygisk-ptrace64 monitor & ;;
     *) exec ./bin/zygisk-ptrace32 monitor & ;;

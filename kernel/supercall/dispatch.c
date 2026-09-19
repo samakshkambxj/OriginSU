@@ -999,7 +999,6 @@ static int do_veil_history(void __user *arg)
     return 0;
 }
 
-
 static int do_disable_escape_to_root(void __user *arg)
 {
     set_thread_flag(TIF_KSU_DISABLE_ESCAPE_WITH_ROOT);
