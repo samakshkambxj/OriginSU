@@ -214,7 +214,12 @@ class GrantToastService : Service() {
     }.getOrDefault("UID $uid")
 
     private fun showToast(message: String) {
-        if (!repository.hasOverlayPermission()) return
+        // Fallback: overlay denied (common reason 'toast not working') -> post a
+        // notification so the grant is still visible instead of silently dropping.
+        if (!repository.hasOverlayPermission()) {
+            showFallbackNotification(message)
+            return
+        }
         mainHandler.post {
             hideToast()
             val context = this
@@ -257,6 +262,23 @@ class GrantToastService : Service() {
         }
     }
 
+    private fun showFallbackNotification(message: String) {
+        val notification = NotificationCompat.Builder(this, CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setContentTitle(getString(R.string.grant_toast_channel))
+            .setContentText(message)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setAutoCancel(true)
+            .setContentIntent(
+                PendingIntent.getActivity(
+                    this, 0, Intent(this, MainActivity::class.java),
+                    PendingIntent.FLAG_IMMUTABLE,
+                )
+            )
+            .build()
+        notificationManager.notify(FALLBACK_NOTIFICATION_ID + (System.currentTimeMillis() % 1000).toInt(), notification)
+    }
+
     private fun hideToast() {
         toastView?.let { view ->
             runCatching { windowManager.removeView(view) }
@@ -284,6 +306,7 @@ class GrantToastService : Service() {
         const val ACTION_STOP = "com.originsu.manager.action.GRANT_TOAST_STOP"
         private const val CHANNEL_ID = "grant_toast_channel"
         private const val NOTIFICATION_ID = 424200
+        private const val FALLBACK_NOTIFICATION_ID = 424210
         private const val POLL_MILLIS = 3000L
         private const val TOAST_MILLIS = 2500L
         private const val LINE_LIMIT = 1000

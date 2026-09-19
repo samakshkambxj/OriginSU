@@ -159,6 +159,11 @@ object Natives {
     external fun isKernelUmountEnabled(): Boolean
     external fun setKernelUmountEnabled(enabled: Boolean): Boolean
 
+    external fun isSuPromptEnabled(): Boolean
+    external fun setSuPromptEnabled(enabled: Boolean): Boolean
+    external fun pollSuRequest(): SuRequest?
+    external fun answerSuRequest(id: Long, allow: Boolean, remember: Boolean): Boolean
+
     /**
      * SELinux hide can be disabled temporarily.
      *  0: disabled
@@ -245,6 +250,17 @@ object Natives {
     data class ManagerInfo(
         val uid: Int = 0,
         val signatureIndex: Int = 0
+    ) : Parcelable
+
+    @Immutable
+    @Parcelize
+    @Keep
+    data class SuRequest(
+        val id: Long = 0L,
+        val uid: Int = 0,
+        val pid: Int = 0,
+        val comm: String = "",
+        val timestampNs: Long = 0L,
     ) : Parcelable
 
     @Immutable

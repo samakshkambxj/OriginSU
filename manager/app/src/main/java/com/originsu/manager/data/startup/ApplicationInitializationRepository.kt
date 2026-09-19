@@ -6,7 +6,9 @@ import android.system.Os
 import coil.Coil
 import coil.ImageLoader
 import com.originsu.manager.data.flash.FlashRepository
+import com.originsu.manager.data.grant.GrantToastRepository
 import com.originsu.manager.data.shell.KsuCliRepository
+import com.originsu.manager.data.su.SuRequestRepository
 import com.originsu.manager.data.theme.MonetCompatColorSource
 import com.topjohnwu.superuser.internal.MainShell
 import kotlinx.coroutines.CoroutineScope
@@ -20,6 +22,8 @@ class ApplicationInitializationRepository(
     private val flashRepository: FlashRepository,
     private val ksuCliRepository: KsuCliRepository,
     private val monetCompatColorSource: MonetCompatColorSource,
+    private val grantToastRepository: GrantToastRepository,
+    private val suRequestRepository: SuRequestRepository,
 ) {
     @SuppressLint("RestrictedApi")
     suspend fun initialize() {
@@ -30,6 +34,20 @@ class ApplicationInitializationRepository(
         Os.setenv("TMPDIR", application.cacheDir.absolutePath, true)
         applicationScope.launch {
             runCatching { flashRepository.getInstallEnvironment() }
+        }
+        // Restore toast + blocking-prompt monitors after reboot / process restart.
+        // Previously they only started on toggle, so after a reboot no popup
+        // ever appeared until the user toggled the switch again.
+        runCatching {
+            if (grantToastRepository.isToastEnabled() && grantToastRepository.hasOverlayPermission()) {
+                grantToastRepository.startMonitor()
+            }
+        }
+        runCatching {
+            if (suRequestRepository.isPromptEnabled()) {
+                suRequestRepository.syncToKernel()
+                suRequestRepository.startPolling()
+            }
         }
     }
 }

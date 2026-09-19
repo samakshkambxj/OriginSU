@@ -7,6 +7,7 @@
 #include "uapi/app_profile.h"
 #include "uapi/feature.h"
 #include "uapi/selinux.h"
+#include "uapi/su_request.h"
 
 #define DEFINE_KSU_UAPI_CONST(type, name, val) \
     enum { name = (val) }; \
@@ -17,7 +18,8 @@
 // 2: allowlist v4 root profile flags
 // 3: scoped su-session driver fd
 // 4: add KSU_GET_INFO_FLAG_BUNDLED
-static const __u32 KERNEL_SU_UAPI_VERSION = 4;
+// 5: blocking su request prompt (poll/answer ioctls + prompt features)
+static const __u32 KERNEL_SU_UAPI_VERSION = 5;
 
 /* Magic numbers for reboot hook to install fd */
 DEFINE_KSU_UAPI_CONST(__u32, KSU_INSTALL_MAGIC1, 0xDEADBEEF)
@@ -274,6 +276,8 @@ DEFINE_KSU_UAPI_CONST(__u32, KSU_IOCTL_DISABLE_ESCAPE_TO_ROOT, _IO('K', 21))
 DEFINE_KSU_UAPI_CONST(__u32, KSU_IOCTL_VEIL_GET_FD, _IOW('K', 22, struct ksu_get_veil_fd_cmd))
 DEFINE_KSU_UAPI_CONST(__u32, KSU_IOCTL_VEIL_CLOAK, _IOC(_IOC_READ | _IOC_WRITE, 'K', 23, 0))
 DEFINE_KSU_UAPI_CONST(__u32, KSU_IOCTL_VEIL_HISTORY, _IOC(_IOC_READ | _IOC_WRITE, 'K', 24, 0))
+DEFINE_KSU_UAPI_CONST(__u32, KSU_IOCTL_SU_REQUEST_POLL, _IOC(_IOC_READ | _IOC_WRITE, 'K', 25, 0))
+DEFINE_KSU_UAPI_CONST(__u32, KSU_IOCTL_SU_REQUEST_ANSWER, _IOC(_IOC_WRITE, 'K', 26, 0))
 
 // Downstream add IOCTL command definitions
 DEFINE_KSU_UAPI_CONST(__u32, KSU_IOCTL_GET_FULL_VERSION, _IOC(_IOC_READ, 'K', 100, 0))

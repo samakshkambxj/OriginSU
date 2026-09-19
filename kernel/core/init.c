@@ -17,6 +17,7 @@
 #include "policy/allowlist.h"
 #include "policy/app_profile.h"
 #include "policy/feature.h"
+#include "policy/su_request.h"
 #include "klog.h" // IWYU pragma: keep
 #include "manager/manager_observer.h"
 #include "manager/throne_tracker.h"
@@ -236,6 +237,7 @@ int __init kernelsu_init(void)
     ksu_init_symbol_resolver();
     ksu_selinux_init();
     ksu_feature_init();
+    ksu_su_request_init();
     ksu_sulog_init();
     ksu_veil_init();
     ksu_adb_root_init();
@@ -321,6 +323,7 @@ void __exit kernelsu_exit(void)
     ksu_selinux_hide_exit();
     ksu_adb_root_exit();
     ksu_veil_exit();
+    ksu_su_request_exit();
     ksu_sulog_exit();
     ksu_feature_exit();
     ksu_module_load_filter_hook_exit();

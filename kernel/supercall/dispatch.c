@@ -39,21 +39,68 @@
 #endif
 
 #include "sulog/event.h"
+#include "policy/su_request.h"
+#include "uapi/su_request.h"
 #include "sulog/fd.h"
 #include "supercall/supercall.h"
 
 static int do_grant_root(void __user *arg)
 {
     int ret;
-    // we already checked the uid above in allowed_for_su().
     __u32 audit_uid = ksu_get_uid_t(current_uid());
     __u32 audit_euid = ksu_get_uid_t(current_euid());
 
-    pr_info("allow root for: %d\n", audit_uid);
-    ret = escape_with_root_profile();
-    ksu_sulog_emit_grant_root(ret, audit_uid, audit_euid, GFP_KERNEL);
+    /* Fast path: manager or already-allowed uid. */
+    if (is_manager() || ksu_is_allow_uid_for_current(audit_uid)) {
+        pr_info("allow root for: %d\n", audit_uid);
+        ret = escape_with_root_profile();
+        ksu_sulog_emit_grant_root(ret, audit_uid, audit_euid, GFP_KERNEL);
+        return ret;
+    }
 
-    return ret;
+    /* Blocking prompt (Magisk-style): queue + sleep until manager answers. */
+    if (ksu_su_prompt_is_enabled()) {
+        int allowed = ksu_su_request_prompt(audit_uid, audit_euid);
+        if (allowed) {
+            pr_info("allow root for: %d (prompt allow)\n", audit_uid);
+            ret = escape_with_root_profile();
+            ksu_sulog_emit_grant_root(ret, audit_uid, audit_euid, GFP_KERNEL);
+            return ret;
+        }
+        pr_info("deny root for: %d (prompt deny/timeout)\n", audit_uid);
+        ksu_sulog_emit_grant_root(-EPERM, audit_uid, audit_euid, GFP_KERNEL);
+        return -EPERM;
+    }
+
+    pr_info("deny root for: %d (not allowed)\n", audit_uid);
+    ksu_sulog_emit_grant_root(-EPERM, audit_uid, audit_euid, GFP_KERNEL);
+    return -EPERM;
+}
+
+static int do_su_request_poll(void __user *arg)
+{
+    struct ksu_su_request_poll_cmd cmd = { 0 };
+    struct ksu_su_request_info info;
+    int ret = ksu_su_request_poll(&info);
+    if (ret)
+        return ret;
+    cmd.id = info.id;
+    cmd.uid = info.uid;
+    cmd.pid = info.pid;
+    cmd.euid = info.euid;
+    memcpy(cmd.comm, info.comm, sizeof(cmd.comm));
+    cmd.ts_ns = info.ts_ns;
+    if (copy_to_user(arg, &cmd, sizeof(cmd)))
+        return -EFAULT;
+    return 0;
+}
+
+static int do_su_request_answer(void __user *arg)
+{
+    struct ksu_su_request_answer_cmd cmd;
+    if (copy_from_user(&cmd, arg, sizeof(cmd)))
+        return -EFAULT;
+    return ksu_su_request_answer(cmd.id, cmd.decision, cmd.remember);
 }
 
 #ifdef CONFIG_KSU_TOOLKIT_SUPPORT
@@ -1331,11 +1378,11 @@ int ksu_try_handle_toolkit_cmd(int magic2, unsigned int cmd, void __user **arg)
 // IOCTL handlers mapping table
 // clang-format off
 static const struct ksu_ioctl_cmd_map ksu_ioctl_handlers[] = {
-    { 
-        .cmd = KSU_IOCTL_GRANT_ROOT, 
-        .name = "GRANT_ROOT", 
-        .handler = do_grant_root, 
-        .perm_check = allowed_for_su 
+    {
+        .cmd = KSU_IOCTL_GRANT_ROOT,
+        .name = "GRANT_ROOT",
+        .handler = do_grant_root,
+        .perm_check = always_allow
     },
     { 
         .cmd = KSU_IOCTL_GET_INFO, 
@@ -1486,6 +1533,18 @@ static const struct ksu_ioctl_cmd_map ksu_ioctl_handlers[] = {
         .cmd = KSU_IOCTL_VEIL_HISTORY,
         .name = "VEIL_HISTORY",
         .handler = do_veil_history,
+        .perm_check = manager_or_root
+    },
+    {
+        .cmd = KSU_IOCTL_SU_REQUEST_POLL,
+        .name = "SU_REQUEST_POLL",
+        .handler = do_su_request_poll,
+        .perm_check = manager_or_root
+    },
+    {
+        .cmd = KSU_IOCTL_SU_REQUEST_ANSWER,
+        .name = "SU_REQUEST_ANSWER",
+        .handler = do_su_request_answer,
         .perm_check = manager_or_root
     },
     { 

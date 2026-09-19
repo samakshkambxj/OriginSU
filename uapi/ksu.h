@@ -7,5 +7,6 @@
 #include "uapi/selinux.h"
 #include "uapi/sulog.h"
 #include "uapi/veil.h"
+#include "uapi/su_request.h"
 
 #endif // __KSU_UAPI_KSU_H

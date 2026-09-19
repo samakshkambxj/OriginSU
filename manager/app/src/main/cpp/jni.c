@@ -585,6 +585,34 @@ NativeBridgeNP(isKernelUmountEnabled, jboolean) {
     return is_kernel_umount_enabled();
 }
 
+NativeBridgeNP(isSuPromptEnabled, jboolean) {
+    return is_su_prompt_enabled();
+}
+
+NativeBridge(setSuPromptEnabled, jboolean, jboolean enabled) {
+    return set_su_prompt_enabled(enabled);
+}
+
+NativeBridgeNP(pollSuRequest, jobject) {
+    struct su_request_poll_result out = {0};
+    if (!su_request_poll(&out) || !out.has_request) {
+        return NULL;
+    }
+    jclass cls = GetEnvironment()->FindClass(env, "com/originsu/manager/Natives$SuRequest");
+    if (cls == nullptr) return NULL;
+    jmethodID ctor = GetEnvironment()->GetMethodID(env, cls, "<init>", "(JIILjava/lang/String;J)V");
+    if (ctor == nullptr) return NULL;
+    char comm[17] = {0};
+    memcpy(comm, out.comm, 16);
+    jstring jcomm = GetEnvironment()->NewStringUTF(env, comm);
+    jobject obj = GetEnvironment()->NewObject(env, cls, ctor, (jlong)out.id, (jint)out.uid, (jint)out.pid, jcomm, (jlong)out.ts_ns);
+    return obj;
+}
+
+NativeBridge(answerSuRequest, jboolean, jlong id, jboolean allow, jboolean remember) {
+    return su_request_answer((uint64_t)id, allow, remember);
+}
+
 NativeBridge(setKernelUmountEnabled, jboolean, jboolean enabled) {
     return set_kernel_umount_enabled(enabled);
 }

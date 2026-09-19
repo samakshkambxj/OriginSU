@@ -149,6 +149,24 @@
                 android:value="Monitors su grants to show Magisk-style overlay toasts" />
         </service>
 
+        <service
+            android:name=".data.su.SuRequestPollService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Polls blocking su requests to show Magisk-style Allow/Deny prompt" />
+        </service>
+
+        <activity
+            android:name=".ui.SuRequestActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:launchMode="singleInstance"
+            android:showWhenLocked="true"
+            android:turnScreenOn="true"
+            android:theme="@style/Theme.KernelSU" />
+
         <receiver
             android:name=".magica.BootCompletedReceiver"
             android:directBootAware="true"

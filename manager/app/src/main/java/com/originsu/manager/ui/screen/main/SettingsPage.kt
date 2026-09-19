@@ -440,6 +440,25 @@ fun SettingsPage(bottomPadding: Dp) {
 
                             item {
                                 SettingsSwitchWidget(
+                                    icon = Icons.TwoTone.VpnKey,
+                                    title = stringResource(id = R.string.settings_su_prompt),
+                                    description = if (!uiState.isSuPromptSupported) {
+                                        stringResource(id = R.string.settings_su_prompt_unsupported)
+                                    } else {
+                                        stringResource(id = R.string.settings_su_prompt_summary)
+                                    },
+                                    checked = uiState.isSuPromptEnabled,
+                                    enabled = uiState.isSuPromptSupported,
+                                    onCheckedChange = { enabled ->
+                                        settingsViewModel.dispatch(
+                                            SettingsUiAction.SetSuPrompt(enabled)
+                                        )
+                                    },
+                                )
+                            }
+
+                            item {
+                                SettingsSwitchWidget(
                                     icon = Icons.TwoTone.Timer,
                                     title = stringResource(id = R.string.settings_temp_grant),
                                     description = stringResource(id = R.string.settings_temp_grant_summary),

@@ -87,6 +87,23 @@ bool clear_veil_history(void);
 bool set_kernel_umount_enabled(bool enabled);
 bool is_kernel_umount_enabled();
 
+// Blocking su prompt (Magisk-style)
+bool is_su_prompt_enabled();
+bool set_su_prompt_enabled(bool enabled);
+bool get_su_prompt_timeout(uint64_t *out_secs);
+bool set_su_prompt_timeout(uint64_t secs);
+struct su_request_poll_result {
+    bool has_request;
+    uint64_t id;
+    uint32_t uid;
+    uint32_t pid;
+    uint32_t euid;
+    char comm[16];
+    uint64_t ts_ns;
+};
+bool su_request_poll(struct su_request_poll_result *out);
+bool su_request_answer(uint64_t id, bool allow, bool remember);
+
 // SELinux hide
 int set_selinux_hide_enabled(bool enabled);
 

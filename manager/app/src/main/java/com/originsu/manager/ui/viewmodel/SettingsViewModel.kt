@@ -13,6 +13,7 @@ import com.originsu.manager.domain.model.coerceCompatibleWith
 import com.originsu.manager.domain.usecase.ConfigureSuLogUseCase
 import com.originsu.manager.domain.usecase.ConfigureVeilUseCase
 import com.originsu.manager.data.grant.GrantToastRepository
+import com.originsu.manager.data.su.SuRequestRepository
 import com.originsu.manager.domain.usecase.GetBooleanPreferenceUseCase
 import com.originsu.manager.domain.usecase.GetKernelFeatureSettingsUseCase
 import com.originsu.manager.domain.usecase.GetPlatformFeatureStatusUseCase
@@ -106,6 +107,8 @@ data class SettingsUiState(
     val isGrantToastEnabled: Boolean = false,
     val isTempGrantEnabled: Boolean = false,
     val overlayGranted: Boolean = false,
+    val isSuPromptEnabled: Boolean = false,
+    val isSuPromptSupported: Boolean = false,
     val selinuxHideStatus: String = "",
     val isSelinuxHideEnabled: Boolean = false,
     val defaultUmountModules: Boolean = false,
@@ -154,6 +157,7 @@ sealed interface SettingsUiAction {
     data class SetVeil(val enabled: Boolean) : SettingsUiAction
     data class SetGrantToast(val enabled: Boolean) : SettingsUiAction
     data class SetTempGrant(val enabled: Boolean) : SettingsUiAction
+    data class SetSuPrompt(val enabled: Boolean) : SettingsUiAction
     data object RefreshOverlayPermission : SettingsUiAction
     data class SetDefaultUmountModules(val enabled: Boolean) : SettingsUiAction
     data class SetSecureRootEnabled(val enabled: Boolean) : SettingsUiAction
@@ -180,6 +184,7 @@ class SettingsViewModel(
     private val setSuLogEnabled: ConfigureSuLogUseCase,
     private val setVeilEnabled: ConfigureVeilUseCase,
     private val grantToastRepository: GrantToastRepository,
+    private val suRequestRepository: SuRequestRepository,
     private val setSelinuxHideEnabled: SetSelinuxHideEnabledUseCase,
     private val setDefaultUmountModules: SetDefaultUmountModulesUseCase,
     private val getBooleanPreference: GetBooleanPreferenceUseCase,
@@ -233,6 +238,8 @@ class SettingsViewModel(
                     isGrantToastEnabled = grantToastRepository.isToastEnabled(),
                     isTempGrantEnabled = grantToastRepository.isTempGrantEnabled(),
                     overlayGranted = grantToastRepository.hasOverlayPermission(),
+                    isSuPromptEnabled = suRequestRepository.isPromptEnabled(),
+                    isSuPromptSupported = suRequestRepository.isSupported(),
                     selinuxHideStatus = platform.selinuxHideStatus,
                     isSelinuxHideEnabled = features.selinuxHideEnabled,
                     defaultUmountModules = features.defaultUmountModules,
@@ -468,6 +475,21 @@ class SettingsViewModel(
         mutableState.update { it.copy(isGrantToastEnabled = checked) }
     }
 
+    fun handleSuPromptChange(checked: Boolean) {
+        if (checked && !suRequestRepository.isSupported()) {
+            mutableEvents.tryEmit(SettingsUiEvent.Error("Kernel does not support the blocking prompt yet — update kernel"))
+            mutableState.update { it.copy(isSuPromptEnabled = false) }
+            return
+        }
+        suRequestRepository.setPromptEnabled(checked)
+        mutableState.update {
+            it.copy(
+                isSuPromptEnabled = checked,
+                isSuPromptSupported = suRequestRepository.isSupported(),
+            )
+        }
+    }
+
     fun handleTempGrantChange(checked: Boolean) {
         grantToastRepository.setTempGrantEnabled(checked)
         mutableState.update { it.copy(isTempGrantEnabled = checked) }
@@ -548,6 +570,7 @@ fun dispatch(action: SettingsUiAction) {
             is SettingsUiAction.SetVeil -> handleVeilChange(action.enabled)
             is SettingsUiAction.SetGrantToast -> handleGrantToastChange(action.enabled)
             is SettingsUiAction.SetTempGrant -> handleTempGrantChange(action.enabled)
+            is SettingsUiAction.SetSuPrompt -> handleSuPromptChange(action.enabled)
             SettingsUiAction.RefreshOverlayPermission -> refreshOverlayPermission()
             is SettingsUiAction.SetDefaultUmountModules ->
                 handleDefaultUmountModulesChange(action.enabled)

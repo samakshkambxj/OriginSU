@@ -11,6 +11,7 @@ import com.originsu.manager.data.flash.FlashRepository
 import com.originsu.manager.data.kernel.KernelRepository
 import com.originsu.manager.data.kernel.UmountRepository
 import com.originsu.manager.data.grant.GrantToastRepository
+import com.originsu.manager.data.su.SuRequestRepository
 import com.originsu.manager.data.grant.TempGrantRepository
 import com.originsu.manager.data.kernel.VeilRepository
 import com.originsu.manager.data.logging.BugreportRepository
@@ -263,6 +264,8 @@ val repositoryModule = module {
             flashRepository = get(),
             ksuCliRepository = get(),
             monetCompatColorSource = get(),
+            grantToastRepository = get(),
+            suRequestRepository = get(),
         )
     }
     singleOf(::ManagerUpdateRepository)
@@ -279,6 +282,7 @@ val repositoryModule = module {
     singleOf(::VeilRepository)
     single { TempGrantRepository(androidApplication(), get()) }
     single { GrantToastRepository(androidApplication(), get()) }
+    single { SuRequestRepository(androidApplication(), get()) }
     singleOf(::BugreportRepository)
     singleOf(::UmountRepository)
     singleOf(::ModuleCatalogRepository)

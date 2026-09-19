@@ -228,6 +228,64 @@ bool set_kernel_umount_enabled(bool enabled) {
     return set_feature(KSU_FEATURE_KERNEL_UMOUNT, enabled ? 1 : 0);
 }
 
+bool is_su_prompt_enabled() {
+    uint64_t value = 0;
+    bool supported = false;
+    if (!get_feature(KSU_FEATURE_SU_PROMPT, &value, &supported)) {
+        return false;
+    }
+    if (!supported) {
+        return false;
+    }
+    return value != 0;
+}
+
+bool set_su_prompt_enabled(bool enabled) {
+    return set_feature(KSU_FEATURE_SU_PROMPT, enabled ? 1 : 0);
+}
+
+bool get_su_prompt_timeout(uint64_t *out_secs) {
+    uint64_t value = 0;
+    bool supported = false;
+    if (!get_feature(KSU_FEATURE_SU_PROMPT_TIMEOUT, &value, &supported)) {
+        return false;
+    }
+    if (!supported) {
+        return false;
+    }
+    if (out_secs) *out_secs = value;
+    return true;
+}
+
+bool set_su_prompt_timeout(uint64_t secs) {
+    return set_feature(KSU_FEATURE_SU_PROMPT_TIMEOUT, secs);
+}
+
+bool su_request_poll(struct su_request_poll_result *out) {
+    struct ksu_su_request_poll_cmd cmd = {};
+    if (ksuctl(KSU_IOCTL_SU_REQUEST_POLL, &cmd) != 0) {
+        return false;
+    }
+    if (out) {
+        out->has_request = true;
+        out->id = cmd.id;
+        out->uid = cmd.uid;
+        out->pid = cmd.pid;
+        out->euid = cmd.euid;
+        memcpy(out->comm, cmd.comm, sizeof(out->comm));
+        out->ts_ns = cmd.ts_ns;
+    }
+    return true;
+}
+
+bool su_request_answer(uint64_t id, bool allow, bool remember) {
+    struct ksu_su_request_answer_cmd cmd = {};
+    cmd.id = id;
+    cmd.decision = allow ? KSU_SU_REQUEST_ALLOW : KSU_SU_REQUEST_DENY;
+    cmd.remember = remember ? 1 : 0;
+    return ksuctl(KSU_IOCTL_SU_REQUEST_ANSWER, &cmd) == 0;
+}
+
 bool is_kernel_umount_enabled() {
     uint64_t value = 0;
     bool supported = false;
