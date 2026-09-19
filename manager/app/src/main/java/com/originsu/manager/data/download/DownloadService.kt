@@ -57,6 +57,12 @@ class DownloadService : Service() {
         const val SOURCE_NIGHTLY_ARTIFACT = "nightly_artifact"
 
         private const val COMPLETION_NOTIFICATION_ID_BASE = 100000
+
+        /**
+         * Share of the progress bar reserved for resolving the beta artifact
+         * index before the APK bytes start flowing.
+         */
+        private const val LISTING_PROGRESS_WEIGHT = 5
     }
 
     private val activeJobs = ConcurrentHashMap<Int, Job>()
@@ -193,12 +199,24 @@ class DownloadService : Service() {
                     SOURCE_NIGHTLY_ARTIFACT -> {
                         val archive = ZipRangeArchive(httpClient)
                         val entry = managerUpdateRepository.findNightlyApkEntry(
-                            entries = archive.listEntries(url),
+                            entries = archive.listEntries(url) { listingProgress ->
+                                reportProgress(
+                                    id,
+                                    target.name,
+                                    (listingProgress * LISTING_PROGRESS_WEIGHT / 100)
+                                        .coerceIn(0, LISTING_PROGRESS_WEIGHT),
+                                )
+                            },
                             expectedVersionCode = expectedVersionCode,
                             preferredAbi = preferredAbi ?: throw IOException(),
-                        ) ?: throw IOException()
+                        ) ?: throw IOException("No matching APK in beta artifact")
                         archive.extractEntry(url, entry, target) { progress ->
-                            reportProgress(id, target.name, progress)
+                            reportProgress(
+                                id,
+                                target.name,
+                                LISTING_PROGRESS_WEIGHT +
+                                        (progress * (100 - LISTING_PROGRESS_WEIGHT) / 100),
+                            )
                         }
                     }
 

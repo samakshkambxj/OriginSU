@@ -42,11 +42,12 @@ class ZipRangeArchive(
         .followSslRedirects(false)
         .build()
 
-    fun listEntries(url: String): List<ZipEntryMetadata> {
+    fun listEntries(url: String, onProgress: (Int) -> Unit = {}): List<ZipEntryMetadata> {
         return try {
-            listRangedEntries(url)
+            onProgress(1)
+            listRangedEntries(url).also { onProgress(100) }
         } catch (_: IOException) {
-            listFullArchiveEntries(url)
+            listFullArchiveEntries(url, onProgress)
         }
     }
 
@@ -185,11 +186,32 @@ class ZipRangeArchive(
         }
     }
 
-    private fun listFullArchiveEntries(url: String): List<ZipEntryMetadata> {
+    private fun listFullArchiveEntries(url: String, onProgress: (Int) -> Unit = {}): List<ZipEntryMetadata> {
         return archiveClient.newCall(newRequest(url).build()).execute().use { response ->
             if (!response.isSuccessful) throw IOException("HTTP ${response.code}")
             val body = response.body ?: throw IOException("Empty body")
-            body.byteStream().use { input ->
+            val total = body.contentLength()
+            var copied = 0L
+            val counting = object : java.io.FilterInputStream(body.byteStream()) {
+                override fun read(b: ByteArray, off: Int, len: Int): Int {
+                    val read = super.read(b, off, len)
+                    if (read > 0 && total > 0L) {
+                        copied += read
+                        onProgress(((copied * 100L) / total).toInt().coerceIn(0, 100))
+                    }
+                    return read
+                }
+
+                override fun read(): Int {
+                    val read = super.read()
+                    if (read != -1 && total > 0L) {
+                        copied += 1
+                        onProgress(((copied * 100L) / total).toInt().coerceIn(0, 100))
+                    }
+                    return read
+                }
+            }
+            counting.use { input ->
                 ZipInputStream(input).use { zip ->
                     buildList {
                         while (true) {
