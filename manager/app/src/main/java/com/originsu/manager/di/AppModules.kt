@@ -250,7 +250,7 @@ val repositoryModule = module {
     singleOf(::ManagerUpdateRepository)
     singleOf(::ApplicationControlRepository)
     singleOf(::DownloadRepository)
-    single { FlashRepository(get(), get(applicationScopeQualifier), get(), get()) }
+    single { FlashRepository(get(), get(applicationScopeQualifier), get(), get(), get()) }
     singleOf(::KernelRepository)
     singleOf(::HomeRuntimeRepository)
     singleOf(::HomeStateRepository)
@@ -367,6 +367,8 @@ val useCaseModule = module {
     factoryOf(::ObserveKernelFlashUseCase)
     factoryOf(::StartKernelFlashUseCase)
     factoryOf(::RemovePreferenceUseCase)
+    factoryOf(::GetLongPreferenceUseCase)
+    factoryOf(::SetLongPreferenceUseCase)
     factoryOf(::ObserveSuperUserStateUseCase)
     factoryOf(::RefreshSuperUsersUseCase)
     factoryOf(::BackupAllowlistUseCase)

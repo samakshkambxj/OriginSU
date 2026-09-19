@@ -11,6 +11,8 @@ import com.originsu.manager.domain.model.HomeSystemInfo
 import com.originsu.manager.domain.model.ManagerUpdateChannel
 import com.originsu.manager.domain.usecase.CheckManagerUpdateUseCase
 import com.originsu.manager.domain.usecase.GetBooleanPreferenceUseCase
+import com.originsu.manager.domain.usecase.GetLongPreferenceUseCase
+import com.originsu.manager.domain.usecase.LAST_FLASH_PREF_KEY
 import com.originsu.manager.domain.usecase.GetHomeBasicInfoUseCase
 import com.originsu.manager.domain.usecase.GetKernelStatusUseCase
 import com.originsu.manager.domain.usecase.GetManagerRuntimeInfoUseCase
@@ -59,6 +61,7 @@ class HomeViewModel(
     private val isNetworkAvailable: IsNetworkAvailableUseCase,
     private val getBooleanPreference: GetBooleanPreferenceUseCase,
     private val setBooleanPreference: SetBooleanPreferenceUseCase,
+    private val getLongPreference: GetLongPreferenceUseCase,
     private val reboot: RebootUseCase,
 ) : ViewModel() {
     val uiState = combine(
@@ -142,6 +145,7 @@ class HomeViewModel(
                                 managersList = managerInfo,
                                 isDynamicSignEnabled = managerInfo.dynamicSignatureEnabled,
                                 seccompStatus = basicInfo.seccompStatus,
+                                lastFlashTime = getLongPreference(LAST_FLASH_PREF_KEY, 0L),
                             ),
                             isInitialDataLoaded = true,
                             isExtendedDataLoaded = true,

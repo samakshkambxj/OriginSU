@@ -34,6 +34,7 @@ data class HomeSystemInfo(
     val zygiskImplement: String = "",
     val metaModuleImplement: String = "",
     val seccompStatus: Int = -1,
+    val lastFlashTime: Long = 0L,
 )
 
 data class HomeDashboardState(

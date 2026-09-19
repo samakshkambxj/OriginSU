@@ -173,6 +173,7 @@
     <string name="selected_count">%1$d selected</string>
     <string name="copy_device_info">Copy device info</string>
     <string name="device_info_copied">Device info copied</string>
+    <string name="last_flashed">Flashed: %1$s</string>
     <string name="settings_secure_root">Secure root</string>
     <string name="settings_secure_root_summary">Require biometrics before granting root to apps</string>
     <string name="secure_root_prompt_title">Allow root access?</string>

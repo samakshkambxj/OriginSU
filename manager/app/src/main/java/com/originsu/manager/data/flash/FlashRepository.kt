@@ -10,6 +10,8 @@ import com.originsu.manager.domain.model.FlashOperationUpdate
 import com.originsu.manager.domain.model.FlashProgress
 import com.originsu.manager.domain.model.InstallEnvironment
 import com.originsu.manager.domain.model.KernelFlashSession
+import com.originsu.manager.domain.usecase.LAST_FLASH_PREF_KEY
+import com.originsu.manager.domain.usecase.SetLongPreferenceUseCase
 import com.originsu.manager.getKernelVersion
 import com.topjohnwu.superuser.io.SuFile
 import kotlinx.coroutines.CoroutineScope
@@ -33,6 +35,7 @@ class FlashRepository(
     private val applicationScope: CoroutineScope,
     private val moduleFileRepository: ModuleFileRepository,
     private val ksuCliRepository: KsuCliRepository,
+    private val setLongPreference: SetLongPreferenceUseCase,
 ) {
     private val workerState = HorizonKernelState()
     private val mutableSession = MutableStateFlow(KernelFlashSession())
@@ -111,6 +114,11 @@ class FlashRepository(
         val onStdout: (String) -> Unit = { trySend(FlashOperationUpdate.Output(it)) }
         val onStderr: (String) -> Unit = { trySend(FlashOperationUpdate.ErrorOutput(it)) }
         val onFinish: (Boolean, Int) -> Unit = { showReboot, code ->
+            if (showReboot) {
+                runCatching {
+                    setLongPreference(LAST_FLASH_PREF_KEY, System.currentTimeMillis())
+                }
+            }
             trySend(FlashOperationUpdate.Completed(showReboot, code))
         }
 

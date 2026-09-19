@@ -17,6 +17,7 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.add
@@ -319,8 +320,7 @@ fun HomePage(
                         uiState = uiState,
                         onClickInstall = {
                             navigator.push(Route.Install(preselectedKernelUri = null))
-                        },
-                        onClickJailbreak = {
+                        },                        onClickJailbreak = {
                             loadingDialog.showLoading()
                             context.startService(Intent(context, MagicaService::class.java))
                             // Manager will be force-stopped and restarted by late-load on success.
@@ -337,6 +337,9 @@ fun HomePage(
                                 }
                             }
                         }
+                    )
+                    TimelineRow(
+                        lastFlashTime = uiState.systemInfo.lastFlashTime,
                     )
                 }
                 Spacer(modifier = Modifier.height(10.dp))
@@ -603,6 +606,34 @@ private fun TopBar(
         windowInsets = TopAppBarDefaults.windowInsets.add(WindowInsets(left = 12.dp)),
         scrollBehavior = scrollBehavior
     )
+}
+
+@Composable
+private fun TimelineRow(
+    lastFlashTime: Long,
+) {
+    if (lastFlashTime <= 0L) {
+        return
+    }
+    val formatted = remember(lastFlashTime) {
+        java.text.SimpleDateFormat
+            .getDateTimeInstance(
+                java.text.SimpleDateFormat.SHORT,
+                java.text.SimpleDateFormat.SHORT,
+                java.util.Locale.getDefault(),
+            ).format(java.util.Date(lastFlashTime))
+    }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 10.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        LabelText(
+            label = stringResource(R.string.last_flashed, formatted),
+            containerColor = MaterialTheme.colorScheme.secondaryContainer,
+        )
+    }
 }
 
 @Composable

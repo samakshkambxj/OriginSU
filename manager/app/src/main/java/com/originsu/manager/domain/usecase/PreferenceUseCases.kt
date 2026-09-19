@@ -34,3 +34,14 @@ class SetStringSetPreferenceUseCase(private val repository: AppSettingsRepositor
 class RemovePreferenceUseCase(private val repository: AppSettingsRepository) {
     operator fun invoke(key: String) = repository.remove(key)
 }
+
+const val LAST_FLASH_PREF_KEY = "last_flash_time"
+
+class GetLongPreferenceUseCase(private val repository: AppSettingsRepository) {
+    operator fun invoke(key: String, defaultValue: Long = 0L) =
+        repository.getLong(key, defaultValue)
+}
+
+class SetLongPreferenceUseCase(private val repository: AppSettingsRepository) {
+    operator fun invoke(key: String, value: Long) = repository.putLong(key, value)
+}
