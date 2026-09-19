@@ -87,6 +87,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
@@ -208,6 +209,57 @@ fun ModulePage(bottomPadding: Dp) {
     val snackBarHost = LocalSnackbarHost.current
     val scope = rememberCoroutineScope()
     var lastClickTime by remember { mutableStateOf(0L) }
+
+    val updateAllText = stringResource(R.string.update_all)
+    val updateAllConfirm = stringResource(R.string.update_all_confirm)
+    val updateText = stringResource(R.string.module_update)
+    val cancelText = stringResource(android.R.string.cancel)
+    val updateAllConfirmDialog = rememberConfirmDialog()
+    val updateAllEnqueue = koinInject<EnqueueDownloadUseCase>()
+    val updateAllObserve = koinInject<ObserveDownloadUseCase>()
+    val updateAllPermission = LocalPermissionRequestInterface.current
+
+    suspend fun onUpdateAllClicked(modules: List<InstalledModule>) {
+        val updatable = modules.filter { it.moduleUpdate != null && !it.remove }
+        if (updatable.isEmpty()) {
+            return
+        }
+        val names = updatable.joinToString("\n") { "• ${it.name} → ${it.moduleUpdate!!.version}" }
+        val confirmResult = updateAllConfirmDialog.awaitConfirm(
+            updateAllText,
+            content = updateAllConfirm.format(updatable.size, names),
+            confirm = updateText,
+            dismiss = cancelText
+        )
+        if (confirmResult != ConfirmResult.Confirmed) {
+            return
+        }
+        val uris = mutableListOf<String>()
+        withContext(Dispatchers.IO) {
+            for (module in updatable) {
+                val update = module.moduleUpdate ?: continue
+                val fileName = "${module.name}-${update.version}.zip"
+                val downloaded = kotlinx.coroutines.CompletableDeferred<String>()
+                download(
+                    context,
+                    updateAllPermission,
+                    update.zipUrl,
+                    fileName,
+                    updateAllEnqueue,
+                    updateAllObserve,
+                    onDownloaded = { uri ->
+                        if (!downloaded.isCompleted) {
+                            downloaded.complete(uri.toString())
+                        }
+                    },
+                )
+                uris.add(downloaded.await())
+            }
+        }
+        if (uris.isNotEmpty()) {
+            navigator.push(Route.Flash.modules(uris))
+        }
+    }
 
     var showDropdown by remember { mutableStateOf(false) }
     val listState = rememberLazyListState()
@@ -517,22 +569,23 @@ private fun BatchActionBar(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 8.dp),
+                .padding(horizontal = 8.dp, vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             Text(
                 text = countText,
                 style = MaterialTheme.typography.titleSmall,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f),
             )
-            FilledTonalButton(onClick = onEnable) {
+            TextButton(onClick = onEnable) {
                 Text(enableText)
             }
-            FilledTonalButton(onClick = onDisable) {
+            TextButton(onClick = onDisable) {
                 Text(disableText)
             }
-            FilledTonalButton(onClick = onUninstall) {
+            TextButton(onClick = onUninstall) {
                 Text(uninstallText)
             }
             IconButton(onClick = onClear) {
@@ -570,15 +623,8 @@ private fun ModuleDropdown(
                         )
                     },
                     onClick = onUpdateAll,
-                    shapes = MenuDefaults.itemShape(
-                        index = 0,
-                        count = 4,
-                    ),
                 )
             }
-            val hasUpdates = uiState.moduleList.any { it.moduleUpdate != null && !it.remove }
-            val itemOffset = if (hasUpdates) 1 else 0
-            val itemCount = 3 + itemOffset
             CheckableDropdownMenuItem(
                 checked = uiState.sortActionFirst,
                 onCheckedChange = {
@@ -588,8 +634,8 @@ private fun ModuleDropdown(
                 },
                 text = { Text(stringResource(R.string.module_sort_action_first)) },
                 shapes = MenuDefaults.itemShape(
-                    index = itemOffset,
-                    count = itemCount,
+                    index = 0,
+                    count = 3,
                 ),
             )
             CheckableDropdownMenuItem(
@@ -601,8 +647,8 @@ private fun ModuleDropdown(
                 },
                 text = { Text(stringResource(R.string.module_sort_enabled_first)) },
                 shapes = MenuDefaults.itemShape(
-                    index = 1 + itemOffset,
-                    count = itemCount,
+                    index = 1,
+                    count = 3,
                 ),
             )
             CheckableDropdownMenuItem(
@@ -614,8 +660,8 @@ private fun ModuleDropdown(
                 },
                 text = { Text(stringResource(R.string.show_module_banners)) },
                 shapes = MenuDefaults.itemShape(
-                    index = 2 + itemOffset,
-                    count = itemCount,
+                    index = 2,
+                    count = 3,
                 ),
             )
         }
@@ -933,45 +979,6 @@ private fun ModuleList(
                     }
                 },
             )
-        }
-    }
-
-    suspend fun onUpdateAllClicked(modules: List<InstalledModule>) {
-        val updatable = modules.filter { it.moduleUpdate != null && !it.remove }
-        if (updatable.isEmpty()) {
-            return
-        }
-        val names = updatable.joinToString("\n") { "• ${it.name} → ${it.moduleUpdate!!.version}" }
-        val confirmResult = confirmDialog.awaitConfirm(
-            updateAllText,
-            content = updateAllConfirm.format(updatable.size, names),
-            confirm = updateText,
-            dismiss = cancel
-        )
-        if (confirmResult != ConfirmResult.Confirmed) {
-            return
-        }
-        val uris = mutableListOf<String>()
-        withContext(Dispatchers.IO) {
-            for (module in updatable) {
-                val update = module.moduleUpdate ?: continue
-                val fileName = "${module.name}-${update.version}.zip"
-                val uri = kotlinx.coroutines.suspendCancellableCoroutine { cont ->
-                    download(
-                        context,
-                        permissionRequestInterface,
-                        update.zipUrl,
-                        fileName,
-                        enqueueDownload,
-                        observeDownload,
-                        onDownloaded = { cont.resume(it.toString()) },
-                    )
-                }
-                uris.add(uri)
-            }
-        }
-        if (uris.isNotEmpty()) {
-            navigator.push(Route.Flash.modules(uris))
         }
     }
 
@@ -1516,13 +1523,13 @@ fun ModuleItem(
             }
         Row(
             modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.Top
         ) {
             if (selectionMode) {
                 Checkbox(
                     checked = selected,
                     onCheckedChange = { onToggleSelect() },
-                    modifier = Modifier.padding(start = 8.dp)
+                    modifier = Modifier.padding(start = 4.dp, top = 12.dp)
                 )
             }
         Column(
