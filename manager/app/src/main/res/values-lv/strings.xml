@@ -133,6 +133,22 @@
     <string name="selected_count">%1$d selected</string>
     <string name="copy_device_info">Copy device info</string>
     <string name="device_info_copied">Device info copied</string>
+    <string name="onboarding_title_welcome">Welcome to OriginSU</string>
+    <string name="onboarding_desc_welcome">Kernel-based root, modules and app profiles, all managed from here.</string>
+    <string name="onboarding_title_status">Root status</string>
+    <string name="onboarding_desc_rooted">Root access is working on this device.</string>
+    <string name="onboarding_desc_noroot">No root access yet. Install or patch to get started.</string>
+    <string name="onboarding_action_modules">Explore modules</string>
+    <string name="onboarding_action_install">Open installer</string>
+    <string name="onboarding_title_ready">You are ready</string>
+    <string name="onboarding_desc_ready">Check Modules for tweaks and Settings to tune the manager.</string>
+    <string name="onboarding_next">Next</string>
+    <string name="onboarding_back">Back</string>
+    <string name="onboarding_skip">Skip</string>
+    <string name="onboarding_get_started">Get started</string>
+    <string name="onboarding_method_lkm">Method: LKM</string>
+    <string name="onboarding_method_builtin">Method: Built-in</string>
+    <string name="onboarding_kernel">Kernel: %1$s</string>
     <string name="update_all">Update all</string>
     <string name="update_all_confirm">Update %1$d modules?\n\n%2$s</string>
 </resources>

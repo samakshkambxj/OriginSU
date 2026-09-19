@@ -97,6 +97,8 @@ import com.originsu.manager.ui.util.rememberDeviceCornerRadius
 import com.originsu.manager.ui.viewmodel.MainIntentViewModel
 import com.originsu.manager.ui.viewmodel.PredictiveBackAnimation
 import com.originsu.manager.ui.viewmodel.SettingsViewModel
+import com.originsu.manager.data.AppSettingsRepository
+import com.originsu.manager.ui.screen.OnboardingScreen
 import com.originsu.manager.ui.webui.WebUIActivity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -133,6 +135,20 @@ fun NavContainer(
     val context = LocalContext.current
     val mainIntentViewModel = koinViewModel<MainIntentViewModel>()
     val mainIntentState by mainIntentViewModel.state.collectAsStateWithLifecycle()
+
+    val appSettings = koinInject<AppSettingsRepository>()
+    var showOnboarding by remember {
+        mutableStateOf(!appSettings.getBoolean("onboarding_completed", false))
+    }
+    if (showOnboarding) {
+        OnboardingScreen(
+            onDone = {
+                appSettings.putBoolean("onboarding_completed", true)
+                showOnboarding = false
+            }
+        )
+        return
+    }
 
     LaunchedEffect(zipUri) {
         if (zipUri.isNullOrEmpty()) return@LaunchedEffect
