@@ -32,7 +32,7 @@ import java.util.zip.ZipFile
  * @date 2023/1/1.
  */
 class KsuCliRepository(context: Context) {
-    private companion object {
+    companion object {
         const val TAG = "KsuCli"
         private const val BUSYBOX = "/data/adb/ksu/bin/busybox"
 
