@@ -275,6 +275,116 @@ bool set_sulog_enabled(bool enabled) {
     return set_feature(KSU_FEATURE_SULOG, enabled ? 1 : 0);
 }
 
+bool is_veil_enabled() {
+    uint64_t value = 0;
+    bool supported = false;
+    if (!get_feature(KSU_FEATURE_ORIGIN_VEIL, &value, &supported)) {
+        return false;
+    }
+    if (!supported) {
+        return false;
+    }
+    return value != 0;
+}
+
+bool set_veil_enabled(bool enabled) {
+    return set_feature(KSU_FEATURE_ORIGIN_VEIL, enabled ? 1 : 0);
+}
+
+static bool veil_cloak_ioctl(struct ksu_veil_cloak_cmd *cmd) {
+    return ksuctl(KSU_IOCTL_VEIL_CLOAK, cmd) == 0;
+}
+
+bool get_veil_cloaked_uids(struct veil_cloaked_uids *out) {
+    if (!out) return false;
+    out->count = 0;
+    out->uids = nullptr;
+
+    struct ksu_veil_cloak_cmd probe = {.op = KSU_VEIL_CLOAK_LIST, .count = 0, .uids = 0};
+    if (!veil_cloak_ioctl(&probe)) return false;
+    if (probe.count == 0) return true;
+
+    uint32_t *uids = malloc((size_t)probe.count * sizeof(uint32_t));
+    if (!uids) return false;
+
+    struct ksu_veil_cloak_cmd cmd = {
+        .op = KSU_VEIL_CLOAK_LIST,
+        .count = probe.count,
+        .uids = (uint64_t)(uintptr_t)uids,
+    };
+    if (!veil_cloak_ioctl(&cmd)) {
+        free(uids);
+        return false;
+    }
+
+    uint32_t got = cmd.count < probe.count ? cmd.count : probe.count;
+    out->count = got;
+    out->uids = uids;
+    return true;
+}
+
+bool set_veil_cloaked(uint32_t uid, bool cloaked) {
+    struct ksu_veil_cloak_cmd cmd = {
+        .op = cloaked ? KSU_VEIL_CLOAK_ADD : KSU_VEIL_CLOAK_REMOVE,
+        .uid = uid,
+    };
+    return veil_cloak_ioctl(&cmd);
+}
+
+bool clear_veil_cloaked(void) {
+    struct ksu_veil_cloak_cmd cmd = {.op = KSU_VEIL_CLOAK_CLEAR};
+    return veil_cloak_ioctl(&cmd);
+}
+
+bool is_veil_auto_cloak(bool *out_enabled) {
+    struct ksu_veil_cloak_cmd cmd = {.op = KSU_VEIL_CLOAK_GET_AUTO};
+    if (!veil_cloak_ioctl(&cmd)) return false;
+    if (out_enabled) *out_enabled = cmd.value != 0;
+    return true;
+}
+
+bool set_veil_auto_cloak(bool enabled) {
+    struct ksu_veil_cloak_cmd cmd = {
+        .op = KSU_VEIL_CLOAK_SET_AUTO,
+        .value = enabled ? 1 : 0,
+    };
+    return veil_cloak_ioctl(&cmd);
+}
+
+bool get_veil_history(struct veil_history *out) {
+    if (!out) return false;
+    out->count = 0;
+    out->entries = nullptr;
+
+    struct ksu_veil_history_cmd probe = {.count = 0, .pad = 0, .entries = 0};
+    if (ksuctl(KSU_IOCTL_VEIL_HISTORY, &probe) != 0) return false;
+    if (probe.count == 0) return true;
+
+    struct ksu_veil_hist_entry *entries =
+        malloc((size_t)probe.count * sizeof(struct ksu_veil_hist_entry));
+    if (!entries) return false;
+
+    struct ksu_veil_history_cmd cmd = {
+        .count = probe.count,
+        .pad = 0,
+        .entries = (uint64_t)(uintptr_t)entries,
+    };
+    if (ksuctl(KSU_IOCTL_VEIL_HISTORY, &cmd) != 0) {
+        free(entries);
+        return false;
+    }
+
+    uint32_t got = cmd.count < probe.count ? cmd.count : probe.count;
+    out->count = got;
+    out->entries = entries;
+    return true;
+}
+
+bool clear_veil_history(void) {
+    struct ksu_veil_history_cmd cmd = {.count = 0, .pad = 1, .entries = 0};
+    return ksuctl(KSU_IOCTL_VEIL_HISTORY, &cmd) == 0;
+}
+
 void get_full_version(char* buff) {
 	struct ksu_get_full_version_cmd cmd = {0};
 	if (ksuctl(KSU_IOCTL_GET_FULL_VERSION, &cmd) == 0) {

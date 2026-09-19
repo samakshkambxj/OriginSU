@@ -510,6 +510,77 @@ NativeBridge(setSuLogEnabled, jboolean, jboolean enabled) {
     return set_sulog_enabled(enabled);
 }
 
+NativeBridgeNP(isVeilEnabled, jboolean) {
+    return is_veil_enabled();
+}
+
+NativeBridge(setVeilEnabled, jboolean, jboolean enabled) {
+    return set_veil_enabled(enabled);
+}
+
+NativeBridgeNP(getVeilCloakedUids, jintArray) {
+    struct veil_cloaked_uids out = {0, nullptr};
+    if (!get_veil_cloaked_uids(&out)) {
+        return NULL;
+    }
+    jintArray result = GetEnvironment()->NewIntArray(env, (jsize) out.count);
+    if (result != NULL && out.count > 0) {
+        GetEnvironment()->SetIntArrayRegion(env, result, 0, (jsize) out.count,
+                                            (const jint *) out.uids);
+    }
+    if (out.uids) {
+        free(out.uids);
+    }
+    return result;
+}
+
+NativeBridge(setVeilCloaked, jboolean, jint uid, jboolean cloaked) {
+    return set_veil_cloaked((uint32_t) uid, cloaked);
+}
+
+NativeBridgeNP(clearVeilCloaked, jboolean) {
+    return clear_veil_cloaked();
+}
+
+NativeBridgeNP(isVeilAutoCloak, jboolean) {
+    bool enabled = false;
+    if (!is_veil_auto_cloak(&enabled)) {
+        return false;
+    }
+    return enabled;
+}
+
+NativeBridge(setVeilAutoCloak, jboolean, jboolean enabled) {
+    return set_veil_auto_cloak(enabled);
+}
+
+NativeBridgeNP(getVeilHistory, jobject) {
+    struct veil_history out = {0, nullptr};
+    if (!get_veil_history(&out)) {
+        return NULL;
+    }
+    jobject list = CREATE_ARRAYLIST();
+    for (uint32_t i = 0; i < out.count; i++) {
+        jobject entry = CREATE_JAVA_OBJECT_WITH_PARAMS(
+                "com/originsu/manager/Natives$VeilHistoryEntry",
+                "(IIIJ)V",
+                (jint) out.entries[i].uid,
+                (jint) out.entries[i].count,
+                (jint) out.entries[i].kinds,
+                (jlong) out.entries[i].last_ns
+        );
+        ADD_TO_LIST(list, entry);
+    }
+    if (out.entries) {
+        free(out.entries);
+    }
+    return list;
+}
+
+NativeBridgeNP(clearVeilHistory, jboolean) {
+    return clear_veil_history();
+}
+
 NativeBridgeNP(isKernelUmountEnabled, jboolean) {
     return is_kernel_umount_enabled();
 }

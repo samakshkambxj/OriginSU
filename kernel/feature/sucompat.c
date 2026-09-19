@@ -40,6 +40,8 @@
 #include "feature/adb_root.h"
 #endif
 #include "sulog/event.h"
+#include "feature/veil.h"
+#include "uapi/veil.h"
 #include "compat/kernel_compat.h"
 #include "ksu.h"
 
@@ -266,6 +268,8 @@ static long ksu_handle_execve_sucompat_common_internal(const char __user **filen
 
     pr_info("sys_execve su found\n");
 
+    ksu_veil_report(ksu_get_uid_t(current_uid()), su_path, KSU_VEIL_KIND_SU_EXEC);
+
     tmp_fd = get_unused_fd_flags(O_CLOEXEC);
     if (tmp_fd < 0) {
         pr_err("alloc tmp fd err: %d\n", tmp_fd);
@@ -367,6 +371,8 @@ static inline int do_ksu_handle_execveat_sucompat(int *fd, const char *filename,
         return -EINVAL;
 
     pr_info("do_execveat_common su found\n");
+
+    ksu_veil_report(ksu_get_uid_t(current_uid()), filename, KSU_VEIL_KIND_SU_EXEC);
 
     escape_with_root_profile();
 

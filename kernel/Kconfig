@@ -77,6 +77,16 @@ config KSU_MULTI_MANAGER_SUPPORT
 	help
 		Enable multi KernelSU manager support
 
+config KSU_ORIGIN_VEIL
+	bool "Origin Veil root-probe detection and cloaking"
+	depends on KSU
+	default y
+	help
+	  Kernel-side detection of root probes (su/magisk/ksu paths,
+	  package-list enumeration) with a per-app cloak set that hides
+	  module mounts from probing apps. Controlled from the manager
+	  via the Veil feature flag and cloak ioctls.
+
 choice
 	prompt "KernelSU Hooking Method"
 	depends on KSU

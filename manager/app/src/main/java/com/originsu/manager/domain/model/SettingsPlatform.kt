@@ -32,6 +32,7 @@ data class PlatformFeatureStatus(
     val adbRootStatus: String = "",
     val adbRootEnabled: Boolean = false,
     val sulogStatus: String = "",
+    val veilStatus: String = "",
     val selinuxHideStatus: String = "",
 )
 

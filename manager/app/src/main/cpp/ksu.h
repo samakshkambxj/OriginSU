@@ -59,6 +59,30 @@ bool is_sulog_enabled();
 
 bool set_sulog_enabled(bool enabled);
 
+// Origin Veil
+bool is_veil_enabled();
+
+bool set_veil_enabled(bool enabled);
+
+struct veil_cloaked_uids {
+    uint32_t count;
+    uint32_t *uids; // malloc'd, caller frees with free()
+};
+
+struct veil_history {
+    uint32_t count;
+    // malloc'd array of struct ksu_veil_hist_entry, caller frees with free()
+    struct ksu_veil_hist_entry *entries;
+};
+
+bool get_veil_cloaked_uids(struct veil_cloaked_uids *out);
+bool set_veil_cloaked(uint32_t uid, bool cloaked);
+bool clear_veil_cloaked(void);
+bool is_veil_auto_cloak(bool *out_enabled);
+bool set_veil_auto_cloak(bool enabled);
+bool get_veil_history(struct veil_history *out);
+bool clear_veil_history(void);
+
 // Kernel umount
 bool set_kernel_umount_enabled(bool enabled);
 bool is_kernel_umount_enabled();

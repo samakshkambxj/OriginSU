@@ -10,6 +10,7 @@ import com.originsu.manager.data.file.ModuleFileRepository
 import com.originsu.manager.data.flash.FlashRepository
 import com.originsu.manager.data.kernel.KernelRepository
 import com.originsu.manager.data.kernel.UmountRepository
+import com.originsu.manager.data.kernel.VeilRepository
 import com.originsu.manager.data.logging.BugreportRepository
 import com.originsu.manager.data.logging.SulogRepository
 import com.originsu.manager.data.module.ModuleActionRepository
@@ -51,7 +52,10 @@ import com.originsu.manager.domain.usecase.CheckFlashModuleMountUseCase
 import com.originsu.manager.domain.usecase.CheckManagerUpdateUseCase
 import com.originsu.manager.domain.usecase.CleanSulogUseCase
 import com.originsu.manager.domain.usecase.ClearDynamicManagerUseCase
+import com.originsu.manager.domain.usecase.ClearVeilCloakedUseCase
+import com.originsu.manager.domain.usecase.ClearVeilHistoryUseCase
 import com.originsu.manager.domain.usecase.ConfigureSuLogUseCase
+import com.originsu.manager.domain.usecase.ConfigureVeilUseCase
 import com.originsu.manager.domain.usecase.ControlAppUseCase
 import com.originsu.manager.domain.usecase.DeleteProfileTemplateUseCase
 import com.originsu.manager.domain.usecase.EnableSulogUseCase
@@ -105,6 +109,7 @@ import com.originsu.manager.domain.usecase.ObserveStartupStateUseCase
 import com.originsu.manager.domain.usecase.ObserveSulogStateUseCase
 import com.originsu.manager.domain.usecase.ObserveSuperUserStateUseCase
 import com.originsu.manager.domain.usecase.ObserveUmountStateUseCase
+import com.originsu.manager.domain.usecase.ObserveVeilStateUseCase
 import com.originsu.manager.domain.usecase.RebootUseCase
 import com.originsu.manager.domain.usecase.RefreshDynamicManagerUseCase
 import com.originsu.manager.domain.usecase.RefreshInstalledModulesUseCase
@@ -113,6 +118,7 @@ import com.originsu.manager.domain.usecase.RefreshProfileTemplatesUseCase
 import com.originsu.manager.domain.usecase.RefreshSulogUseCase
 import com.originsu.manager.domain.usecase.RefreshSuperUsersUseCase
 import com.originsu.manager.domain.usecase.RefreshUmountPathsUseCase
+import com.originsu.manager.domain.usecase.RefreshVeilUseCase
 import com.originsu.manager.domain.usecase.RemovePreferenceUseCase
 import com.originsu.manager.domain.usecase.RemoveUmountPathUseCase
 import com.originsu.manager.domain.usecase.SaveModuleActionLogUseCase
@@ -131,6 +137,9 @@ import com.originsu.manager.domain.usecase.SetSelinuxHideEnabledUseCase
 import com.originsu.manager.domain.usecase.SetStringPreferenceUseCase
 import com.originsu.manager.domain.usecase.SetStringSetPreferenceUseCase
 import com.originsu.manager.domain.usecase.SetSuEnabledUseCase
+import com.originsu.manager.domain.usecase.SetVeilAutoCloakUseCase
+import com.originsu.manager.domain.usecase.SetVeilCloakedUseCase
+import com.originsu.manager.domain.usecase.SetVeilEnabledUseCase
 import com.originsu.manager.domain.usecase.StartKernelFlashUseCase
 import com.originsu.manager.domain.usecase.SuSFSConfigUseCase
 import com.originsu.manager.domain.usecase.TakeModuleUriPermissionUseCase
@@ -163,6 +172,7 @@ import com.originsu.manager.ui.viewmodel.SuperUserViewModel
 import com.originsu.manager.ui.viewmodel.TemplateEditorViewModel
 import com.originsu.manager.ui.viewmodel.TemplateViewModel
 import com.originsu.manager.ui.viewmodel.UmountManagerScreenViewModel
+import com.originsu.manager.ui.viewmodel.VeilViewModel
 import com.originsu.manager.ui.webui.MonetColorsProvider
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -260,6 +270,7 @@ val repositoryModule = module {
     singleOf(::NetworkRequestRepository)
     singleOf(::DynamicManagerRepository)
     singleOf(::SulogRepository)
+    singleOf(::VeilRepository)
     singleOf(::BugreportRepository)
     singleOf(::UmountRepository)
     singleOf(::ModuleCatalogRepository)
@@ -313,8 +324,14 @@ val useCaseModule = module {
     factoryOf(::GetManagerRuntimeInfoUseCase)
     factoryOf(::GetKernelFeatureSettingsUseCase)
     factoryOf(::SetSuEnabledUseCase)
+    factoryOf(::SetVeilEnabledUseCase)
+    factoryOf(::SetVeilAutoCloakUseCase)
+    factoryOf(::SetVeilCloakedUseCase)
+    factoryOf(::ClearVeilCloakedUseCase)
+    factoryOf(::ClearVeilHistoryUseCase)
     factoryOf(::SetKernelUmountEnabledUseCase)
     factoryOf(::ConfigureSuLogUseCase)
+    factoryOf(::ConfigureVeilUseCase)
     factoryOf(::SetSelinuxHideEnabledUseCase)
     factoryOf(::SetDefaultUmountModulesUseCase)
     factoryOf(::IsLateLoadModeUseCase)
@@ -363,7 +380,9 @@ val useCaseModule = module {
     factoryOf(::EnableSulogUseCase)
     factoryOf(::CleanSulogUseCase)
     factoryOf(::ObserveUmountStateUseCase)
+    factoryOf(::ObserveVeilStateUseCase)
     factoryOf(::RefreshUmountPathsUseCase)
+    factoryOf(::RefreshVeilUseCase)
     factoryOf(::AddUmountPathUseCase)
     factoryOf(::RemoveUmountPathUseCase)
     factoryOf(::ObserveKernelFlashUseCase)
@@ -432,6 +451,7 @@ val viewModelModule = module {
     viewModelOf(::DynamicManagerViewModel)
     viewModelOf(::FlashViewModel)
     viewModelOf(::UmountManagerScreenViewModel)
+    viewModelOf(::VeilViewModel)
     viewModel { parameters ->
         ExecuteModuleActionViewModel(
             moduleId = parameters[0],

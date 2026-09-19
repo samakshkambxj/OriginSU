@@ -37,5 +37,6 @@ data class KernelFeatureSettings(
     val kernelUmountEnabled: Boolean,
     val suLogEnabled: Boolean,
     val selinuxHideEnabled: Boolean,
+    val veilEnabled: Boolean,
     val defaultUmountModules: Boolean,
 )

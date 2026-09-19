@@ -149,6 +149,43 @@ struct ksu_get_sulog_fd_cmd {
     __u32 flags; /* Input: reserved for future use, must be 0 */
 };
 
+struct ksu_get_veil_fd_cmd {
+    __u32 flags; /* Input: reserved for future use, must be 0 */
+};
+
+enum ksu_veil_cloak_op {
+    KSU_VEIL_CLOAK_ADD = 0, /* cloak uid */
+    KSU_VEIL_CLOAK_REMOVE = 1, /* uncloak uid */
+    KSU_VEIL_CLOAK_QUERY = 2, /* is uid cloaked? -> result */
+    KSU_VEIL_CLOAK_LIST = 3, /* fill uids[] with cloaked uids */
+    KSU_VEIL_CLOAK_CLEAR = 4, /* uncloak everything */
+    KSU_VEIL_CLOAK_SET_AUTO = 5, /* value: 0/1 auto-cloak on probe */
+    KSU_VEIL_CLOAK_GET_AUTO = 6, /* -> result */
+};
+
+struct ksu_veil_cloak_cmd {
+    __u32 op; /* enum ksu_veil_cloak_op */
+    __u32 uid; /* ADD/REMOVE/QUERY */
+    __u32 value; /* in: SET_AUTO value; out: QUERY/GET_AUTO result */
+    __u32 count; /* LIST: in=capacity of uids[], out=number cloaked */
+    __aligned_u64 uids; /* LIST: user ptr to __u32[count] */
+};
+
+/* Persistent per-uid probe history (survives until reboot). */
+struct ksu_veil_hist_entry {
+    __u32 uid;
+    __u32 count; /* total probes by this uid */
+    __u32 kinds; /* bitmap: bit (kind-1) set per enum ksu_veil_kind */
+    __u32 pad;
+    __aligned_u64 last_ns;
+};
+
+struct ksu_veil_history_cmd {
+    __u32 count; /* in: capacity of entries[]; out: total available */
+    __u32 pad;
+    __aligned_u64 entries; /* user ptr to struct ksu_veil_hist_entry[count] */
+};
+
 struct ksu_manage_try_umount_cmd {
     __aligned_u64 arg; /* char ptr, this is the mountpoint */
     __u32 flags; /* this is the flag we use for it */
@@ -234,6 +271,9 @@ DEFINE_KSU_UAPI_CONST(__u32, KSU_IOCTL_MANAGE_TRY_UMOUNT, _IOC(_IOC_WRITE, 'K', 
 DEFINE_KSU_UAPI_CONST(__u32, KSU_IOCTL_SET_INIT_PGRP, _IO('K', 19))
 DEFINE_KSU_UAPI_CONST(__u32, KSU_IOCTL_GET_SULOG_FD, _IOW('K', 20, struct ksu_get_sulog_fd_cmd))
 DEFINE_KSU_UAPI_CONST(__u32, KSU_IOCTL_DISABLE_ESCAPE_TO_ROOT, _IO('K', 21))
+DEFINE_KSU_UAPI_CONST(__u32, KSU_IOCTL_VEIL_GET_FD, _IOW('K', 22, struct ksu_get_veil_fd_cmd))
+DEFINE_KSU_UAPI_CONST(__u32, KSU_IOCTL_VEIL_CLOAK, _IOC(_IOC_READ | _IOC_WRITE, 'K', 23, 0))
+DEFINE_KSU_UAPI_CONST(__u32, KSU_IOCTL_VEIL_HISTORY, _IOC(_IOC_READ | _IOC_WRITE, 'K', 24, 0))
 
 // Downstream add IOCTL command definitions
 DEFINE_KSU_UAPI_CONST(__u32, KSU_IOCTL_GET_FULL_VERSION, _IOC(_IOC_READ, 'K', 100, 0))

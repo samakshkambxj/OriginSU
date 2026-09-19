@@ -67,6 +67,7 @@ class KernelRepository(
             kernelUmountEnabled = runCatching { Natives.isKernelUmountEnabled() }.getOrDefault(false),
             suLogEnabled = runCatching { Natives.isSuLogEnabled() }.getOrDefault(false),
             selinuxHideEnabled = runCatching { Natives.isSelinuxHideEnabled() }.getOrDefault(false),
+            veilEnabled = runCatching { Natives.isVeilEnabled() }.getOrDefault(false),
             defaultUmountModules = runCatching { Natives.isDefaultUmountModules() }.getOrDefault(
                 false
             ),
@@ -83,6 +84,10 @@ class KernelRepository(
 
     suspend fun setSuLogEnabled(enabled: Boolean): Boolean = saveFeature {
         Natives.setSuLogEnabled(enabled)
+    }
+
+    suspend fun setVeilEnabled(enabled: Boolean): Boolean = saveFeature {
+        Natives.setVeilEnabled(enabled)
     }
 
     suspend fun setSelinuxHideEnabled(enabled: Boolean): Int = withContext(Dispatchers.IO) {

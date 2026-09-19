@@ -18,6 +18,7 @@
 #include "klog.h" // IWYU pragma: keep
 #include "runtime/ksud.h"
 #include "feature/kernel_umount.h"
+#include "feature/veil.h"
 #include "compat/kernel_compat.h"
 #include "manager/manager_identity.h"
 #include "selinux/selinux.h"
@@ -866,6 +867,139 @@ static int do_get_sulog_fd(void __user *arg)
     return ksu_install_sulog_fd();
 }
 
+static int do_veil_get_fd(void __user *arg)
+{
+    struct ksu_get_veil_fd_cmd cmd;
+
+    if (copy_from_user(&cmd, arg, sizeof(cmd))) {
+        pr_err("veil_get_fd: copy_from_user failed\n");
+        return -EFAULT;
+    }
+
+    if (cmd.flags) {
+        pr_err("veil_get_fd: unsupported flags 0x%x\n", cmd.flags);
+        return -EINVAL;
+    }
+
+    return ksu_install_veil_fd();
+}
+static int do_veil_cloak(void __user *arg)
+{
+    struct ksu_veil_cloak_cmd cmd;
+    int ret = 0;
+
+    if (copy_from_user(&cmd, arg, sizeof(cmd))) {
+        pr_err("veil_cloak: copy_from_user failed\n");
+        return -EFAULT;
+    }
+
+    switch (cmd.op) {
+    case KSU_VEIL_CLOAK_ADD:
+        ret = ksu_veil_cloak_add(cmd.uid);
+        break;
+    case KSU_VEIL_CLOAK_REMOVE:
+        ret = ksu_veil_cloak_remove(cmd.uid);
+        break;
+    case KSU_VEIL_CLOAK_CLEAR:
+        ksu_veil_cloak_clear();
+        break;
+    case KSU_VEIL_CLOAK_SET_AUTO:
+        ksu_veil_set_auto_cloak(cmd.value != 0);
+        break;
+    case KSU_VEIL_CLOAK_QUERY:
+        cmd.value = ksu_veil_is_cloaked(cmd.uid) ? 1 : 0;
+        if (copy_to_user(arg, &cmd, sizeof(cmd)))
+            return -EFAULT;
+        break;
+    case KSU_VEIL_CLOAK_GET_AUTO:
+        cmd.value = ksu_veil_get_auto_cloak() ? 1 : 0;
+        if (copy_to_user(arg, &cmd, sizeof(cmd)))
+            return -EFAULT;
+        break;
+    case KSU_VEIL_CLOAK_LIST: {
+        uid_t *buf;
+        int total;
+        u32 cap = cmd.count;
+
+        if (cap > 4096)
+            cap = 4096; /* sanity bound */
+        if (cap == 0) {
+            cmd.count = ksu_veil_cloak_list(NULL, 0);
+            if (copy_to_user(arg, &cmd, sizeof(cmd)))
+                return -EFAULT;
+            break;
+        }
+        buf = kmalloc_array(cap, sizeof(uid_t), GFP_KERNEL);
+        if (!buf)
+            return -ENOMEM;
+        total = ksu_veil_cloak_list(buf, cap);
+        if (cmd.uids) {
+            u32 n = ((u32)total < cap) ? (u32)total : cap;
+            if (copy_to_user((uid_t __user *)cmd.uids, buf, n * sizeof(uid_t))) {
+                kfree(buf);
+                return -EFAULT;
+            }
+        }
+        kfree(buf);
+        cmd.count = total;
+        if (copy_to_user(arg, &cmd, sizeof(cmd)))
+            return -EFAULT;
+        break;
+    }
+    default:
+        return -EINVAL;
+    }
+    return ret;
+}
+
+static int do_veil_history(void __user *arg)
+{
+    struct ksu_veil_history_cmd cmd;
+    struct ksu_veil_hist_entry *buf;
+    int total;
+    u32 cap;
+
+    if (copy_from_user(&cmd, arg, sizeof(cmd))) {
+        pr_err("veil_history: copy_from_user failed\n");
+        return -EFAULT;
+    }
+
+    /* flags bit0 in the (otherwise-padding) field: clear the history */
+    if (cmd.pad & 1) {
+        ksu_veil_history_clear();
+        return 0;
+    }
+
+    cap = cmd.count;
+    if (cap > 1024)
+        cap = 1024; /* sanity bound */
+    if (cap == 0) {
+        cmd.count = ksu_veil_history_dump(NULL, 0);
+        if (copy_to_user(arg, &cmd, sizeof(cmd)))
+            return -EFAULT;
+        return 0;
+    }
+
+    buf = kmalloc_array(cap, sizeof(*buf), GFP_KERNEL);
+    if (!buf)
+        return -ENOMEM;
+    total = ksu_veil_history_dump(buf, cap);
+    if (cmd.entries) {
+        u32 n = ((u32)total < cap) ? (u32)total : cap;
+
+        if (copy_to_user((void __user *)cmd.entries, buf, n * sizeof(*buf))) {
+            kfree(buf);
+            return -EFAULT;
+        }
+    }
+    kfree(buf);
+    cmd.count = total;
+    if (copy_to_user(arg, &cmd, sizeof(cmd)))
+        return -EFAULT;
+    return 0;
+}
+
+
 static int do_disable_escape_to_root(void __user *arg)
 {
     set_thread_flag(TIF_KSU_DISABLE_ESCAPE_WITH_ROOT);
@@ -1336,6 +1470,24 @@ static const struct ksu_ioctl_cmd_map ksu_ioctl_handlers[] = {
         .name = "GET_SULOG_FD",
         .handler = do_get_sulog_fd,
         .perm_check = only_root
+    },
+    {
+        .cmd = KSU_IOCTL_VEIL_GET_FD,
+        .name = "VEIL_GET_FD",
+        .handler = do_veil_get_fd,
+        .perm_check = only_root
+    },
+    {
+        .cmd = KSU_IOCTL_VEIL_CLOAK,
+        .name = "VEIL_CLOAK",
+        .handler = do_veil_cloak,
+        .perm_check = manager_or_root
+    },
+    {
+        .cmd = KSU_IOCTL_VEIL_HISTORY,
+        .name = "VEIL_HISTORY",
+        .handler = do_veil_history,
+        .perm_check = manager_or_root
     },
     { 
         .cmd = KSU_IOCTL_DISABLE_ESCAPE_TO_ROOT, 

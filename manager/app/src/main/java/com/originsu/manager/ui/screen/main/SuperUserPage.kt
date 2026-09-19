@@ -23,6 +23,7 @@ import androidx.compose.material.icons.twotone.Archive
 import androidx.compose.material.icons.twotone.ChevronRight
 import androidx.compose.material.icons.twotone.MoreVert
 import androidx.compose.material.icons.twotone.SearchOff
+import androidx.compose.material.icons.twotone.Shield
 import androidx.compose.material3.DropdownMenuGroup
 import androidx.compose.material3.DropdownMenuPopup
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -207,13 +208,23 @@ fun SuperUserPage(bottomPadding: Dp) {
                     }
                 },
                 navigationContent = {
-                    IconButton(onClick = {
-                        navigator.push(Route.Sulog)
-                    }) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.TwoTone.Article,
-                            contentDescription = stringResource(R.string.sulog)
-                        )
+                    Row {
+                        IconButton(onClick = {
+                            navigator.push(Route.Veil)
+                        }) {
+                            Icon(
+                                imageVector = Icons.TwoTone.Shield,
+                                contentDescription = stringResource(R.string.veil)
+                            )
+                        }
+                        IconButton(onClick = {
+                            navigator.push(Route.Sulog)
+                        }) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.TwoTone.Article,
+                                contentDescription = stringResource(R.string.sulog)
+                            )
+                        }
                     }
                 },
                 scrollBehavior = scrollBehavior,

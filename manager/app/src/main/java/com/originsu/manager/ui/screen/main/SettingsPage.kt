@@ -46,7 +46,9 @@ import androidx.compose.material.icons.twotone.Science
 import androidx.compose.material.icons.twotone.Security
 import androidx.compose.material.icons.twotone.Settings
 import androidx.compose.material.icons.twotone.Share
+import androidx.compose.material.icons.twotone.Shield
 import androidx.compose.material.icons.twotone.Update
+import androidx.compose.material.icons.twotone.Visibility
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
@@ -359,6 +361,37 @@ fun SettingsPage(bottomPadding: Dp) {
                                     onCheckedChange = { enabled ->
                                         settingsViewModel.dispatch(SettingsUiAction.SetSuLog(enabled))
                                     },
+                                )
+                            }
+
+                            item {
+                                val veilSummary = when (uiState.veilStatus) {
+                                    "unsupported" -> stringResource(id = R.string.feature_status_unsupported_summary)
+                                    "managed" -> stringResource(id = R.string.feature_status_managed_summary)
+                                    else -> stringResource(id = R.string.settings_veil_summary)
+                                }
+                                SettingsSwitchWidget(
+                                    icon = Icons.TwoTone.Shield,
+                                    title = stringResource(id = R.string.settings_veil),
+                                    description = veilSummary,
+                                    enabled = uiState.veilStatus == "supported",
+                                    checked = uiState.isVeilEnabled,
+                                    onCheckedChange = { enabled ->
+                                        settingsViewModel.dispatch(SettingsUiAction.SetVeil(enabled))
+                                    },
+                                )
+                            }
+
+                            item(
+                                visible = uiState.veilStatus == "supported"
+                            ) {
+                                SettingsJumpPageWidget(
+                                    icon = Icons.TwoTone.Visibility,
+                                    title = stringResource(id = R.string.veil),
+                                    description = stringResource(id = R.string.veil_manage_summary),
+                                    onClick = {
+                                        navigator.push(Route.Veil)
+                                    }
                                 )
                             }
 

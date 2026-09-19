@@ -30,6 +30,7 @@
 #include "compat/kernel_compat.h"
 
 #include "feature/sulog.h"
+#include "feature/veil.h"
 #include "feature/adb_root.h"
 #include "feature/dynamic_manager.h"
 #include "feature/module_load_filter.h"
@@ -236,6 +237,7 @@ int __init kernelsu_init(void)
     ksu_selinux_init();
     ksu_feature_init();
     ksu_sulog_init();
+    ksu_veil_init();
     ksu_adb_root_init();
     ksu_selinux_hide_init();
 
@@ -318,6 +320,7 @@ void __exit kernelsu_exit(void)
 
     ksu_selinux_hide_exit();
     ksu_adb_root_exit();
+    ksu_veil_exit();
     ksu_sulog_exit();
     ksu_feature_exit();
     ksu_module_load_filter_hook_exit();

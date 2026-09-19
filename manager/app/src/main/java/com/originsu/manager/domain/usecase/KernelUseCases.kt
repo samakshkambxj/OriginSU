@@ -26,6 +26,10 @@ class ConfigureSuLogUseCase(private val repository: KernelRepository) {
     suspend operator fun invoke(enabled: Boolean) = repository.setSuLogEnabled(enabled)
 }
 
+class ConfigureVeilUseCase(private val repository: KernelRepository) {
+    suspend operator fun invoke(enabled: Boolean) = repository.setVeilEnabled(enabled)
+}
+
 class SetSelinuxHideEnabledUseCase(private val repository: KernelRepository) {
     suspend operator fun invoke(enabled: Boolean) = repository.setSelinuxHideEnabled(enabled)
 }

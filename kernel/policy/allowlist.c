@@ -35,6 +35,7 @@ static inline int __must_check ksu_kref_get_unless_zero(struct kref *kref)
 #include "klog.h" // IWYU pragma: keep
 #include "ksu.h"
 #include "feature/kernel_umount.h"
+#include "feature/veil.h"
 #include "runtime/ksud_boot.h"
 #include "selinux/selinux.h"
 #include "policy/allowlist.h"
@@ -315,6 +316,11 @@ bool ksu_uid_should_umount(uid_t uid)
     if (unlikely(ksu_is_manager_uid(uid))) {
         // we should not umount on manager!
         return false;
+    }
+    if (ksu_veil_is_cloaked(uid)) {
+        // Origin Veil: cloaked apps always lose module mounts,
+        // regardless of the global umount toggle or app profile.
+        return true;
     }
 #ifdef CONFIG_KSU_DISABLE_POLICY
     return !__ksu_is_allow_uid(uid);

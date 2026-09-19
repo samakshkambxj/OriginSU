@@ -11,6 +11,7 @@ import com.originsu.manager.domain.model.PlatformSetting
 import com.originsu.manager.domain.model.SettingsPlatformSnapshot
 import com.originsu.manager.domain.model.coerceCompatibleWith
 import com.originsu.manager.domain.usecase.ConfigureSuLogUseCase
+import com.originsu.manager.domain.usecase.ConfigureVeilUseCase
 import com.originsu.manager.domain.usecase.GetBooleanPreferenceUseCase
 import com.originsu.manager.domain.usecase.GetKernelFeatureSettingsUseCase
 import com.originsu.manager.domain.usecase.GetPlatformFeatureStatusUseCase
@@ -98,6 +99,8 @@ data class SettingsUiState(
     val isAdbRootEnabled: Boolean = false,
     val sulogStatus: String = "",
     val isSuLogEnabled: Boolean = false,
+    val veilStatus: String = "",
+    val isVeilEnabled: Boolean = false,
     val selinuxHideStatus: String = "",
     val isSelinuxHideEnabled: Boolean = false,
     val defaultUmountModules: Boolean = false,
@@ -142,6 +145,7 @@ sealed interface SettingsUiAction {
     data class SetSelinuxHide(val enabled: Boolean) : SettingsUiAction
     data class SetAdbRoot(val enabled: Boolean) : SettingsUiAction
     data class SetSuLog(val enabled: Boolean) : SettingsUiAction
+    data class SetVeil(val enabled: Boolean) : SettingsUiAction
     data class SetDefaultUmountModules(val enabled: Boolean) : SettingsUiAction
     data class SetSecureRootEnabled(val enabled: Boolean) : SettingsUiAction
     data class SetOriginZygiskEnabled(val enabled: Boolean) : SettingsUiAction
@@ -163,6 +167,7 @@ class SettingsViewModel(
     private val setSuEnabled: SetSuEnabledUseCase,
     private val setKernelUmountEnabled: SetKernelUmountEnabledUseCase,
     private val setSuLogEnabled: ConfigureSuLogUseCase,
+    private val setVeilEnabled: ConfigureVeilUseCase,
     private val setSelinuxHideEnabled: SetSelinuxHideEnabledUseCase,
     private val setDefaultUmountModules: SetDefaultUmountModulesUseCase,
     private val getBooleanPreference: GetBooleanPreferenceUseCase,
@@ -208,6 +213,8 @@ fun initialize() {
                     isAdbRootEnabled = platform.adbRootEnabled,
                     sulogStatus = platform.sulogStatus,
                     isSuLogEnabled = features.suLogEnabled,
+                    veilStatus = platform.veilStatus,
+                    isVeilEnabled = features.veilEnabled,
                     selinuxHideStatus = platform.selinuxHideStatus,
                     isSelinuxHideEnabled = features.selinuxHideEnabled,
                     defaultUmountModules = features.defaultUmountModules,
@@ -423,6 +430,12 @@ fun initialize() {
         }
     }
 
+    fun handleVeilChange(checked: Boolean) {
+        viewModelScope.launch {
+            if (setVeilEnabled(checked)) mutableState.update { it.copy(isVeilEnabled = checked) }
+        }
+    }
+
     fun handleSelinuxHideChange(checked: Boolean) {
         viewModelScope.launch {
             val status = setSelinuxHideEnabled(checked)
@@ -487,6 +500,7 @@ fun dispatch(action: SettingsUiAction) {
             is SettingsUiAction.SetSelinuxHide -> handleSelinuxHideChange(action.enabled)
             is SettingsUiAction.SetAdbRoot -> handleAdbRootChange(action.enabled)
             is SettingsUiAction.SetSuLog -> handleSuLogChange(action.enabled)
+            is SettingsUiAction.SetVeil -> handleVeilChange(action.enabled)
             is SettingsUiAction.SetDefaultUmountModules ->
                 handleDefaultUmountModulesChange(action.enabled)
             is SettingsUiAction.SetSecureRootEnabled ->

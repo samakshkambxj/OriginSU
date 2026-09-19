@@ -29,7 +29,8 @@ object Natives {
     // 34966(upstream 32513): add uapi version
     // 34967(upstream 32514): allowlist v4 root profile flags
     // 35002: add sync set dynamic-manager api
-    const val MINIMAL_SUPPORTED_KERNEL = 35002
+    // 35189: add Origin Veil ioctls (get-fd, cloak, history) + feature id 5
+    const val MINIMAL_SUPPORTED_KERNEL = 35189
 
     const val KERNEL_SU_DOMAIN = "u:r:ksu:s0"
 
@@ -138,6 +139,17 @@ object Natives {
     external fun isSuLogEnabled(): Boolean
     external fun setSuLogEnabled(enabled: Boolean): Boolean
 
+    external fun isVeilEnabled(): Boolean
+    external fun setVeilEnabled(enabled: Boolean): Boolean
+
+    external fun getVeilCloakedUids(): IntArray?
+    external fun setVeilCloaked(uid: Int, cloaked: Boolean): Boolean
+    external fun clearVeilCloaked(): Boolean
+    external fun isVeilAutoCloak(): Boolean
+    external fun setVeilAutoCloak(enabled: Boolean): Boolean
+    external fun getVeilHistory(): List<VeilHistoryEntry>?
+    external fun clearVeilHistory(): Boolean
+
     /**
      * Kernel module umount can be disabled temporarily.
      *  0: disabled
@@ -233,6 +245,16 @@ object Natives {
     data class ManagerInfo(
         val uid: Int = 0,
         val signatureIndex: Int = 0
+    ) : Parcelable
+
+    @Immutable
+    @Parcelize
+    @Keep
+    data class VeilHistoryEntry(
+        val uid: Int = 0,
+        val count: Int = 0,
+        val kinds: Int = 0,
+        val lastNs: Long = 0L
     ) : Parcelable
 
     @Immutable
