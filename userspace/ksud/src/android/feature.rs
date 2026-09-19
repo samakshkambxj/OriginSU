@@ -27,6 +27,9 @@ pub enum FeatureId {
     AdbRoot = 3,
     SelinuxHide = 4,
     OriginVeil = 5,
+    SuPrompt = 6,
+    SuPromptTimeout = 7,
+    SuPromptDefaultAllow = 8,
 }
 
 impl FeatureId {
@@ -38,6 +41,9 @@ impl FeatureId {
             3 => Some(Self::AdbRoot),
             4 => Some(Self::SelinuxHide),
             5 => Some(Self::OriginVeil),
+            6 => Some(Self::SuPrompt),
+            7 => Some(Self::SuPromptTimeout),
+            8 => Some(Self::SuPromptDefaultAllow),
             _ => None,
         }
     }
@@ -50,6 +56,9 @@ impl FeatureId {
             Self::AdbRoot => "adb_root",
             Self::SelinuxHide => "selinux_hide",
             Self::OriginVeil => "veil",
+            Self::SuPrompt => "su_prompt",
+            Self::SuPromptTimeout => "su_prompt_timeout",
+            Self::SuPromptDefaultAllow => "su_prompt_default_allow",
         }
     }
 
@@ -71,6 +80,15 @@ impl FeatureId {
             Self::OriginVeil => {
                 "Origin Veil - kernel-side root-probe detection with per-app cloaking"
             }
+            Self::SuPrompt => {
+                "SU Prompt - blocking Magisk-style root allow/deny prompt"
+            }
+            Self::SuPromptTimeout => {
+                "SU Prompt Timeout - seconds the prompt waits for an answer"
+            }
+            Self::SuPromptDefaultAllow => {
+                "SU Prompt Default - allow root when the prompt times out"
+            }
         }
     }
 }
@@ -83,6 +101,9 @@ fn parse_feature_id(name: &str) -> Result<FeatureId> {
         "adb_root" | "3" => Ok(FeatureId::AdbRoot),
         "selinux_hide" | "4" => Ok(FeatureId::SelinuxHide),
         "veil" | "5" => Ok(FeatureId::OriginVeil),
+        "su_prompt" | "6" => Ok(FeatureId::SuPrompt),
+        "su_prompt_timeout" | "7" => Ok(FeatureId::SuPromptTimeout),
+        "su_prompt_default_allow" | "8" => Ok(FeatureId::SuPromptDefaultAllow),
         _ => bail!("Unknown feature: {name}"),
     }
 }
@@ -330,6 +351,9 @@ pub fn list_features() {
         FeatureId::AdbRoot,
         FeatureId::SelinuxHide,
         FeatureId::OriginVeil,
+        FeatureId::SuPrompt,
+        FeatureId::SuPromptTimeout,
+        FeatureId::SuPromptDefaultAllow,
     ];
 
     for feature_id in &all_features {
@@ -394,6 +418,9 @@ pub fn save_config() -> Result<()> {
         FeatureId::AdbRoot,
         FeatureId::SelinuxHide,
         FeatureId::OriginVeil,
+        FeatureId::SuPrompt,
+        FeatureId::SuPromptTimeout,
+        FeatureId::SuPromptDefaultAllow,
     ];
 
     for feature_id in &all_features {

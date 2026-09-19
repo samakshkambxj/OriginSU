@@ -510,6 +510,34 @@ NativeBridge(setSuLogEnabled, jboolean, jboolean enabled) {
     return set_sulog_enabled(enabled);
 }
 
+NativeBridgeNP(openSulogStream, jobject) {
+    // ParcelFileDescriptor.fromFd dups the fd, so drop our copy afterwards.
+    // Returns NULL when the kernel lacks the ioctl or another reader
+    // (e.g. ksud sulogd) already holds the single stream.
+    int fd = get_sulog_fd();
+    if (fd < 0) {
+        return NULL;
+    }
+    jclass cls = GetEnvironment()->FindClass(env, "android/os/ParcelFileDescriptor");
+    if (cls == nullptr) {
+        close(fd);
+        return NULL;
+    }
+    jmethodID fromFd = GetEnvironment()->GetStaticMethodID(env, cls, "fromFd", "(I)Landroid/os/ParcelFileDescriptor;");
+    if (fromFd == nullptr) {
+        close(fd);
+        return NULL;
+    }
+    jobject pfd = GetEnvironment()->CallStaticObjectMethod(env, cls, fromFd, fd);
+    if (GetEnvironment()->ExceptionCheck(env)) {
+        GetEnvironment()->ExceptionClear(env);
+        close(fd);
+        return NULL;
+    }
+    close(fd);
+    return pfd;
+}
+
 NativeBridgeNP(isVeilEnabled, jboolean) {
     return is_veil_enabled();
 }

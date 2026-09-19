@@ -333,6 +333,15 @@ bool set_sulog_enabled(bool enabled) {
     return set_feature(KSU_FEATURE_SULOG, enabled ? 1 : 0);
 }
 
+int get_sulog_fd(void) {
+    struct ksu_get_sulog_fd_cmd cmd = {0};
+    int ret = ksuctl(KSU_IOCTL_GET_SULOG_FD, &cmd);
+    if (ret < 0) {
+        return ret;
+    }
+    return ret;
+}
+
 bool is_veil_enabled() {
     uint64_t value = 0;
     bool supported = false;

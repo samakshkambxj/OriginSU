@@ -5,6 +5,7 @@ import android.content.Intent
 import android.os.Build
 import android.provider.Settings
 import androidx.core.content.ContextCompat
+import com.originsu.manager.Natives
 import com.originsu.manager.data.AppSettingsRepository
 
 class GrantToastRepository(
@@ -16,6 +17,11 @@ class GrantToastRepository(
     fun setToastEnabled(enabled: Boolean) {
         appSettings.putBoolean(PREF_GRANT_TOAST, enabled)
         if (enabled) {
+            // The kernel emits nothing while sulog is off (and no log files
+            // exist); enabling it here keeps the toast working without
+            // requiring the user to flip a second switch. Best-effort: the
+            // monitor falls back gracefully when the kernel lacks support.
+            runCatching { Natives.setSuLogEnabled(true) }
             startMonitor()
         } else {
             stopMonitor()

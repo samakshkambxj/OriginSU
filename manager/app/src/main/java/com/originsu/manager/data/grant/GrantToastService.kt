@@ -11,7 +11,11 @@ import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
+import android.os.ParcelFileDescriptor
 import android.os.SystemClock
+import android.system.ErrnoException
+import android.system.Os
+import android.util.Log
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.WindowManager
@@ -19,6 +23,7 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.core.app.NotificationCompat
+import com.originsu.manager.Natives
 import com.originsu.manager.R
 import com.originsu.manager.domain.model.SulogEventType
 import com.originsu.manager.domain.model.parseSulogLine
@@ -34,6 +39,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import org.koin.android.ext.android.inject
+import java.io.ByteArrayOutputStream
 import java.io.InputStreamReader
 import java.time.LocalDate
 
@@ -47,6 +53,7 @@ class GrantToastService : Service() {
     private val mainHandler by lazy { Handler(Looper.getMainLooper()) }
 
     private var maxSeq = -1L
+    private var streamPfd: ParcelFileDescriptor? = null
     private var toastView: android.view.View? = null
     private val hideToastRunnable = Runnable { hideToast() }
 
@@ -73,6 +80,8 @@ class GrantToastService : Service() {
 
     override fun onDestroy() {
         monitorJob?.cancel()
+        runCatching { streamPfd?.close() }
+        streamPfd = null
         serviceScope.cancel()
         mainHandler.removeCallbacks(hideToastRunnable)
         hideToast()
@@ -130,6 +139,13 @@ class GrantToastService : Service() {
         }
         if (monitorJob?.isActive == true) return
         monitorJob = serviceScope.launch {
+            // Prefer the live kernel event stream (real-time, no root needed,
+            // same source ksuGrantToast uses). Fall back to polling sulogd's
+            // log files when another reader (e.g. ksud sulogd) holds the
+            // single stream, or the kernel predates the ioctl.
+            if (!runCatching { streamEvents() }.isSuccess) {
+                Log.w(TAG, "event stream unavailable, falling back to log files")
+            }
             // Seek to the end first so old grants never toast.
             maxSeq = readLatestMaxSeq()
             while (isActive) {
@@ -139,9 +155,101 @@ class GrantToastService : Service() {
         }
     }
 
+    /**
+     * Blocking read loop over the live sulog event fd. Returns (for the file
+     * fallback above) only when the stream ends or the job is cancelled.
+     */
+    private suspend fun streamEvents() {
+        while (serviceScope.isActive) {
+            var pfd: ParcelFileDescriptor? = null
+            try {
+                pfd = Natives.openSulogStream() ?: return
+                streamPfd = pfd
+                readStream(pfd)
+            } catch (e: Exception) {
+                if (e is InterruptedException) return
+                Log.w(TAG, "sulog stream error, reconnecting", e)
+            } finally {
+                runCatching { pfd?.close() }
+                if (streamPfd === pfd) streamPfd = null
+            }
+            if (!serviceScope.isActive) return
+            delay(RECONNECT_MILLIS)
+        }
+    }
+
+    private fun readStream(pfd: ParcelFileDescriptor) {
+        val fd = pfd.fileDescriptor
+        val buf = ByteArray(8192)
+        val staging = ByteArrayOutputStream(8192)
+        while (serviceScope.isActive) {
+            val n = try {
+                Os.read(fd, buf, 0, buf.size)
+            } catch (e: ErrnoException) {
+                Log.w(TAG, "sulog stream read failed", e)
+                return
+            }
+            if (n <= 0) return
+            staging.write(buf, 0, n)
+            drainFrames(staging)
+        }
+    }
+
+    private fun drainFrames(staging: ByteArrayOutputStream) {
+        val data = staging.toByteArray()
+        var off = 0
+        while (data.size - off >= RECORD_HEADER_SIZE) {
+            val type = leU16(data, off)
+            val len = leU32(data, off + 4).coerceAtMost(MAX_FRAME_SIZE)
+            if ((data.size - off).toLong() < RECORD_HEADER_SIZE + len) break
+            if (type != DROPPED_TYPE && len >= SULOG_EVENT_FIXED_SIZE) {
+                handleStreamEvent(data, off + RECORD_HEADER_SIZE)
+            }
+            off += (RECORD_HEADER_SIZE + len).toInt()
+        }
+        staging.reset()
+        if (off < data.size) staging.write(data, off, data.size - off)
+    }
+
+    private fun handleStreamEvent(data: ByteArray, base: Int) {
+        val eventType = leU16(data, base + 2)
+        if (eventType != SULOG_ROOT_EXECVE &&
+            eventType != SULOG_SUCOMPAT &&
+            eventType != SULOG_GRANT_ROOT
+        ) {
+            return
+        }
+        if (leI32(data, base + 4) != 0) return
+        val uid = leU32(data, base + 20)
+        if (uid < 10000L) return
+        onGrant(uid.toInt())
+    }
+
+    private fun onGrant(uid: Int) {
+        val now = System.currentTimeMillis()
+        val last = repository.lastToastAt(uid)
+        if (now - last < GrantToastRepository.THROTTLE_MILLIS) return
+        repository.markToasted(uid, now)
+        val label = resolveLabel(uid)
+        showToast(getString(R.string.grant_toast_granted, label))
+    }
+
+    private fun leU16(data: ByteArray, off: Int): Int =
+        (data[off].toInt() and 0xff) or ((data[off + 1].toInt() and 0xff) shl 8)
+
+    private fun leU32(data: ByteArray, off: Int): Long =
+        (data[off].toLong() and 0xff) or
+                ((data[off + 1].toLong() and 0xff) shl 8) or
+                ((data[off + 2].toLong() and 0xff) shl 16) or
+                ((data[off + 3].toLong() and 0xff) shl 24)
+
+    private fun leI32(data: ByteArray, off: Int): Int = leU32(data, off).toInt()
+
     private fun stopMonitoring() {
         monitorJob?.cancel()
         monitorJob = null
+        runCatching { streamPfd?.close() }
+        streamPfd = null
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
     }
@@ -162,11 +270,7 @@ class GrantToastService : Service() {
             if (entry.fields["retval"] != "0") continue
             val uid = entry.fields["uid"]?.toIntOrNull() ?: continue
             if (uid < 10000) continue
-            val last = repository.lastToastAt(uid)
-            if (now - last < GrantToastRepository.THROTTLE_MILLIS) continue
-            repository.markToasted(uid, now)
-            val label = resolveLabel(uid)
-            showToast(getString(R.string.grant_toast_granted, label))
+            onGrant(uid)
         }
     }
 
@@ -321,7 +425,16 @@ class GrantToastService : Service() {
     companion object {
         const val ACTION_START = "com.originsu.manager.action.GRANT_TOAST_START"
         const val ACTION_STOP = "com.originsu.manager.action.GRANT_TOAST_STOP"
+        private const val TAG = "GrantToastService"
         private const val CHANNEL_ID = "grant_toast_channel"
+        private const val RECORD_HEADER_SIZE = 24
+        private const val SULOG_EVENT_FIXED_SIZE = 52
+        private const val MAX_FRAME_SIZE = 1024L * 1024L
+        private const val DROPPED_TYPE = 0xFFFF
+        private const val SULOG_ROOT_EXECVE = 1
+        private const val SULOG_SUCOMPAT = 2
+        private const val SULOG_GRANT_ROOT = 3
+        private const val RECONNECT_MILLIS = 3000L
         private const val NOTIFICATION_ID = 424200
         private const val FALLBACK_NOTIFICATION_ID = 424210
         private const val POLL_MILLIS = 3000L

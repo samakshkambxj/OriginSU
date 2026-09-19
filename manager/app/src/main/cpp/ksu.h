@@ -59,6 +59,10 @@ bool is_sulog_enabled();
 
 bool set_sulog_enabled(bool enabled);
 
+// Opens the live sulog event stream (KSU_IOCTL_GET_SULOG_FD).
+// Returns the new fd on success, negative errno on failure. Caller owns it.
+int get_sulog_fd(void);
+
 // Origin Veil
 bool is_veil_enabled();
 

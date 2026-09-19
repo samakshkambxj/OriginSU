@@ -1,5 +1,6 @@
 package com.originsu.manager
 
+import android.os.ParcelFileDescriptor
 import android.os.Parcelable
 import androidx.annotation.Keep
 import androidx.annotation.StringRes
@@ -138,6 +139,14 @@ object Natives {
 
     external fun isSuLogEnabled(): Boolean
     external fun setSuLogEnabled(enabled: Boolean): Boolean
+
+    /**
+     * Opens the live kernel sulog event stream. Returns null when the kernel
+     * lacks the ioctl or another reader (e.g. ksud sulogd) already holds the
+     * single stream. Read binary event records (ksu_event_record_hdr +
+     * ksu_sulog_event payload, little-endian) from the returned descriptor.
+     */
+    external fun openSulogStream(): ParcelFileDescriptor?
 
     external fun isVeilEnabled(): Boolean
     external fun setVeilEnabled(enabled: Boolean): Boolean
