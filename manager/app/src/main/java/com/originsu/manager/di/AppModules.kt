@@ -289,7 +289,13 @@ val repositoryModule = module {
     single { GrantToastRepository(androidApplication(), get()) }
     single { SuRequestRepository(androidApplication(), get()) }
     single { AppIconRepository(androidApplication(), get()) }
-    single { com.originsu.manager.data.shortcuts.AppShortcutsRepository(androidApplication(), get()) }
+    single {
+        com.originsu.manager.data.shortcuts.AppShortcutsRepository(
+            androidApplication(),
+            get(),
+            get(),
+        )
+    }
     singleOf(::BugreportRepository)
     singleOf(::UmountRepository)
     singleOf(::ModuleCatalogRepository)

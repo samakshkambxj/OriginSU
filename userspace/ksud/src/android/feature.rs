@@ -82,7 +82,9 @@ impl FeatureId {
             }
             Self::SuPrompt => "SU Prompt - blocking Magisk-style root allow/deny prompt",
             Self::SuPromptTimeout => "SU Prompt Timeout - seconds the prompt waits for an answer",
-            Self::SuPromptDefaultAllow => "SU Prompt Default - allow root when the prompt times out",
+            Self::SuPromptDefaultAllow => {
+                "SU Prompt Default - allow root when the prompt times out"
+            }
         }
     }
 }
