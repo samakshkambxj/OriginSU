@@ -307,7 +307,7 @@ fun VeilScreen() {
 
                     lazySegmentColumn(
                         uiState.cloakedUids,
-                        key = { _, it -> it.uid }) { _, entry ->
+                        key = { _, it -> "cloaked-${it.uid}" }) { _, entry ->
                         val cloakedUids = uiState.cloakedUids.map { it.uid }.toSet()
                         val uncloakTitle = stringResource(R.string.veil_uncloak_action)
                         val uncloakSummary =
@@ -354,7 +354,7 @@ fun VeilScreen() {
 
                     lazySegmentColumn(
                         uiState.history,
-                        key = { _, it -> it.uid }) { _, entry ->
+                        key = { _, it -> "history-${it.uid}" }) { _, entry ->
                         val cloakedUids = uiState.cloakedUids.map { it.uid }.toSet()
                         val lastSeen = veilTimestampText(
                             lastNs = entry.lastNs,
