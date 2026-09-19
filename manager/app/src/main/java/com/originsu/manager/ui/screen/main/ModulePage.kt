@@ -63,6 +63,7 @@ import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CheckableDropdownMenuItem
 import androidx.compose.material3.DropdownMenuGroup
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.DropdownMenuPopup
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
@@ -336,6 +337,14 @@ fun ModulePage(bottomPadding: Dp) {
                             onDismissRequest = { showDropdown = false },
                             viewModel = viewModel,
                             uiState = uiState,
+                            onUpdateAll = {
+                                showDropdown = false
+                                scope.launch {
+                                    onUpdateAllClicked(
+                                        uiState.moduleList
+                                    )
+                                }
+                            },
                         )
                     }
                 },
@@ -542,6 +551,7 @@ private fun ModuleDropdown(
     onDismissRequest: () -> Unit,
     viewModel: ModuleViewModel,
     uiState: ModuleUiState,
+    onUpdateAll: () -> Unit,
 ) {
     DropdownMenuPopup(
         expanded = expanded,
@@ -550,6 +560,25 @@ private fun ModuleDropdown(
         DropdownMenuGroup(
             shapes = MenuDefaults.groupShapes(),
         ) {
+            if (uiState.moduleList.any { it.moduleUpdate != null && !it.remove }) {
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.update_all)) },
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.TwoTone.Download,
+                            contentDescription = null
+                        )
+                    },
+                    onClick = onUpdateAll,
+                    shapes = MenuDefaults.itemShape(
+                        index = 0,
+                        count = 4,
+                    ),
+                )
+            }
+            val hasUpdates = uiState.moduleList.any { it.moduleUpdate != null && !it.remove }
+            val itemOffset = if (hasUpdates) 1 else 0
+            val itemCount = 3 + itemOffset
             CheckableDropdownMenuItem(
                 checked = uiState.sortActionFirst,
                 onCheckedChange = {
@@ -559,8 +588,8 @@ private fun ModuleDropdown(
                 },
                 text = { Text(stringResource(R.string.module_sort_action_first)) },
                 shapes = MenuDefaults.itemShape(
-                    index = 0,
-                    count = 3,
+                    index = itemOffset,
+                    count = itemCount,
                 ),
             )
             CheckableDropdownMenuItem(
@@ -572,8 +601,8 @@ private fun ModuleDropdown(
                 },
                 text = { Text(stringResource(R.string.module_sort_enabled_first)) },
                 shapes = MenuDefaults.itemShape(
-                    index = 1,
-                    count = 3,
+                    index = 1 + itemOffset,
+                    count = itemCount,
                 ),
             )
             CheckableDropdownMenuItem(
@@ -585,8 +614,8 @@ private fun ModuleDropdown(
                 },
                 text = { Text(stringResource(R.string.show_module_banners)) },
                 shapes = MenuDefaults.itemShape(
-                    index = 2,
-                    count = 3,
+                    index = 2 + itemOffset,
+                    count = itemCount,
                 ),
             )
         }
@@ -673,6 +702,8 @@ private fun ModuleList(
     val selectedCountFmt = stringResource(R.string.selected_count)
     val metaModuleUninstallConfirm = stringResource(R.string.metamodule_uninstall_confirm)
     val updateText = stringResource(R.string.module_update)
+    val updateAllText = stringResource(R.string.update_all)
+    val updateAllConfirm = stringResource(R.string.update_all_confirm)
     val changelogText = stringResource(R.string.module_changelog)
     val downloadingText = stringResource(R.string.module_downloading)
     val startDownloadingText = stringResource(R.string.module_start_downloading)
@@ -905,8 +936,46 @@ private fun ModuleList(
         }
     }
 
-    suspend fun onModuleUninstallClicked(module: InstalledModule) {
-        val isUninstall = !module.remove
+    suspend fun onUpdateAllClicked(modules: List<InstalledModule>) {
+        val updatable = modules.filter { it.moduleUpdate != null && !it.remove }
+        if (updatable.isEmpty()) {
+            return
+        }
+        val names = updatable.joinToString("\n") { "• ${it.name} → ${it.moduleUpdate!!.version}" }
+        val confirmResult = confirmDialog.awaitConfirm(
+            updateAllText,
+            content = updateAllConfirm.format(updatable.size, names),
+            confirm = updateText,
+            dismiss = cancel
+        )
+        if (confirmResult != ConfirmResult.Confirmed) {
+            return
+        }
+        val uris = mutableListOf<String>()
+        withContext(Dispatchers.IO) {
+            for (module in updatable) {
+                val update = module.moduleUpdate ?: continue
+                val fileName = "${module.name}-${update.version}.zip"
+                val uri = kotlinx.coroutines.suspendCancellableCoroutine { cont ->
+                    download(
+                        context,
+                        permissionRequestInterface,
+                        update.zipUrl,
+                        fileName,
+                        enqueueDownload,
+                        observeDownload,
+                        onDownloaded = { cont.resume(it.toString()) },
+                    )
+                }
+                uris.add(uri)
+            }
+        }
+        if (uris.isNotEmpty()) {
+            navigator.push(Route.Flash.modules(uris))
+        }
+    }
+
+    suspend fun onModuleUninstallClicked(module: InstalledModule) {        val isUninstall = !module.remove
         if (isUninstall) {
             val formatter = if (module.metamodule) metaModuleUninstallConfirm else moduleUninstallConfirm
             val confirmResult = confirmDialog.awaitConfirm(

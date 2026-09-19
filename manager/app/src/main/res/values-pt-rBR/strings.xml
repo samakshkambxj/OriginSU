@@ -266,6 +266,8 @@
     <string name="batch_uninstall_confirm">Uninstall %1$d selected modules?</string>
     <string name="batch_result">%1$d succeeded, %2$d failed</string>
     <string name="selected_count">%1$d selected</string>
+    <string name="update_all">Update all</string>
+    <string name="update_all_confirm">Update %1$d modules?\n\n%2$s</string>
     <string name="root_required">Requer privilégios de administrador (root)</string>
     <string name="failed_reboot">Falha na reinicialização</string>
     <string name="custom_settings">Configurações personalizadas</string>
