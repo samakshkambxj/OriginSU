@@ -8,6 +8,7 @@ class SuSFSConfigUseCase(private val repository: SuSFSRepository) {
     suspend fun loadConfig() = repository.loadConfig()
     suspend fun refreshConfig() = repository.refreshConfig()
     suspend fun restoreDefaultConfig() = repository.restoreDefaultConfig()
+    suspend fun applyStrongPreset() = repository.applyStrongPreset()
     suspend fun setConfigEnabled(enabled: Boolean) = repository.setConfigEnabled(enabled)
     suspend fun loadStatusInfo(forceRefresh: Boolean = false) =
         repository.loadStatusInfo(forceRefresh)

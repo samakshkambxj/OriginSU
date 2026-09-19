@@ -31,6 +31,7 @@ class SuSFSRepository(
     suspend fun loadConfig(): DomainSuSFSConfig = helper.loadConfig().toDomain()
     suspend fun refreshConfig(): DomainSuSFSConfig = helper.refreshConfig().toDomain()
     suspend fun restoreDefaultConfig() = helper.restoreDefaultConfig()
+    suspend fun applyStrongPreset() = helper.applyStrongPreset()
     suspend fun setConfigEnabled(enabled: Boolean) = helper.setConfigEnabled(enabled)
     suspend fun loadStatusInfo(forceRefresh: Boolean = false): DomainSuSFSStatusInfo =
         helper.loadStatusInfo(forceRefresh).toDomain()

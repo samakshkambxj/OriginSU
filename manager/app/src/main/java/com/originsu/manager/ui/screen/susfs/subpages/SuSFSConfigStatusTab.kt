@@ -15,6 +15,7 @@ import androidx.compose.material.icons.twotone.Info
 import androidx.compose.material.icons.twotone.RestartAlt
 import androidx.compose.material.icons.twotone.Restore
 import androidx.compose.material.icons.twotone.Save
+import androidx.compose.material.icons.twotone.Security
 import androidx.compose.material.icons.twotone.Settings
 import androidx.compose.material.icons.twotone.TaskAlt
 import androidx.compose.material3.AlertDialog
@@ -166,6 +167,8 @@ fun BackupRestoreSection(
     val importFailedMsg = stringResource(R.string.susfs_backup_import_failed)
     val restoreDefaultTitle = stringResource(R.string.susfs_backup_restore_default)
     val restoreDefaultDesc = stringResource(R.string.susfs_backup_restore_default_desc)
+    val presetTitle = stringResource(R.string.susfs_preset_strong)
+    val presetDesc = stringResource(R.string.susfs_preset_strong_desc)
     val confirmTitle = stringResource(R.string.susfs_backup_import_confirm_title)
     val confirmMsg = stringResource(R.string.susfs_backup_import_confirm_message)
     val importLabel = stringResource(R.string.susfs_backup_import_label)
@@ -226,6 +229,16 @@ fun BackupRestoreSection(
                 onConfigRestored = onConfigRestored,
             )
         }
+        item {
+            ApplyPresetRow(
+                title = presetTitle,
+                description = presetDesc,
+                snackbarHost = snackbarHost,
+                operationSuccessMsg = operationSuccessMsg,
+                operationFailedMsg = operationFailedMsg,
+                onConfigRestored = onConfigRestored,
+            )
+        }
     }
 
     if (showImportConfirm) {
@@ -272,6 +285,34 @@ fun BackupRestoreSection(
     }
 }
 
+@Composable
+private fun ApplyPresetRow(
+    title: String,
+    description: String,
+    snackbarHost: SnackbarHostState,
+    operationSuccessMsg: String,
+    operationFailedMsg: String,
+    onConfigRestored: () -> Unit,
+) {
+    val configHelper = koinViewModel<SuSFSViewModel>()
+    val scope = rememberCoroutineScope()
+    SettingsJumpPageWidget(
+        icon = Icons.TwoTone.Security,
+        title = title,
+        description = description,
+        onClick = {
+            scope.launch {
+                val ok = awaitSuSFSBoolean(configHelper) { reply ->
+                    SuSFSUiAction.ApplyStrongPreset(reply)
+                }
+                if (ok) {
+                    onConfigRestored()
+                }
+                snackbarHost.showReplacingSnackbar(if (ok) operationSuccessMsg else operationFailedMsg)
+            }
+        }
+    )
+}
 @Composable
 private fun RestoreDefaultRow(
     title: String,

@@ -19,6 +19,31 @@ class SuSFSConfigHelper(
     companion object {
         private const val TAG = "SuSFSConfigHelper"
         const val CURRENT_VERSION: Int = 2
+
+        // Static, low-risk subset of ReSuSFS's "strong hiding" defaults:
+        // standard hide toggles plus well-known root/recovery traces.
+        // Dynamic tricks (props, settings, uname construction, mount
+        // discovery) intentionally stay out. Adds are upserts by path,
+        // so existing entries are kept.
+        private val STRONG_PRESET_SUS_PATHS = listOf(
+            "/system/addon.d",
+            "/vendor/bin/install-recovery.sh",
+            "/system/bin/install-recovery.sh",
+            "/data/recovery",
+        )
+        private val STRONG_PRESET_SUS_PATH_LOOPS = listOf(
+            "/sdcard/TWRP",
+            "/sdcard/Fox",
+            "/sdcard/MT2",
+            "/sdcard/AppManager",
+            "/data/media/0/TWRP",
+            "/data/media/0/Fox",
+            "/data/media/0/MT2",
+            "/data/local/tmp/main.jar",
+        )
+        private val STRONG_PRESET_SUS_KSTAT = listOf(
+            "/system/etc/hosts",
+        )
     }
 
     private val gson = Gson()
@@ -76,6 +101,92 @@ class SuSFSConfigHelper(
     suspend fun restoreDefaultConfig(): Boolean {
         return executeConfigMutation("restore")
     }
+
+    /**
+     * Applies the strong-hiding preset (hide toggles plus recommended
+     * hide paths) in a single root shell. Entries missing on device are
+     * skipped, existing config is kept. Mirrors the per-field live +
+     * persist ordering of [executeConfigMutationLocked].
+     */
+    suspend fun applyStrongPreset(): Boolean = configMutex.withLock {
+        val result = executePresetScript(buildStrongPresetScript())
+        if (result.success) {
+            cachedConfig = null
+            cachedStatusInfo = null
+        } else {
+            Log.e(TAG, "SUSFS strong preset failed: ${result.stderr} ${result.stdout}")
+        }
+        result.success
+    }
+
+    private fun buildStrongPresetScript(): String {
+        val daemon = shellQuote(ksuCliRepository.getKsuDaemonPath())
+        return buildString {
+            appendLine("FAIL=0")
+            appendLine(
+                "$daemon susfs hide_sus_mnts_for_non_su_procs 1" +
+                    " && $daemon susfs config hide_sus_mnts_for_non_su_procs add || FAIL=1"
+            )
+            appendLine(
+                "$daemon susfs enable_log 0" +
+                    " && $daemon susfs config logging remove || FAIL=1"
+            )
+            appendLine(
+                "$daemon susfs enable_avc_log_spoofing 1" +
+                    " && $daemon susfs config avc_log_spoofing add || FAIL=1"
+            )
+            STRONG_PRESET_SUS_PATHS.forEach { path ->
+                val quoted = shellQuote(path)
+                appendLine(
+                    "if [ -e $quoted ]; then $daemon susfs add_sus_path $quoted" +
+                        " && $daemon susfs config sus_path add $quoted || FAIL=1; fi"
+                )
+            }
+            STRONG_PRESET_SUS_PATH_LOOPS.forEach { path ->
+                val quoted = shellQuote(path)
+                appendLine(
+                    "if [ -e $quoted ]; then $daemon susfs add_sus_path_loop $quoted" +
+                        " && $daemon susfs config sus_path add $quoted --loop || FAIL=1; fi"
+                )
+            }
+            STRONG_PRESET_SUS_KSTAT.forEach { path ->
+                val quoted = shellQuote(path)
+                appendLine(
+                    "if [ -e $quoted ]; then $daemon susfs add_sus_kstat $quoted" +
+                        " && $daemon susfs update_sus_kstat $quoted" +
+                        " && $daemon susfs config sus_kstat add $quoted normal || FAIL=1; fi"
+                )
+            }
+            // Report FAIL as the job exit code via a subshell: a bare
+            // `exit` would kill libsu's shell session before it collects
+            // its completion token, failing the job even when every
+            // command above succeeded.
+            appendLine("(exit \$FAIL)")
+        }
+    }
+
+    private suspend fun executePresetScript(script: String): CommandResult =
+        withContext(Dispatchers.IO) {
+            try {
+                val stdout = ArrayList<String>()
+                val stderr = ArrayList<String>()
+                val result = ksuCliRepository.withNewRootShell {
+                    newJob()
+                        .add(script)
+                        .to(stdout, stderr)
+                        .exec()
+                }
+
+                CommandResult(
+                    success = result.isSuccess,
+                    stdout = stdout.joinToString("\n").trim(),
+                    stderr = stderr.joinToString("\n").trim(),
+                )
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to execute SUSFS preset script", e)
+                CommandResult(false, "", e.message.orEmpty())
+            }
+        }
 
     suspend fun setConfigEnabled(enabled: Boolean): Boolean {
         return executeConfigMutation(if (enabled) "enable" else "disable")

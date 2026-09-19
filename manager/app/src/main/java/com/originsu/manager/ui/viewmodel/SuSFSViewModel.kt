@@ -40,6 +40,8 @@ sealed interface SuSFSUiAction {
     ) : SuSFSUiAction
 
     data class RestoreDefault(val reply: SuSFSCommandReply? = null) : SuSFSUiAction
+
+    data class ApplyStrongPreset(val reply: SuSFSCommandReply? = null) : SuSFSUiAction
     data class LoadStatusInfo(
         val forceRefresh: Boolean = false,
         val reply: SuSFSCommandReply? = null,
@@ -144,6 +146,10 @@ class SuSFSViewModel(
 
             is SuSFSUiAction.RestoreDefault -> viewModelScope.launch {
                 executeBoolean(action.reply) { configUseCase.restoreDefaultConfig() }
+            }
+
+            is SuSFSUiAction.ApplyStrongPreset -> viewModelScope.launch {
+                executeBoolean(action.reply) { configUseCase.applyStrongPreset() }
             }
 
             is SuSFSUiAction.LoadStatusInfo -> viewModelScope.launch {
