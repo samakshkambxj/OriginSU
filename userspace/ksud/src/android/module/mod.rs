@@ -92,6 +92,13 @@ pub fn get_common_script_envs(module_id: Option<&str>) -> Vec<(&'static str, Str
         envs.push(("KSU_LATE_LOAD", "1".to_string()));
     }
 
+    // Origin Zygisk: advertise Zygisk support to module installers
+    // (Magisk behavior), so Zygisk modules install instead of aborting
+    // with "Zygisk is not installed".
+    if std::path::Path::new("/data/adb/ksu/originzygisk/enable").exists() {
+        envs.push(("ZYGISK_ENABLED", "true".to_string()));
+    }
+
     envs
 }
 
