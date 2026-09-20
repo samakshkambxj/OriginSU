@@ -712,7 +712,7 @@ private fun CustomizationSettings(
             )
             SettingsChooseWidget(
                 icon = Icons.TwoTone.Style,
-                title = stringResource(R.string.ui_mode_title),
+                title = stringResource(R.string.home_ui_style_title),
                 description = uiModeItems[settingsUiState.uiMode.ordinal],
                 items = uiModeItems,
                 selectedIndex = settingsUiState.uiMode.ordinal,
