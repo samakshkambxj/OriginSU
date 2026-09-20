@@ -18,6 +18,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.twotone.Add
 import androidx.compose.material.icons.twotone.Delete
 import androidx.compose.material.icons.twotone.Info
+import androidx.compose.material.icons.twotone.Memory
 import androidx.compose.material.icons.twotone.PlayArrow
 import androidx.compose.material.icons.twotone.Refresh
 import androidx.compose.material3.AlertDialog
@@ -32,7 +33,6 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
@@ -47,11 +47,15 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.originsu.manager.R
+import com.originsu.manager.ui.component.SearchAppBar
 import com.originsu.manager.ui.component.rememberConfirmDialog
+import com.originsu.manager.ui.component.rememberSearchAppBarScrollBehavior
 import com.originsu.manager.ui.util.LocalSnackbarHost
+import com.originsu.manager.ui.util.adaptiveScaffoldWindowInsets
 import com.originsu.manager.ui.viewmodel.KpmViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -71,7 +75,9 @@ fun KpmPage(bottomPadding: Dp) {
 
     val listState = rememberLazyListState()
     val topAppBarState = rememberTopAppBarState()
-    val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior(topAppBarState)
+    val scrollBehavior = rememberSearchAppBarScrollBehavior(
+        TopAppBarDefaults.exitUntilCollapsedScrollBehavior(topAppBarState)
+    )
 
     val title = stringResource(R.string.kpm_title)
     val searchHint = stringResource(R.string.search_modules)
@@ -121,18 +127,30 @@ fun KpmPage(bottomPadding: Dp) {
             .fillMaxSize()
             .nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
-            TopAppBar(
-                title = { Text(title) },
-                scrollBehavior = scrollBehavior,
-                actions = {
+            SearchAppBar(
+                title = title,
+                searchText = uiState.search,
+                onSearchTextChange = viewModel::setSearch,
+                navigationContent = {
+                    Icon(
+                        imageVector = Icons.TwoTone.Memory,
+                        contentDescription = null,
+                    )
+                },
+                dropdownContent = {
                     IconButton(onClick = { viewModel.refresh() }) {
                         Icon(Icons.TwoTone.Refresh, refreshDesc)
                     }
-                }
+                },
+                scrollBehavior = scrollBehavior,
+                searchBarPlaceHolderText = searchHint,
             )
         },
         floatingActionButton = {
             FloatingActionButton(
+                modifier = Modifier.padding(bottom = bottomPadding + 5.dp),
+                contentColor = MaterialTheme.colorScheme.onPrimary,
+                containerColor = MaterialTheme.colorScheme.primary,
                 onClick = {
                     val intent = android.content.Intent(android.content.Intent.ACTION_GET_CONTENT).apply {
                         type = "*/*"
@@ -143,7 +161,10 @@ fun KpmPage(bottomPadding: Dp) {
             ) {
                 Icon(Icons.TwoTone.Add, contentDescription = title)
             }
-        }
+        },
+        containerColor = Color.Transparent,
+        contentColor = MaterialTheme.colorScheme.onSurface,
+        contentWindowInsets = adaptiveScaffoldWindowInsets(includeBottom = false),
     ) { innerPadding ->
         Column(
             modifier = Modifier
@@ -159,15 +180,6 @@ fun KpmPage(bottomPadding: Dp) {
                     modifier = Modifier.padding(vertical = 4.dp)
                 )
             }
-            OutlinedTextField(
-                value = uiState.search,
-                onValueChange = viewModel::setSearch,
-                label = { Text(searchHint) },
-                singleLine = true,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 8.dp)
-            )
             if (!uiState.isRefreshing && uiState.modules.isEmpty()) {
                 Text(
                     text = emptyText,

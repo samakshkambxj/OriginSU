@@ -24,6 +24,7 @@ enum class BottomBarDestination(
     val iconNotSelected: ImageVector,
     val rootRequired: Boolean,
     @param:androidx.annotation.DrawableRes val themedIconRes: Int? = null,
+    val kpmRequired: Boolean = false,
 ) {
     Home(
         { bottomPadding -> HomePage(bottomPadding) },
@@ -53,7 +54,8 @@ enum class BottomBarDestination(
         R.string.kpm_title,
         Icons.TwoTone.Memory,
         Icons.TwoTone.Memory,
-        true
+        true,
+        kpmRequired = true
     ),
     Settings(
         { bottomPadding -> SettingsPage(bottomPadding) },
@@ -65,14 +67,9 @@ enum class BottomBarDestination(
     );
 
     companion object {
-        fun getPages(isKsuValid: Boolean): List<BottomBarDestination> {
-            return if (isKsuValid) {
-                // 全功能管理器
-                BottomBarDestination.entries.toList()
-            } else {
-                BottomBarDestination.entries.filter {
-                    !it.rootRequired
-                }
+        fun getPages(isKsuValid: Boolean, isKpmEnabled: Boolean): List<BottomBarDestination> {
+            return BottomBarDestination.entries.filter {
+                (!it.rootRequired || isKsuValid) && (!it.kpmRequired || isKpmEnabled)
             }
         }
     }

@@ -527,6 +527,7 @@
     <string name="delete">Delete</string>
     <string name="search_apps">Search Apps</string>
     <string name="search_modules">Search modules</string>
+    <string name="refresh">Refresh</string>
     <string name="dynamic_manager_title">Dynamic Manager Configuration</string>
     <string name="dynamic_manager_enabled_summary">Enabled (Size: %s)</string>
     <string name="dynamic_manager_disabled">Disabled</string>

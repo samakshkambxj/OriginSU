@@ -55,8 +55,11 @@ fun MainScreen() {
     val themeConfig: ThemeConfig = koinInject()
     val homeViewModel = koinViewModel<HomeViewModel>()
     val homeState by homeViewModel.uiState.collectAsStateWithLifecycle()
-    val pages = remember(homeState.systemStatus.isFullFeatured) {
-        BottomBarDestination.getPages(homeState.systemStatus.isFullFeatured)
+    val pages = remember(homeState.systemStatus.isFullFeatured, homeState.systemInfo.isKpmEnabled) {
+        BottomBarDestination.getPages(
+            homeState.systemStatus.isFullFeatured,
+            homeState.systemInfo.isKpmEnabled
+        )
     }
 
     val coroutineScope = rememberCoroutineScope()
