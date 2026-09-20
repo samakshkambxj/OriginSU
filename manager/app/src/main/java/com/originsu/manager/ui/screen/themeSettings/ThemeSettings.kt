@@ -92,6 +92,7 @@ import com.materialkolor.PaletteStyle
 import com.materialkolor.dynamiccolor.ColorSpec
 import com.originsu.manager.R
 import com.originsu.manager.data.appearance.TopBarLogo
+import com.originsu.manager.ui.UiMode
 import com.originsu.manager.domain.model.availablePaletteStyles
 import com.originsu.manager.ui.component.ConfirmResult
 import com.originsu.manager.ui.component.KeyPointSlider
@@ -699,6 +700,25 @@ private fun CustomizationSettings(
                 onSelectedIndexChange = { index ->
                     TopBarLogo.entries.getOrNull(index)?.let { logo ->
                         settingsViewModel.dispatch(SettingsUiAction.SetTopBarLogo(logo))
+                    }
+                },
+            )
+        }
+
+        item {
+            val uiModeItems = listOf(
+                stringResource(R.string.ui_mode_material),
+                stringResource(R.string.ui_mode_miuix),
+            )
+            SettingsChooseWidget(
+                icon = Icons.TwoTone.Style,
+                title = stringResource(R.string.ui_mode_title),
+                description = uiModeItems[settingsUiState.uiMode.ordinal],
+                items = uiModeItems,
+                selectedIndex = settingsUiState.uiMode.ordinal,
+                onSelectedIndexChange = { index ->
+                    UiMode.entries.getOrNull(index)?.let { mode ->
+                        settingsViewModel.dispatch(SettingsUiAction.SetUiMode(mode))
                     }
                 },
             )

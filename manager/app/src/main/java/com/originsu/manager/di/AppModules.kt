@@ -13,6 +13,7 @@ import com.originsu.manager.data.kernel.UmountRepository
 import com.originsu.manager.data.grant.GrantToastRepository
 import com.originsu.manager.data.appearance.AppIconRepository
 import com.originsu.manager.data.appearance.TopBarLogoRepository
+import com.originsu.manager.data.appearance.UiModeRepository
 import com.originsu.manager.data.bootloop.BootloopRepository
 import com.originsu.manager.data.su.SuRequestRepository
 import com.originsu.manager.data.grant.TempGrantRepository
@@ -296,6 +297,7 @@ val repositoryModule = module {
     single { SuRequestRepository(androidApplication(), get()) }
     single { AppIconRepository(androidApplication(), get()) }
     singleOf(::TopBarLogoRepository)
+    singleOf(::UiModeRepository)
     single {
         com.originsu.manager.data.shortcuts.AppShortcutsRepository(
             androidApplication(),
@@ -475,7 +477,13 @@ val viewModelModule = module {
     viewModelOf(::InstallViewModel)
     viewModelOf(::MainIntentViewModel)
     viewModelOf(::KernelFlashViewModel)
-    viewModelOf(::SettingsViewModel)
+    viewModel {
+        SettingsViewModel(
+            get(), get(), get(), get(), get(), get(), get(), get(), get(), get(),
+            get(), get(), get(), get(), get(), get(), get(), get(), get(), get(),
+            get(), get(), get(),
+        )
+    }
     viewModelOf(::ModuleViewModel)
     viewModelOf(::SuperUserViewModel)
     viewModelOf(::AppIconViewModel)

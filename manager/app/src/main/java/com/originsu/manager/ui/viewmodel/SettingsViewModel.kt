@@ -15,6 +15,8 @@ import com.originsu.manager.domain.usecase.ConfigureVeilUseCase
 import com.originsu.manager.domain.usecase.ClearBootloopNoticeUseCase
 import com.originsu.manager.data.appearance.TopBarLogo
 import com.originsu.manager.data.appearance.TopBarLogoRepository
+import com.originsu.manager.data.appearance.UiModeRepository
+import com.originsu.manager.ui.UiMode
 import com.originsu.manager.data.grant.GrantToastRepository
 import com.originsu.manager.data.shortcuts.AppShortcutsRepository
 import com.originsu.manager.data.su.SuRequestRepository
@@ -123,6 +125,7 @@ data class SettingsUiState(
     val isOriginZygiskEnabled: Boolean = false,
     val isOriginZygiskRunning: Boolean = false,
     val topBarLogo: TopBarLogo = TopBarLogo.YIN_YANG,
+    val uiMode: UiMode = UiMode.Material,
     val isBootloopEnabled: Boolean = true,
     val bootloopMax: Int = 3,
     val bootloopFailedCount: Int = 0,
@@ -181,6 +184,8 @@ sealed interface SettingsUiAction {
     data object DismissBootloopNotice : SettingsUiAction
     data object RefreshTopBarLogo : SettingsUiAction
     data class SetTopBarLogo(val logo: TopBarLogo) : SettingsUiAction
+    data object RefreshUiMode : SettingsUiAction
+    data class SetUiMode(val mode: UiMode) : SettingsUiAction
 }
 
 sealed interface SettingsUiEvent {
@@ -213,6 +218,7 @@ class SettingsViewModel(
     private val setBootloopMax: SetBootloopMaxUseCase,
     private val clearBootloopNotice: ClearBootloopNoticeUseCase,
     private val topBarLogoRepository: TopBarLogoRepository,
+    private val uiModeRepository: UiModeRepository,
 ) : ViewModel() {
     private val mutableState = MutableStateFlow(SettingsUiState())
     val state: StateFlow<SettingsUiState> = mutableState.asStateFlow()
@@ -231,6 +237,7 @@ class SettingsViewModel(
                 isSecureRootEnabled = getBooleanPreference(SECURE_ROOT_PREF_KEY, false),
                 isThemedShortcutsEnabled = appShortcutsRepository.isThemed(),
                 topBarLogo = topBarLogoRepository.state.value,
+                uiMode = uiModeRepository.state.value,
             )
         }
         loadFeatureSettings()
@@ -588,6 +595,17 @@ class SettingsViewModel(
         }
     }
 
+    fun refreshUiMode() {
+        uiModeRepository.refresh()
+        mutableState.update { it.copy(uiMode = uiModeRepository.state.value) }
+    }
+
+    fun handleUiModeChange(mode: UiMode) {
+        if (uiModeRepository.set(mode)) {
+            mutableState.update { it.copy(uiMode = mode) }
+        }
+    }
+
     fun handleDismissBootloopNotice() {
         viewModelScope.launch {
             if (clearBootloopNotice()) {
@@ -659,6 +677,9 @@ fun dispatch(action: SettingsUiAction) {
             SettingsUiAction.RefreshTopBarLogo -> refreshTopBarLogo()
             is SettingsUiAction.SetTopBarLogo ->
                 handleTopBarLogoChange(action.logo)
+            SettingsUiAction.RefreshUiMode -> refreshUiMode()
+            is SettingsUiAction.SetUiMode ->
+                handleUiModeChange(action.mode)
         }
     }
 

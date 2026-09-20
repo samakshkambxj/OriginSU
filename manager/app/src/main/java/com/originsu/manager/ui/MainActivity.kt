@@ -15,11 +15,14 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
+import com.originsu.manager.data.appearance.UiModeRepository
 import com.originsu.manager.domain.model.StartupState
 import com.originsu.manager.domain.usecase.ApplyLanguageUseCase
 import com.originsu.manager.domain.usecase.EnsureManagerInstalledUseCase
@@ -41,6 +44,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import org.koin.android.ext.android.inject
 import org.koin.androidx.viewmodel.ext.android.viewModel
+import org.koin.compose.koinInject
 
 class MainActivity : FragmentActivity() {
     private val superUserViewModel: SuperUserViewModel by viewModel()
@@ -153,6 +157,9 @@ class MainActivity : FragmentActivity() {
 
             setContent {
                 KernelSUTheme {
+                    val uiModeRepository: UiModeRepository = koinInject()
+                    val uiMode by uiModeRepository.state.collectAsStateWithLifecycle()
+                    CompositionLocalProvider(LocalUiMode provides uiMode) {
                     when (val state = startupState.collectAsStateWithLifecycle().value) {
                         is StartupState.Failed -> StartupFailureContent(state.message)
                         else -> NavContainer(
@@ -162,6 +169,7 @@ class MainActivity : FragmentActivity() {
                             showConfirmationDialog = showConfirmationDialog,
                             pendingZipFiles = pendingZipFiles,
                         )
+                    }
                     }
                 }
             }

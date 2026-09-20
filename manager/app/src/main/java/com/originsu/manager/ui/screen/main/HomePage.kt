@@ -113,6 +113,8 @@ import com.originsu.manager.data.appearance.TopBarLogo
 import com.originsu.manager.data.appearance.TopBarLogoRepository
 import com.originsu.manager.ui.component.settings.SegmentedColumn
 import com.originsu.manager.ui.component.settings.SettingsBaseWidget
+import com.originsu.manager.ui.LocalUiMode
+import com.originsu.manager.ui.UiMode
 import com.originsu.manager.ui.navigation.LocalNavigator
 import com.originsu.manager.ui.navigation.Route
 import com.originsu.manager.ui.screen.LabelText
@@ -144,6 +146,10 @@ import kotlin.time.Duration.Companion.milliseconds
 fun HomePage(
     bottomPadding: Dp,
 ) {
+    if (LocalUiMode.current == UiMode.Miuix) {
+        HomePageMiuix(bottomPadding)
+        return
+    }
     val context = LocalContext.current
     val viewModel = koinViewModel<HomeViewModel>()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
