@@ -588,6 +588,12 @@
     <string name="network_retry">Retry</string>
     <string name="please_check_network">Please check your internet connection and try again</string>
     <string name="confirm_install_module_title">Do you want install %s module?</string>
+    <string name="originguard_title">OriginGuard</string>
+    <string name="originguard_checking">OriginGuard: auditing module package…</string>
+    <string name="originguard_blocked">OriginGuard blocked installation: %1$d critical finding(s). Check the log for details.</string>
+    <string name="originguard_audit_failed">OriginGuard audit failed (%1$s); continuing without audit.</string>
+    <string name="originguard_confirm_title">Risky module detected</string>
+    <string name="originguard_confirm_summary">OriginGuard found %1$d high-severity issue(s) in this module. Install anyway?</string>
     <string name="assets_multiple_select_dialog_title">Select assets you want to install</string>
     <string name="assets_multiple_select_dialog_content_description">Size: %1$s, Download count: %2$s</string>
     <string name="assets_multiple_select_dialog_warning">No assets selected</string>
@@ -797,6 +803,9 @@
     <string name="kpm_install_mode_load">Load now</string>
     <string name="kpm_install_mode_embed">Save to /data/adb/kpm</string>
     <string name="home_kpm_version">KPM Version</string>
+    <string name="home_bbg_version">BasebandGuard Version</string>
+    <string name="home_bbg_enabled">Enabled</string>
+    <string name="home_zeromount_version">ZeroMount Version</string>
     <string name="kpm_supported">Supported (%1$s)</string>
     <string name="kpm_not_supported">Not supported (%1$s)</string>
     <string name="kernel_not_patched">kernel not patched</string>

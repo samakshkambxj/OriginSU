@@ -896,6 +896,30 @@ private fun InfoCard(
                 description = stringResource(R.string.kpm_supported, systemInfo.kpmVersion),
             )
         }
+
+        item(
+            visible = !isSimpleMode && systemInfo.bbgEnabled
+        ) {
+            SettingsBaseWidget(
+                icon = Icons.TwoTone.Security.takeIf { showHomeCardIcons },
+                iconPlaceholder = false,
+                title = stringResource(R.string.home_bbg_version),
+                description = systemInfo.bbgVersion.ifEmpty {
+                    stringResource(R.string.home_bbg_enabled)
+                },
+            )
+        }
+
+        item(
+            visible = !isSimpleMode && systemInfo.zeromountEnabled && systemInfo.zeromountVersion.isNotEmpty()
+        ) {
+            SettingsBaseWidget(
+                icon = Icons.TwoTone.Extension.takeIf { showHomeCardIcons },
+                iconPlaceholder = false,
+                title = stringResource(R.string.home_zeromount_version),
+                description = systemInfo.zeromountVersion,
+            )
+        }
     }
 
     SegmentedColumn(

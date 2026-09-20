@@ -135,6 +135,29 @@ class HomeViewModel(
                     }
                     val managers = async { getManagerRuntimeInfo() }
                     val susfs = async { getSuSFSStatus() }
+                    val bbg = async {
+                        runCatching {
+                            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                val enabled = ksuCliRepository.isBbgEnabled()
+                                val version = if (enabled) {
+                                    ksuCliRepository.getBbgVersion()
+                                } else {
+                                    ""
+                                }
+                                enabled to version
+                            }
+                        }.getOrDefault(false to "")
+                    }
+                    val zeromount = async {
+                        runCatching {
+                            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                val version = ksuCliRepository.getZeromountVersion()
+                                val enabled = ksuCliRepository.isZeromountDriverPresent() ||
+                                    version.isNotEmpty()
+                                enabled to version
+                            }
+                        }.getOrDefault(false to "")
+                    }
                     val kpm = async {
                         runCatching {
                             kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
@@ -157,6 +180,8 @@ class HomeViewModel(
                     val managerInfo = managers.await()
                     val susfsInfo = susfs.await()
                     val kpmInfo = kpm.await()
+                    val bbgInfo = bbg.await()
+                    val zeromountInfo = zeromount.await()
                     homeStateRepository.update { current ->
                         current.copy(
                             systemInfo = HomeSystemInfo(
@@ -178,6 +203,10 @@ class HomeViewModel(
                                 isKpmEnabled = kpmInfo.first,
                                 kpmVersion = kpmInfo.second,
                                 kpmModuleCount = kpmInfo.third,
+                                bbgEnabled = bbgInfo.first,
+                                bbgVersion = bbgInfo.second,
+                                zeromountEnabled = zeromountInfo.first,
+                                zeromountVersion = zeromountInfo.second,
                             ),
                             isInitialDataLoaded = true,
                             isExtendedDataLoaded = true,

@@ -40,6 +40,12 @@ class KsuCliRepository(context: Context) {
         private const val SU_NOTIFY_FLAG = "/data/adb/ksu/su_notify_enabled"
         private const val SU_NOTIFY_PACKAGE_FILE = "/data/adb/ksu/manager_package"
 
+        // Cache of observed BasebandGuard versions, keyed by kernel release.
+        // BBG only logs its version once at boot, so the dmesg line may have
+        // rotated out by the time the manager queries it.
+        private const val PREFS_BBG_VERSION = "bbg_version"
+        private const val KEY_BBG_VERSION = "version_%s"
+
         // OriginZygisk deploy locations (built-in engine, not a module).
         const val ORIGIN_ZYGISK_DIR = "/data/adb/ksu/originzygisk"
         const val ORIGIN_ZYGISK_HOOK = "/data/adb/post-fs-data.d/originzygisk.sh"
@@ -365,8 +371,101 @@ class KsuCliRepository(context: Context) {
         return ShellUtils.fastCmd(shell, "${getKsuDaemonPath()} kpm version").trim()
     }
 
+    // ---- OriginGuard (module audit) ----
+
+    /**
+     * Statically audits a staged module ZIP without installing it.
+     * @return raw JSON report, or "" when the audit could not run.
+     */
+    fun auditModuleZip(path: String): String {
+        val shell = getRootShell()
+        return try {
+            runCmd(shell, "${getKsuDaemonPath()} module audit --json $path").trim()
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to audit module zip: $path", e)
+            ""
+        }
+    }
+
     fun isKpmEnabled(): Boolean {
         return runCatching { Natives.isKPMEnabled() }.getOrDefault(false)
+    }
+
+    // ---- BasebandGuard (BBG) kernel LSM detection ----
+    //
+    // BBG bakes its version (upstream short commit SHA) into the kernel at
+    // build time and prints `baseband_guard version: <sha>` to the kernel
+    // log on init. Presence is detectable via the active LSM list or the
+    // kernel config; the version itself is parsed from dmesg.
+
+    fun isBbgEnabled(): Boolean {
+        val shell = getRootShell()
+        val result = ShellUtils.fastCmd(
+            shell,
+            "grep -q baseband_guard /sys/kernel/security/lsm 2>/dev/null" +
+                " || gzip -dc /proc/config.gz 2>/dev/null | grep -q '^CONFIG_BBG=y'" +
+                " || dmesg 2>/dev/null | grep -q 'baseband_guard';" +
+                " echo $?"
+        ).trim()
+        return result == "0"
+    }
+
+    fun getBbgVersion(): String {
+        val release = runCatching { Os.uname().release.orEmpty() }.getOrDefault("")
+        val shell = getRootShell()
+        val line = ShellUtils.fastCmd(
+            shell,
+            "dmesg 2>/dev/null | grep -m1 'baseband_guard version:'"
+        )
+        val live = line.substringAfter("baseband_guard version:", "").trim()
+        if (live.isNotEmpty()) {
+            if (release.isNotEmpty()) {
+                bbgVersionPrefs().edit().putString(KEY_BBG_VERSION.format(release), live)
+                    .apply()
+            }
+            return live
+        }
+        if (release.isNotEmpty()) {
+            return bbgVersionPrefs().getString(KEY_BBG_VERSION.format(release), "").orEmpty()
+        }
+        return ""
+    }
+
+    private fun bbgVersionPrefs() =
+        appContext.getSharedPreferences(PREFS_BBG_VERSION, Context.MODE_PRIVATE)
+
+    // ---- ZeroMount detection ----
+    //
+    // The ZeroMount VFS kernel driver exposes /dev/zeromount, while the
+    // userspace module version lives in its module.prop (module id
+    // `meta-zeromount`).
+
+    fun isZeromountDriverPresent(): Boolean {
+        val shell = getRootShell()
+        val result = ShellUtils.fastCmd(
+            shell,
+            "[ -e /dev/zeromount ] && echo true || echo false"
+        ).trim()
+        return result == "true"
+    }
+
+    fun getZeromountVersion(): String {
+        val moduleIds = listOf("meta-zeromount", "zeromount")
+        for (moduleId in moduleIds) {
+            if (SuFile.open("/data/adb/modules/$moduleId/disable").isFile ||
+                SuFile.open("/data/adb/modules/$moduleId/remove").isFile
+            ) continue
+            val propFile = SuFile.open("/data/adb/modules/$moduleId/module.prop")
+            if (!propFile.isFile) continue
+            val prop = Properties()
+            runCatching { prop.load(propFile.newInputStream()) }.getOrNull() ?: continue
+            val version = prop.getProperty("version").orEmpty().trim()
+            if (version.isNotEmpty()) {
+                Log.i(TAG, "ZeroMount implement: $version")
+                return version
+            }
+        }
+        return ""
     }
 
     fun toggleModule(id: String, enable: Boolean): Boolean {
@@ -422,7 +521,8 @@ class KsuCliRepository(context: Context) {
         uri: Uri,
         onFinish: (Boolean, Int) -> Unit,
         onStdout: (String) -> Unit,
-        onStderr: (String) -> Unit
+        onStderr: (String) -> Unit,
+        auditConfirmed: Boolean = false,
     ): Boolean {
         val resolver = context.contentResolver
         with(resolver.openInputStream(uri)) {
@@ -430,7 +530,10 @@ class KsuCliRepository(context: Context) {
             file.outputStream().use { output ->
                 this?.copyTo(output)
             }
-            val cmd = "module install ${file.absolutePath}"
+            val cmd = buildString {
+                append("module install ${file.absolutePath}")
+                if (auditConfirmed) append(" --audit-confirmed")
+            }
             val result = flashWithIO("${getKsuDaemonPath()} $cmd", onStdout, onStderr)
             Log.i("KernelSU", "install module $uri result: $result")
 
