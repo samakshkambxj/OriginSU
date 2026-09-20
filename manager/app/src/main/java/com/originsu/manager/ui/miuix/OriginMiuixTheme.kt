@@ -43,11 +43,7 @@ fun OriginMiuixTheme(content: @Composable () -> Unit) {
         ThemeColorSpec.Spec2021
     }
 
-    val resolvedKeyColor: Color? = if (themeConfig.useDynamicColor) {
-        Color(themeConfig.seedColor)
-    } else {
-        null
-    }
+    val resolvedKeyColor: Color = Color(themeConfig.seedColor)
 
     val controller = ThemeController(
         when {
