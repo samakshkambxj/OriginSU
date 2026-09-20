@@ -195,6 +195,9 @@ private fun HomePagerMiuixAlt(
     val backdrop = rememberBlurBackdrop(enableBlur)
     val blurActive = backdrop != null
     val barColor = if (blurActive) Color.Transparent else androidx.compose.material3.MaterialTheme.colorScheme.surfaceContainer
+    // Transparent when a custom background is loaded so it shows through
+    // (the image is painted behind at the nav-entry level, like other screens).
+    val themeConfig = koinInject<com.originsu.manager.ui.theme.ThemeConfig>()
     Scaffold(
         topBar = {
             TopBarAlt(
@@ -205,7 +208,8 @@ private fun HomePagerMiuixAlt(
                 barColor = barColor,
             )
         },
-        containerColor = androidx.compose.material3.MaterialTheme.colorScheme.surfaceContainer,
+        containerColor = if (themeConfig.backgroundImageLoaded) Color.Transparent
+        else androidx.compose.material3.MaterialTheme.colorScheme.surfaceContainer,
         contentWindowInsets = WindowInsets.systemBars.add(WindowInsets.displayCutout).only(WindowInsetsSides.Horizontal)
     ) { innerPadding ->
         Box(modifier = if (backdrop != null) Modifier.layerBackdrop(backdrop) else Modifier) {
