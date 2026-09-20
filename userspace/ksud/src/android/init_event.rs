@@ -198,6 +198,15 @@ pub fn on_boot_completed() {
 
     ksucalls::report_boot_complete();
     info!("on_boot_completed triggered!");
+
+    // Re-apply persisted Veil state (enabled / auto-cloak / cloak-set).
+    crate::android::veil::restore_config();
+
+    // Start the root-request notifier daemon if enabled (Veil-driven; no SU Log).
+    if let Err(e) = crate::android::su_notify::ensure_su_notifyd_running() {
+        warn!("ensure_su_notifyd_running failed: {e:#}");
+    }
+
     run_stage("boot-completed", false);
     // Load susfs boot-completed
     if !is_safe_mode() {

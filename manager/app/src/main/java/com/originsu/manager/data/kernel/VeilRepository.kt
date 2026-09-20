@@ -68,21 +68,25 @@ class VeilRepository(
     suspend fun setEnabled(enabled: Boolean): Result<Unit> = mutate {
         check(Natives.setVeilEnabled(enabled))
         check(ksuCliRepository.execKsud("feature save", true))
+        ksuCliRepository.persistVeil()
         mutableState.update { it.copy(enabled = enabled) }
     }
 
     suspend fun setAutoCloak(enabled: Boolean): Result<Unit> = mutate {
         check(Natives.setVeilAutoCloak(enabled))
+        ksuCliRepository.persistVeil()
         mutableState.update { it.copy(autoCloak = enabled) }
     }
 
     suspend fun setCloaked(uid: Int, cloaked: Boolean): Result<Unit> = mutate {
         check(Natives.setVeilCloaked(uid, cloaked))
+        ksuCliRepository.persistVeil()
         refreshLocked()
     }
 
     suspend fun clearCloaked(): Result<Unit> = mutate {
         check(Natives.clearVeilCloaked())
+        ksuCliRepository.persistVeil()
         refreshLocked()
     }
 

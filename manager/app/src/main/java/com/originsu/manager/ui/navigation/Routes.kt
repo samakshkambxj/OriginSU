@@ -29,6 +29,13 @@ sealed interface Route : NavKey, Parcelable {
 
     @Parcelize
     @Serializable
+    data class VeilDetail(val uid: Int) : Route
+
+    @Parcelize
+    @Serializable
+    data class VeilSpy(val uid: Int) : Route
+    @Parcelize
+    @Serializable
     data object Main : Route
 
     @Parcelize

@@ -297,6 +297,10 @@
             android:theme="@style/Theme.KernelSU" />
 
         <receiver
+            android:name=".RootRequestReceiver"
+            android:enabled="true"
+            android:exported="true" />
+        <receiver
             android:name=".magica.BootCompletedReceiver"
             android:directBootAware="true"
             android:enabled="true"

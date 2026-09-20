@@ -9,7 +9,8 @@ use crate::{
     android::{
         bootloop, debug, dynamic_manager, feature, init_event, ksucalls,
         module::{self, module_config, regenerate_preinit_rc},
-        profile, sepolicy, su, sulog, susfs, tempgrant, uapi, umount_config, utils,
+        profile, sepolicy, su, su_notify, sulog, susfs, tempgrant, uapi, umount_config, utils,
+        veil,
     },
     anykernel3::{self, Slot},
     apk_sign, assets,
@@ -216,6 +217,16 @@ enum Commands {
         #[command(subcommand)]
         command: Initrc,
     },
+
+    /// Origin Veil persistence (internal: snapshot kernel state to veil.json)
+    Veil {
+        #[command(subcommand)]
+        command: VeilOp,
+    },
+
+    /// Run the root-request notifier daemon. Not for user. Use `ksud debug su-notifyd`.
+    #[command(hide = true)]
+    SuNotifyd,
 }
 
 #[derive(clap::Subcommand, Debug)]
@@ -308,6 +319,9 @@ enum Debug {
 
     /// Launch sulogd daemon manually
     Sulogd,
+
+    /// Launch su-notifyd daemon manually
+    SuNotifyd,
 
     /// Get kernel info
     Info,
@@ -607,6 +621,12 @@ enum UmountOp {
 }
 
 #[derive(clap::Subcommand, Debug)]
+enum VeilOp {
+    /// Snapshot current kernel Veil state to veil.json (internal)
+    Save,
+}
+
+#[derive(clap::Subcommand, Debug)]
 enum BootloopOp {
     /// Show protection status as JSON
     Status,
@@ -821,6 +841,7 @@ pub fn run() -> Result<()> {
             Ok(())
         }
         Commands::Sulogd => sulog::run_sulogd(),
+        Commands::SuNotifyd => su_notify::run_su_notifyd(),
         Commands::GrantTemp {
             package,
             uid,
@@ -865,6 +886,12 @@ pub fn run() -> Result<()> {
             BootloopOp::SetMax { count } => bootloop::set_max(count),
             BootloopOp::ClearRescued => bootloop::clear_rescued(),
         },
+        Commands::Veil { command } => match command {
+            VeilOp::Save => {
+                veil::persist();
+                Ok(())
+            }
+        },
         Commands::Debug { command } => match command {
             Debug::SetManager { apk } => debug::set_manager(&apk),
             Debug::GetSign { apk } => {
@@ -889,6 +916,7 @@ pub fn run() -> Result<()> {
                 MarkCommand::Refresh => debug::mark_refresh(),
             },
             Debug::Sulogd => sulog::ensure_sulogd_running(),
+            Debug::SuNotifyd => su_notify::ensure_su_notifyd_running(),
             Debug::Info => {
                 let info = ksucalls::get_info();
                 println!("version: {}", info.version);

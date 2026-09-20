@@ -18,6 +18,8 @@ import com.originsu.manager.data.appearance.MiuixHomeStyleRepository
 import com.originsu.manager.data.bootloop.BootloopRepository
 import com.originsu.manager.data.su.SuRequestRepository
 import com.originsu.manager.data.grant.TempGrantRepository
+import com.originsu.manager.data.kernel.SuNotifyRepository
+import com.originsu.manager.data.kernel.VeilManageRepository
 import com.originsu.manager.data.kernel.VeilRepository
 import com.originsu.manager.data.logging.BugreportRepository
 import com.originsu.manager.data.logging.SulogRepository
@@ -63,6 +65,9 @@ import com.originsu.manager.domain.usecase.CleanSulogUseCase
 import com.originsu.manager.domain.usecase.ClearDynamicManagerUseCase
 import com.originsu.manager.domain.usecase.ClearVeilCloakedUseCase
 import com.originsu.manager.domain.usecase.ClearVeilHistoryUseCase
+import com.originsu.manager.domain.usecase.IsSuNotifyEnabledUseCase
+import com.originsu.manager.domain.usecase.SetSuNotifyEnabledUseCase
+import com.originsu.manager.domain.usecase.UncloakRestoreUseCase
 import com.originsu.manager.domain.usecase.ConfigureSuLogUseCase
 import com.originsu.manager.domain.usecase.ConfigureVeilUseCase
 import com.originsu.manager.domain.usecase.ControlAppUseCase
@@ -293,6 +298,8 @@ val repositoryModule = module {
     singleOf(::DynamicManagerRepository)
     singleOf(::SulogRepository)
     singleOf(::VeilRepository)
+    singleOf(::VeilManageRepository)
+    singleOf(::SuNotifyRepository)
     single { TempGrantRepository(androidApplication(), get()) }
     single { GrantToastRepository(androidApplication(), get()) }
     single { SuRequestRepository(androidApplication(), get()) }
@@ -366,6 +373,9 @@ val useCaseModule = module {
     factoryOf(::SetVeilCloakedUseCase)
     factoryOf(::ClearVeilCloakedUseCase)
     factoryOf(::ClearVeilHistoryUseCase)
+    factoryOf(::UncloakRestoreUseCase)
+    factoryOf(::IsSuNotifyEnabledUseCase)
+    factoryOf(::SetSuNotifyEnabledUseCase)
     factoryOf(::SetKernelUmountEnabledUseCase)
     factoryOf(::ConfigureSuLogUseCase)
     factoryOf(::ConfigureVeilUseCase)

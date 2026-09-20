@@ -11,6 +11,7 @@ import androidx.core.net.toUri
 import com.originsu.manager.BuildConfig
 import com.originsu.manager.Natives
 import com.originsu.manager.R
+import com.originsu.manager.data.kernel.VeilManageRepository
 import com.originsu.manager.domain.model.LkmSelection
 import com.originsu.manager.domain.model.TempGrantRecord
 import com.topjohnwu.superuser.CallbackList
@@ -36,6 +37,8 @@ class KsuCliRepository(context: Context) {
     companion object {
         const val TAG = "KsuCli"
         private const val BUSYBOX = "/data/adb/ksu/bin/busybox"
+        private const val SU_NOTIFY_FLAG = "/data/adb/ksu/su_notify_enabled"
+        private const val SU_NOTIFY_PACKAGE_FILE = "/data/adb/ksu/manager_package"
 
         // OriginZygisk deploy locations (built-in engine, not a module).
         const val ORIGIN_ZYGISK_DIR = "/data/adb/ksu/originzygisk"
@@ -893,6 +896,102 @@ class KsuCliRepository(context: Context) {
         val shell = getRootShell()
         val result = shell.newJob().add("am force-stop $packageName").exec()
         Log.i(TAG, "force stop $packageName result: $result")
+    }
+
+    // ---- Origin Veil management ----
+
+    /** Whether [uid] is currently cloaked (blocking check, call off the main thread). */
+    fun isVeilCloaked(uid: Int): Boolean = runCatching {
+        Natives.getVeilCloakedUids()?.contains(uid) == true
+    }.getOrDefault(false)
+
+    /** Cloak [uid] via direct ioctl (for the root-request receiver). */
+    fun setVeilCloaked(uid: Int): Boolean =
+        runCatching { Natives.setVeilCloaked(uid, true) }.getOrDefault(false)
+
+    /** Snapshot kernel Veil state to veil.json so it survives reboot. */
+    fun persistVeil() {
+        runCatching { execKsud("veil save", true) }
+    }
+
+    /**
+     * Enable/disable root-request notifications. Driven by Veil via the native
+     * su-notifyd daemon. Publishes this manager's package + the enable flag,
+     * then starts the daemon; on disable clears the flag (the daemon exits).
+     */
+    suspend fun setSuNotify(enable: Boolean): Boolean = withContext(Dispatchers.IO) {
+        val shell = getRootShell()
+        if (enable) {
+            ShellUtils.fastCmdResult(
+                shell,
+                "echo ${appContext.packageName} > $SU_NOTIFY_PACKAGE_FILE; " +
+                    "touch $SU_NOTIFY_FLAG; " +
+                    "pkill -f 'ksud su-notifyd' 2>/dev/null; sleep 1; " +
+                    "/data/adb/ksu/bin/ksud debug su-notifyd"
+            )
+        } else {
+            ShellUtils.fastCmdResult(
+                shell,
+                "rm -f $SU_NOTIFY_FLAG; pkill -f 'ksud su-notifyd' 2>/dev/null; true"
+            )
+        }
+    }
+
+    /** Disable (freeze) or re-enable an app. */
+    fun setAppEnabled(packageName: String, enabled: Boolean): Boolean {
+        return ShellUtils.fastCmdResult(
+            getRootShell(),
+            if (enabled) "pm enable $packageName" else "pm disable-user --user 0 $packageName"
+        )
+    }
+
+    /** Current appop modes for a package, op-name -> mode (allow/ignore/deny/…). */
+    suspend fun getAppOpsModes(packageName: String): Map<String, String> = withContext(Dispatchers.IO) {
+        val out = getRootShell().newJob()
+            .add("cmd appops get $packageName").to(ArrayList<String>(), null).exec().out
+        val map = mutableMapOf<String, String>()
+        val re = Regex("([A-Z_]+):\\s*(allow|ignore|deny|default|foreground)")
+        for (line in out) re.find(line)?.let { map[it.groupValues[1]] = it.groupValues[2] }
+        map
+    }
+
+    /**
+     * Block or allow a permission. `pm revoke` only works on runtime (dangerous)
+     * perms, so also drive the appop (block -> ignore, allow -> allow) which covers
+     * appop-backed perms (overlay, usage-stats, …).
+     */
+    fun setPermissionMode(packageName: String, perm: String, block: Boolean) {
+        val shell = getRootShell()
+        val op = VeilManageRepository.opForPermission(perm)
+        if (block) {
+            shell.newJob().add("pm revoke $packageName $perm").exec()
+            if (op != null) shell.newJob().add("cmd appops set $packageName $op ignore").exec()
+        } else {
+            shell.newJob().add("pm grant $packageName $perm").exec()
+            if (op != null) shell.newJob().add("cmd appops set $packageName $op allow").exec()
+        }
+    }
+
+    /**
+     * Spy log source. Apps log little under their own uid, and the interesting
+     * activity lands elsewhere: Play Integrity in GMS, store calls in vending, and
+     * hardware key attestation in the keystore/KeyMint HAL (system). So merge the
+     * target app + GMS + Play Store (by uid) with the keystore/KeyMint HAL (by tag),
+     * time-sorted into one stream.
+     */
+    suspend fun dumpAppLog(uid: Int, lines: Int = 300): List<String> = withContext(Dispatchers.IO) {
+        val pm = appContext.packageManager
+        fun uidOf(pkg: String) = runCatching { pm.getPackageUid(pkg, 0) }.getOrNull()
+        // NOTE: this logcat rejects comma uid-lists, so run one --uid per uid. And -t
+        // is applied BEFORE the tag filter, so the keystore tag stream uses no -t
+        // (it's sparse anyway) to guarantee attestation logs are never dropped.
+        val perUid = listOfNotNull(uid, uidOf("com.google.android.gms"), uidOf("com.android.vending"))
+            .distinct()
+            .joinToString("; ") { "logcat -d --uid=$it -v threadtime -t $lines" }
+        val ksTags = "keystore2 KeyMintDevice KeyMasterHalDevice KeymasterUtils " +
+            "Keymaster credstore DroidGuard"
+        val cmd = "{ $perUid; logcat -d -s $ksTags -v threadtime; } | sort -k1,2 -s | uniq"
+        getRootShell().newJob().add(cmd).to(ArrayList<String>(), null).exec().out
     }
 
     fun launchApp(packageName: String) {
