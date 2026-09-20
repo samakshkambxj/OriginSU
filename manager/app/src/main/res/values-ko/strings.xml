@@ -189,12 +189,6 @@
     <string name="secure_root_prompt_subtitle">Authenticate to grant root to %1$s</string>
     <string name="secure_root_denied">Authentication failed, root not granted</string>
     <string name="secure_root_unavailable">Authentication unavailable</string>
-    <string name="settings_origin_zygisk">Origin Zygisk</string>
-    <string name="settings_origin_zygisk_summary">Built-in Zygisk engine, no provider module needed</string>
-    <string name="origin_zygisk_running">Running</string>
-    <string name="origin_zygisk_needs_reboot">Deployed, reboot to activate</string>
-    <string name="origin_zygisk_failed">Origin Zygisk change failed</string>
-    <string name="zygisk_provider_blocked">Conflicting Zygisk provider blocked while Origin Zygisk is on</string>
     <string name="onboarding_title_welcome">Welcome to OriginSU</string>
     <string name="onboarding_desc_welcome">Kernel-based root, modules and app profiles, all managed from here.</string>
     <string name="onboarding_title_status">Root status</string>
@@ -300,7 +294,6 @@
     <string name="unknown_signature">알 수 없음</string>
     <string name="multi_manager_list">활성 매니저</string>
     <string name="no_active_manager">활성 매니저 없음</string>
-    <string name="home_zygisk_implement">Zygisk 구현</string>
     <string name="home_meta_module_implement">메타 모듈 구현</string>
     <string name="sus_loop_paths_description_title">루프 경로 구성</string>
     <string name="sus_loop_paths_description_text">루프 경로는 비-ROOT 사용자 앱이나 격리된 서비스가 시작될 때마다 SUS_PATH로 다시 지정됩니다. 이는 추가된 경로의 inode 상태가 초기화되거나 커널에서 inode가 다시 생성되는 문제를 해결하는 데 도움이 됩니다.</string>

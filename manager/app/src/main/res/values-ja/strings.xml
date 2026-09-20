@@ -180,12 +180,6 @@
     <string name="secure_root_prompt_subtitle">Authenticate to grant root to %1$s</string>
     <string name="secure_root_denied">Authentication failed, root not granted</string>
     <string name="secure_root_unavailable">Authentication unavailable</string>
-    <string name="settings_origin_zygisk">Origin Zygisk</string>
-    <string name="settings_origin_zygisk_summary">Built-in Zygisk engine, no provider module needed</string>
-    <string name="origin_zygisk_running">Running</string>
-    <string name="origin_zygisk_needs_reboot">Deployed, reboot to activate</string>
-    <string name="origin_zygisk_failed">Origin Zygisk change failed</string>
-    <string name="zygisk_provider_blocked">Conflicting Zygisk provider blocked while Origin Zygisk is on</string>
     <string name="onboarding_title_welcome">Welcome to OriginSU</string>
     <string name="onboarding_desc_welcome">Kernel-based root, modules and app profiles, all managed from here.</string>
     <string name="onboarding_title_status">Root status</string>
@@ -288,7 +282,6 @@
     <string name="unknown_signature">不明</string>
     <string name="multi_manager_list">有効なマネージャー</string>
     <string name="no_active_manager">有効なマネージャーがありません</string>
-    <string name="home_zygisk_implement">Zygisk を実装</string>
     <string name="home_meta_module_implement">メタモジュールの実装</string>
     <string name="sus_loop_paths_description_title">ループパスの構成</string>
     <string name="sus_loop_paths_description_text">ループパスは、非 root ユーザーアプリまたは独立したサービスの起動ごとに SUS_PATH として再設定されます。これにより、追加されたパスの inode ステータスがリセットされたり、カーネル内で inode が再生成される問題に対処できます。</string>

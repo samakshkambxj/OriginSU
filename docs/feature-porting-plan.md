@@ -1,7 +1,7 @@
 # OriginSU Feature-Porting Plan
 
 Sources: WildKernels/Wild_KSU (archived), spacealtctrl/ReSukiSU-Ultima,
-tiann/KernelSU (official manager), rrr333nnn333/BreZygisk, KernelSU-Next.
+tiann/KernelSU (official manager), KernelSU-Next.
 Phases run in order; each ships and tests independently. Baseline: CI green,
 `CERT_MAX_LENGTH=2048` fix in.
 
@@ -29,18 +29,10 @@ Status: ✅ done · 🚧 in progress · ⏳ queued · ⏸️ deferred.
 DEFERRED per maintainer decision: full dual-kit material↔miuix port is a
 rewrite, not a port.
 
-## Phase 3 — Origin Zygisk (BreZygisk base) ★★★☆☆ 🚧
-- Engine: BreZygisk-543, forked to `samakshkambxj/OriginZygisk` (branding +
-  `scripts/package-origin-payload.sh`; runtime paths untouched).
-- ✅ Payload vendored in `manager/.../assets/originzygisk/` (229 KB).
-- ✅ Deploy/toggle/kill-switch/status ported from Ultima method; provider
-  install-block; Settings toggle with live status; detection in Home.
-- ✅ Hard-won findings baked in: monitor hard-requires
-  `/data/adb/modules/rezygisk/module.prop` (compat shim in `setup.sh`),
-  daemon spawns lazily on first zygote, 64-bit ⚠️ with no modules is normal.
-- ✅ `ZYGISK_ENABLED=true` exported to module installers when deployed.
-- Remaining: on-device end-to-end (install a real Zygisk module, confirm
-  injection flips 64-bit ✅).
+## Phase 3 — Zygisk removal ✅
+- Former built-in engine and all Zygisk integration removed completely
+  (vendored payload, Settings toggle, provider install-block, Home
+  detection, `ZYGISK_ENABLED` export).
 
 ## Phase 4 — Origin Veil ★★★★☆ ⏳
 (kernel + UAPI + manager; formerly "Sentinel")

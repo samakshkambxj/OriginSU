@@ -241,12 +241,6 @@
     <string name="secure_root_prompt_subtitle">Authenticate to grant root to %1$s</string>
     <string name="secure_root_denied">Authentication failed, root not granted</string>
     <string name="secure_root_unavailable">Authentication unavailable</string>
-    <string name="settings_origin_zygisk">Origin Zygisk</string>
-    <string name="settings_origin_zygisk_summary">Built-in Zygisk engine, no provider module needed</string>
-    <string name="origin_zygisk_running">Running</string>
-    <string name="origin_zygisk_needs_reboot">Deployed, reboot to activate</string>
-    <string name="origin_zygisk_failed">Origin Zygisk change failed</string>
-    <string name="zygisk_provider_blocked">Conflicting Zygisk provider blocked while Origin Zygisk is on</string>
     <string name="onboarding_title_welcome">Welcome to OriginSU</string>
     <string name="onboarding_desc_welcome">Kernel-based root, modules and app profiles, all managed from here.</string>
     <string name="onboarding_title_status">Root status</string>
@@ -357,7 +351,6 @@
     <string name="unknown_signature">未知</string>
     <string name="multi_manager_list">活躍管理器</string>
     <string name="no_active_manager">冇活躍管理器</string>
-    <string name="home_zygisk_implement">Zygisk 實現</string>
     <string name="home_meta_module_implement">元模組實作</string>
     <string name="sus_loop_paths_description_title">循環路徑設定</string>
     <string name="sus_loop_paths_description_text">循環路徑會喺每次非 root 用戶應用程式或隔離服務啟動時重新標記為 SUS_PATH。咁有助於解決添加嘅路徑可能因 inode 狀態還原或核心中 inode 重新創建而失效嘅問題</string>

@@ -39,7 +39,6 @@ import androidx.compose.material.icons.twotone.Fingerprint
 import androidx.compose.material.icons.twotone.Info
 import androidx.compose.material.icons.twotone.Notifications
 import androidx.compose.material.icons.twotone.Policy
-import androidx.compose.material.icons.twotone.Psychology
 import androidx.compose.material.icons.twotone.RestartAlt
 import androidx.compose.material.icons.twotone.RemoveCircle
 import androidx.compose.material.icons.twotone.RemoveModerator
@@ -142,7 +141,6 @@ fun SettingsPage(bottomPadding: Dp) {
 
     LaunchedEffect(Unit) {
         settingsViewModel.dispatch(SettingsUiAction.LoadFeatureSettings)
-        settingsViewModel.dispatch(SettingsUiAction.RefreshOriginZygisk)
         settingsViewModel.dispatch(SettingsUiAction.RefreshBootloop)
     }
 
@@ -399,35 +397,6 @@ fun SettingsPage(bottomPadding: Dp) {
                 SegmentedColumn(
                     title = stringResource(R.string.origin_section_title),
                     content = {
-                        item {
-                            val zygiskSummary = when {
-                                uiState.isOriginZygiskRunning -> stringResource(
-                                    id = R.string.origin_zygisk_running
-                                )
-
-                                uiState.isOriginZygiskEnabled -> stringResource(
-                                    id = R.string.origin_zygisk_needs_reboot
-                                )
-
-                                else -> stringResource(
-                                    id = R.string.settings_origin_zygisk_summary
-                                )
-                            }
-                            SettingsSwitchWidget(
-                                icon = Icons.TwoTone.Psychology,
-                                title = stringResource(id = R.string.settings_origin_zygisk),
-                                description = zygiskSummary,
-                                checked = uiState.isOriginZygiskEnabled,
-                                onCheckedChange = { enabled ->
-                                    settingsViewModel.dispatch(
-                                        SettingsUiAction.SetOriginZygiskEnabled(
-                                            enabled
-                                        )
-                                    )
-                                },
-                            )
-                        }
-
                         item {
                             val veilSummary = when (uiState.veilStatus) {
                                 "unsupported" -> stringResource(id = R.string.feature_status_unsupported_summary)

@@ -175,12 +175,6 @@
     <string name="secure_root_prompt_subtitle">Authenticate to grant root to %1$s</string>
     <string name="secure_root_denied">Authentication failed, root not granted</string>
     <string name="secure_root_unavailable">Authentication unavailable</string>
-    <string name="settings_origin_zygisk">Origin Zygisk</string>
-    <string name="settings_origin_zygisk_summary">Built-in Zygisk engine, no provider module needed</string>
-    <string name="origin_zygisk_running">Running</string>
-    <string name="origin_zygisk_needs_reboot">Deployed, reboot to activate</string>
-    <string name="origin_zygisk_failed">Origin Zygisk change failed</string>
-    <string name="zygisk_provider_blocked">Conflicting Zygisk provider blocked while Origin Zygisk is on</string>
     <string name="onboarding_title_welcome">Welcome to OriginSU</string>
     <string name="onboarding_desc_welcome">Kernel-based root, modules and app profiles, all managed from here.</string>
     <string name="onboarding_title_status">Root status</string>
@@ -281,7 +275,6 @@
     <string name="unknown_signature">Tidak diketahui</string>
     <string name="multi_manager_list">Manajer Aktif</string>
     <string name="no_active_manager">Tidak ada manajer aktif</string>
-    <string name="home_zygisk_implement">Implementasi Zygisk</string>
     <string name="sus_loop_paths_description_title">Konfigurasi Jalur Loop</string>
     <string name="sus_loop_paths_description_text">Jalur loop ditandai ulang sebagai SUS_PATH di setiap aplikasi non-root atau layanan terisolasi. Ini membantu mengatasi masalah di mana jalur yang ditambahkan mungkin memiliki status inode direset atau inode dibuat ulang di kernel</string>
     <string name="home_hook_type">Jenis hook</string>

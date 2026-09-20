@@ -169,12 +169,6 @@
     <string name="secure_root_prompt_subtitle">Authenticate to grant root to %1$s</string>
     <string name="secure_root_denied">Authentication failed, root not granted</string>
     <string name="secure_root_unavailable">Authentication unavailable</string>
-    <string name="settings_origin_zygisk">Origin Zygisk</string>
-    <string name="settings_origin_zygisk_summary">Built-in Zygisk engine, no provider module needed</string>
-    <string name="origin_zygisk_running">Running</string>
-    <string name="origin_zygisk_needs_reboot">Deployed, reboot to activate</string>
-    <string name="origin_zygisk_failed">Origin Zygisk change failed</string>
-    <string name="zygisk_provider_blocked">Conflicting Zygisk provider blocked while Origin Zygisk is on</string>
     <string name="onboarding_title_welcome">Welcome to OriginSU</string>
     <string name="onboarding_desc_welcome">Kernel-based root, modules and app profiles, all managed from here.</string>
     <string name="onboarding_title_status">Root status</string>
@@ -398,7 +392,6 @@
     <string name="unknown_signature">Inconnue</string>
     <string name="multi_manager_list">Gestionnaire actif</string>
     <string name="no_active_manager">Aucun gestionnaire actif</string>
-    <string name="home_zygisk_implement">Zygisk utilisé</string>
     <string name="home_meta_module_implement">Métamodule utilisé</string>
     <string name="sus_loop_paths_description_title">Configuration des chemins de boucle</string>
     <string name="sus_loop_paths_description_text">Les chemins de boucle sont réétiquetés en SUS_PATH à chaque démarrage d\'une application utilisateur non root ou d\'un service isolé. Cela permet de résoudre les problèmes liés à la réinitialisation de l\'état des inodes des chemins ajoutés ou à leur recréation dans le noyau</string>

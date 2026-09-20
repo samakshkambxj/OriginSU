@@ -268,12 +268,6 @@
     <string name="secure_root_prompt_subtitle">Authenticate to grant root to %1$s</string>
     <string name="secure_root_denied">Authentication failed, root not granted</string>
     <string name="secure_root_unavailable">Authentication unavailable</string>
-    <string name="settings_origin_zygisk">Origin Zygisk</string>
-    <string name="settings_origin_zygisk_summary">Built-in Zygisk engine, no provider module needed</string>
-    <string name="origin_zygisk_running">Running</string>
-    <string name="origin_zygisk_needs_reboot">Deployed, reboot to activate</string>
-    <string name="origin_zygisk_failed">Origin Zygisk change failed</string>
-    <string name="zygisk_provider_blocked">Conflicting Zygisk provider blocked while Origin Zygisk is on</string>
     <string name="onboarding_title_welcome">Welcome to OriginSU</string>
     <string name="onboarding_desc_welcome">Kernel-based root, modules and app profiles, all managed from here.</string>
     <string name="onboarding_title_status">Root status</string>
@@ -394,7 +388,6 @@
     <string name="unknown_signature">Невідомо</string>
     <string name="multi_manager_list">Активний менеджер</string>
     <string name="no_active_manager">Активний менеджер відсутній</string>
-    <string name="home_zygisk_implement">Реалізація Zygisk</string>
     <string name="home_meta_module_implement">Реалізація метамодуля</string>
     <string name="sus_loop_paths_description_title">Конфігурація loop шляхів</string>
     <string name="sus_loop_paths_description_text">Loop шляхи повторно позначаються як SUS_PATH при кожному запуску додатка звичайного користувача або ізольованого сервісу без root. Це допомагає усунути проблеми, коли додані шляхи можуть мати скинутий або заново створений статус inode в ядрі</string>

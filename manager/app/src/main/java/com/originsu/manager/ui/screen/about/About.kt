@@ -487,10 +487,4 @@ private val CREDITS = listOf(
         url = "https://github.com/WildKernels/Wild_KSU",
         avatarUrl = githubAvatar("WildKernels"),
     ),
-    Credit(
-        name = "BreZygisk",
-        roleRes = R.string.about_credit_role_brezygisk,
-        url = "https://github.com/rrr333nnn333/BreZygisk",
-        avatarUrl = githubAvatar("rrr333nnn333"),
-    ),
 )

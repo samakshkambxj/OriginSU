@@ -143,7 +143,6 @@
     <string name="about_credit_role_genuine">APK signature validation</string>
     <string name="about_credit_role_diamorphine">Rootkit techniques</string>
     <string name="about_credit_role_wildksu">Icon artwork and concepts</string>
-    <string name="about_credit_role_brezygisk">Origin Zygisk engine base</string>
     <string name="visit_home_page">Visit Home Page</string>
     <string name="license">License: %s</string>
     <string name="no_license_text">No license text available.</string>
@@ -374,12 +373,6 @@
     <string name="settings_themed_shortcuts">Themed app shortcuts</string>
     <string name="settings_themed_shortcuts_summary">Use themed icons for the Superuser, Modules and Settings shortcuts</string>
     <string name="settings_themed_shortcuts_failed">Could not apply app shortcuts (system rate-limited, try again later)</string>
-    <string name="settings_origin_zygisk">Origin Zygisk</string>
-    <string name="settings_origin_zygisk_summary">Built-in Zygisk engine, no provider module needed</string>
-    <string name="origin_zygisk_running">Running</string>
-    <string name="origin_zygisk_needs_reboot">Deployed, reboot to activate</string>
-    <string name="origin_zygisk_failed">Origin Zygisk change failed</string>
-    <string name="zygisk_provider_blocked">Conflicting Zygisk provider blocked while Origin Zygisk is on</string>
     <string name="onboarding_title_welcome">Welcome to OriginSU</string>
     <string name="onboarding_desc_welcome">Kernel-based root, modules and app profiles, all managed from here.</string>
     <string name="onboarding_title_status">Root status</string>
@@ -503,7 +496,6 @@
     <string name="unknown_signature">Unknown</string>
     <string name="multi_manager_list">Active Manager</string>
     <string name="no_active_manager">No active manager</string>
-    <string name="home_zygisk_implement">Zygisk implement</string>
     <string name="home_meta_module_implement">Meta Module implementation</string>
     <string name="sus_loop_paths_description_title">Loop Paths Configuration</string>
     <string name="sus_loop_paths_description_text">Loop paths are re-flagged as SUS_PATH on each non-root user app or isolated service startup. This helps address issues where added paths may have their inode status reset or inode re-created in the kernel</string>

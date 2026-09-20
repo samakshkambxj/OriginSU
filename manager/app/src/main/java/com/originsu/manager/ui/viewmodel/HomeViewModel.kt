@@ -76,7 +76,6 @@ class HomeViewModel(
             systemInfo = homeState.systemInfo.copy(
                 moduleCount = moduleState.modules.size,
                 superuserCount = superUserState.groups.filter { it.allowSu }.size,
-                zygiskImplement = ksuCliRepository.getZygiskImplement(),
                 metaModuleImplement = ksuCliRepository.getMetaModuleImplement(),
             )
         )
