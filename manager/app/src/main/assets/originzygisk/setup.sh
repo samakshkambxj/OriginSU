@@ -6,7 +6,8 @@ D="$1"
 mkdir -p "$D/payload"
 # NOTE: unzip may warn about busy executables when the engine is running;
 # that is harmless (binaries are replaced on next reboot/disabled state).
-cd "$D/payload" && { unzip -o "$D/payload.zip" >/dev/null 2>&1 || true; }
+cd "$D/payload" || exit 1
+{ unzip -o "$D/payload.zip" >/dev/null 2>&1 || true; }
 chmod -R 755 "$D/payload/bin"
 chcon -R u:object_r:system_file:s0 "$D/payload/bin" 2>/dev/null || true
 # Compat shim: the BreZygisk monitor reads and updates its status in
