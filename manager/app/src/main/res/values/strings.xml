@@ -720,6 +720,9 @@
     <string name="top_bar_logo_filled_leaf">Filled Leaf</string>
     <string name="top_bar_logo_white_leaf">White Leaf</string>
     <string name="home_ui_style_title">Home UI Style</string>
+    <string name="miuix_home_style_title">MIUIX home layout</string>
+    <string name="miuix_home_style_standard">Standard</string>
+    <string name="miuix_home_style_compact">Compact</string>
     <string name="ui_mode_material">Material</string>
     <string name="ui_mode_miuix">MIUIX</string>
     <string name="app_icon_origin_black">Origin Dynamic</string>

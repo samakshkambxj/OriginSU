@@ -16,6 +16,8 @@ import com.originsu.manager.domain.usecase.ClearBootloopNoticeUseCase
 import com.originsu.manager.data.appearance.TopBarLogo
 import com.originsu.manager.data.appearance.TopBarLogoRepository
 import com.originsu.manager.data.appearance.UiModeRepository
+import com.originsu.manager.data.appearance.MiuixHomeStyle
+import com.originsu.manager.data.appearance.MiuixHomeStyleRepository
 import com.originsu.manager.ui.UiMode
 import com.originsu.manager.data.grant.GrantToastRepository
 import com.originsu.manager.data.shortcuts.AppShortcutsRepository
@@ -126,6 +128,7 @@ data class SettingsUiState(
     val isOriginZygiskRunning: Boolean = false,
     val topBarLogo: TopBarLogo = TopBarLogo.YIN_YANG,
     val uiMode: UiMode = UiMode.Material,
+    val miuixHomeStyle: MiuixHomeStyle = MiuixHomeStyle.Standard,
     val isBootloopEnabled: Boolean = true,
     val bootloopMax: Int = 3,
     val bootloopFailedCount: Int = 0,
@@ -186,6 +189,8 @@ sealed interface SettingsUiAction {
     data class SetTopBarLogo(val logo: TopBarLogo) : SettingsUiAction
     data object RefreshUiMode : SettingsUiAction
     data class SetUiMode(val mode: UiMode) : SettingsUiAction
+    data object RefreshMiuixHomeStyle : SettingsUiAction
+    data class SetMiuixHomeStyle(val style: MiuixHomeStyle) : SettingsUiAction
 }
 
 sealed interface SettingsUiEvent {
@@ -219,6 +224,7 @@ class SettingsViewModel(
     private val clearBootloopNotice: ClearBootloopNoticeUseCase,
     private val topBarLogoRepository: TopBarLogoRepository,
     private val uiModeRepository: UiModeRepository,
+    private val miuixHomeStyleRepository: MiuixHomeStyleRepository,
 ) : ViewModel() {
     private val mutableState = MutableStateFlow(SettingsUiState())
     val state: StateFlow<SettingsUiState> = mutableState.asStateFlow()
@@ -238,6 +244,7 @@ class SettingsViewModel(
                 isThemedShortcutsEnabled = appShortcutsRepository.isThemed(),
                 topBarLogo = topBarLogoRepository.state.value,
                 uiMode = uiModeRepository.state.value,
+                miuixHomeStyle = miuixHomeStyleRepository.state.value,
             )
         }
         loadFeatureSettings()
@@ -606,6 +613,17 @@ class SettingsViewModel(
         }
     }
 
+    fun refreshMiuixHomeStyle() {
+        miuixHomeStyleRepository.refresh()
+        mutableState.update { it.copy(miuixHomeStyle = miuixHomeStyleRepository.state.value) }
+    }
+
+    fun handleMiuixHomeStyleChange(style: MiuixHomeStyle) {
+        if (miuixHomeStyleRepository.set(style)) {
+            mutableState.update { it.copy(miuixHomeStyle = style) }
+        }
+    }
+
     fun handleDismissBootloopNotice() {
         viewModelScope.launch {
             if (clearBootloopNotice()) {
@@ -680,6 +698,9 @@ fun dispatch(action: SettingsUiAction) {
             SettingsUiAction.RefreshUiMode -> refreshUiMode()
             is SettingsUiAction.SetUiMode ->
                 handleUiModeChange(action.mode)
+            SettingsUiAction.RefreshMiuixHomeStyle -> refreshMiuixHomeStyle()
+            is SettingsUiAction.SetMiuixHomeStyle ->
+                handleMiuixHomeStyleChange(action.style)
         }
     }
 

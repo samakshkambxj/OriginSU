@@ -114,6 +114,8 @@ import com.originsu.manager.data.appearance.TopBarLogoRepository
 import com.originsu.manager.ui.component.settings.SegmentedColumn
 import com.originsu.manager.ui.component.settings.SettingsBaseWidget
 import com.originsu.manager.ui.LocalUiMode
+import com.originsu.manager.data.appearance.MiuixHomeStyle
+import com.originsu.manager.data.appearance.MiuixHomeStyleRepository
 import com.originsu.manager.ui.UiMode
 import com.originsu.manager.ui.navigation.LocalNavigator
 import com.originsu.manager.ui.navigation.Route
@@ -149,7 +151,13 @@ fun HomePage(
     bottomPadding: Dp,
 ) {
     if (LocalUiMode.current == UiMode.Miuix) {
-        HomePageMiuix(bottomPadding)
+        val styleRepository: MiuixHomeStyleRepository = koinInject()
+        val homeStyle by styleRepository.state.collectAsStateWithLifecycle()
+        if (homeStyle == MiuixHomeStyle.Compact) {
+            HomePageMiuixAlt(bottomPadding)
+        } else {
+            HomePageMiuix(bottomPadding)
+        }
         return
     }
     val context = LocalContext.current

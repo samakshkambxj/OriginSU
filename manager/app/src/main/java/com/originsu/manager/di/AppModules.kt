@@ -14,6 +14,7 @@ import com.originsu.manager.data.grant.GrantToastRepository
 import com.originsu.manager.data.appearance.AppIconRepository
 import com.originsu.manager.data.appearance.TopBarLogoRepository
 import com.originsu.manager.data.appearance.UiModeRepository
+import com.originsu.manager.data.appearance.MiuixHomeStyleRepository
 import com.originsu.manager.data.bootloop.BootloopRepository
 import com.originsu.manager.data.su.SuRequestRepository
 import com.originsu.manager.data.grant.TempGrantRepository
@@ -298,6 +299,7 @@ val repositoryModule = module {
     single { AppIconRepository(androidApplication(), get()) }
     singleOf(::TopBarLogoRepository)
     singleOf(::UiModeRepository)
+    singleOf(::MiuixHomeStyleRepository)
     single {
         com.originsu.manager.data.shortcuts.AppShortcutsRepository(
             androidApplication(),
@@ -481,7 +483,7 @@ val viewModelModule = module {
         SettingsViewModel(
             get(), get(), get(), get(), get(), get(), get(), get(), get(), get(),
             get(), get(), get(), get(), get(), get(), get(), get(), get(), get(),
-            get(), get(), get(),
+            get(), get(), get(), get(),
         )
     }
     viewModelOf(::ModuleViewModel)

@@ -98,6 +98,7 @@ miuix-nav = { group = "top.yukonga.miuix.kmp", name = "miuix-nav", version.ref =
 miuix-blur = { group = "top.yukonga.miuix.kmp", name = "miuix-blur-android", version.ref = "miuix" }
 miuix-ui = { module = "top.yukonga.miuix.kmp:miuix-ui-android", version.ref = "miuix" }
 miuix-icons = { module = "top.yukonga.miuix.kmp:miuix-icons-android", version.ref = "miuix" }
+miuix-preference = { module = "top.yukonga.miuix.kmp:miuix-preference-android", version.ref = "miuix" }
 
 markdown = { group = "io.noties.markwon", name = "core", version.ref = "markdown" }
 

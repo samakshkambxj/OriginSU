@@ -40,6 +40,7 @@ import androidx.compose.material.icons.twotone.Check
 import androidx.compose.material.icons.twotone.ColorLens
 import androidx.compose.material.icons.twotone.Contrast
 import androidx.compose.material.icons.twotone.DarkMode
+import androidx.compose.material.icons.twotone.Dashboard
 import androidx.compose.material.icons.twotone.DesignServices
 import androidx.compose.material.icons.twotone.Dock
 import androidx.compose.material.icons.twotone.Draw
@@ -91,6 +92,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.materialkolor.PaletteStyle
 import com.materialkolor.dynamiccolor.ColorSpec
 import com.originsu.manager.R
+import com.originsu.manager.data.appearance.MiuixHomeStyle
 import com.originsu.manager.data.appearance.TopBarLogo
 import com.originsu.manager.ui.UiMode
 import com.originsu.manager.domain.model.availablePaletteStyles
@@ -719,6 +721,25 @@ private fun CustomizationSettings(
                 onSelectedIndexChange = { index ->
                     UiMode.entries.getOrNull(index)?.let { mode ->
                         settingsViewModel.dispatch(SettingsUiAction.SetUiMode(mode))
+                    }
+                },
+            )
+        }
+
+        item(visible = settingsUiState.uiMode == UiMode.Miuix) {
+            val styleItems = listOf(
+                stringResource(R.string.miuix_home_style_standard),
+                stringResource(R.string.miuix_home_style_compact),
+            )
+            SettingsChooseWidget(
+                icon = Icons.TwoTone.Dashboard,
+                title = stringResource(R.string.miuix_home_style_title),
+                description = styleItems[settingsUiState.miuixHomeStyle.ordinal],
+                items = styleItems,
+                selectedIndex = settingsUiState.miuixHomeStyle.ordinal,
+                onSelectedIndexChange = { index ->
+                    MiuixHomeStyle.entries.getOrNull(index)?.let { style ->
+                        settingsViewModel.dispatch(SettingsUiAction.SetMiuixHomeStyle(style))
                     }
                 },
             )
