@@ -1,6 +1,9 @@
 package com.originsu.manager.ui.screen
 
+import android.os.Build
 import android.os.SystemClock
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
@@ -19,6 +22,7 @@ import androidx.compose.material.icons.twotone.Apps
 import androidx.compose.material.icons.twotone.Delete
 import androidx.compose.material.icons.twotone.Info
 import androidx.compose.material.icons.twotone.MoreVert
+import androidx.compose.material.icons.twotone.Notifications
 import androidx.compose.material.icons.twotone.Security
 import androidx.compose.material.icons.twotone.Shield
 import androidx.compose.material.icons.twotone.Terminal
@@ -34,6 +38,7 @@ import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
@@ -42,6 +47,7 @@ import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -69,6 +75,7 @@ import com.originsu.manager.ui.component.settings.SettingsBaseWidget
 import com.originsu.manager.ui.component.settings.SettingsSwitchWidget
 import com.originsu.manager.ui.component.settings.lazySegmentColumn
 import com.originsu.manager.ui.navigation.LocalNavigator
+import com.originsu.manager.ui.navigation.Route
 import com.originsu.manager.ui.theme.CardConfig
 import com.originsu.manager.ui.theme.ThemeConfig
 import com.originsu.manager.ui.theme.blurEffect
@@ -92,6 +99,7 @@ fun VeilScreen() {
     val cardConfig: CardConfig = koinInject()
     val viewModel = koinViewModel<VeilViewModel>()
     val uiState by viewModel.state.collectAsStateWithLifecycle()
+    val navigator = LocalNavigator.current
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
     val snackBarHost = LocalSnackbarHost.current
     val scope = rememberCoroutineScope()
@@ -99,6 +107,10 @@ fun VeilScreen() {
 
     val pullToRefreshState = rememberPullToRefreshState()
     var showOverflow by remember { mutableStateOf(false) }
+    var historyShown by remember { mutableIntStateOf(5) }
+    val notifPermLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { }
 
     val confirmUncloakAllSummary = stringResource(R.string.veil_uncloak_all_summary)
     val confirmClearHistorySummary = stringResource(R.string.veil_clear_history_summary)
@@ -285,6 +297,23 @@ fun VeilScreen() {
                                     },
                                 )
                             }
+                            item {
+                                SettingsSwitchWidget(
+                                    icon = Icons.TwoTone.Notifications,
+                                    title = stringResource(R.string.veil_notify),
+                                    description = stringResource(R.string.veil_notify_summary),
+                                    enabled = uiState.status == "supported" && uiState.enabled,
+                                    checked = uiState.notifyEnabled,
+                                    onCheckedChange = { enabled ->
+                                        viewModel.dispatch(VeilUiAction.SetNotify(enabled))
+                                        if (enabled && Build.VERSION.SDK_INT >= 33) {
+                                            notifPermLauncher.launch(
+                                                android.Manifest.permission.POST_NOTIFICATIONS
+                                            )
+                                        }
+                                    },
+                                )
+                            }
                         }
                         Spacer(modifier = Modifier.height(16.dp))
                     }
@@ -320,6 +349,7 @@ fun VeilScreen() {
                             uid = entry.uid,
                             userName = entry.userName,
                             cloaked = cloakedUids,
+                            onClick = { navigator.push(Route.VeilDetail(entry.uid)) },
                             onCloak = { viewModel.dispatch(VeilUiAction.CloakUid(entry.uid)) },
                             onUncloak = {
                                 scope.launch {
@@ -357,7 +387,7 @@ fun VeilScreen() {
                     }
 
                     lazySegmentColumn(
-                        uiState.history,
+                        uiState.history.take(historyShown),
                         key = { _, it -> "history-${it.uid}" }) { _, entry ->
                         val cloakedUids = uiState.cloakedUids.map { it.uid }.toSet()
                         val lastSeen = veilTimestampText(
@@ -387,6 +417,21 @@ fun VeilScreen() {
                             },
                         )
                     }
+                    if (uiState.history.size > historyShown) {
+                        item {
+                            TextButton(
+                                onClick = { historyShown += 5 },
+                                modifier = Modifier.padding(start = 8.dp),
+                            ) {
+                                Text(
+                                    stringResource(
+                                        R.string.veil_show_more,
+                                        uiState.history.size - historyShown,
+                                    )
+                                )
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -398,6 +443,7 @@ private fun VeilUidRow(
     uid: Int,
     userName: String?,
     cloaked: Set<Int>,
+    onClick: () -> Unit,
     onCloak: () -> Unit,
     onUncloak: () -> Unit,
 ) {
@@ -406,6 +452,7 @@ private fun VeilUidRow(
         icon = Icons.TwoTone.Shield,
         title = stringResource(R.string.veil_uid_title, uid),
         description = userName,
+        onClick = { onClick() },
     ) {
         if (isCloaked) {
             IconButton(onClick = onUncloak) {

@@ -1,3 +1,4 @@
+pub mod audit;
 pub mod metamodule;
 pub mod module_config;
 
@@ -90,6 +91,13 @@ pub fn get_common_script_envs(module_id: Option<&str>) -> Vec<(&'static str, Str
 
     if ksucalls::is_late_load() {
         envs.push(("KSU_LATE_LOAD", "1".to_string()));
+    }
+
+    // OriginZygisk: advertise Zygisk support to module installers
+    // (Magisk behavior), so Zygisk modules install instead of aborting
+    // with "Zygisk is not installed".
+    if std::path::Path::new("/data/adb/ksu/originzygisk/enable").exists() {
+        envs.push(("ZYGISK_ENABLED", "true".to_string()));
     }
 
     envs
@@ -675,7 +683,12 @@ fn install_module_to_system(zip: &str) -> Result<()> {
     Ok(())
 }
 
-pub fn install_module(zip: &str) -> Result<()> {
+pub fn install_module(zip: &str, audit_confirmed: bool, no_audit: bool, force: bool) -> Result<()> {
+    // Static audit before extracting or executing any module-controlled content.
+    if !no_audit {
+        audit::gate_install(zip, audit_confirmed, force)?;
+    }
+
     ksucalls::ensure_uapi_version_matched()?;
 
     let result = install_module_to_system(zip);

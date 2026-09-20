@@ -29,18 +29,24 @@ Status: ✅ done · 🚧 in progress · ⏳ queued · ⏸️ deferred.
 DEFERRED per maintainer decision: full dual-kit material↔miuix port is a
 rewrite, not a port.
 
-## Phase 3 — Zygisk removal ✅
-- Former built-in engine and all Zygisk integration removed completely
-  (vendored payload, Settings toggle, provider install-block, Home
-  detection, `ZYGISK_ENABLED` export).
+## Phase 3 — OriginZygisk (BreZygisk backend) ★★★☆☆ ✅
+- Engine: OriginZygisk fork (BreZygisk based) with built-in
+  `/data/adb/ksu/originzygisk` paths — no `/data/adb/modules` entry needed.
+- Payload built from the fork (`scripts/package-manager-payload.sh`) and
+  vendored in `manager/.../assets/originzygisk/`.
+- Deploy/toggle/kill-switch/status in Settings > Origin Lab; conflicting
+  provider modules are blocked at install; Home shows the implementation.
+- `ZYGISK_ENABLED=true` exported to module installers when enabled.
 
-## Phase 4 — Origin Veil ★★★★☆ ⏳
+## Phase 4 — Origin Veil ★★★★☆ ✅
 (kernel + UAPI + manager; formerly "Sentinel")
 - `kernel/feature/sentinel.{c,h}` + `uapi/sentinel.h` (renamed to veil),
   `CONFIG_KSU_ORIGIN_VEIL` (default y, `depends on KSU`); new supercall/UAPI
   IDs → bump `MINIMAL_SUPPORTED_KERNEL` past 35002 in lockstep with `Natives`.
-- Port Sentinel screens + ViewModel/usecase layer; auto-cloak vs notify UX;
-  strings for all locales. Requires `~/Kernel` rebuild + reflash to test.
+- Full Sentinel port: reboot persistence (`veil.json` + boot restore),
+  per-app detail (perms/freeze/force-stop), Spy live log, su-notifyd with
+  Grant/Cloak/Ignore notifications, uncloak-restore, probe pagination.
+  Requires `~/Kernel` rebuild + reflash to test.
 
 ## Phase 5 — KPM support ★★★★★ ⏳
 (kernel + manager, last)

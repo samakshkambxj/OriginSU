@@ -1,0 +1,6 @@
+id=heuristic_unpack
+name=Heuristic unpack audit fixture
+version=1
+versionCode=1
+author=KernelSU
+description=Exercises a renamed decoder with OpenSSL-compatible arguments

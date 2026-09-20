@@ -88,7 +88,9 @@ import kotlin.time.Duration.Companion.milliseconds
 @Composable
 fun KernelFlashScreen(
     kernelUri: String,
-    selectedSlot: String? = null
+    selectedSlot: String? = null,
+    kpmPatchEnabled: Boolean = false,
+    kpmUndoPatch: Boolean = false,
 ) {
     val context = LocalContext.current
 
@@ -118,8 +120,15 @@ fun KernelFlashScreen(
     }
 
     // 开始刷写
-    LaunchedEffect(kernelUri, selectedSlot) {
-        viewModel.dispatch(KernelFlashUiAction.Start(kernelUri, selectedSlot))
+    LaunchedEffect(kernelUri, selectedSlot, kpmPatchEnabled, kpmUndoPatch) {
+        viewModel.dispatch(
+            KernelFlashUiAction.Start(
+                kernelUri,
+                selectedSlot,
+                kpmPatchEnabled,
+                kpmUndoPatch
+            )
+        )
     }
 
     LaunchedEffect(flashState.isCompleted, uiState.autoExit) {
@@ -199,7 +208,7 @@ fun KernelFlashScreen(
                 .padding(innerPadding)
                 .nestedScroll(scrollBehavior.nestedScrollConnection),
         ) {
-            FlashProgressIndicator(flashState)
+            FlashProgressIndicator(flashState, kpmPatchEnabled, kpmUndoPatch)
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -224,7 +233,9 @@ fun KernelFlashScreen(
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun FlashProgressIndicator(
-    flashState: FlashProgress
+    flashState: FlashProgress,
+    kpmPatchEnabled: Boolean = false,
+    kpmUndoPatch: Boolean = false,
 ) {
     val progressColor = when {
         flashState.error.isNotEmpty() -> MaterialTheme.colorScheme.error
@@ -304,6 +315,19 @@ private fun FlashProgressIndicator(
                 color = progressColor,
                 trackColor = MaterialTheme.colorScheme.surfaceVariant
             )
+
+            if (kpmPatchEnabled || kpmUndoPatch) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = if (kpmUndoPatch) {
+                        stringResource(R.string.kpm_undo_patch_mode)
+                    } else {
+                        stringResource(R.string.kpm_patch_mode)
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.tertiary
+                )
+            }
 
             if (flashState.error.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(8.dp))

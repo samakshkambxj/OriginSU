@@ -473,6 +473,14 @@ void get_hook_type(char *buff) {
     }
 }
 
+bool is_KPM_enable(void) {
+    struct ksu_enable_kpm_cmd cmd = {};
+    if (ksuctl(KSU_IOCTL_ENABLE_KPM, &cmd) == 0 && cmd.enabled) {
+        return true;
+    }
+    return legacy_is_KPM_enable();
+}
+
 int get_kernel_patch_implement() {
     struct ksu_get_kernel_patch_implement cmd = {0};
     if (ksuctl(KSU_IOCTL_GET_KERNEL_PATCH_IMPLEMENT, &cmd) != 0)

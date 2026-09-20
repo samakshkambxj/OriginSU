@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.materialkolor.PaletteStyle
 import com.materialkolor.dynamiccolor.ColorSpec
 import com.originsu.manager.R
+import com.originsu.manager.data.shell.KsuCliRepository
 import com.originsu.manager.domain.model.AppearanceSetting
 import com.originsu.manager.domain.model.PlatformSetting
 import com.originsu.manager.domain.model.SettingsPlatformSnapshot
@@ -22,6 +23,7 @@ import com.originsu.manager.data.grant.GrantToastRepository
 import com.originsu.manager.data.shortcuts.AppShortcutsRepository
 import com.originsu.manager.data.su.SuRequestRepository
 import com.originsu.manager.domain.usecase.GetBooleanPreferenceUseCase
+import com.originsu.manager.domain.usecase.ORIGINGUARD_PREF_KEY
 import com.originsu.manager.domain.usecase.GetBootloopStatusUseCase
 import com.originsu.manager.domain.usecase.GetKernelFeatureSettingsUseCase
 import com.originsu.manager.domain.usecase.GetPlatformFeatureStatusUseCase
@@ -122,7 +124,10 @@ data class SettingsUiState(
     val defaultUmountModules: Boolean = false,
     val useBuiltinMonoFont: Boolean = false,
     val isSecureRootEnabled: Boolean = false,
+    val isOriginGuardEnabled: Boolean = true,
     val isThemedShortcutsEnabled: Boolean = false,
+    val isOriginZygiskEnabled: Boolean = false,
+    val isOriginZygiskRunning: Boolean = false,
     val topBarLogo: TopBarLogo = TopBarLogo.YIN_YANG,
     val uiMode: UiMode = UiMode.Material,
     val miuixHomeStyle: MiuixHomeStyle = MiuixHomeStyle.Standard,
@@ -175,7 +180,9 @@ sealed interface SettingsUiAction {
     data object RefreshOverlayPermission : SettingsUiAction
     data class SetDefaultUmountModules(val enabled: Boolean) : SettingsUiAction
     data class SetSecureRootEnabled(val enabled: Boolean) : SettingsUiAction
-    data class SetThemedShortcutsEnabled(val enabled: Boolean) : SettingsUiAction
+    data class SetOriginGuardEnabled(val enabled: Boolean) : SettingsUiAction    data class SetThemedShortcutsEnabled(val enabled: Boolean) : SettingsUiAction
+    data class SetOriginZygiskEnabled(val enabled: Boolean) : SettingsUiAction
+    data object RefreshOriginZygisk : SettingsUiAction
     data object RefreshBootloop : SettingsUiAction
     data class SetBootloopEnabled(val enabled: Boolean) : SettingsUiAction
     data class SetBootloopMax(val count: Int) : SettingsUiAction
@@ -212,6 +219,7 @@ class SettingsViewModel(
     private val setDefaultUmountModules: SetDefaultUmountModulesUseCase,
     private val getBooleanPreference: GetBooleanPreferenceUseCase,
     private val setBooleanPreference: SetBooleanPreferenceUseCase,
+    private val ksuCliRepository: KsuCliRepository,
     private val getBootloopStatus: GetBootloopStatusUseCase,
     private val setBootloopEnabled: SetBootloopEnabledUseCase,
     private val setBootloopMax: SetBootloopMaxUseCase,
@@ -235,6 +243,7 @@ class SettingsViewModel(
         mutableState.update {
             it.copy(
                 isSecureRootEnabled = getBooleanPreference(SECURE_ROOT_PREF_KEY, false),
+                isOriginGuardEnabled = getBooleanPreference(ORIGINGUARD_PREF_KEY, true),
                 isThemedShortcutsEnabled = appShortcutsRepository.isThemed(),
                 topBarLogo = topBarLogoRepository.state.value,
                 uiMode = uiModeRepository.state.value,
@@ -438,12 +447,43 @@ class SettingsViewModel(
         mutableState.update { it.copy(isSecureRootEnabled = enabled) }
     }
 
+    fun handleOriginGuardChange(enabled: Boolean) {
+        setBooleanPreference(ORIGINGUARD_PREF_KEY, enabled)
+        mutableState.update { it.copy(isOriginGuardEnabled = enabled) }
+    }
+
     fun handleThemedShortcutsChange(enabled: Boolean) {
         val applied = appShortcutsRepository.setThemed(enabled)
         if (!applied) {
             mutableEvents.tryEmit(SettingsUiEvent.Message(R.string.settings_themed_shortcuts_failed))
         }
         mutableState.update { it.copy(isThemedShortcutsEnabled = appShortcutsRepository.isThemed()) }
+    }
+
+    fun refreshOriginZygisk() {
+        viewModelScope.launch {
+            val enabled = runCatching { ksuCliRepository.isOriginZygiskEnabled() }
+                .getOrDefault(false)
+            val running = if (enabled) {
+                runCatching { ksuCliRepository.isOriginZygiskRunning() }.getOrDefault(false)
+            } else {
+                false
+            }
+            mutableState.update {
+                it.copy(isOriginZygiskEnabled = enabled, isOriginZygiskRunning = running)
+            }
+        }
+    }
+
+    fun handleOriginZygiskChange(enabled: Boolean) {
+        viewModelScope.launch {
+            val ok = runCatching { ksuCliRepository.setOriginZygiskEnabled(enabled) }
+                .getOrDefault(false)
+            if (!ok) {
+                mutableEvents.tryEmit(SettingsUiEvent.Message(R.string.origin_zygisk_failed))
+            }
+            refreshOriginZygisk()
+        }
     }
 
     fun handleAdbRootChange(checked: Boolean) {
@@ -649,8 +689,13 @@ fun dispatch(action: SettingsUiAction) {
                 handleDefaultUmountModulesChange(action.enabled)
             is SettingsUiAction.SetSecureRootEnabled ->
                 handleSecureRootChange(action.enabled)
+            is SettingsUiAction.SetOriginGuardEnabled ->
+                handleOriginGuardChange(action.enabled)
             is SettingsUiAction.SetThemedShortcutsEnabled ->
                 handleThemedShortcutsChange(action.enabled)
+            is SettingsUiAction.SetOriginZygiskEnabled ->
+                handleOriginZygiskChange(action.enabled)
+            SettingsUiAction.RefreshOriginZygisk -> refreshOriginZygisk()
             SettingsUiAction.RefreshBootloop -> refreshBootloop()
             is SettingsUiAction.SetBootloopEnabled ->
                 handleBootloopEnabledChange(action.enabled)

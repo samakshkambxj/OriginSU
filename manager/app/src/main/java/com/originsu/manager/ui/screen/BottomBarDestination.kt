@@ -5,12 +5,14 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.twotone.AdminPanelSettings
 import androidx.compose.material.icons.twotone.Extension
 import androidx.compose.material.icons.twotone.Home
+import androidx.compose.material.icons.twotone.Memory
 import androidx.compose.material.icons.twotone.Settings
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.Dp
 import com.originsu.manager.R
 import com.originsu.manager.ui.screen.main.HomePage
+import com.originsu.manager.ui.screen.main.KpmPage
 import com.originsu.manager.ui.screen.main.ModulePage
 import com.originsu.manager.ui.screen.main.SettingsPage
 import com.originsu.manager.ui.screen.main.SuperUserPage
@@ -22,6 +24,7 @@ enum class BottomBarDestination(
     val iconNotSelected: ImageVector,
     val rootRequired: Boolean,
     @param:androidx.annotation.DrawableRes val themedIconRes: Int? = null,
+    val kpmRequired: Boolean = false,
 ) {
     Home(
         { bottomPadding -> HomePage(bottomPadding) },
@@ -46,6 +49,14 @@ enum class BottomBarDestination(
         true,
         R.drawable.nav_icon_modules
     ),
+    Kpm(
+        { bottomPadding -> KpmPage(bottomPadding) },
+        R.string.kpm_title,
+        Icons.TwoTone.Memory,
+        Icons.TwoTone.Memory,
+        true,
+        kpmRequired = true
+    ),
     Settings(
         { bottomPadding -> SettingsPage(bottomPadding) },
         R.string.settings,
@@ -56,14 +67,9 @@ enum class BottomBarDestination(
     );
 
     companion object {
-        fun getPages(isKsuValid: Boolean): List<BottomBarDestination> {
-            return if (isKsuValid) {
-                // 全功能管理器
-                BottomBarDestination.entries.toList()
-            } else {
-                BottomBarDestination.entries.filter {
-                    !it.rootRequired
-                }
+        fun getPages(isKsuValid: Boolean, isKpmEnabled: Boolean): List<BottomBarDestination> {
+            return BottomBarDestination.entries.filter {
+                (!it.rootRequired || isKsuValid) && (!it.kpmRequired || isKpmEnabled)
             }
         }
     }

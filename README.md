@@ -46,10 +46,11 @@
 
 1. Time-limited grants: give root for N minutes, auto-revoked by a persistent waiter plus a sweep on every `ksud` start
 2. Origin Veil: kernel-side root-probe detection with a per-app cloak set that hides module mounts from probing apps
-3. Built-in SuSFS manager with a one-tap strong-hiding preset
-4. Automatic bootloop protection: disables all modules after consecutive failed boots and tells you about the rescue
-5. Inbuilt kernel flasher: direct install, AnyKernel zips, offline `boot.img` patching and Horizon kernels, with LKM and GKI flows
-6. Manager updater with stable/beta channels, dynamic manager support and a multi-icon app-icon picker
+3. Origin Zygisk (BreZygisk-based) ships inside the manager: deploy, status and kill-switch in Settings > Origin Lab, no provider module needed
+4. Built-in SuSFS manager with a one-tap strong-hiding preset
+5. Automatic bootloop protection: disables all modules after consecutive failed boots and tells you about the rescue
+6. Inbuilt kernel flasher: direct install, AnyKernel zips, offline `boot.img` patching and Horizon kernels, with LKM and GKI flows
+7. Manager updater with stable/beta channels, dynamic manager support and a multi-icon app-icon picker
 
 ## Installation
 

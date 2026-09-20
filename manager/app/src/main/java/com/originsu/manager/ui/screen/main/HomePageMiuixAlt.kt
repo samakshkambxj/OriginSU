@@ -195,6 +195,9 @@ private fun HomePagerMiuixAlt(
     val backdrop = rememberBlurBackdrop(enableBlur)
     val blurActive = backdrop != null
     val barColor = if (blurActive) Color.Transparent else androidx.compose.material3.MaterialTheme.colorScheme.surfaceContainer
+    // Transparent when a custom background is loaded so it shows through
+    // (the image is painted behind at the nav-entry level, like other screens).
+    val themeConfig = koinInject<com.originsu.manager.ui.theme.ThemeConfig>()
     Scaffold(
         topBar = {
             TopBarAlt(
@@ -205,7 +208,8 @@ private fun HomePagerMiuixAlt(
                 barColor = barColor,
             )
         },
-        containerColor = androidx.compose.material3.MaterialTheme.colorScheme.surfaceContainer,
+        containerColor = if (themeConfig.backgroundImageLoaded) Color.Transparent
+        else androidx.compose.material3.MaterialTheme.colorScheme.surfaceContainer,
         contentWindowInsets = WindowInsets.systemBars.add(WindowInsets.displayCutout).only(WindowInsetsSides.Horizontal)
     ) { innerPadding ->
         Box(modifier = if (backdrop != null) Modifier.layerBackdrop(backdrop) else Modifier) {
@@ -388,10 +392,10 @@ private fun StatusCardAlt(
                         showIndication = !status.isLateLoadMode,
                         pressFeedbackType = PressFeedbackType.Tilt
                     ) {
-                        Box {
+                        Box(modifier = Modifier.fillMaxWidth()) {
                             Box(
                                 modifier = Modifier
-                                    .fillMaxSize()
+                                    .matchParentSize()
                                     .offset(27.dp, 31.dp),
                                 contentAlignment = Alignment.BottomEnd
                             ) {
@@ -406,39 +410,30 @@ private fun StatusCardAlt(
                                     contentDescription = null
                                 )
                             }
-                            if (workingMode != null) {
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .padding(16.dp, 10.dp),
-                                    contentAlignment = Alignment.BottomStart,
-                                ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp, 14.dp),
+                            ) {
+                                Text(
+                                    text = workingText,
+                                    fontSize = 22.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                )
+                                Spacer(Modifier.height(1.dp))
+                                Text(
+                                    text = stringResource(
+                                        R.string.home_working_version,
+                                        status.ksuVersion
+                                    ),
+                                    fontSize = 15.sp,
+                                )
+                                if (workingMode != null) {
+                                    Spacer(Modifier.height(8.dp))
                                     Text(
                                         text = workingMode,
                                         fontSize = 16.sp,
                                         fontWeight = FontWeight.Medium,
-                                    )
-                                }
-                            }
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .padding(16.dp, 14.dp),
-                                contentAlignment = Alignment.TopStart,
-                            ) {
-                                Column {
-                                    Text(
-                                        text = workingText,
-                                        fontSize = 22.sp,
-                                        fontWeight = FontWeight.SemiBold,
-                                    )
-                                    Spacer(Modifier.height(1.dp))
-                                    Text(
-                                        text = stringResource(
-                                            R.string.home_working_version,
-                                            status.ksuVersion
-                                        ),
-                                        fontSize = 15.sp,
                                     )
                                 }
                             }

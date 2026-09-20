@@ -74,17 +74,24 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.originsu.manager.R
+import com.originsu.manager.domain.model.AuditSeverity
 import com.originsu.manager.domain.model.FlashOperation
 import com.originsu.manager.domain.model.FlashOperationUpdate
 import com.originsu.manager.domain.model.LkmSelection
 import com.originsu.manager.domain.model.MetaModuleStatus
+import com.originsu.manager.domain.usecase.AuditModuleUseCase
 import com.originsu.manager.domain.usecase.CheckFlashModuleMountUseCase
 import com.originsu.manager.domain.usecase.ExecuteFlashOperationUseCase
 import com.originsu.manager.domain.usecase.ExtractModuleNameUseCase
+import com.originsu.manager.domain.usecase.GetBooleanPreferenceUseCase
 import com.originsu.manager.domain.usecase.IsLateLoadModeUseCase
 import com.originsu.manager.domain.usecase.IsModuleUriAccessibleUseCase
+import com.originsu.manager.domain.usecase.ORIGINGUARD_PREF_KEY
+import com.originsu.manager.ui.component.ConfirmDialogHandle
+import com.originsu.manager.ui.component.ConfirmResult
 import com.originsu.manager.ui.component.KeyEventBlocker
 import com.originsu.manager.ui.component.SwipeableSnackbarHost
+import com.originsu.manager.ui.component.rememberConfirmDialog
 import com.originsu.manager.ui.component.rememberCustomDialog
 import com.originsu.manager.ui.component.settings.AppBackButton
 import com.originsu.manager.ui.navigation.LocalNavigator
@@ -167,6 +174,9 @@ fun FlashScreen(flashIt: FlashIt) {
     val flashUiState by flashViewModel.state.collectAsStateWithLifecycle()
     val hasMetaModule = moduleUiState.metaModuleStatus == MetaModuleStatus.ACTIVE
     val isLateLoadMode = koinInject<IsLateLoadModeUseCase>()
+    val auditModule = koinInject<AuditModuleUseCase>()
+    val getBooleanPreference = koinInject<GetBooleanPreferenceUseCase>()
+    val auditConfirmDialog = rememberConfirmDialog()
 
     val errorCodeString = stringResource(R.string.error_code)
     val checkLogString = stringResource(R.string.check_log)
@@ -246,6 +256,29 @@ fun FlashScreen(flashIt: FlashIt) {
 
         hasUpdateExecuted = true
 
+        val noAuditUpdate = !getBooleanPreference(ORIGINGUARD_PREF_KEY, true)
+        val updateAuditConfirmed = if (noAuditUpdate) {
+            false
+        } else {
+            when (val updateGuardDecision = runOriginGuard(
+                context,
+                auditModule,
+                auditConfirmDialog,
+                flashIt.uri,
+            ) { line ->
+                text += "$line\n"
+                logContent.append(line).append("\n")
+            }) {
+                is GuardDecision.Proceed -> updateGuardDecision.auditConfirmed
+                GuardDecision.Blocked,
+                GuardDecision.Cancelled -> {
+                    flashViewModel.dispatch(FlashUiAction.SetStatus(FlashingStatus.FAILED))
+                    hasUpdateCompleted = true
+                    return@LaunchedEffect
+                }
+            }
+        }
+
         withContext(Dispatchers.IO) {
             flashViewModel.dispatch(FlashUiAction.SetStatus(FlashingStatus.FLASHING))
 
@@ -255,7 +288,12 @@ fun FlashScreen(flashIt: FlashIt) {
                 logContent.append(text).append("\n")
             }
 
-            flashModuleUpdate(executeFlashOperation, flashIt.uri, onFinish = { showReboot, code ->
+            flashModuleUpdate(
+                executeFlashOperation,
+                flashIt.uri,
+                updateAuditConfirmed,
+                noAuditUpdate,
+                onFinish = { showReboot, code ->
                 if (code != 0) {
                     text += "$errorCodeString $code.\n$checkLogString\n"
                     flashViewModel.dispatch(FlashUiAction.SetStatus(FlashingStatus.FAILED))
@@ -322,6 +360,70 @@ fun FlashScreen(flashIt: FlashIt) {
         hasExecuted = true
         var currentModuleName = ""
 
+        val auditUri: String? = when (flashIt) {
+            is FlashIt.FlashModule -> flashIt.uri
+            is FlashIt.FlashModules -> flashIt.uris.getOrNull(flashIt.currentIndex)
+            else -> null
+        }
+        var auditConfirmed = false
+        val noAudit = !getBooleanPreference(ORIGINGUARD_PREF_KEY, true)
+        if (!noAudit && auditUri != null) {
+            when (val decision = runOriginGuard(
+                context,
+                auditModule,
+                auditConfirmDialog,
+                auditUri,
+            ) { line ->
+                text += "$line\n"
+                logContent.append(line).append("\n")
+            }) {
+                is GuardDecision.Proceed -> auditConfirmed = decision.auditConfirmed
+                GuardDecision.Blocked -> {
+                    flashViewModel.dispatch(FlashUiAction.SetStatus(FlashingStatus.FAILED))
+                    hasFlashCompleted = true
+                    if (flashIt is FlashIt.FlashModules) {
+                        val failedName = getModuleNameFromUri(
+                            context,
+                            flashIt.uris.getOrNull(flashIt.currentIndex).orEmpty(),
+                            extractModuleName,
+                            isModuleUriAccessible,
+                        )
+                        flashViewModel.dispatch(
+                            FlashUiAction.UpdateModule(
+                                failedModule = failedName
+                            )
+                        )
+                        if (flashIt.currentIndex < flashIt.uris.size - 1) {
+                            val nextFlashIt = flashIt.copy(
+                                currentIndex = flashIt.currentIndex + 1
+                            )
+                            scope.launch {
+                                delay(500.milliseconds)
+                                navigator.replace(
+                                    Route.Flash.modules(nextFlashIt.uris, nextFlashIt.currentIndex)
+                                )
+                            }
+                        }
+                    }
+                    return@LaunchedEffect
+                }
+                GuardDecision.Cancelled -> {
+                    flashViewModel.dispatch(FlashUiAction.SetStatus(FlashingStatus.FAILED))
+                    hasFlashCompleted = true
+                    viewModel.dispatch(ModuleUiAction.MarkNeedRefresh)
+                    viewModel.dispatch(ModuleUiAction.Refresh())
+                    if (isExternalInstall) {
+                        (context as? ComponentActivity)?.finish()
+                    } else if (flashIt is FlashIt.FlashModules || flashIt is FlashIt.FlashModuleUpdate) {
+                        navigator.replaceAll(listOf(Route.Module))
+                    } else {
+                        navigator.pop()
+                    }
+                    return@LaunchedEffect
+                }
+            }
+        }
+
         withContext(Dispatchers.IO) {
             flashViewModel.dispatch(FlashUiAction.SetStatus(FlashingStatus.FLASHING))
 
@@ -346,7 +448,7 @@ fun FlashScreen(flashIt: FlashIt) {
                 }
             }
 
-            flashIt(executeFlashOperation, flashIt, onFinish = { showReboot, code ->
+            flashIt(executeFlashOperation, flashIt, auditConfirmed, noAudit, onFinish = { showReboot, code ->
                 if (code != 0) {
                     text += "$errorCodeString $code.\n$checkLogString\n"
                     flashViewModel.dispatch(FlashUiAction.SetStatus(FlashingStatus.FAILED))
@@ -815,15 +917,86 @@ sealed class FlashIt : Parcelable {
     data object FlashUninstall : FlashIt()
 }
 
+// OriginGuard pre-install audit outcome.
+private sealed interface GuardDecision {
+    data class Proceed(val auditConfirmed: Boolean) : GuardDecision
+    data object Blocked : GuardDecision
+    data object Cancelled : GuardDecision
+}
+
+private fun auditFindingLocation(path: String, line: Int?): String =
+    if (line != null) "$path:$line" else path
+
+// Runs the OriginGuard static audit for a module uri.
+// Critical findings -> Blocked, high findings -> user confirmation dialog,
+// audit failure -> Proceed without confirmation (install gate in ksud
+// remains as backstop).
+private suspend fun runOriginGuard(
+    context: android.content.Context,
+    auditModule: AuditModuleUseCase,
+    confirmDialog: ConfirmDialogHandle,
+    uri: String,
+    appendLog: (String) -> Unit,
+): GuardDecision = withContext(Dispatchers.IO) {
+    appendLog(context.getString(R.string.originguard_checking))
+    val report = auditModule(uri).getOrElse { error ->
+        appendLog(
+            context.getString(R.string.originguard_audit_failed, error.message.orEmpty())
+        )
+        return@withContext GuardDecision.Proceed(auditConfirmed = false)
+    }
+    if (report.hasCritical) {
+        appendLog(
+            context.getString(R.string.originguard_blocked, report.criticalCount)
+        )
+        report.findings
+            .filter { it.severity == AuditSeverity.CRITICAL }
+            .take(10)
+            .forEach {
+                appendLog("[${it.severity}] ${it.title} (${it.ruleId})")
+                appendLog("  ${auditFindingLocation(it.path, it.line)}")
+            }
+        return@withContext GuardDecision.Blocked
+    }
+    if (report.hasHigh) {
+        val summary = buildString {
+            appendLine(
+                context.getString(R.string.originguard_confirm_summary, report.highCount)
+            )
+            report.findings
+                .filter { it.severity == AuditSeverity.HIGH }
+                .take(8)
+                .forEach {
+                    appendLine("- ${it.title} (${it.ruleId})")
+                    appendLine("  ${auditFindingLocation(it.path, it.line)}")
+                }
+        }.trimEnd()
+        val result = withContext(Dispatchers.Main) {
+            confirmDialog.awaitConfirm(
+                title = context.getString(R.string.originguard_confirm_title),
+                content = summary,
+            )
+        }
+        return@withContext if (result == ConfirmResult.Confirmed) {
+            GuardDecision.Proceed(auditConfirmed = true)
+        } else {
+            GuardDecision.Cancelled
+        }
+    }
+    GuardDecision.Proceed(auditConfirmed = false)
+}
+
 // 模块更新刷写
 private suspend fun flashModuleUpdate(
     execute: ExecuteFlashOperationUseCase,
     uri: String,
+    auditConfirmed: Boolean = false,
+    noAudit: Boolean = false,
     onFinish: (Boolean, Int) -> Unit,
     onStdout: (String) -> Unit,
     onStderr: (String) -> Unit
 ) {
-    execute(FlashOperation.Module(uri)).collect { update ->
+    execute(FlashOperation.Module(uri, auditConfirmed, noAudit)).collect { update ->
         when (update) {
             is FlashOperationUpdate.Output -> onStdout(update.line)
             is FlashOperationUpdate.ErrorOutput -> onStderr(update.line)
@@ -835,6 +1008,8 @@ private suspend fun flashModuleUpdate(
 private suspend fun flashIt(
     execute: ExecuteFlashOperationUseCase,
     flashIt: FlashIt,
+    auditConfirmed: Boolean = false,
+    noAudit: Boolean = false,
     onFinish: (Boolean, Int) -> Unit,
     onStdout: (String) -> Unit,
     onStderr: (String) -> Unit
@@ -851,7 +1026,7 @@ private suspend fun flashIt(
             partition = flashIt.partition,
         )
 
-        is FlashIt.FlashModule -> FlashOperation.Module(flashIt.uri)
+        is FlashIt.FlashModule -> FlashOperation.Module(flashIt.uri, auditConfirmed, noAudit)
         is FlashIt.FlashAnyKernelZip -> FlashOperation.AnyKernelZip(flashIt.uri)
         is FlashIt.FlashPatchBootImage -> FlashOperation.PatchBootImage(flashIt.boot, flashIt.zip)
         is FlashIt.FlashModules -> {
@@ -860,10 +1035,10 @@ private suspend fun flashIt(
                 return
             }
             onStdout("\n")
-            FlashOperation.Module(flashIt.uris[flashIt.currentIndex])
+            FlashOperation.Module(flashIt.uris[flashIt.currentIndex], auditConfirmed, noAudit)
         }
 
-        is FlashIt.FlashModuleUpdate -> FlashOperation.Module(flashIt.uri)
+        is FlashIt.FlashModuleUpdate -> FlashOperation.Module(flashIt.uri, auditConfirmed, noAudit)
         FlashIt.FlashRestore -> FlashOperation.Restore
         FlashIt.FlashUninstall -> FlashOperation.Uninstall
     }

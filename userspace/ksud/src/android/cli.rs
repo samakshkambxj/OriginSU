@@ -9,7 +9,8 @@ use crate::{
     android::{
         bootloop, debug, dynamic_manager, feature, init_event, ksucalls,
         module::{self, module_config, regenerate_preinit_rc},
-        profile, sepolicy, su, sulog, susfs, tempgrant, uapi, umount_config, utils,
+        profile, sepolicy, su, su_notify, sulog, susfs, tempgrant, uapi, umount_config, utils,
+        veil,
     },
     anykernel3::{self, Slot},
     apk_sign, assets,
@@ -216,6 +217,23 @@ enum Commands {
         #[command(subcommand)]
         command: Initrc,
     },
+
+    /// Origin Veil persistence (internal: snapshot kernel state to veil.json)
+    Veil {
+        #[command(subcommand)]
+        command: VeilOp,
+    },
+
+    /// KPM module manager
+    #[cfg(all(target_arch = "aarch64", target_os = "android"))]
+    Kpm {
+        #[command(subcommand)]
+        command: Kpm,
+    },
+
+    /// Run the root-request notifier daemon. Not for user. Use `ksud debug su-notifyd`.
+    #[command(hide = true)]
+    SuNotifyd,
 }
 
 #[derive(clap::Subcommand, Debug)]
@@ -309,6 +327,9 @@ enum Debug {
     /// Launch sulogd daemon manually
     Sulogd,
 
+    /// Launch su-notifyd daemon manually
+    SuNotifyd,
+
     /// Get kernel info
     Info,
 
@@ -370,6 +391,24 @@ enum Module {
     Install {
         /// module zip file path
         zip: String,
+        /// skip the high-severity audit gate (user already accepted the warning)
+        #[arg(long)]
+        audit_confirmed: bool,
+        /// skip the OriginGuard static audit entirely
+        #[arg(long)]
+        no_audit: bool,
+        /// override audit blocks, including critical findings
+        #[arg(long)]
+        force: bool,
+    },
+
+    /// Audit module <ZIP> for risky behavior without installing
+    Audit {
+        /// module zip file path
+        zip: String,
+        /// print the full JSON report instead of a summary
+        #[arg(long)]
+        json: bool,
     },
 
     /// Undo module uninstall mark <id>
@@ -607,6 +646,31 @@ enum UmountOp {
 }
 
 #[derive(clap::Subcommand, Debug)]
+enum VeilOp {
+    /// Snapshot current kernel Veil state to veil.json (internal)
+    Save,
+}
+
+#[cfg(all(target_arch = "aarch64", target_os = "android"))]
+#[derive(clap::Subcommand, Debug)]
+pub enum Kpm {
+    /// Load a KPM module: load <path> [args]
+    Load { path: PathBuf, args: Option<String> },
+    /// Unload a KPM module: unload <name>
+    Unload { name: String },
+    /// Get number of loaded modules
+    Num,
+    /// List loaded KPM modules
+    List,
+    /// Get info of a KPM module: info <name>
+    Info { name: String },
+    /// Send control command to a KPM module: control <name> <args>
+    Control { name: String, args: String },
+    /// Print KPM Loader version
+    Version,
+}
+
+#[derive(clap::Subcommand, Debug)]
 enum BootloopOp {
     /// Show protection status as JSON
     Status,
@@ -678,7 +742,13 @@ pub fn run() -> Result<()> {
         Commands::Module { command } => {
             utils::switch_mnt_ns(1)?;
             match command {
-                Module::Install { zip } => module::install_module(&zip),
+                Module::Install {
+                    zip,
+                    audit_confirmed,
+                    no_audit,
+                    force,
+                } => module::install_module(&zip, audit_confirmed, no_audit, force),
+                Module::Audit { zip, json } => module::audit::audit_zip(&zip, json),
                 Module::UndoUninstall { id } => module::undo_uninstall_module(&id),
                 Module::Uninstall { id } => module::uninstall_module(&id),
                 Module::Enable { id } => module::enable_module(&id),
@@ -821,6 +891,7 @@ pub fn run() -> Result<()> {
             Ok(())
         }
         Commands::Sulogd => sulog::run_sulogd(),
+        Commands::SuNotifyd => su_notify::run_su_notifyd(),
         Commands::GrantTemp {
             package,
             uid,
@@ -865,6 +936,31 @@ pub fn run() -> Result<()> {
             BootloopOp::SetMax { count } => bootloop::set_max(count),
             BootloopOp::ClearRescued => bootloop::clear_rescued(),
         },
+        Commands::Veil { command } => match command {
+            VeilOp::Save => {
+                veil::persist();
+                Ok(())
+            }
+        },
+        #[cfg(all(target_arch = "aarch64", target_os = "android"))]
+        Commands::Kpm { command } => {
+            use crate::android::kpm;
+            match command {
+                Kpm::Load { path, args } => {
+                    kpm::load_module(path.to_str().unwrap(), args.as_deref())
+                }
+                Kpm::Unload { name } => kpm::unload_module(name),
+                Kpm::Num => kpm::num().map(|_| ()),
+                Kpm::List => kpm::list(),
+                Kpm::Info { name } => kpm::info(name),
+                Kpm::Control { name, args } => {
+                    let ret = kpm::control(name, args)?;
+                    println!("{ret}");
+                    Ok(())
+                }
+                Kpm::Version => kpm::version(),
+            }
+        },
         Commands::Debug { command } => match command {
             Debug::SetManager { apk } => debug::set_manager(&apk),
             Debug::GetSign { apk } => {
@@ -889,6 +985,7 @@ pub fn run() -> Result<()> {
                 MarkCommand::Refresh => debug::mark_refresh(),
             },
             Debug::Sulogd => sulog::ensure_sulogd_running(),
+            Debug::SuNotifyd => su_notify::ensure_su_notifyd_running(),
             Debug::Info => {
                 let info = ksucalls::get_info();
                 println!("version: {}", info.version);

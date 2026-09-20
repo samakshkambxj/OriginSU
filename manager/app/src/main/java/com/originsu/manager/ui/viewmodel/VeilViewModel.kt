@@ -8,11 +8,14 @@ import com.originsu.manager.domain.model.VeilCloakedUid
 import com.originsu.manager.domain.model.VeilProbeHistory
 import com.originsu.manager.domain.usecase.ClearVeilCloakedUseCase
 import com.originsu.manager.domain.usecase.ClearVeilHistoryUseCase
+import com.originsu.manager.domain.usecase.IsSuNotifyEnabledUseCase
 import com.originsu.manager.domain.usecase.ObserveVeilStateUseCase
 import com.originsu.manager.domain.usecase.RefreshVeilUseCase
+import com.originsu.manager.domain.usecase.SetSuNotifyEnabledUseCase
 import com.originsu.manager.domain.usecase.SetVeilAutoCloakUseCase
 import com.originsu.manager.domain.usecase.SetVeilCloakedUseCase
 import com.originsu.manager.domain.usecase.SetVeilEnabledUseCase
+import com.originsu.manager.domain.usecase.UncloakRestoreUseCase
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -26,6 +29,7 @@ data class VeilUiState(
     val status: String = "",
     val enabled: Boolean = false,
     val autoCloak: Boolean = false,
+    val notifyEnabled: Boolean = false,
     val cloakedUids: List<VeilCloakedUid> = emptyList(),
     val history: List<VeilProbeHistory> = emptyList(),
     val isLoading: Boolean = true,
@@ -37,6 +41,7 @@ sealed interface VeilUiAction {
     data object Refresh : VeilUiAction
     data class SetEnabled(val enabled: Boolean) : VeilUiAction
     data class SetAutoCloak(val enabled: Boolean) : VeilUiAction
+    data class SetNotify(val enabled: Boolean) : VeilUiAction
     data class CloakUid(val uid: Int) : VeilUiAction
     data class UncloakUid(val uid: Int) : VeilUiAction
     data object ClearCloaked : VeilUiAction
@@ -56,6 +61,9 @@ class VeilViewModel(
     private val setVeilCloaked: SetVeilCloakedUseCase,
     private val clearVeilCloaked: ClearVeilCloakedUseCase,
     private val clearVeilHistory: ClearVeilHistoryUseCase,
+    private val uncloakRestore: UncloakRestoreUseCase,
+    private val isSuNotifyEnabled: IsSuNotifyEnabledUseCase,
+    private val setSuNotifyEnabled: SetSuNotifyEnabledUseCase,
 ) : ViewModel() {
     private val mutableEvents = MutableSharedFlow<VeilUiEvent>(extraBufferCapacity = 1)
     val events: SharedFlow<VeilUiEvent> = mutableEvents.asSharedFlow()
@@ -66,6 +74,7 @@ class VeilViewModel(
                 status = source.status,
                 enabled = source.enabled,
                 autoCloak = source.autoCloak,
+                notifyEnabled = isSuNotifyEnabled(),
                 cloakedUids = source.cloakedUids,
                 history = source.history,
                 isLoading = source.isLoading,
@@ -90,9 +99,29 @@ class VeilViewModel(
             )
 
             is VeilUiAction.SetAutoCloak -> submit(
-                command = { setVeilAutoCloak(action.enabled) },
+                command = {
+                    // Auto-cloak and notify are mutually exclusive: auto-cloak
+                    // hides apps before you could be asked to grant them.
+                    if (action.enabled) setSuNotifyEnabled(false)
+                    setVeilAutoCloak(action.enabled)
+                },
                 failureMessage = R.string.operation_failed,
             )
+
+            is VeilUiAction.SetNotify -> viewModelScope.launch {
+                val ok = runCatching {
+                    if (action.enabled) setVeilAutoCloak(false)
+                    setSuNotifyEnabled(action.enabled)
+                }.getOrDefault(false)
+                if (!ok) {
+                    mutableEvents.emit(
+                        VeilUiEvent.Error(context.getString(R.string.operation_failed))
+                    )
+                }
+                refreshVeil().exceptionOrNull()?.let {
+                    mutableEvents.emit(VeilUiEvent.Error(it.message.orEmpty()))
+                }
+            }
 
             is VeilUiAction.CloakUid -> submit(
                 command = { setVeilCloaked(action.uid, true) },
@@ -100,7 +129,10 @@ class VeilViewModel(
             )
 
             is VeilUiAction.UncloakUid -> submit(
-                command = { setVeilCloaked(action.uid, false) },
+                command = {
+                    uncloakRestore(action.uid)
+                    refreshVeil()
+                },
                 failureMessage = R.string.operation_failed,
             )
 

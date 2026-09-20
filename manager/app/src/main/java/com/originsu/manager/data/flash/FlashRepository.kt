@@ -3,6 +3,7 @@ package com.originsu.manager.data.flash
 import android.app.Application
 import android.net.Uri
 import androidx.core.net.toUri
+import com.originsu.manager.R
 import com.originsu.manager.data.file.ModuleFileRepository
 import com.originsu.manager.data.shell.KsuCliRepository
 import com.originsu.manager.domain.model.FlashOperation
@@ -47,13 +48,25 @@ class FlashRepository(
     private var worker: HorizonKernelWorker? = null
     private val installEnvironmentMutex = Mutex()
 
-    fun startKernelFlash(uri: String, selectedSlot: String?) {
+    fun startKernelFlash(
+        uri: String,
+        selectedSlot: String?,
+        kpmPatchEnabled: Boolean = false,
+        kpmUndoPatch: Boolean = false,
+    ) {
         val current = mutableSession.value
-        if (current.requestUri == uri && current.selectedSlot == selectedSlot && worker != null) return
+        if (current.requestUri == uri && current.selectedSlot == selectedSlot &&
+            current.kpmPatchEnabled == kpmPatchEnabled && current.kpmUndoPatch == kpmUndoPatch &&
+            worker != null
+        ) {
+            return
+        }
         workerState.reset()
         mutableSession.value = KernelFlashSession(
             requestUri = uri,
             selectedSlot = selectedSlot,
+            kpmPatchEnabled = kpmPatchEnabled,
+            kpmUndoPatch = kpmUndoPatch,
             progress = FlashProgress(),
         )
         observationJob?.cancel()
@@ -69,6 +82,8 @@ class FlashRepository(
             state = workerState,
             ksuCliRepository = ksuCliRepository,
             slot = selectedSlot,
+            kpmPatchEnabled = kpmPatchEnabled,
+            kpmUndoPatch = kpmUndoPatch,
         ).also {
             it.uri = uri.toUri()
             it.start()
@@ -137,13 +152,26 @@ class FlashRepository(
                     )
 
                     is FlashOperation.Module -> {
-                        ksuCliRepository.flashModule(
-                            application,
-                            operation.uri.toUri(),
-                            onFinish,
-                            onStdout,
-                            onStderr,
-                        )
+                        val moduleId = runCatching {
+                            moduleFileRepository.extractModuleId(operation.uri)
+                        }.getOrNull()
+                        if (moduleId in KsuCliRepository.BLOCKED_ZYGISK_IMPL_IDS &&
+                            runCatching { ksuCliRepository.isOriginZygiskEnabled() }
+                                .getOrDefault(false)
+                        ) {
+                            onStderr(application.getString(R.string.zygisk_provider_blocked))
+                            onFinish(false, 1)
+                        } else {
+                            ksuCliRepository.flashModule(
+                                application,
+                                operation.uri.toUri(),
+                                onFinish,
+                                onStdout,
+                                onStderr,
+                                operation.auditConfirmed,
+                                operation.noAudit,
+                            )
+                        }
                     }
 
                     is FlashOperation.AnyKernelZip -> ksuCliRepository.flashAnyKernelZip(

@@ -6,7 +6,6 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.os.PowerManager
-import android.system.Os
 import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -51,7 +50,6 @@ import androidx.compose.material.icons.twotone.Security
 import androidx.compose.material.icons.twotone.Settings
 import androidx.compose.material.icons.twotone.Smartphone
 import androidx.compose.material.icons.twotone.Tag
-import androidx.compose.material.icons.twotone.TaskAlt
 import androidx.compose.material.icons.twotone.Tune
 import androidx.compose.material.icons.twotone.VolunteerActivism
 import androidx.compose.material.icons.twotone.Warning
@@ -105,6 +103,7 @@ import com.originsu.manager.magica.MagicaService
 import com.originsu.manager.ui.component.KsuIsValid
 import com.originsu.manager.ui.component.SwipeableSnackbarHost
 import com.originsu.manager.ui.component.WarningCard
+import com.originsu.manager.ui.component.WorkingStatusCard
 import com.originsu.manager.ui.component.YinYangLogo
 import com.originsu.manager.ui.component.popupBlur
 import com.originsu.manager.ui.component.popupContainerColor
@@ -594,6 +593,7 @@ private fun TopBar(
                         appendLine("Hook: ${status.hookType}")
                         appendLine("Mode: $mode")
                         appendLine("SELinux: ${info.selinuxStatus}")
+                        appendLine("Zygisk: ${info.zygiskImplement}")
                     }.trimEnd()
                     val clipboard =
                         copyContext.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
@@ -715,53 +715,10 @@ private fun StatusCard(
 
     when {
         systemStatus.ksuVersion != null -> {
-            val workingModeText = when {
-                systemStatus.isSafeMode -> stringResource(id = R.string.safe_mode)
-                else -> stringResource(id = R.string.home_working)
-            }
-
-            val workingModeSurfaceText = when {
-                systemStatus.lkmMode == true -> "LKM"
-                else -> "Built-in"
-            }
-
-            SettingsBaseWidget(
-                icon = Icons.TwoTone.TaskAlt,
-                iconSize = 18.dp,
-                title = workingModeText,
-                description = stringResource(
-                    R.string.home_short_info,
-                    uiState.systemInfo.superuserCount,
-                    uiState.systemInfo.moduleCount
-                ),
-                containerColor = MaterialTheme.colorScheme.primaryContainer,
-                foreContent = {
-                    Spacer(Modifier.width(8.dp))
-
-                    // 工作模式标签
-                    LabelText(
-                        label = workingModeSurfaceText,
-                        containerColor = MaterialTheme.colorScheme.primary
-                    )
-
-                    if (systemStatus.isLateLoadMode) {
-                        Spacer(Modifier.width(6.dp))
-                        LabelText(
-                            label = stringResource(id = R.string.jailbreak_mode),
-                            containerColor = MaterialTheme.colorScheme.primary
-                        )
-                    }
-
-                    // 架构标签
-                    if (Os.uname().machine != "aarch64") {
-                        Spacer(Modifier.width(6.dp))
-                        LabelText(
-                            label = Os.uname().machine,
-                            containerColor = MaterialTheme.colorScheme.primary
-                        )
-                    }
-                },
-                onClick = onClick
+            WorkingStatusCard(
+                status = systemStatus,
+                ksuVersion = systemStatus.ksuVersion,
+                onInstallClick = onClickInstall,
             )
         }
 
@@ -928,6 +885,41 @@ private fun InfoCard(
                 description = systemInfo.susfsVersion,
             )
         }
+
+        item(
+            visible = !isSimpleMode && systemInfo.isKpmEnabled && systemInfo.kpmVersion.isNotEmpty()
+        ) {
+            SettingsBaseWidget(
+                icon = Icons.TwoTone.Memory.takeIf { showHomeCardIcons },
+                iconPlaceholder = false,
+                title = stringResource(R.string.home_kpm_version),
+                description = stringResource(R.string.kpm_supported, systemInfo.kpmVersion),
+            )
+        }
+
+        item(
+            visible = !isSimpleMode && systemInfo.bbgEnabled
+        ) {
+            SettingsBaseWidget(
+                icon = Icons.TwoTone.Security.takeIf { showHomeCardIcons },
+                iconPlaceholder = false,
+                title = stringResource(R.string.home_bbg_version),
+                description = systemInfo.bbgVersion.ifEmpty {
+                    stringResource(R.string.home_bbg_enabled)
+                },
+            )
+        }
+
+        item(
+            visible = !isSimpleMode && systemInfo.zeromountEnabled && systemInfo.zeromountVersion.isNotEmpty()
+        ) {
+            SettingsBaseWidget(
+                icon = Icons.TwoTone.Extension.takeIf { showHomeCardIcons },
+                iconPlaceholder = false,
+                title = stringResource(R.string.home_zeromount_version),
+                description = systemInfo.zeromountVersion,
+            )
+        }
     }
 
     SegmentedColumn(
@@ -1002,6 +994,17 @@ private fun InfoCard(
                 iconPlaceholder = false,
                 title = stringResource(R.string.home_hook_type),
                 description = systemStatus.hookType,
+            )
+        }
+
+        item(
+            visible = !isSimpleMode && systemInfo.zygiskImplement.isNotEmpty() && systemInfo.zygiskImplement != "None"
+        ) {
+            SettingsBaseWidget(
+                icon = Icons.TwoTone.Extension.takeIf { showHomeCardIcons },
+                iconPlaceholder = false,
+                title = stringResource(R.string.home_zygisk_implement),
+                description = systemInfo.zygiskImplement,
             )
         }
 

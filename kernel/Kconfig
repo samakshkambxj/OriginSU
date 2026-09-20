@@ -77,6 +77,17 @@ config KSU_MULTI_MANAGER_SUPPORT
 	help
 		Enable multi KernelSU manager support
 
+config KPM
+    bool "Enable KPM support"
+    depends on KSU && 64BIT
+    select KALLSYMS
+    select KALLSYMS_ALL
+    default n
+    help
+	  Enabling this option will activate the KPM feature.
+	  This option is suitable for scenarios where you need to force KPM to be enabled.
+	  but it may affect system stability.
+
 config KSU_ORIGIN_VEIL
 	bool "Origin Veil root-probe detection and cloaking"
 	depends on KSU

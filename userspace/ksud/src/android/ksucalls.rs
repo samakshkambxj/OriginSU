@@ -300,6 +300,105 @@ pub fn get_sulog_fd() -> Result<RawFd> {
     Ok(result)
 }
 
+/// Mirror of enum ksu_veil_cloak_op (uapi/supercall.h).
+pub mod veil_op {
+    pub const ADD: u32 = 0;
+    pub const REMOVE: u32 = 1;
+    pub const QUERY: u32 = 2;
+    pub const LIST: u32 = 3;
+    pub const CLEAR: u32 = 4;
+    pub const SET_AUTO: u32 = 5;
+    pub const GET_AUTO: u32 = 6;
+}
+
+/// Origin Veil: run a cloak-list operation (ADD/REMOVE/QUERY/CLEAR/SET_AUTO/GET_AUTO).
+/// Returns the command's out value (QUERY/GET_AUTO result).
+pub fn veil_cloak_op(op: u32, uid: u32, value: u32) -> Result<u32> {    let mut cmd = uapi::ksu_veil_cloak_cmd {
+        op,
+        uid,
+        value,
+        count: 0,
+        uids: 0,
+    };
+    ksuctl(uapi::KSU_IOCTL_VEIL_CLOAK, &raw mut cmd)?;
+    Ok(cmd.value)
+}
+
+/// Origin Veil: list cloaked uids (two-step: probe count, then fill).
+pub fn veil_cloak_list() -> Result<Vec<u32>> {
+    let mut probe = uapi::ksu_veil_cloak_cmd {
+        op: veil_op::LIST,
+        uid: 0,
+        value: 0,
+        count: 0,
+        uids: 0,
+    };
+    ksuctl(uapi::KSU_IOCTL_VEIL_CLOAK, &raw mut probe)?;
+    if probe.count == 0 {
+        return Ok(Vec::new());
+    }
+    let mut uids = vec![0u32; probe.count as usize];
+    let mut cmd = uapi::ksu_veil_cloak_cmd {
+        op: veil_op::LIST,
+        uid: 0,
+        value: 0,
+        count: probe.count,
+        uids: uids.as_mut_ptr() as u64,
+    };
+    ksuctl(uapi::KSU_IOCTL_VEIL_CLOAK, &raw mut cmd)?;
+    let got = cmd.count.min(probe.count) as usize;
+    uids.truncate(got);
+    Ok(uids)
+}
+
+/// One entry of the kernel's per-uid probe history.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct VeilHistEntry {
+    pub uid: u32,
+    pub count: u32,
+    pub kinds: u32,
+    pub last_ns: u64,
+}
+
+/// Origin Veil: dump the per-uid probe history (two-step: probe count, then fill).
+pub fn veil_history() -> Result<Vec<VeilHistEntry>> {
+    let mut probe = uapi::ksu_veil_history_cmd {
+        count: 0,
+        pad: 0,
+        entries: 0,
+    };
+    ksuctl(uapi::KSU_IOCTL_VEIL_HISTORY, &raw mut probe)?;
+    if probe.count == 0 {
+        return Ok(Vec::new());
+    }
+    let mut entries = vec![
+        uapi::ksu_veil_hist_entry {
+            uid: 0,
+            count: 0,
+            kinds: 0,
+            pad: 0,
+            last_ns: 0,
+        };
+        probe.count as usize
+    ];
+    let mut cmd = uapi::ksu_veil_history_cmd {
+        count: probe.count,
+        pad: 0,
+        entries: entries.as_mut_ptr() as u64,
+    };
+    ksuctl(uapi::KSU_IOCTL_VEIL_HISTORY, &raw mut cmd)?;
+    let got = cmd.count.min(probe.count) as usize;
+    Ok(entries[..got]
+        .iter()
+        .map(|e| VeilHistEntry {
+            uid: e.uid,
+            count: e.count,
+            kinds: e.kinds,
+            last_ns: e.last_ns,
+        })
+        .collect())
+}
+
 /// Get mark status for a process (pid=0 returns total marked count)
 pub fn mark_get(pid: i32) -> Result<u32> {
     let mut cmd = uapi::ksu_manage_mark_cmd {

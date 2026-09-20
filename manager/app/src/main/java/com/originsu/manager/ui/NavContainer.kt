@@ -76,7 +76,9 @@ import com.originsu.manager.ui.screen.InstallScreen
 import com.originsu.manager.ui.screen.AppIconScreen
 import com.originsu.manager.ui.screen.SulogScreen
 import com.originsu.manager.ui.screen.UpdaterScreen
+import com.originsu.manager.ui.screen.VeilDetailScreen
 import com.originsu.manager.ui.screen.VeilScreen
+import com.originsu.manager.ui.screen.VeilSpyScreen
 import com.originsu.manager.ui.screen.TemplateEditorScreen
 import com.originsu.manager.ui.screen.UmountManagerScreen
 import com.originsu.manager.ui.screen.about.AboutScreen
@@ -475,6 +477,28 @@ fun NavContainer(
                     VeilScreen()
                 }
             }
+            entry<Route.VeilDetail>(swipeDismiss = swipeBackDirection) { key ->
+                ManagerNavEntry(
+                    interceptPredictiveBack = interceptPredictiveBack,
+                    onBack = onBack,
+                    themeConfig = themeConfig,
+                    backgroundRenderState = backgroundRenderState,
+                    useBlur = useBlur,
+                ) {
+                    VeilDetailScreen(key.uid)
+                }
+            }
+            entry<Route.VeilSpy>(swipeDismiss = swipeBackDirection) { key ->
+                ManagerNavEntry(
+                    interceptPredictiveBack = interceptPredictiveBack,
+                    onBack = onBack,
+                    themeConfig = themeConfig,
+                    backgroundRenderState = backgroundRenderState,
+                    useBlur = useBlur,
+                ) {
+                    VeilSpyScreen(key.uid)
+                }
+            }
             entry<Route.Main>(swipeDismiss = NavSwipeDirection.None) {
                 ManagerNavEntry(
                     interceptPredictiveBack = interceptPredictiveBack,
@@ -674,7 +698,12 @@ fun NavContainer(
                     backgroundRenderState = backgroundRenderState,
                     useBlur = useBlur,
                 ) {
-                    KernelFlashScreen(key.kernelUri, key.selectedSlot)
+                    KernelFlashScreen(
+                        key.kernelUri,
+                        key.selectedSlot,
+                        key.kpmPatchEnabled,
+                        key.kpmUndoPatch
+                    )
                 }
             }
         }

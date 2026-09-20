@@ -1,0 +1,6 @@
+id=content_discovery
+name=Content discovery audit fixture
+version=1
+versionCode=1
+author=KernelSU
+description=Exercises content-first payload discovery

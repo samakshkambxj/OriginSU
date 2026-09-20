@@ -75,6 +75,7 @@ fun NavigationBar(
     val uiState by homeViewModel.uiState.collectAsStateWithLifecycle()
     val superuserCount = uiState.systemInfo.superuserCount
     val moduleCount = uiState.systemInfo.moduleCount
+    val kpmModuleCount = uiState.systemInfo.kpmModuleCount
     val showNavigationBarBadge = uiState.showNavigationBarBadge
     val themedIcons = uiState.isThemedShortcutsEnabled
     val page = LocalSelectedPage.current
@@ -113,6 +114,7 @@ fun NavigationBar(
                         val count = when (destination) {
                             BottomBarDestination.SuperUser -> superuserCount
                             BottomBarDestination.Module -> moduleCount
+                            BottomBarDestination.Kpm -> kpmModuleCount
                             else -> 0
                         }
                         val icon: @Composable () -> Unit = {
@@ -167,6 +169,7 @@ fun NavigationBar(
                     },
                     superuserCount = superuserCount,
                     moduleCount = moduleCount,
+                    kpmModuleCount = kpmModuleCount,
                     showNavigationBarBadge = showNavigationBarBadge,
                     themedIcons = themedIcons,
                 )
@@ -204,6 +207,7 @@ fun NavigationBar(
                     },
                     superuserCount = superuserCount,
                     moduleCount = moduleCount,
+                    kpmModuleCount = kpmModuleCount,
                     showNavigationBarBadge = showNavigationBarBadge,
                     themedIcons = themedIcons,
                 )
@@ -238,6 +242,7 @@ private fun NavigationRailItem(
     onClick: () -> Unit,
     superuserCount: Int,
     moduleCount: Int,
+    kpmModuleCount: Int,
     showNavigationBarBadge: Boolean,
     themedIcons: Boolean,
 ) {
@@ -252,6 +257,7 @@ private fun NavigationRailItem(
                         dest = destination,
                         superUser = superuserCount,
                         module = moduleCount,
+                        kpm = kpmModuleCount,
                         show = showNavigationBarBadge,
                     )
                 }
@@ -282,6 +288,7 @@ private fun RowScope.BottomBarNavigationItem(
     onClick: () -> Unit,
     superuserCount: Int,
     moduleCount: Int,
+    kpmModuleCount: Int,
     showNavigationBarBadge: Boolean,
     themedIcons: Boolean,
 ) {
@@ -295,6 +302,7 @@ private fun RowScope.BottomBarNavigationItem(
                         dest = destination,
                         superUser = superuserCount,
                         module = moduleCount,
+                        kpm = kpmModuleCount,
                         show = showNavigationBarBadge,
                     )
                 }
@@ -324,11 +332,13 @@ private fun DestinationBadge(
     dest: BottomBarDestination,
     superUser: Int,
     module: Int,
+    kpm: Int,
     show: Boolean,
 ) {
     val count = when (dest) {
         BottomBarDestination.SuperUser -> superUser
         BottomBarDestination.Module -> module
+        BottomBarDestination.Kpm -> kpm
         else -> 0
     }
 

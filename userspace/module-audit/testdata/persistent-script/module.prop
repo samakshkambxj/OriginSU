@@ -1,0 +1,6 @@
+id=persistent_script
+name=Persistent script audit fixture
+version=1
+versionCode=1
+author=KernelSU
+description=Exercises persistent startup script analysis

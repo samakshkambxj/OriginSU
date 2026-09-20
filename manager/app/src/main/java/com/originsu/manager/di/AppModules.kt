@@ -18,11 +18,15 @@ import com.originsu.manager.data.appearance.MiuixHomeStyleRepository
 import com.originsu.manager.data.bootloop.BootloopRepository
 import com.originsu.manager.data.su.SuRequestRepository
 import com.originsu.manager.data.grant.TempGrantRepository
+import com.originsu.manager.data.kernel.SuNotifyRepository
+import com.originsu.manager.data.kernel.VeilManageRepository
 import com.originsu.manager.data.kernel.VeilRepository
 import com.originsu.manager.data.logging.BugreportRepository
 import com.originsu.manager.data.logging.SulogRepository
 import com.originsu.manager.data.module.ModuleActionRepository
 import com.originsu.manager.data.module.ModuleCatalogRepository
+import com.originsu.manager.data.module.KpmRepository
+import com.originsu.manager.data.module.ModuleAuditRepository
 import com.originsu.manager.data.module.ModulePreferencesRepository
 import com.originsu.manager.data.module.ModuleRepository
 import com.originsu.manager.data.network.NetworkRequestRepository
@@ -54,6 +58,7 @@ import com.originsu.manager.data.webui.WebUiRepository
 import com.originsu.manager.domain.text.TextTransliterator
 import com.originsu.manager.domain.usecase.AddUmountPathUseCase
 import com.originsu.manager.domain.usecase.ApplyLanguageUseCase
+import com.originsu.manager.domain.usecase.AuditModuleUseCase
 import com.originsu.manager.domain.usecase.ClearBootloopNoticeUseCase
 import com.originsu.manager.domain.usecase.BackupAllowlistUseCase
 import com.originsu.manager.domain.usecase.CalculateInstalledModuleSizeUseCase
@@ -63,6 +68,9 @@ import com.originsu.manager.domain.usecase.CleanSulogUseCase
 import com.originsu.manager.domain.usecase.ClearDynamicManagerUseCase
 import com.originsu.manager.domain.usecase.ClearVeilCloakedUseCase
 import com.originsu.manager.domain.usecase.ClearVeilHistoryUseCase
+import com.originsu.manager.domain.usecase.IsSuNotifyEnabledUseCase
+import com.originsu.manager.domain.usecase.SetSuNotifyEnabledUseCase
+import com.originsu.manager.domain.usecase.UncloakRestoreUseCase
 import com.originsu.manager.domain.usecase.ConfigureSuLogUseCase
 import com.originsu.manager.domain.usecase.ConfigureVeilUseCase
 import com.originsu.manager.domain.usecase.ControlAppUseCase
@@ -177,6 +185,7 @@ import com.originsu.manager.ui.viewmodel.FlashViewModel
 import com.originsu.manager.ui.viewmodel.HomeViewModel
 import com.originsu.manager.ui.viewmodel.InstallViewModel
 import com.originsu.manager.ui.viewmodel.KernelFlashViewModel
+import com.originsu.manager.ui.viewmodel.KpmViewModel
 import com.originsu.manager.ui.viewmodel.MainIntentViewModel
 import com.originsu.manager.ui.viewmodel.ModuleDetailViewModel
 import com.originsu.manager.ui.viewmodel.ModuleRepoViewModel
@@ -293,6 +302,8 @@ val repositoryModule = module {
     singleOf(::DynamicManagerRepository)
     singleOf(::SulogRepository)
     singleOf(::VeilRepository)
+    singleOf(::VeilManageRepository)
+    singleOf(::SuNotifyRepository)
     single { TempGrantRepository(androidApplication(), get()) }
     single { GrantToastRepository(androidApplication(), get()) }
     single { SuRequestRepository(androidApplication(), get()) }
@@ -311,11 +322,13 @@ val repositoryModule = module {
     singleOf(::UmountRepository)
     singleOf(::ModuleCatalogRepository)
     singleOf(::ModuleRepository)
+    singleOf(::KpmRepository)
     singleOf(::ModulePreferencesRepository)
     singleOf(::ModuleActionRepository)
     singleOf(::WebResourceRepository)
     singleOf(::WebUiRepository)
     singleOf(::ModuleFileRepository)
+    singleOf(::ModuleAuditRepository)
     singleOf(::ProfileRepository)
     singleOf(::ProfileTemplateRepository)
     singleOf(::SuSFSConfigHelper)
@@ -366,6 +379,9 @@ val useCaseModule = module {
     factoryOf(::SetVeilCloakedUseCase)
     factoryOf(::ClearVeilCloakedUseCase)
     factoryOf(::ClearVeilHistoryUseCase)
+    factoryOf(::UncloakRestoreUseCase)
+    factoryOf(::IsSuNotifyEnabledUseCase)
+    factoryOf(::SetSuNotifyEnabledUseCase)
     factoryOf(::SetKernelUmountEnabledUseCase)
     factoryOf(::ConfigureSuLogUseCase)
     factoryOf(::ConfigureVeilUseCase)
@@ -444,6 +460,7 @@ val useCaseModule = module {
     factoryOf(::TakeModuleUriPermissionUseCase)
     factoryOf(::ExtractModuleNameUseCase)
     factoryOf(::ExtractModuleIdUseCase)
+    factoryOf(::AuditModuleUseCase)
     factoryOf(::ObserveInstalledModulesUseCase)
     factoryOf(::RefreshInstalledModulesUseCase)
     factoryOf(::CalculateInstalledModuleSizeUseCase)
@@ -483,10 +500,11 @@ val viewModelModule = module {
         SettingsViewModel(
             get(), get(), get(), get(), get(), get(), get(), get(), get(), get(),
             get(), get(), get(), get(), get(), get(), get(), get(), get(), get(),
-            get(), get(), get(),
+            get(), get(), get(), get(),
         )
     }
     viewModelOf(::ModuleViewModel)
+    viewModelOf(::KpmViewModel)
     viewModelOf(::SuperUserViewModel)
     viewModelOf(::AppIconViewModel)
     viewModelOf(::UpdaterViewModel)

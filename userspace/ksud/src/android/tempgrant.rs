@@ -12,7 +12,7 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-use anyhow::{Context, Result, bail};
+use anyhow::{Context, Result, bail, ensure};
 use const_format::concatcp;
 
 use crate::android::{ksucalls, uapi, utils::ensure_dir_exists};
@@ -81,9 +81,56 @@ fn write_profile(profile: &uapi::app_profile) -> Result<()> {
 }
 
 fn set_allow_su(package: &str, uid: u32, allow: bool) -> Result<()> {
-    let mut profile = read_profile(package, uid)?;
-    profile.allow_su = allow;
-    write_profile(&profile)
+    match read_profile(package, uid) {
+        Ok(mut profile) => {
+            profile.allow_su = allow;
+            write_profile(&profile)
+        }
+        // Fresh target with no profile yet: create a default allow-profile
+        // instead of failing. (Revoke callers already tolerate errors, and a
+        // missing profile means there is nothing to un-allow.)
+        Err(e) if allow => {
+            log::warn!("tempgrant: no profile for {package}, creating default: {e:#}");
+            let profile = default_allow_profile(package, uid)?;
+            write_profile(&profile)
+        }
+        Err(e) => Err(e),
+    }
+}
+
+/// Build a default allow-profile for an app that has none yet. Mirrors what
+/// the manager sends for a default allow: default root config + ksu domain.
+///
+/// Only the union fields are written by byte offset: struct app_profile is
+/// { u32 version @0, char key[256] @4, i32 curr_uid @260, bool allow_su @264,
+/// union @268: { bool use_default @268, char template_name[256] @272,
+/// struct root_profile @528: { ..., char selinux_domain[64] @528+164=692 } } }.
+/// The size assert guards the offsets; the kernel re-validates everything, so
+/// a mismatch can only fail the write, never corrupt state.
+fn default_allow_profile(package: &str, uid: u32) -> Result<uapi::app_profile> {
+    const PROFILE_SIZE: usize = 776;
+    const USE_DEFAULT_OFF: usize = 268;
+    const DOMAIN_OFF: usize = 692;
+    const DOMAIN: &[u8] = b"u:r:ksu:s0";
+    ensure!(
+        std::mem::size_of::<uapi::app_profile>() == PROFILE_SIZE,
+        "app_profile layout changed, update tempgrant offsets"
+    );
+    let mut profile: uapi::app_profile = unsafe { std::mem::zeroed() };
+    profile.version = uapi::KSU_APP_PROFILE_VER;
+    copy_key(&mut profile.key, package);
+    profile.curr_uid = uid as i32;
+    profile.allow_su = true;
+    // SAFETY: in-bounds writes into our own zeroed struct (size asserted above).
+    let bytes = unsafe {
+        std::slice::from_raw_parts_mut(
+            &mut profile as *mut uapi::app_profile as *mut u8,
+            PROFILE_SIZE,
+        )
+    };
+    bytes[USE_DEFAULT_OFF] = 1;
+    bytes[DOMAIN_OFF..DOMAIN_OFF + DOMAIN.len()].copy_from_slice(DOMAIN);
+    Ok(profile)
 }
 
 /// Grant root to `package`/`uid` for `timeout_secs` seconds.

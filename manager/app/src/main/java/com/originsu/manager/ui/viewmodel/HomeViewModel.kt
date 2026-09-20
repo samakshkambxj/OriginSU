@@ -76,6 +76,7 @@ class HomeViewModel(
             systemInfo = homeState.systemInfo.copy(
                 moduleCount = moduleState.modules.size,
                 superuserCount = superUserState.groups.filter { it.allowSu }.size,
+                zygiskImplement = ksuCliRepository.getZygiskImplement(),
                 metaModuleImplement = ksuCliRepository.getMetaModuleImplement(),
             )
         )
@@ -134,9 +135,53 @@ class HomeViewModel(
                     }
                     val managers = async { getManagerRuntimeInfo() }
                     val susfs = async { getSuSFSStatus() }
+                    val bbg = async {
+                        runCatching {
+                            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                val enabled = ksuCliRepository.isBbgEnabled()
+                                val version = if (enabled) {
+                                    ksuCliRepository.getBbgVersion()
+                                } else {
+                                    ""
+                                }
+                                enabled to version
+                            }
+                        }.getOrDefault(false to "")
+                    }
+                    val zeromount = async {
+                        runCatching {
+                            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                val version = ksuCliRepository.getZeromountVersion()
+                                val enabled = ksuCliRepository.isZeromountDriverPresent() ||
+                                    version.isNotEmpty()
+                                enabled to version
+                            }
+                        }.getOrDefault(false to "")
+                    }
+                    val kpm = async {
+                        runCatching {
+                            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                val enabled = ksuCliRepository.isKpmEnabled()
+                                val version = if (enabled) {
+                                    ksuCliRepository.getKpmVersion()
+                                } else {
+                                    ""
+                                }
+                                val count = if (version.isNotBlank()) {
+                                    ksuCliRepository.getKpmModuleCount()
+                                } else {
+                                    0
+                                }
+                                Triple(enabled, version, count)
+                            }
+                        }.getOrDefault(Triple(false, "", 0))
+                    }
                     val basicInfo = basic.await()
                     val managerInfo = managers.await()
                     val susfsInfo = susfs.await()
+                    val kpmInfo = kpm.await()
+                    val bbgInfo = bbg.await()
+                    val zeromountInfo = zeromount.await()
                     homeStateRepository.update { current ->
                         current.copy(
                             systemInfo = HomeSystemInfo(
@@ -155,6 +200,13 @@ class HomeViewModel(
                                 isDynamicSignEnabled = managerInfo.dynamicSignatureEnabled,
                                 seccompStatus = basicInfo.seccompStatus,
                                 lastFlashTime = getLongPreference(LAST_FLASH_PREF_KEY, 0L),
+                                isKpmEnabled = kpmInfo.first,
+                                kpmVersion = kpmInfo.second,
+                                kpmModuleCount = kpmInfo.third,
+                                bbgEnabled = bbgInfo.first,
+                                bbgVersion = bbgInfo.second,
+                                zeromountEnabled = zeromountInfo.first,
+                                zeromountVersion = zeromountInfo.second,
                             ),
                             isInitialDataLoaded = true,
                             isExtendedDataLoaded = true,

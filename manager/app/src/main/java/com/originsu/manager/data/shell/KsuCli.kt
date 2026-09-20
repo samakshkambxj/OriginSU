@@ -11,6 +11,7 @@ import androidx.core.net.toUri
 import com.originsu.manager.BuildConfig
 import com.originsu.manager.Natives
 import com.originsu.manager.R
+import com.originsu.manager.data.kernel.VeilManageRepository
 import com.originsu.manager.domain.model.LkmSelection
 import com.originsu.manager.domain.model.TempGrantRecord
 import com.topjohnwu.superuser.CallbackList
@@ -36,6 +37,30 @@ class KsuCliRepository(context: Context) {
     companion object {
         const val TAG = "KsuCli"
         private const val BUSYBOX = "/data/adb/ksu/bin/busybox"
+        private const val SU_NOTIFY_FLAG = "/data/adb/ksu/su_notify_enabled"
+        private const val SU_NOTIFY_PACKAGE_FILE = "/data/adb/ksu/manager_package"
+
+        // Cache of observed BasebandGuard versions, keyed by kernel release.
+        // BBG only logs its version once at boot, so the dmesg line may have
+        // rotated out by the time the manager queries it.
+        private const val PREFS_BBG_VERSION = "bbg_version"
+        private const val KEY_BBG_VERSION = "version_%s"
+
+        // OriginZygisk deploy locations (built-in engine, not a module).
+        const val ORIGIN_ZYGISK_DIR = "/data/adb/ksu/originzygisk"
+        const val ORIGIN_ZYGISK_HOOK = "/data/adb/post-fs-data.d/originzygisk.sh"
+
+        // Zygisk *provider* module ids that conflict with the built-in
+        // engine. Zygisk *modules* (e.g. LSPosed) are NOT blocked.
+        val BLOCKED_ZYGISK_IMPL_IDS = setOf(
+            "zygisksu",
+            "rezygisk",
+            "brezygisk",
+            "shirokozygisk",
+            "zygisk_next",
+            "zygisknext",
+            "neozygisk",
+        )
 
         // Kernel image names searched inside an AnyKernel zip, in order.
         // .gz is decompressed on the fly; other compression is rejected.
@@ -293,6 +318,156 @@ class KsuCliRepository(context: Context) {
         return Natives.getSuperuserCount()
     }
 
+    // ---- KPM (KernelPatch Module) management ----
+
+    fun loadKpmModule(path: String, args: String? = null): String {
+        val shell = getRootShell()
+        val cmd = buildString {
+            append("${getKsuDaemonPath()} kpm load $path")
+            if (!args.isNullOrBlank()) append(" $args")
+        }
+        return ShellUtils.fastCmd(shell, cmd)
+    }
+
+    fun unloadKpmModule(name: String): String {
+        val shell = getRootShell()
+        return ShellUtils.fastCmd(shell, "${getKsuDaemonPath()} kpm unload $name")
+    }
+
+    fun getKpmModuleCount(): Int {
+        val shell = getRootShell()
+        val result = ShellUtils.fastCmd(shell, "${getKsuDaemonPath()} kpm num")
+        return result.trim().toIntOrNull() ?: 0
+    }
+
+    fun listKpmModules(): String {
+        val shell = getRootShell()
+        return try {
+            runCmd(shell, "${getKsuDaemonPath()} kpm list").trim()
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to list KPM modules", e)
+            ""
+        }
+    }
+
+    fun getKpmModuleInfo(name: String): String {
+        val shell = getRootShell()
+        return try {
+            runCmd(shell, "${getKsuDaemonPath()} kpm info $name").trim()
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to get KPM module info: $name", e)
+            ""
+        }
+    }
+
+    fun controlKpmModule(name: String, args: String? = null): Int {
+        val shell = getRootShell()
+        val cmd = "${getKsuDaemonPath()} kpm control $name \"${args.orEmpty()}\""
+        return runCmd(shell, cmd).trim().toIntOrNull() ?: -1
+    }
+
+    fun getKpmVersion(): String {
+        val shell = getRootShell()
+        return ShellUtils.fastCmd(shell, "${getKsuDaemonPath()} kpm version").trim()
+    }
+
+    // ---- OriginGuard (module audit) ----
+
+    /**
+     * Statically audits a staged module ZIP without installing it.
+     * @return raw JSON report, or "" when the audit could not run.
+     */
+    fun auditModuleZip(path: String): String {
+        val shell = getRootShell()
+        return try {
+            runCmd(shell, "${getKsuDaemonPath()} module audit --json $path").trim()
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to audit module zip: $path", e)
+            ""
+        }
+    }
+
+    fun isKpmEnabled(): Boolean {
+        return runCatching { Natives.isKPMEnabled() }.getOrDefault(false)
+    }
+
+    // ---- BasebandGuard (BBG) kernel LSM detection ----
+    //
+    // BBG bakes its version (upstream short commit SHA) into the kernel at
+    // build time and prints `baseband_guard version: <sha>` to the kernel
+    // log on init. Presence is detectable via the active LSM list or the
+    // kernel config; the version itself is parsed from dmesg.
+
+    fun isBbgEnabled(): Boolean {
+        val shell = getRootShell()
+        val result = ShellUtils.fastCmd(
+            shell,
+            "grep -q baseband_guard /sys/kernel/security/lsm 2>/dev/null" +
+                " || gzip -dc /proc/config.gz 2>/dev/null | grep -q '^CONFIG_BBG=y'" +
+                " || dmesg 2>/dev/null | grep -q 'baseband_guard';" +
+                " echo $?"
+        ).trim()
+        return result == "0"
+    }
+
+    fun getBbgVersion(): String {
+        val release = runCatching { Os.uname().release.orEmpty() }.getOrDefault("")
+        val shell = getRootShell()
+        val line = ShellUtils.fastCmd(
+            shell,
+            "dmesg 2>/dev/null | grep -m1 'baseband_guard version:'"
+        )
+        val live = line.substringAfter("baseband_guard version:", "").trim()
+        if (live.isNotEmpty()) {
+            if (release.isNotEmpty()) {
+                bbgVersionPrefs().edit().putString(KEY_BBG_VERSION.format(release), live)
+                    .apply()
+            }
+            return live
+        }
+        if (release.isNotEmpty()) {
+            return bbgVersionPrefs().getString(KEY_BBG_VERSION.format(release), "").orEmpty()
+        }
+        return ""
+    }
+
+    private fun bbgVersionPrefs() =
+        appContext.getSharedPreferences(PREFS_BBG_VERSION, Context.MODE_PRIVATE)
+
+    // ---- ZeroMount detection ----
+    //
+    // The ZeroMount VFS kernel driver exposes /dev/zeromount, while the
+    // userspace module version lives in its module.prop (module id
+    // `meta-zeromount`).
+
+    fun isZeromountDriverPresent(): Boolean {
+        val shell = getRootShell()
+        val result = ShellUtils.fastCmd(
+            shell,
+            "[ -e /dev/zeromount ] && echo true || echo false"
+        ).trim()
+        return result == "true"
+    }
+
+    fun getZeromountVersion(): String {
+        val moduleIds = listOf("meta-zeromount", "zeromount")
+        for (moduleId in moduleIds) {
+            if (SuFile.open("/data/adb/modules/$moduleId/disable").isFile ||
+                SuFile.open("/data/adb/modules/$moduleId/remove").isFile
+            ) continue
+            val propFile = SuFile.open("/data/adb/modules/$moduleId/module.prop")
+            if (!propFile.isFile) continue
+            val prop = Properties()
+            runCatching { prop.load(propFile.newInputStream()) }.getOrNull() ?: continue
+            val version = prop.getProperty("version").orEmpty().trim()
+            if (version.isNotEmpty()) {
+                Log.i(TAG, "ZeroMount implement: $version")
+                return version
+            }
+        }
+        return ""
+    }
+
     fun toggleModule(id: String, enable: Boolean): Boolean {
         val cmd = if (enable) {
             "module enable $id"
@@ -346,7 +521,9 @@ class KsuCliRepository(context: Context) {
         uri: Uri,
         onFinish: (Boolean, Int) -> Unit,
         onStdout: (String) -> Unit,
-        onStderr: (String) -> Unit
+        onStderr: (String) -> Unit,
+        auditConfirmed: Boolean = false,
+        noAudit: Boolean = false,
     ): Boolean {
         val resolver = context.contentResolver
         with(resolver.openInputStream(uri)) {
@@ -354,7 +531,11 @@ class KsuCliRepository(context: Context) {
             file.outputStream().use { output ->
                 this?.copyTo(output)
             }
-            val cmd = "module install ${file.absolutePath}"
+            val cmd = buildString {
+                append("module install ${file.absolutePath}")
+                if (noAudit) append(" --no-audit")
+                else if (auditConfirmed) append(" --audit-confirmed")
+            }
             val result = flashWithIO("${getKsuDaemonPath()} $cmd", onStdout, onStderr)
             Log.i("KernelSU", "install module $uri result: $result")
 
@@ -879,6 +1060,102 @@ class KsuCliRepository(context: Context) {
         Log.i(TAG, "force stop $packageName result: $result")
     }
 
+    // ---- Origin Veil management ----
+
+    /** Whether [uid] is currently cloaked (blocking check, call off the main thread). */
+    fun isVeilCloaked(uid: Int): Boolean = runCatching {
+        Natives.getVeilCloakedUids()?.contains(uid) == true
+    }.getOrDefault(false)
+
+    /** Cloak [uid] via direct ioctl (for the root-request receiver). */
+    fun setVeilCloaked(uid: Int): Boolean =
+        runCatching { Natives.setVeilCloaked(uid, true) }.getOrDefault(false)
+
+    /** Snapshot kernel Veil state to veil.json so it survives reboot. */
+    fun persistVeil() {
+        runCatching { execKsud("veil save", true) }
+    }
+
+    /**
+     * Enable/disable root-request notifications. Driven by Veil via the native
+     * su-notifyd daemon. Publishes this manager's package + the enable flag,
+     * then starts the daemon; on disable clears the flag (the daemon exits).
+     */
+    suspend fun setSuNotify(enable: Boolean): Boolean = withContext(Dispatchers.IO) {
+        val shell = getRootShell()
+        if (enable) {
+            ShellUtils.fastCmdResult(
+                shell,
+                "echo ${appContext.packageName} > $SU_NOTIFY_PACKAGE_FILE; " +
+                    "touch $SU_NOTIFY_FLAG; " +
+                    "pkill -f 'ksud su-notifyd' 2>/dev/null; sleep 1; " +
+                    "/data/adb/ksu/bin/ksud debug su-notifyd"
+            )
+        } else {
+            ShellUtils.fastCmdResult(
+                shell,
+                "rm -f $SU_NOTIFY_FLAG; pkill -f 'ksud su-notifyd' 2>/dev/null; true"
+            )
+        }
+    }
+
+    /** Disable (freeze) or re-enable an app. */
+    fun setAppEnabled(packageName: String, enabled: Boolean): Boolean {
+        return ShellUtils.fastCmdResult(
+            getRootShell(),
+            if (enabled) "pm enable $packageName" else "pm disable-user --user 0 $packageName"
+        )
+    }
+
+    /** Current appop modes for a package, op-name -> mode (allow/ignore/deny/…). */
+    suspend fun getAppOpsModes(packageName: String): Map<String, String> = withContext(Dispatchers.IO) {
+        val out = getRootShell().newJob()
+            .add("cmd appops get $packageName").to(ArrayList<String>(), null).exec().out
+        val map = mutableMapOf<String, String>()
+        val re = Regex("([A-Z_]+):\\s*(allow|ignore|deny|default|foreground)")
+        for (line in out) re.find(line)?.let { map[it.groupValues[1]] = it.groupValues[2] }
+        map
+    }
+
+    /**
+     * Block or allow a permission. `pm revoke` only works on runtime (dangerous)
+     * perms, so also drive the appop (block -> ignore, allow -> allow) which covers
+     * appop-backed perms (overlay, usage-stats, …).
+     */
+    fun setPermissionMode(packageName: String, perm: String, block: Boolean) {
+        val shell = getRootShell()
+        val op = VeilManageRepository.opForPermission(perm)
+        if (block) {
+            shell.newJob().add("pm revoke $packageName $perm").exec()
+            if (op != null) shell.newJob().add("cmd appops set $packageName $op ignore").exec()
+        } else {
+            shell.newJob().add("pm grant $packageName $perm").exec()
+            if (op != null) shell.newJob().add("cmd appops set $packageName $op allow").exec()
+        }
+    }
+
+    /**
+     * Spy log source. Apps log little under their own uid, and the interesting
+     * activity lands elsewhere: Play Integrity in GMS, store calls in vending, and
+     * hardware key attestation in the keystore/KeyMint HAL (system). So merge the
+     * target app + GMS + Play Store (by uid) with the keystore/KeyMint HAL (by tag),
+     * time-sorted into one stream.
+     */
+    suspend fun dumpAppLog(uid: Int, lines: Int = 300): List<String> = withContext(Dispatchers.IO) {
+        val pm = appContext.packageManager
+        fun uidOf(pkg: String) = runCatching { pm.getPackageUid(pkg, 0) }.getOrNull()
+        // NOTE: this logcat rejects comma uid-lists, so run one --uid per uid. And -t
+        // is applied BEFORE the tag filter, so the keystore tag stream uses no -t
+        // (it's sparse anyway) to guarantee attestation logs are never dropped.
+        val perUid = listOfNotNull(uid, uidOf("com.google.android.gms"), uidOf("com.android.vending"))
+            .distinct()
+            .joinToString("; ") { "logcat -d --uid=$it -v threadtime -t $lines" }
+        val ksTags = "keystore2 KeyMintDevice KeyMasterHalDevice KeymasterUtils " +
+            "Keymaster credstore DroidGuard"
+        val cmd = "{ $perUid; logcat -d -s $ksTags -v threadtime; } | sort -k1,2 -s | uniq"
+        getRootShell().newJob().add(cmd).to(ArrayList<String>(), null).exec().out
+    }
+
     fun launchApp(packageName: String) {
 
         val shell = getRootShell()
@@ -913,6 +1190,113 @@ class KsuCliRepository(context: Context) {
             return "None"
         }
     }
+
+    fun getZygiskImplement(): String {
+        if (isOriginZygiskDeployed()) {
+            Log.i(TAG, "Zygisk implement: OriginZygisk")
+            return "OriginZygisk"
+        }
+        val zygiskModuleIds = listOf(
+            "zygisksu",
+            "rezygisk"
+        )
+
+        for (moduleId in zygiskModuleIds) {
+            if (SuFile.open("/data/adb/modules/$moduleId/disable").isFile || SuFile.open("/data/adb/modules/$moduleId/remove").isFile) continue
+
+            val propFile = SuFile.open("/data/adb/modules/$moduleId/module.prop")
+            if (!propFile.isFile) continue
+
+            val prop = Properties()
+            prop.load(propFile.newInputStream())
+
+            val name = prop.getProperty("name")
+            Log.i(TAG, "Zygisk implement: $name")
+            return name
+        }
+
+        Log.i(TAG, "Zygisk implement: None")
+        return "None"
+    }
+
+    private fun isOriginZygiskDeployed(): Boolean {
+        return runCatching {
+            SuFile.open("$ORIGIN_ZYGISK_DIR/enable").isFile &&
+                SuFile.open(ORIGIN_ZYGISK_HOOK).isFile
+        }.getOrDefault(false)
+    }
+
+    suspend fun isOriginZygiskEnabled(): Boolean = withContext(Dispatchers.IO) {
+        if (!rootAvailable()) {
+            return@withContext isOriginZygiskDeployed()
+        }
+        val shell = getRootShell()
+        ShellUtils.fastCmdResult(
+            shell,
+            "[ -f $ORIGIN_ZYGISK_DIR/enable ] && [ -f $ORIGIN_ZYGISK_HOOK ]"
+        )
+    }
+
+    suspend fun isOriginZygiskRunning(): Boolean = withContext(Dispatchers.IO) {
+        if (!rootAvailable()) {
+            return@withContext false
+        }
+        val shell = getRootShell()
+        ShellUtils.fastCmdResult(shell, "pgrep -f zygisk-ptrace >/dev/null 2>&1")
+    }
+
+    private fun copyAssetToCacheDir(name: String): File? {
+        return runCatching {
+            val out = File(appContext.cacheDir, name.substringAfterLast('/'))
+            appContext.assets.open(name).use { input ->
+                out.outputStream().use { input.copyTo(it) }
+            }
+            out
+        }.getOrNull()
+    }
+
+    suspend fun setOriginZygiskEnabled(enabled: Boolean): Boolean =
+        withContext(Dispatchers.IO) {
+            val shell = getRootShell()
+            if (!enabled) {
+                return@withContext ShellUtils.fastCmdResult(
+                    shell,
+                    "rm -f $ORIGIN_ZYGISK_DIR/enable $ORIGIN_ZYGISK_HOOK; " +
+                        "pkill -f zygisk-ptrace 2>/dev/null; " +
+                        "pkill -f zygiskd 2>/dev/null; true"
+                )
+            }
+            val payload = copyAssetToCacheDir("originzygisk/payload.zip")
+            val setup = copyAssetToCacheDir("originzygisk/setup.sh")
+            val launch = copyAssetToCacheDir("originzygisk/launch.sh")
+            if (payload == null || setup == null || launch == null) {
+                Log.w(TAG, "OriginZygisk assets missing in APK")
+                payload?.delete()
+                setup?.delete()
+                launch?.delete()
+                return@withContext false
+            }
+            val script = """
+                set -e
+                rm -rf $ORIGIN_ZYGISK_DIR
+                mkdir -p $ORIGIN_ZYGISK_DIR/payload /data/adb/post-fs-data.d
+                cp '${payload.absolutePath}' $ORIGIN_ZYGISK_DIR/payload.zip
+                cp '${setup.absolutePath}' $ORIGIN_ZYGISK_DIR/setup.sh
+                cp '${launch.absolutePath}' $ORIGIN_ZYGISK_DIR/launch.sh
+                cd $ORIGIN_ZYGISK_DIR/payload && unzip -o $ORIGIN_ZYGISK_DIR/payload.zip >/dev/null
+                cd $ORIGIN_ZYGISK_DIR && sh setup.sh $ORIGIN_ZYGISK_DIR
+                ${getKsuDaemonPath()} sepolicy apply $ORIGIN_ZYGISK_DIR/payload/sepolicy.rule || true
+                touch $ORIGIN_ZYGISK_DIR/enable
+                cp $ORIGIN_ZYGISK_DIR/launch.sh $ORIGIN_ZYGISK_HOOK
+                chmod 0755 $ORIGIN_ZYGISK_HOOK
+            """.trimIndent()
+            val ok = shell.newJob().add(script).exec().isSuccess
+            payload.delete()
+            setup.delete()
+            launch.delete()
+            Log.i(TAG, "set OriginZygisk enabled=$enabled result: $ok")
+            ok
+        }
 
     fun addKernelUmountPath(path: String, flags: Int): Boolean {
         val shell = getRootShell()

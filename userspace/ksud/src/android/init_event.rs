@@ -6,6 +6,8 @@ use log::{error, info, warn};
 use prop_rs_android::{resetprop::ResetProp, sys_prop};
 use rustix::process::chdir;
 
+#[cfg(all(target_arch = "aarch64", target_os = "android"))]
+use crate::android::kpm;
 use crate::{
     android::{
         dynamic_manager, ksucalls,
@@ -113,6 +115,11 @@ pub fn on_post_data_fs() -> Result<()> {
         warn!("init features failed: {e}");
     }
 
+    #[cfg(all(target_arch = "aarch64", target_os = "android"))]
+    if let Err(e) = kpm::booted_load() {
+        warn!("KPM: Failed to start KPM watcher: {e}");
+    }
+
     // revoke temporary root grants that expired while powered off
     crate::android::tempgrant::sweep_expired();
 
@@ -198,6 +205,15 @@ pub fn on_boot_completed() {
 
     ksucalls::report_boot_complete();
     info!("on_boot_completed triggered!");
+
+    // Re-apply persisted Veil state (enabled / auto-cloak / cloak-set).
+    crate::android::veil::restore_config();
+
+    // Start the root-request notifier daemon if enabled (Veil-driven; no SU Log).
+    if let Err(e) = crate::android::su_notify::ensure_su_notifyd_running() {
+        warn!("ensure_su_notifyd_running failed: {e:#}");
+    }
+
     run_stage("boot-completed", false);
     // Load susfs boot-completed
     if !is_safe_mode() {

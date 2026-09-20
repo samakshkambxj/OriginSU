@@ -21,13 +21,20 @@ import kotlinx.coroutines.launch
 data class KernelFlashUiState(
     val requestUri: String? = null,
     val selectedSlot: String? = null,
+    val kpmPatchEnabled: Boolean = false,
+    val kpmUndoPatch: Boolean = false,
     val flash: FlashProgress = FlashProgress(),
     val fullLog: String = "",
     val autoExit: Boolean = false,
 )
 
 sealed interface KernelFlashUiAction {
-    data class Start(val uri: String, val selectedSlot: String?) : KernelFlashUiAction
+    data class Start(
+        val uri: String,
+        val selectedSlot: String?,
+        val kpmPatchEnabled: Boolean = false,
+        val kpmUndoPatch: Boolean = false,
+    ) : KernelFlashUiAction
     data object ConsumeAutoExit : KernelFlashUiAction
     data object Reboot : KernelFlashUiAction
 }
@@ -51,6 +58,8 @@ class KernelFlashViewModel(
         KernelFlashUiState(
             requestUri = session.requestUri,
             selectedSlot = session.selectedSlot,
+            kpmPatchEnabled = session.kpmPatchEnabled,
+            kpmUndoPatch = session.kpmUndoPatch,
             flash = session.progress,
             fullLog = session.fullLog,
             autoExit = shouldAutoExit,
@@ -62,7 +71,12 @@ class KernelFlashViewModel(
 
     fun dispatch(action: KernelFlashUiAction) {
         when (action) {
-            is KernelFlashUiAction.Start -> startKernelFlash(action.uri, action.selectedSlot)
+            is KernelFlashUiAction.Start -> startKernelFlash(
+                action.uri,
+                action.selectedSlot,
+                action.kpmPatchEnabled,
+                action.kpmUndoPatch
+            )
             KernelFlashUiAction.ConsumeAutoExit -> {
                 removePreference(AUTO_EXIT_KEY)
                 autoExit.value = false

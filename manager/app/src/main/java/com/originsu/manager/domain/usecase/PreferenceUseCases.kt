@@ -4,6 +4,7 @@ import com.originsu.manager.data.AppSettingsRepository
 
 const val SECURE_ROOT_PREF_KEY = "secure_root"
 const val THEMED_SHORTCUTS_PREF_KEY = "themed_shortcuts"
+const val ORIGINGUARD_PREF_KEY = "originguard_enabled"
 
 class GetBooleanPreferenceUseCase(private val repository: AppSettingsRepository) {
     operator fun invoke(key: String, defaultValue: Boolean = false) =
