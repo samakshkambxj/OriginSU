@@ -362,9 +362,6 @@ fun FloatingBottomBar(
                             backdrop = backdrop,
                             shape = { pillShape },
                             effects = {
-                                // Halve the sampling resolution: the bar re-renders
-                                // every frame while pages scroll or tabs animate.
-                                downscaleFactor = 2
                                 padding = maxOf(padding, 40.dp.toPx())
                                 vibrancy()
                                 blur(4.dp.toPx(), 4.dp.toPx())
@@ -450,10 +447,6 @@ fun FloatingBottomBar(
                             backdrop = combinedBackdrop,
                             shape = { pillShape },
                             effects = {
-                                // Downscale the sliding indicator's blur sampling: it
-                                // re-renders every animation frame, so halve the
-                                // resolution to keep tab switches at full frame rate.
-                                downscaleFactor = 2
                                 val progress = dampedDragAnimation.pressProgress
                                 lens(
                                     refractionHeight = 10.dp.toPx() * progress,

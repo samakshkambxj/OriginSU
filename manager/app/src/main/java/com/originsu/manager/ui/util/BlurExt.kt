@@ -2,6 +2,7 @@ package com.originsu.manager.ui.util
 
 import android.os.Build
 import androidx.compose.foundation.layout.Box
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.RectangleShape
@@ -11,12 +12,14 @@ import top.yukonga.miuix.kmp.blur.BlurColors
 import top.yukonga.miuix.kmp.blur.LayerBackdrop
 import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
 import top.yukonga.miuix.kmp.blur.textureBlur
-import top.yukonga.miuix.kmp.theme.MiuixTheme
 
+// Page-toned blur: both the backdrop base and the bar blend use the manager
+// surfaceContainer so the MIUIX top bar melts into the page instead of
+// rendering a darker miuix-surface band.
 @Composable
 fun rememberBlurBackdrop(enableBlur: Boolean): LayerBackdrop? {
     if (!enableBlur || Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return null
-    val surfaceColor = MiuixTheme.colorScheme.surface
+    val surfaceColor = MaterialTheme.colorScheme.surfaceContainer
     return rememberLayerBackdrop {
         drawRect(surfaceColor)
         drawContent()
@@ -36,7 +39,7 @@ fun BlurredBar(
                 blurRadius = 25f * LocalDensity.current.density,
                 colors = BlurColors(
                     blendColors = listOf(
-                        BlendColorEntry(color = MiuixTheme.colorScheme.surface.copy(0.87f)),
+                        BlendColorEntry(color = MaterialTheme.colorScheme.surfaceContainer.copy(0.87f)),
                     ),
                 ),
             )
