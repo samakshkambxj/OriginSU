@@ -181,6 +181,8 @@ import com.originsu.manager.ui.webui.WebUIActivity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+import top.yukonga.miuix.kmp.utils.overScrollVertical
+import top.yukonga.miuix.kmp.utils.scrollEndHaptic
 import kotlinx.coroutines.withContext
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
@@ -1068,7 +1070,10 @@ private fun ModuleList(
 
         LazyColumn(
             state = listState,
-            modifier = modifier,
+            modifier = modifier
+                .scrollEndHaptic()
+                .overScrollVertical(),
+            overscrollEffect = null,
             contentPadding = remember {
                 PaddingValues(
                     start = 16.dp,

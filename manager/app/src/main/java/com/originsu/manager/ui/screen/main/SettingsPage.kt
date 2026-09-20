@@ -112,6 +112,8 @@ import com.originsu.manager.ui.viewmodel.SettingsViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import top.yukonga.miuix.kmp.utils.overScrollVertical
+import top.yukonga.miuix.kmp.utils.scrollEndHaptic
 import com.originsu.manager.ui.util.ActivityResumeEffect
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
@@ -187,7 +189,10 @@ fun SettingsPage(bottomPadding: Dp) {
             modifier =
                 Modifier
                     .nestedScroll(scrollBehavior.nestedScrollConnection)
+                    .scrollEndHaptic()
+                    .overScrollVertical()
                     .blurSource(),
+            overscrollEffect = null,
             contentPadding = PaddingValues(
                 top = innerPadding.calculateTopPadding() + 5.dp,
                 start = 0.dp,

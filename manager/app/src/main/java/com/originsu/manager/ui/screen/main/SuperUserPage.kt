@@ -85,6 +85,8 @@ import com.originsu.manager.ui.viewmodel.SuperUserUiState
 import com.originsu.manager.ui.viewmodel.SuperUserViewModel
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+import top.yukonga.miuix.kmp.utils.overScrollVertical
+import top.yukonga.miuix.kmp.utils.scrollEndHaptic
 import org.koin.compose.viewmodel.koinViewModel
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -358,7 +360,10 @@ private fun SuperUserContent(
             state = listState,
             modifier = Modifier
                 .fillMaxSize()
+                .scrollEndHaptic()
+                .overScrollVertical()
                 .nestedScroll(scrollBehavior.nestedScrollConnection),
+            overscrollEffect = null,
         ) {
             item {
                 Spacer(modifier = Modifier.height(innerPadding.calculateTopPadding()))

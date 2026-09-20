@@ -131,6 +131,8 @@ import com.originsu.manager.ui.viewmodel.HomeViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import top.yukonga.miuix.kmp.utils.overScrollVertical
+import top.yukonga.miuix.kmp.utils.scrollEndHaptic
 import kotlinx.coroutines.withContext
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
@@ -201,6 +203,8 @@ fun HomePage(
                 .blurSource()
                 .nestedScroll(scrollBehavior.nestedScrollConnection)
                 .verticalScroll(scrollState)
+                .scrollEndHaptic()
+                .overScrollVertical()
                 .padding(
                     top = innerPadding.calculateTopPadding() + 2.dp,
                     start = 16.dp,

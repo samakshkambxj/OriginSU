@@ -85,6 +85,8 @@ import com.originsu.manager.ui.viewmodel.InstallUiEvent
 import com.originsu.manager.ui.viewmodel.InstallViewModel
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
+import top.yukonga.miuix.kmp.utils.overScrollVertical
+import top.yukonga.miuix.kmp.utils.scrollEndHaptic
 
 /**
  * @author ShirkNeko
@@ -523,6 +525,8 @@ private fun InstallBody(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
+            .scrollEndHaptic()
+            .overScrollVertical()
             .padding(top = innerPaddingTop + 12.dp)
             .padding(horizontal = 16.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp)
