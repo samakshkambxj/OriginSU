@@ -392,10 +392,10 @@ private fun StatusCardAlt(
                         showIndication = !status.isLateLoadMode,
                         pressFeedbackType = PressFeedbackType.Tilt
                     ) {
-                        Box {
+                        Box(modifier = Modifier.fillMaxWidth()) {
                             Box(
                                 modifier = Modifier
-                                    .fillMaxSize()
+                                    .matchParentSize()
                                     .offset(27.dp, 31.dp),
                                 contentAlignment = Alignment.BottomEnd
                             ) {
@@ -410,39 +410,30 @@ private fun StatusCardAlt(
                                     contentDescription = null
                                 )
                             }
-                            if (workingMode != null) {
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .padding(16.dp, 10.dp),
-                                    contentAlignment = Alignment.BottomStart,
-                                ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp, 14.dp),
+                            ) {
+                                Text(
+                                    text = workingText,
+                                    fontSize = 22.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                )
+                                Spacer(Modifier.height(1.dp))
+                                Text(
+                                    text = stringResource(
+                                        R.string.home_working_version,
+                                        status.ksuVersion
+                                    ),
+                                    fontSize = 15.sp,
+                                )
+                                if (workingMode != null) {
+                                    Spacer(Modifier.height(8.dp))
                                     Text(
                                         text = workingMode,
                                         fontSize = 16.sp,
                                         fontWeight = FontWeight.Medium,
-                                    )
-                                }
-                            }
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .padding(16.dp, 14.dp),
-                                contentAlignment = Alignment.TopStart,
-                            ) {
-                                Column {
-                                    Text(
-                                        text = workingText,
-                                        fontSize = 22.sp,
-                                        fontWeight = FontWeight.SemiBold,
-                                    )
-                                    Spacer(Modifier.height(1.dp))
-                                    Text(
-                                        text = stringResource(
-                                            R.string.home_working_version,
-                                            status.ksuVersion
-                                        ),
-                                        fontSize = 15.sp,
                                     )
                                 }
                             }
