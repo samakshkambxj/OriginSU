@@ -55,12 +55,10 @@ import com.originsu.manager.ui.theme.ThemeConfig
 import com.originsu.manager.ui.theme.blurEffect
 import com.originsu.manager.ui.util.LocalBlurState
 import com.originsu.manager.ui.util.LocalHandlePageChange
-import com.originsu.manager.ui.util.LocalPagerState
 import com.originsu.manager.ui.util.LocalSelectedPage
 import com.originsu.manager.ui.viewmodel.HomeViewModel
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
-import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
 
 
 @SuppressLint("ContextCastToActivity")
@@ -81,7 +79,6 @@ fun NavigationBar(
     val themedIcons = uiState.isThemedShortcutsEnabled
     val page = LocalSelectedPage.current
     val handlePageChange = LocalHandlePageChange.current
-    val pagerState = LocalPagerState.current
 
     if (isBottomBar && themeConfig.bottomBarStyle == BottomBarStyle.FLOATING && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
         Box(
@@ -97,14 +94,18 @@ fun NavigationBar(
             contentAlignment = Alignment.Center
         ) {
             FloatingBottomBar(
-                selectedIndex = pagerState.targetPage,
+                // Drive the indicator from the synchronously-updated selected page
+                // (SukiSU-Ultra's MainPagerState.selectedPage), not PagerState.targetPage,
+                // so the liquid pill starts moving on the tap frame instead of waiting
+                // for the pager scroll state to propagate.
+                selectedIndex = page,
                 onSelected = { handlePageChange(it) },
                 tabsCount = destinations.size,
                 isBlurEnabled = LocalBlurState.current != null,
             ) { activateTab ->
                 destinations.forEachIndexed { index, destination ->
                     FloatingBottomBarItem(
-                        selected = index == pagerState.targetPage,
+                        selected = index == page,
                         onClick = { activateTab(index) },
                         modifier = Modifier.defaultMinSize(minWidth = 76.dp)
                     ) {

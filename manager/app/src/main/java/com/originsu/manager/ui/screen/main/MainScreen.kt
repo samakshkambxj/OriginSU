@@ -31,6 +31,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.originsu.manager.ui.activity.component.NavigationBar
+import com.originsu.manager.ui.component.springAnimateToPage
 import com.originsu.manager.ui.rememberMaterial3BlurBackdrop
 import com.originsu.manager.ui.screen.BottomBarDestination
 import com.originsu.manager.ui.theme.ThemeConfig
@@ -89,7 +90,7 @@ fun MainScreen() {
                     userScrollEnabled = false
                     val job = coroutineScope.launch {
                         try {
-                            pagerState.animateScrollToPage(page)
+                            pagerState.springAnimateToPage(page)
                         } finally {
                             if (animateJob === this) {
                                 userScrollEnabled = true
@@ -126,7 +127,12 @@ fun MainScreen() {
                     .fillMaxSize(),
                 state = pagerState,
                 userScrollEnabled = userScrollEnabled,
-                beyondViewportPageCount = 1,
+                // Keep every tab composed (SukiSU-Ultra uses 3 for its 4 tabs).
+                // Home <-> Settings are 3 pages apart; with the default of 1 the
+                // target page is disposed while away, so switching forces a full
+                // recompose + LaunchedEffect(Unit) shell refreshes + liquid-glass
+                // backdrop re-init in the middle of the scroll animation (lag).
+                beyondViewportPageCount = pages.size,
             ) { pageIndex ->
                 if (pages.isEmpty()) return@HorizontalPager
 
