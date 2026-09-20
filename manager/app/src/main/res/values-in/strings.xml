@@ -221,9 +221,6 @@
     <string name="back">Kembali</string>
     <string name="background_set_success">Set latar belakang berhasil</string>
     <string name="background_removed">Latar belakang khusus yang dihapus</string>
-    <string name="icon_switch_title">Ubah ikon</string>
-    <string name="icon_switch_summary">Ubah ikon peluncur aplikasi ke ikon KernelSU</string>
-    <string name="icon_switched">Ikon dirubah</string>
     <string name="app_dpi_title">Ubah DPI</string>
     <string name="app_dpi_summary">Sesuaikan DPI layar hanya untuk aplikasi ini saja</string>
     <string name="dpi_size_small">Kecil</string>

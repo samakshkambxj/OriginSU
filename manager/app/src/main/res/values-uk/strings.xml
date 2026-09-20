@@ -324,9 +324,6 @@
     <string name="back">Повернутися</string>
     <string name="background_set_success">Фон успішно встановлено</string>
     <string name="background_removed">Видалено власні фони</string>
-    <string name="icon_switch_title">Альтернативна іконка</string>
-    <string name="icon_switch_summary">Змінити іконку запуску на іконку KernelSU.</string>
-    <string name="icon_switched">Іконку змінено</string>
     <string name="module_webui_alert">Повідомлення від модуля %s</string>
     <string name="no_such_module">Модуль %s не існує</string>
     <string name="module_unavailable">Модуль %s вимкнено або очікує видалення</string>

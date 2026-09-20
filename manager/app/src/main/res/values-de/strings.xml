@@ -203,9 +203,6 @@
     <string name="appearance_settings">Passt die Symbolleiste an.</string>
     <string name="background_set_success">Hintergrund erfolgreich gesetzt</string>
     <string name="background_removed">Eigene Hintergründe entfernt</string>
-    <string name="icon_switch_title">Alternatives Symbol</string>
-    <string name="icon_switch_summary">Ändere das Launcher-Symbol auf das KernelSU Icon.</string>
-    <string name="icon_switched">Icon gewechselt</string>
     <string name="app_dpi_title">Angewendeter DPI</string>
     <string name="app_dpi_summary">Bildschirmanzahl nur für die aktuelle Anwendung anpassen</string>
     <string name="dpi_size_small">Klein</string>

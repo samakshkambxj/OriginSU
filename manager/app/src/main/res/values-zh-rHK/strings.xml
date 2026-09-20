@@ -287,9 +287,6 @@
     <string name="back">返回</string>
     <string name="background_set_success">背景設定成功</string>
     <string name="background_removed">已移除自訂背景</string>
-    <string name="icon_switch_title">備選圖標</string>
-    <string name="icon_switch_summary">更換為 KernelSU 圖標</string>
-    <string name="icon_switched">已切換圖標</string>
     <string name="module_webui_alert">來自模組 %s 嘅消息</string>
     <string name="no_such_module">模組 %s 唔存在</string>
     <string name="module_unavailable">模組 %s 被停用或待解除安裝</string>

@@ -305,9 +305,6 @@
     <string name="back">Возвращение</string>
     <string name="background_set_success">Фон успешно установлен</string>
     <string name="background_removed">Пользовательский фон удалён</string>
-    <string name="icon_switch_title">Альт. иконка</string>
-    <string name="icon_switch_summary">Поменять иконку приложения на иконку KernelSU</string>
-    <string name="icon_switched">Значок переключен</string>
     <string name="module_webui_alert">Сообщение от модуля %s</string>
     <string name="no_such_module">Модуль %s не существует</string>
     <string name="module_unavailable">Модуль %s отключен или ожидает удаления</string>

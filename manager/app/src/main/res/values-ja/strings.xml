@@ -226,9 +226,6 @@
     <string name="back">戻る</string>
     <string name="background_set_success">背景の設定が成功しました</string>
     <string name="background_removed">カスタム背景を削除しました</string>
-    <string name="icon_switch_title">代替アイコン</string>
-    <string name="icon_switch_summary">ランチャーアイコンを KernelSU のアイコンに変更します。</string>
-    <string name="icon_switched">アイコンを変更しました</string>
     <string name="app_dpi_title">DPI の変更を適用</string>
     <string name="app_dpi_summary">このアプリのみで画面表示密度を調整します。</string>
     <string name="dpi_size_small">小</string>

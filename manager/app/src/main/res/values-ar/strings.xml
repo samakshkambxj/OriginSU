@@ -243,7 +243,6 @@
     <string name="back">عد مرة أخرى</string>
     <string name="background_set_success">تم تعيين الخلفية بنجاح</string>
     <string name="background_removed">إزالة خلفيات مخصصة</string>
-    <string name="icon_switch_summary">غيّر أيقونة التطبيق لـKernelSU</string>
     <string name="app_dpi_title">تم تطبيق DPI</string>
     <string name="app_dpi_summary">ضبط كثافة عرض الشاشة للتطبيق الحالي فقط</string>
     <string name="dpi_size_small">صغير</string>
@@ -328,8 +327,6 @@
     <string name="predictive_back_animation_scale">حجّم</string>
     <string name="predictive_back_exit_direction_always_right">دائما لليمين</string>
     <string name="predictive_back_exit_direction_always_left">دائماً لليسار</string>
-    <string name="icon_switch_title">ايقونة بديلة</string>
-    <string name="icon_switched">تم تبديل الأيقونة</string>
     <string name="module_webui_alert">رسالة من الإضافة %s</string>
     <string name="no_such_module">الإضافة %s ليست موجودة</string>
     <string name="module_unavailable">الإضافة %s معطلّة، او بإنتظار الإزالة</string>

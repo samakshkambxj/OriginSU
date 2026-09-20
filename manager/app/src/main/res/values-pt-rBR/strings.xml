@@ -331,9 +331,6 @@
     <string name="back">Voltar</string>
     <string name="background_set_success">Plano de fundo definido com sucesso</string>
     <string name="background_removed">Fundos personalizados removidos</string>
-    <string name="icon_switch_title">Ícone alternativo</string>
-    <string name="icon_switch_summary">Altere o ícone do iniciador para o ícone do KernelSU</string>
-    <string name="icon_switched">Ícone alterado</string>
     <string name="module_webui_alert">Mensagem do módulo %s</string>
     <string name="no_such_module">O módulo %s não existe</string>
     <string name="module_unavailable">O módulo %s está desativado ou aguardando remoção</string>

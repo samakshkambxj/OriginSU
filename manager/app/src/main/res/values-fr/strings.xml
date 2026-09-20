@@ -212,9 +212,6 @@
     <string name="back">Retour</string>
     <string name="background_set_success">Arrière-plan appliqué</string>
     <string name="background_removed">Arrière-plan personnalisé supprimé</string>
-    <string name="icon_switch_title">Icône alternative</string>
-    <string name="icon_switch_summary">Remplace l\'icône de l\'application dans le lanceur par celle de KernelSU</string>
-    <string name="icon_switched">Icône remplacée</string>
     <string name="app_dpi_title">Densité d\'affichage (en PPP)</string>
     <string name="app_dpi_summary">Ajuste la densité d\'affichage de l\'écran pour cette application</string>
     <string name="dpi_size_small">Petite</string>

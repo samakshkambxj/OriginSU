@@ -231,9 +231,6 @@
     <string name="back">Trở lại</string>
     <string name="background_set_success">Đã cài đặt hình nền thành công</string>
     <string name="background_removed">Đã xóa hình nền tùy chỉnh</string>
-    <string name="icon_switch_title">Thay thế icon</string>
-    <string name="icon_switch_summary">Thay đổi icon SukiSU thành icon của KernelSU</string>
-    <string name="icon_switched">Đã thay đổi icon</string>
     <string name="app_dpi_title">Tuỳ chỉnh DPI</string>
     <string name="app_dpi_summary">Điều chỉnh DPI hiển thị</string>
     <string name="dpi_size_small">Nhỏ</string>

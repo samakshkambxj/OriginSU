@@ -224,9 +224,6 @@
     <string name="back">Retorno</string>
     <string name="background_set_success">Fundo definido com sucesso</string>
     <string name="background_removed">Remover</string>
-    <string name="icon_switch_title">Ícone alternativo</string>
-    <string name="icon_switch_summary">Alterar o ícone do launcher para o ícone do KernelSU.</string>
-    <string name="icon_switched">Ícone alterado</string>
     <string name="app_dpi_title">DPI aplicado</string>
     <string name="app_dpi_summary">Ajustar a densidade de exibição da tela apenas para o aplicativo atual</string>
     <string name="dpi_size_small">Pequeno</string>

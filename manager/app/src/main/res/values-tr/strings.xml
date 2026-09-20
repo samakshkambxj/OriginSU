@@ -282,9 +282,6 @@
     <string name="back">Geri dön</string>
     <string name="background_set_success">Arka plan görüntüsü başarıyla ayarlandı</string>
     <string name="background_removed">Özel arkaplan görüntüleri kaldırıldı</string>
-    <string name="icon_switch_title">Alternatif simge</string>
-    <string name="icon_switch_summary">Başlatıcı simgesini KernelSU simgesiyle değiştirin</string>
-    <string name="icon_switched">Simge değiştirildi</string>
     <string name="module_webui_alert">%s modülünden mesaj</string>
     <string name="no_such_module">%s modülü bulunmuyor</string>
     <string name="module_unavailable">%s modülü devre dışı bırakılmış ya da silinmeyi bekliyor</string>

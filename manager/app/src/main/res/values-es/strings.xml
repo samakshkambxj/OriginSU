@@ -214,9 +214,6 @@
     <string name="back">Retorno</string>
     <string name="background_set_success">Fondo establecido correctamente</string>
     <string name="background_removed">Eliminar fondo personalizado</string>
-    <string name="icon_switch_title">Icono alternativo</string>
-    <string name="icon_switch_summary">Cambiar el icono del lanzador al icono de KernelSU.</string>
-    <string name="icon_switched">Icono cambiado</string>
     <string name="app_dpi_title">DPI aplicado</string>
     <string name="app_dpi_summary">Ajustar la densidad de pantalla para la aplicación actual</string>
     <string name="dpi_size_small">Pequeño</string>

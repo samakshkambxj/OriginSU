@@ -235,8 +235,6 @@
     <string name="back">뒤로 가기</string>
     <string name="background_set_success">배경 설정됨</string>
     <string name="background_removed">사용자 지정 배경 제거됨</string>
-    <string name="icon_switch_title">대체 아이콘</string>
-    <string name="icon_switched">아이콘 변경됨</string>
     <string name="module_webui_alert">%s 모듈의 메시지</string>
     <string name="no_such_module">%s 모듈이 존재하지 않습니다.</string>
     <string name="module_unavailable">%s 모듈이 비활성화되었거나 제거 대기 중입니다.</string>

@@ -299,9 +299,6 @@
     <string name="predictive_back_exit_direction_always_left">Mindig balra</string>
     <string name="background_set_success">Háttérkép beállítása sikeres</string>
     <string name="background_removed">Személyreszabott háttérkép eltávolítása sikeres</string>
-    <string name="icon_switch_title">Alternatív ikon</string>
-    <string name="icon_switch_summary">KernelSU ikon használata</string>
-    <string name="icon_switched">Ikon lecserélve</string>
     <string name="module_webui_alert">Modulüzenet %s</string>
     <string name="no_such_module">%s modul nem létezik</string>
     <string name="module_unavailable">%s modul le lett tiltva, vagy eltávolításra lett ütemezve</string>

@@ -307,7 +307,6 @@
     <string name="Lkm_install_methods">Naprawa/instalacja LKM</string>
     <string name="GKI_install_methods">Wgrywanie AnyKernel3</string>
     <string name="predictive_back_animation_ksu_classic">KernelSU Classic</string>
-    <string name="icon_switch_summary">Zmień ikonę launchera na ikonę KernelSU</string>
     <string name="kernel_flashing">Wgrywanie jądra</string>
     <string name="configuration">Konfiguruj</string>
     <string name="app_settings">Ustawienia aplikacji</string>
@@ -326,8 +325,6 @@
     <string name="back">Powrót</string>
     <string name="background_set_success">Tło ustawione pomyślnie</string>
     <string name="background_removed">Usunięto niestandardowe tła</string>
-    <string name="icon_switch_title">Alternatywna ikona</string>
-    <string name="icon_switched">Ikona zmieniona</string>
     <string name="module_webui_alert">Wiadomość od modułu %s</string>
     <string name="no_such_module">Moduł %s nie istnieje</string>
     <string name="module_unavailable">Moduł %s jest wyłączony, lub oczekuje na usunięcie</string>
