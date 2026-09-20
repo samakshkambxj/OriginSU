@@ -362,6 +362,9 @@ fun FloatingBottomBar(
                             backdrop = backdrop,
                             shape = { pillShape },
                             effects = {
+                                // Halve the sampling resolution: the bar re-renders
+                                // every frame while pages scroll or tabs animate.
+                                downscaleFactor = 2
                                 padding = maxOf(padding, 40.dp.toPx())
                                 vibrancy()
                                 blur(4.dp.toPx(), 4.dp.toPx())

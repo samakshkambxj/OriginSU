@@ -432,7 +432,7 @@ private fun StatusCardAlt(
                                     Text(
                                         text = stringResource(
                                             R.string.home_working_version,
-                                            "${status.ksuVersion}-${status.kernelUAPIVersion}"
+                                            status.ksuVersion
                                         ),
                                         fontSize = 15.sp,
                                     )

@@ -1,6 +1,9 @@
 package com.originsu.manager.ui.miuix
 
 import android.app.Activity
+import android.os.Build
+import androidx.compose.material3.dynamicDarkColorScheme
+import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -43,18 +46,22 @@ fun OriginMiuixTheme(content: @Composable () -> Unit) {
         ThemeColorSpec.Spec2021
     }
 
-    val resolvedKeyColor: Color = Color(themeConfig.seedColor)
+    // NB: miuix only honors keyColor in Monet modes. Always use a Monet mode
+    // so the home follows the manager accent even with dynamic color off.
+    val resolvedKeyColor: Color = if (
+        themeConfig.useDynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+    ) {
+        if (darkTheme) dynamicDarkColorScheme(context).primary
+        else dynamicLightColorScheme(context).primary
+    } else {
+        Color(themeConfig.seedColor)
+    }
 
     val controller = ThemeController(
-        when {
-            themeConfig.forceDarkMode == true ->
-                if (themeConfig.useDynamicColor) ColorSchemeMode.MonetDark else ColorSchemeMode.Dark
-
-            themeConfig.forceDarkMode == false ->
-                if (themeConfig.useDynamicColor) ColorSchemeMode.MonetLight else ColorSchemeMode.Light
-
-            else ->
-                if (themeConfig.useDynamicColor) ColorSchemeMode.MonetSystem else ColorSchemeMode.System
+        when (themeConfig.forceDarkMode) {
+            true -> ColorSchemeMode.MonetDark
+            false -> ColorSchemeMode.MonetLight
+            null -> ColorSchemeMode.MonetSystem
         },
         keyColor = resolvedKeyColor,
         isDark = darkTheme,
