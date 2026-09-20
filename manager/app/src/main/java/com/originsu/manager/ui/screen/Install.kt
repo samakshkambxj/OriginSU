@@ -72,7 +72,9 @@ import com.originsu.manager.ui.component.DialogHandle
 import com.originsu.manager.ui.component.rememberConfirmDialog
 import com.originsu.manager.ui.component.rememberCustomDialog
 import com.originsu.manager.ui.component.settings.AppBackButton
+import com.originsu.manager.ui.component.settings.SegmentedColumn
 import com.originsu.manager.ui.component.settings.SettingsChooseDialog
+import com.originsu.manager.ui.component.settings.SettingsChooseWidget
 import com.originsu.manager.ui.navigation.LocalNavigator
 import com.originsu.manager.ui.navigation.Route
 import com.originsu.manager.ui.screen.kernelFlash.component.SlotSelectionDialog
@@ -93,6 +95,12 @@ import top.yukonga.miuix.kmp.utils.scrollEndHaptic
  * @date 2025/5/31.
  */
 
+enum class KpmPatchOption {
+    FOLLOW_KERNEL,
+    PATCH_KPM,
+    UNDO_PATCH_KPM
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun InstallScreen(
@@ -106,6 +114,7 @@ fun InstallScreen(
     val context = LocalContext.current
     var installMethod by remember { mutableStateOf<InstallMethod?>(null) }
     var lkmSelection by remember { mutableStateOf<LkmSelection>(LkmSelection.KmiNone) }
+    var kpmPatchOption by remember { mutableStateOf(KpmPatchOption.FOLLOW_KERNEL) }
     var showSlotSelectionDialog by remember { mutableStateOf(false) }
     var tempKernelUri by remember { mutableStateOf<Uri?>(null) }
     // 0 = LKM tab, 1 = GKI tab.
@@ -167,7 +176,9 @@ fun InstallScreen(
                         navigator.push(
                             Route.KernelFlash(
                                 kernelUri = uri.toString(),
-                                selectedSlot = method.slot
+                                selectedSlot = method.slot,
+                                kpmPatchEnabled = kpmPatchOption == KpmPatchOption.PATCH_KPM,
+                                kpmUndoPatch = kpmPatchOption == KpmPatchOption.UNDO_PATCH_KPM
                             )
                         )
                     }
@@ -325,6 +336,8 @@ fun InstallScreen(
                 lkmSelection = lkmSelection,
                 onLkmUpload = onLkmUpload,
                 onClickNext = onClickNext,
+                kpmPatchOption = kpmPatchOption,
+                onKpmPatchOptionChanged = { kpmPatchOption = it },
                 containerColor = MaterialTheme.colorScheme.primary,
                 disabledContainerColor = MaterialTheme.colorScheme.surfaceBright.copy(
                     alpha = cardConfig.cardAlpha
@@ -355,6 +368,8 @@ private fun InstallBody(
     lkmSelection: LkmSelection,
     onLkmUpload: () -> Unit,
     onClickNext: () -> Unit,
+    kpmPatchOption: KpmPatchOption = KpmPatchOption.FOLLOW_KERNEL,
+    onKpmPatchOptionChanged: (KpmPatchOption) -> Unit = {},
     containerColor: Color,
     disabledContainerColor: Color,
     blurEnabled: Boolean,
@@ -608,6 +623,13 @@ private fun InstallBody(
                             modifier = Modifier.padding(vertical = 8.dp)
                         )
                     }
+
+                    if ((installMethod as? InstallMethod.HorizonKernel)?.uri != null) {
+                        KpmPatchOptionSelector(
+                            selectedOption = kpmPatchOption,
+                            onOptionChanged = onKpmPatchOptionChanged
+                        )
+                    }
                 } else {
                     Text(
                         text = stringResource(R.string.root_required),
@@ -645,6 +667,41 @@ private fun InstallBody(
         }
 
         Spacer(modifier = Modifier.height(innerPaddingBottom + 16.dp))
+    }
+}
+
+@Composable
+private fun KpmPatchOptionSelector(
+    selectedOption: KpmPatchOption,
+    onOptionChanged: (KpmPatchOption) -> Unit,
+) {
+    val options = KpmPatchOption.entries.toList()
+    val labels = listOf(
+        stringResource(R.string.kpm_follow_kernel_file),
+        stringResource(R.string.enable_kpm_patch),
+        stringResource(R.string.enable_kpm_undo_patch)
+    )
+    val descriptions = listOf(
+        stringResource(R.string.kpm_follow_kernel_description),
+        stringResource(R.string.kpm_patch_switch_description),
+        stringResource(R.string.kpm_undo_patch_switch_description)
+    )
+    SegmentedColumn(
+        title = stringResource(R.string.kpm_patch_options),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        item {
+            SettingsChooseWidget(
+                title = stringResource(R.string.kpm_patch_options),
+                description = stringResource(R.string.kpm_patch_description),
+                items = labels,
+                itemDescriptions = descriptions,
+                selectedIndex = options.indexOf(selectedOption).takeIf { it >= 0 } ?: 0,
+                onSelectedIndexChange = { index ->
+                    options.getOrNull(index)?.let(onOptionChanged)
+                }
+            )
+        }
     }
 }
 

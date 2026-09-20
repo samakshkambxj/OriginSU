@@ -312,6 +312,63 @@ class KsuCliRepository(context: Context) {
         return Natives.getSuperuserCount()
     }
 
+    // ---- KPM (KernelPatch Module) management ----
+
+    fun loadKpmModule(path: String, args: String? = null): String {
+        val shell = getRootShell()
+        val cmd = buildString {
+            append("${getKsuDaemonPath()} kpm load $path")
+            if (!args.isNullOrBlank()) append(" $args")
+        }
+        return ShellUtils.fastCmd(shell, cmd)
+    }
+
+    fun unloadKpmModule(name: String): String {
+        val shell = getRootShell()
+        return ShellUtils.fastCmd(shell, "${getKsuDaemonPath()} kpm unload $name")
+    }
+
+    fun getKpmModuleCount(): Int {
+        val shell = getRootShell()
+        val result = ShellUtils.fastCmd(shell, "${getKsuDaemonPath()} kpm num")
+        return result.trim().toIntOrNull() ?: 0
+    }
+
+    fun listKpmModules(): String {
+        val shell = getRootShell()
+        return try {
+            runCmd(shell, "${getKsuDaemonPath()} kpm list").trim()
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to list KPM modules", e)
+            ""
+        }
+    }
+
+    fun getKpmModuleInfo(name: String): String {
+        val shell = getRootShell()
+        return try {
+            runCmd(shell, "${getKsuDaemonPath()} kpm info $name").trim()
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to get KPM module info: $name", e)
+            ""
+        }
+    }
+
+    fun controlKpmModule(name: String, args: String? = null): Int {
+        val shell = getRootShell()
+        val cmd = "${getKsuDaemonPath()} kpm control $name \"${args.orEmpty()}\""
+        return runCmd(shell, cmd).trim().toIntOrNull() ?: -1
+    }
+
+    fun getKpmVersion(): String {
+        val shell = getRootShell()
+        return ShellUtils.fastCmd(shell, "${getKsuDaemonPath()} kpm version").trim()
+    }
+
+    fun isKpmEnabled(): Boolean {
+        return runCatching { Natives.isKPMEnabled() }.getOrDefault(false)
+    }
+
     fun toggleModule(id: String, enable: Boolean): Boolean {
         val cmd = if (enable) {
             "module enable $id"

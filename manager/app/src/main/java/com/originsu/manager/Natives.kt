@@ -182,6 +182,7 @@ object Natives {
     external fun isSelinuxHideEnabled(): Boolean
     external fun setSelinuxHideEnabled(enabled: Boolean): Int
 
+    external fun isKPMEnabled(): Boolean
     external fun getHookType(): String
 
     /**

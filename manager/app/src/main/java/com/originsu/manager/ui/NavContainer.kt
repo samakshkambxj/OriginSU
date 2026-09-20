@@ -698,7 +698,12 @@ fun NavContainer(
                     backgroundRenderState = backgroundRenderState,
                     useBlur = useBlur,
                 ) {
-                    KernelFlashScreen(key.kernelUri, key.selectedSlot)
+                    KernelFlashScreen(
+                        key.kernelUri,
+                        key.selectedSlot,
+                        key.kpmPatchEnabled,
+                        key.kpmUndoPatch
+                    )
                 }
             }
         }

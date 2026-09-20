@@ -135,9 +135,28 @@ class HomeViewModel(
                     }
                     val managers = async { getManagerRuntimeInfo() }
                     val susfs = async { getSuSFSStatus() }
+                    val kpm = async {
+                        runCatching {
+                            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                val enabled = ksuCliRepository.isKpmEnabled()
+                                val version = if (enabled) {
+                                    ksuCliRepository.getKpmVersion()
+                                } else {
+                                    ""
+                                }
+                                val count = if (version.isNotBlank()) {
+                                    ksuCliRepository.getKpmModuleCount()
+                                } else {
+                                    0
+                                }
+                                Triple(enabled, version, count)
+                            }
+                        }.getOrDefault(Triple(false, "", 0))
+                    }
                     val basicInfo = basic.await()
                     val managerInfo = managers.await()
                     val susfsInfo = susfs.await()
+                    val kpmInfo = kpm.await()
                     homeStateRepository.update { current ->
                         current.copy(
                             systemInfo = HomeSystemInfo(
@@ -156,6 +175,9 @@ class HomeViewModel(
                                 isDynamicSignEnabled = managerInfo.dynamicSignatureEnabled,
                                 seccompStatus = basicInfo.seccompStatus,
                                 lastFlashTime = getLongPreference(LAST_FLASH_PREF_KEY, 0L),
+                                isKpmEnabled = kpmInfo.first,
+                                kpmVersion = kpmInfo.second,
+                                kpmModuleCount = kpmInfo.third,
                             ),
                             isInitialDataLoaded = true,
                             isExtendedDataLoaded = true,

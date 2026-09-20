@@ -12,6 +12,8 @@ data class FlashProgress(
 data class KernelFlashSession(
     val requestUri: String? = null,
     val selectedSlot: String? = null,
+    val kpmPatchEnabled: Boolean = false,
+    val kpmUndoPatch: Boolean = false,
     val progress: FlashProgress = FlashProgress(),
     val fullLog: String = "",
 )

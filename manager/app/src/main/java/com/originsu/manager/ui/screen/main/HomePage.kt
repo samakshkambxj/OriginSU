@@ -885,6 +885,17 @@ private fun InfoCard(
                 description = systemInfo.susfsVersion,
             )
         }
+
+        item(
+            visible = !isSimpleMode && systemInfo.isKpmEnabled && systemInfo.kpmVersion.isNotEmpty()
+        ) {
+            SettingsBaseWidget(
+                icon = Icons.TwoTone.Memory.takeIf { showHomeCardIcons },
+                iconPlaceholder = false,
+                title = stringResource(R.string.home_kpm_version),
+                description = stringResource(R.string.kpm_supported, systemInfo.kpmVersion),
+            )
+        }
     }
 
     SegmentedColumn(

@@ -224,6 +224,13 @@ enum Commands {
         command: VeilOp,
     },
 
+    /// KPM module manager
+    #[cfg(all(target_arch = "aarch64", target_os = "android"))]
+    Kpm {
+        #[command(subcommand)]
+        command: Kpm,
+    },
+
     /// Run the root-request notifier daemon. Not for user. Use `ksud debug su-notifyd`.
     #[command(hide = true)]
     SuNotifyd,
@@ -626,6 +633,25 @@ enum VeilOp {
     Save,
 }
 
+#[cfg(all(target_arch = "aarch64", target_os = "android"))]
+#[derive(clap::Subcommand, Debug)]
+pub enum Kpm {
+    /// Load a KPM module: load <path> [args]
+    Load { path: PathBuf, args: Option<String> },
+    /// Unload a KPM module: unload <name>
+    Unload { name: String },
+    /// Get number of loaded modules
+    Num,
+    /// List loaded KPM modules
+    List,
+    /// Get info of a KPM module: info <name>
+    Info { name: String },
+    /// Send control command to a KPM module: control <name> <args>
+    Control { name: String, args: String },
+    /// Print KPM Loader version
+    Version,
+}
+
 #[derive(clap::Subcommand, Debug)]
 enum BootloopOp {
     /// Show protection status as JSON
@@ -890,6 +916,25 @@ pub fn run() -> Result<()> {
             VeilOp::Save => {
                 veil::persist();
                 Ok(())
+            }
+        },
+        #[cfg(all(target_arch = "aarch64", target_os = "android"))]
+        Commands::Kpm { command } => {
+            use crate::android::kpm;
+            match command {
+                Kpm::Load { path, args } => {
+                    kpm::load_module(path.to_str().unwrap(), args.as_deref())
+                }
+                Kpm::Unload { name } => kpm::unload_module(name),
+                Kpm::Num => kpm::num().map(|_| ()),
+                Kpm::List => kpm::list(),
+                Kpm::Info { name } => kpm::info(name),
+                Kpm::Control { name, args } => {
+                    let ret = kpm::control(name, args)?;
+                    println!("{ret}");
+                    Ok(())
+                }
+                Kpm::Version => kpm::version(),
             }
         },
         Commands::Debug { command } => match command {

@@ -25,6 +25,7 @@ import com.originsu.manager.data.logging.BugreportRepository
 import com.originsu.manager.data.logging.SulogRepository
 import com.originsu.manager.data.module.ModuleActionRepository
 import com.originsu.manager.data.module.ModuleCatalogRepository
+import com.originsu.manager.data.module.KpmRepository
 import com.originsu.manager.data.module.ModulePreferencesRepository
 import com.originsu.manager.data.module.ModuleRepository
 import com.originsu.manager.data.network.NetworkRequestRepository
@@ -182,6 +183,7 @@ import com.originsu.manager.ui.viewmodel.FlashViewModel
 import com.originsu.manager.ui.viewmodel.HomeViewModel
 import com.originsu.manager.ui.viewmodel.InstallViewModel
 import com.originsu.manager.ui.viewmodel.KernelFlashViewModel
+import com.originsu.manager.ui.viewmodel.KpmViewModel
 import com.originsu.manager.ui.viewmodel.MainIntentViewModel
 import com.originsu.manager.ui.viewmodel.ModuleDetailViewModel
 import com.originsu.manager.ui.viewmodel.ModuleRepoViewModel
@@ -318,6 +320,7 @@ val repositoryModule = module {
     singleOf(::UmountRepository)
     singleOf(::ModuleCatalogRepository)
     singleOf(::ModuleRepository)
+    singleOf(::KpmRepository)
     singleOf(::ModulePreferencesRepository)
     singleOf(::ModuleActionRepository)
     singleOf(::WebResourceRepository)
@@ -497,6 +500,7 @@ val viewModelModule = module {
         )
     }
     viewModelOf(::ModuleViewModel)
+    viewModelOf(::KpmViewModel)
     viewModelOf(::SuperUserViewModel)
     viewModelOf(::AppIconViewModel)
     viewModelOf(::UpdaterViewModel)
