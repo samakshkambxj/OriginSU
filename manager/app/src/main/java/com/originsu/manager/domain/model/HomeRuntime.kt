@@ -13,6 +13,7 @@ data class HomeBasicInfo(
 
 data class HomeModuleOverview(
     val count: Int = 0,
+    val zygiskImplementation: String = "",
     val metaModuleImplementation: String = "",
 )
 
@@ -30,6 +31,7 @@ data class HomeSystemInfo(
     val moduleCount: Int = 0,
     val managersList: ManagerRuntimeInfo? = null,
     val isDynamicSignEnabled: Boolean = false,
+    val zygiskImplement: String = "",
     val metaModuleImplement: String = "",
     val seccompStatus: Int = -1,
     val lastFlashTime: Long = 0L,

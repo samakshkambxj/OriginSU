@@ -3,6 +3,7 @@ package com.originsu.manager.data.flash
 import android.app.Application
 import android.net.Uri
 import androidx.core.net.toUri
+import com.originsu.manager.R
 import com.originsu.manager.data.file.ModuleFileRepository
 import com.originsu.manager.data.shell.KsuCliRepository
 import com.originsu.manager.domain.model.FlashOperation
@@ -137,13 +138,24 @@ class FlashRepository(
                     )
 
                     is FlashOperation.Module -> {
-                        ksuCliRepository.flashModule(
-                            application,
-                            operation.uri.toUri(),
-                            onFinish,
-                            onStdout,
-                            onStderr,
-                        )
+                        val moduleId = runCatching {
+                            moduleFileRepository.extractModuleId(operation.uri)
+                        }.getOrNull()
+                        if (moduleId in KsuCliRepository.BLOCKED_ZYGISK_IMPL_IDS &&
+                            runCatching { ksuCliRepository.isOriginZygiskEnabled() }
+                                .getOrDefault(false)
+                        ) {
+                            onStderr(application.getString(R.string.zygisk_provider_blocked))
+                            onFinish(false, 1)
+                        } else {
+                            ksuCliRepository.flashModule(
+                                application,
+                                operation.uri.toUri(),
+                                onFinish,
+                                onStdout,
+                                onStderr,
+                            )
+                        }
                     }
 
                     is FlashOperation.AnyKernelZip -> ksuCliRepository.flashAnyKernelZip(

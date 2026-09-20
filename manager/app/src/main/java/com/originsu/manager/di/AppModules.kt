@@ -483,7 +483,7 @@ val viewModelModule = module {
         SettingsViewModel(
             get(), get(), get(), get(), get(), get(), get(), get(), get(), get(),
             get(), get(), get(), get(), get(), get(), get(), get(), get(), get(),
-            get(), get(), get(),
+            get(), get(), get(), get(),
         )
     }
     viewModelOf(::ModuleViewModel)

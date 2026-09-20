@@ -594,6 +594,7 @@ private fun TopBar(
                         appendLine("Hook: ${status.hookType}")
                         appendLine("Mode: $mode")
                         appendLine("SELinux: ${info.selinuxStatus}")
+                        appendLine("Zygisk: ${info.zygiskImplement}")
                     }.trimEnd()
                     val clipboard =
                         copyContext.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
@@ -1002,6 +1003,17 @@ private fun InfoCard(
                 iconPlaceholder = false,
                 title = stringResource(R.string.home_hook_type),
                 description = systemStatus.hookType,
+            )
+        }
+
+        item(
+            visible = !isSimpleMode && systemInfo.zygiskImplement.isNotEmpty() && systemInfo.zygiskImplement != "None"
+        ) {
+            SettingsBaseWidget(
+                icon = Icons.TwoTone.Extension.takeIf { showHomeCardIcons },
+                iconPlaceholder = false,
+                title = stringResource(R.string.home_zygisk_implement),
+                description = systemInfo.zygiskImplement,
             )
         }
 
