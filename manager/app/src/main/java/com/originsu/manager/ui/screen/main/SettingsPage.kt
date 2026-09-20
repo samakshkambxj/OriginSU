@@ -248,26 +248,6 @@ fun SettingsPage(bottomPadding: Dp) {
                             }
 
                             item {
-                                val biometricsAvailable = remember {
-                                    canAuthenticateSecureRoot(context)
-                                }
-                                SettingsSwitchWidget(
-                                    icon = Icons.TwoTone.Fingerprint,
-                                    title = stringResource(id = R.string.settings_secure_root),
-                                    description = stringResource(id = R.string.settings_secure_root_summary),
-                                    enabled = biometricsAvailable,
-                                    checked = uiState.isSecureRootEnabled && biometricsAvailable,
-                                    onCheckedChange = { enabled ->
-                                        settingsViewModel.dispatch(
-                                            SettingsUiAction.SetSecureRootEnabled(
-                                                enabled
-                                            )
-                                        )
-                                    },
-                                )
-                            }
-
-                            item {
                                 val umountSummary = when (uiState.kernelUmountStatus) {
                                     "unsupported" -> stringResource(id = R.string.feature_status_unsupported_summary)
                                     "managed" -> stringResource(id = R.string.feature_status_managed_summary)
@@ -560,6 +540,42 @@ fun SettingsPage(bottomPadding: Dp) {
                                         SettingsUiAction.SetBootloopMax(index + 2)
                                     )
                                 },
+                            )
+                        }
+
+                        item {
+                            val biometricsAvailable = remember {
+                                canAuthenticateSecureRoot(context)
+                            }
+                            SettingsSwitchWidget(
+                                icon = Icons.TwoTone.Fingerprint,
+                                title = stringResource(id = R.string.settings_secure_root),
+                                description = stringResource(id = R.string.settings_secure_root_summary),
+                                enabled = biometricsAvailable,
+                                checked = uiState.isSecureRootEnabled && biometricsAvailable,
+                                onCheckedChange = { enabled ->
+                                    settingsViewModel.dispatch(
+                                        SettingsUiAction.SetSecureRootEnabled(
+                                            enabled
+                                        )
+                                    )
+                                },
+                            )
+                        }
+
+                        item {
+                            SettingsSwitchWidget(
+                                icon = Icons.TwoTone.Policy,
+                                title = stringResource(R.string.settings_originguard),
+                                description = stringResource(R.string.settings_originguard_summary),
+                                checked = uiState.isOriginGuardEnabled,
+                                onCheckedChange = { enabled ->
+                                    settingsViewModel.dispatch(
+                                        SettingsUiAction.SetOriginGuardEnabled(
+                                            enabled
+                                        )
+                                    )
+                                }
                             )
                         }
                     }

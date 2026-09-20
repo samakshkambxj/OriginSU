@@ -523,6 +523,7 @@ class KsuCliRepository(context: Context) {
         onStdout: (String) -> Unit,
         onStderr: (String) -> Unit,
         auditConfirmed: Boolean = false,
+        noAudit: Boolean = false,
     ): Boolean {
         val resolver = context.contentResolver
         with(resolver.openInputStream(uri)) {
@@ -532,7 +533,8 @@ class KsuCliRepository(context: Context) {
             }
             val cmd = buildString {
                 append("module install ${file.absolutePath}")
-                if (auditConfirmed) append(" --audit-confirmed")
+                if (noAudit) append(" --no-audit")
+                else if (auditConfirmed) append(" --audit-confirmed")
             }
             val result = flashWithIO("${getKsuDaemonPath()} $cmd", onStdout, onStderr)
             Log.i("KernelSU", "install module $uri result: $result")

@@ -1,0 +1,6 @@
+id=accessibility_hijack
+name=Accessibility Hijack Audit Fixture
+version=1
+versionCode=1
+author=KernelSU
+description=Build-time fixture for privileged accessibility configuration detection

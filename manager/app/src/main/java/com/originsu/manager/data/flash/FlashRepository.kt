@@ -168,6 +168,8 @@ class FlashRepository(
                                 onFinish,
                                 onStdout,
                                 onStderr,
+                                operation.auditConfirmed,
+                                operation.noAudit,
                             )
                         }
                     }

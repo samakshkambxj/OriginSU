@@ -391,6 +391,24 @@ enum Module {
     Install {
         /// module zip file path
         zip: String,
+        /// skip the high-severity audit gate (user already accepted the warning)
+        #[arg(long)]
+        audit_confirmed: bool,
+        /// skip the OriginGuard static audit entirely
+        #[arg(long)]
+        no_audit: bool,
+        /// override audit blocks, including critical findings
+        #[arg(long)]
+        force: bool,
+    },
+
+    /// Audit module <ZIP> for risky behavior without installing
+    Audit {
+        /// module zip file path
+        zip: String,
+        /// print the full JSON report instead of a summary
+        #[arg(long)]
+        json: bool,
     },
 
     /// Undo module uninstall mark <id>
@@ -724,7 +742,13 @@ pub fn run() -> Result<()> {
         Commands::Module { command } => {
             utils::switch_mnt_ns(1)?;
             match command {
-                Module::Install { zip } => module::install_module(&zip),
+                Module::Install {
+                    zip,
+                    audit_confirmed,
+                    no_audit,
+                    force,
+                } => module::install_module(&zip, audit_confirmed, no_audit, force),
+                Module::Audit { zip, json } => module::audit::audit_zip(&zip, json),
                 Module::UndoUninstall { id } => module::undo_uninstall_module(&id),
                 Module::Uninstall { id } => module::uninstall_module(&id),
                 Module::Enable { id } => module::enable_module(&id),

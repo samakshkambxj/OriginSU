@@ -1,0 +1,6 @@
+id=audit_test_partition
+name=Audit partition write test
+version=1
+versionCode=1
+author=KernelSU tests
+description=Inert static audit fixture

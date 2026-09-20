@@ -23,6 +23,7 @@ import com.originsu.manager.data.grant.GrantToastRepository
 import com.originsu.manager.data.shortcuts.AppShortcutsRepository
 import com.originsu.manager.data.su.SuRequestRepository
 import com.originsu.manager.domain.usecase.GetBooleanPreferenceUseCase
+import com.originsu.manager.domain.usecase.ORIGINGUARD_PREF_KEY
 import com.originsu.manager.domain.usecase.GetBootloopStatusUseCase
 import com.originsu.manager.domain.usecase.GetKernelFeatureSettingsUseCase
 import com.originsu.manager.domain.usecase.GetPlatformFeatureStatusUseCase
@@ -123,6 +124,7 @@ data class SettingsUiState(
     val defaultUmountModules: Boolean = false,
     val useBuiltinMonoFont: Boolean = false,
     val isSecureRootEnabled: Boolean = false,
+    val isOriginGuardEnabled: Boolean = true,
     val isThemedShortcutsEnabled: Boolean = false,
     val isOriginZygiskEnabled: Boolean = false,
     val isOriginZygiskRunning: Boolean = false,
@@ -178,7 +180,7 @@ sealed interface SettingsUiAction {
     data object RefreshOverlayPermission : SettingsUiAction
     data class SetDefaultUmountModules(val enabled: Boolean) : SettingsUiAction
     data class SetSecureRootEnabled(val enabled: Boolean) : SettingsUiAction
-    data class SetThemedShortcutsEnabled(val enabled: Boolean) : SettingsUiAction
+    data class SetOriginGuardEnabled(val enabled: Boolean) : SettingsUiAction    data class SetThemedShortcutsEnabled(val enabled: Boolean) : SettingsUiAction
     data class SetOriginZygiskEnabled(val enabled: Boolean) : SettingsUiAction
     data object RefreshOriginZygisk : SettingsUiAction
     data object RefreshBootloop : SettingsUiAction
@@ -241,6 +243,7 @@ class SettingsViewModel(
         mutableState.update {
             it.copy(
                 isSecureRootEnabled = getBooleanPreference(SECURE_ROOT_PREF_KEY, false),
+                isOriginGuardEnabled = getBooleanPreference(ORIGINGUARD_PREF_KEY, true),
                 isThemedShortcutsEnabled = appShortcutsRepository.isThemed(),
                 topBarLogo = topBarLogoRepository.state.value,
                 uiMode = uiModeRepository.state.value,
@@ -442,6 +445,11 @@ class SettingsViewModel(
     fun handleSecureRootChange(enabled: Boolean) {
         setBooleanPreference(SECURE_ROOT_PREF_KEY, enabled)
         mutableState.update { it.copy(isSecureRootEnabled = enabled) }
+    }
+
+    fun handleOriginGuardChange(enabled: Boolean) {
+        setBooleanPreference(ORIGINGUARD_PREF_KEY, enabled)
+        mutableState.update { it.copy(isOriginGuardEnabled = enabled) }
     }
 
     fun handleThemedShortcutsChange(enabled: Boolean) {
@@ -681,6 +689,8 @@ fun dispatch(action: SettingsUiAction) {
                 handleDefaultUmountModulesChange(action.enabled)
             is SettingsUiAction.SetSecureRootEnabled ->
                 handleSecureRootChange(action.enabled)
+            is SettingsUiAction.SetOriginGuardEnabled ->
+                handleOriginGuardChange(action.enabled)
             is SettingsUiAction.SetThemedShortcutsEnabled ->
                 handleThemedShortcutsChange(action.enabled)
             is SettingsUiAction.SetOriginZygiskEnabled ->

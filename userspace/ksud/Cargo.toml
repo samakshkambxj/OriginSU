@@ -23,6 +23,7 @@ regex-lite = "0.1"
 android-bootimg = { git = "https://github.com/ReSukiSU/android_bootimg", rev = "150425b027c76ea104c82e408571651f2181b2c2" }
 memmap2 = "0.9.10"
 bitflags = "2.11.0"
+ksu-module-audit = { path = "../module-audit" }
 base16ct = { version = "1.0.0", features = ["alloc"] }
 figlet-rs = "1.0.0"
 memchr = "2.8.3"

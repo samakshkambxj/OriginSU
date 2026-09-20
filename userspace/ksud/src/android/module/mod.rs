@@ -1,3 +1,4 @@
+pub mod audit;
 pub mod metamodule;
 pub mod module_config;
 
@@ -682,7 +683,12 @@ fn install_module_to_system(zip: &str) -> Result<()> {
     Ok(())
 }
 
-pub fn install_module(zip: &str) -> Result<()> {
+pub fn install_module(zip: &str, audit_confirmed: bool, no_audit: bool, force: bool) -> Result<()> {
+    // Static audit before extracting or executing any module-controlled content.
+    if !no_audit {
+        audit::gate_install(zip, audit_confirmed, force)?;
+    }
+
     ksucalls::ensure_uapi_version_matched()?;
 
     let result = install_module_to_system(zip);

@@ -26,6 +26,7 @@ import com.originsu.manager.data.logging.SulogRepository
 import com.originsu.manager.data.module.ModuleActionRepository
 import com.originsu.manager.data.module.ModuleCatalogRepository
 import com.originsu.manager.data.module.KpmRepository
+import com.originsu.manager.data.module.ModuleAuditRepository
 import com.originsu.manager.data.module.ModulePreferencesRepository
 import com.originsu.manager.data.module.ModuleRepository
 import com.originsu.manager.data.network.NetworkRequestRepository
@@ -57,6 +58,7 @@ import com.originsu.manager.data.webui.WebUiRepository
 import com.originsu.manager.domain.text.TextTransliterator
 import com.originsu.manager.domain.usecase.AddUmountPathUseCase
 import com.originsu.manager.domain.usecase.ApplyLanguageUseCase
+import com.originsu.manager.domain.usecase.AuditModuleUseCase
 import com.originsu.manager.domain.usecase.ClearBootloopNoticeUseCase
 import com.originsu.manager.domain.usecase.BackupAllowlistUseCase
 import com.originsu.manager.domain.usecase.CalculateInstalledModuleSizeUseCase
@@ -326,6 +328,7 @@ val repositoryModule = module {
     singleOf(::WebResourceRepository)
     singleOf(::WebUiRepository)
     singleOf(::ModuleFileRepository)
+    singleOf(::ModuleAuditRepository)
     singleOf(::ProfileRepository)
     singleOf(::ProfileTemplateRepository)
     singleOf(::SuSFSConfigHelper)
@@ -457,6 +460,7 @@ val useCaseModule = module {
     factoryOf(::TakeModuleUriPermissionUseCase)
     factoryOf(::ExtractModuleNameUseCase)
     factoryOf(::ExtractModuleIdUseCase)
+    factoryOf(::AuditModuleUseCase)
     factoryOf(::ObserveInstalledModulesUseCase)
     factoryOf(::RefreshInstalledModulesUseCase)
     factoryOf(::CalculateInstalledModuleSizeUseCase)

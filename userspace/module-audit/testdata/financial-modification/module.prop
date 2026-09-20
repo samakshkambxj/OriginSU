@@ -1,0 +1,6 @@
+id=financial_modification
+name=Financial Modification Audit Fixture
+version=1
+versionCode=1
+author=KernelSU
+description=Build-time fixture for financial application modification detection
