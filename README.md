@@ -44,13 +44,16 @@
 
 **Origin Lab**
 
-1. Time-limited grants: give root for N minutes, auto-revoked by a persistent waiter plus a sweep on every `ksud` start
-2. Origin Veil: kernel-side root-probe detection with a per-app cloak set that hides module mounts from probing apps
+1. Time-limited grants: give root for 10 min / 30 min / 1 h / 8 h / 24 h, auto-revoked by a persistent waiter plus a sweep on every `ksud` start
+2. Origin Veil: kernel-side root-probe detection with a per-app cloak set that hides module mounts from probing apps, plus reboot persistence, per-app detail, Spy live log and su-notify (Grant/Cloak/Ignore)
 3. Origin Zygisk (BreZygisk-based) ships inside the manager: deploy, status and kill-switch in Settings > Origin Lab, no provider module needed
 4. Built-in SuSFS manager with a one-tap strong-hiding preset
-5. Automatic bootloop protection: disables all modules after consecutive failed boots and tells you about the rescue
-6. Inbuilt kernel flasher: direct install, AnyKernel zips, offline `boot.img` patching and Horizon kernels, with LKM and GKI flows
-7. Manager updater with stable/beta channels, dynamic manager support and a multi-icon app-icon picker
+5. OriginGuard: static pre-install audit of module zips — critical findings block the install, high-severity findings ask first; toggle in Settings > Origin Lab
+6. KPM support: kernel `CONFIG_KPM` (64-bit) plus a manager KPM tab gated on KPM status — load now or embed to `/data/adb/kpm`, with patch / undo-patch options at flash time
+7. Automatic bootloop protection: disables all modules after consecutive failed boots and tells you about the rescue
+8. Inbuilt kernel flasher: direct install, AnyKernel zips, offline `boot.img` patching and Horizon kernels, with LKM and GKI flows
+9. Manager updater with stable/beta channels and dynamic manager support
+10. Extensive manager customization support
 
 ## Installation
 
@@ -69,6 +72,7 @@
 | Architectures | `arm64-v8a`, `armeabi-v7a`, `x86_64` |
 | [SuSFS](https://gitlab.com/simonpunk/susfs4ksu) backport | Kernel 4.3+ only |
 | Tracepoint Syscall Redirect hook | GKI2 (5.10+) kernels only |
+| KPM (`CONFIG_KPM`) | 64-bit kernels only |
 
 ## Hook mode
 
@@ -87,9 +91,7 @@ manager APKs and LKM modules. Required Actions secrets: `KEYSTORE`,
 
 ## Roadmap
 
-- KPM (KernelPatch module) support
-- **Inbuilt kernel manager**: flash, back up and manage kernels from inside the app
-- MIUI / official-style theme options
+- Extensive manager customization support
 - Magic Mount for wider module compatibility
 
 See `docs/feature-porting-plan.md` for the full porting status.
