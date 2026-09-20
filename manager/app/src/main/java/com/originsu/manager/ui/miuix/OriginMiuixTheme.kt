@@ -28,6 +28,15 @@ import top.yukonga.miuix.kmp.theme.ThemePaletteStyle
  */
 val LocalEnableBlur = staticCompositionLocalOf { false }
 
+/**
+ * Card colors lifted one tonal step so flat cards stay visible on the
+ * manager-matched page background.
+ */
+@Composable
+fun homeCardColors() = top.yukonga.miuix.kmp.basic.CardDefaults.defaultColors(
+    color = MiuixTheme.colorScheme.surfaceContainerHigh,
+)
+
 @Composable
 fun OriginMiuixTheme(content: @Composable () -> Unit) {
     val themeConfig: ThemeConfig = koinInject()

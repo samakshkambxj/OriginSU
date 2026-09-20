@@ -61,6 +61,7 @@ import com.originsu.manager.ui.component.miuix.WarningCard
 import com.originsu.manager.ui.component.rebootlistpopup.RebootListPopupMiuix
 import com.originsu.manager.ui.miuix.LocalEnableBlur
 import com.originsu.manager.ui.miuix.OriginMiuixTheme
+import com.originsu.manager.ui.miuix.homeCardColors
 import com.originsu.manager.ui.navigation.LocalNavigator
 import com.originsu.manager.ui.navigation.Route
 import com.originsu.manager.ui.util.BlurredBar
@@ -200,6 +201,7 @@ private fun HomePagerMiuix(
                 barColor = barColor,
             )
         },
+        containerColor = androidx.compose.material3.MaterialTheme.colorScheme.surfaceContainer,
         contentWindowInsets = WindowInsets.systemBars.add(WindowInsets.displayCutout).only(WindowInsetsSides.Horizontal)
     ) { innerPadding ->
         Box(modifier = if (backdrop != null) Modifier.layerBackdrop(backdrop) else Modifier) {
@@ -306,6 +308,8 @@ private fun TopBar(
         TopAppBar(
             color = barColor,
             title = stringResource(R.string.app_name),
+            titlePadding = 12.dp,
+            actionIconPadding = 12.dp,
             actions = {
                 RebootListPopupMiuix(
                     status = status,
@@ -413,6 +417,7 @@ private fun StatusCard(
                             .fillMaxHeight()
                     ) {
                         Card(
+                            colors = homeCardColors(),
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .weight(1f),
@@ -440,6 +445,7 @@ private fun StatusCard(
                         }
                         Spacer(Modifier.height(12.dp))
                         Card(
+                            colors = homeCardColors(),
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .weight(1f),
@@ -472,6 +478,7 @@ private fun StatusCard(
             status.kernelVersion.isGKI() -> {
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     Card(
+                        colors = homeCardColors(),
                         modifier = Modifier.weight(1f),
                         onClick = {
                             if (!status.isLateLoadMode) {
@@ -508,6 +515,7 @@ private fun StatusCard(
 
             else -> {
                 Card(
+                    colors = homeCardColors(),
                     onClick = {
                         if (!status.isLateLoadMode) {
                             actions.onInstallClick()
@@ -539,7 +547,7 @@ private fun LearnMoreCard(
     onOpenUrl: (String) -> Unit,
 ) {
     val url = stringResource(R.string.home_learn_kernelsu_url)
-    Card(modifier = Modifier.fillMaxWidth()) {
+    Card(modifier = Modifier.fillMaxWidth(), colors = homeCardColors()) {
         BasicComponent(
             title = stringResource(R.string.home_learn_kernelsu),
             summary = stringResource(R.string.home_click_to_learn_kernelsu),
@@ -557,7 +565,7 @@ private fun LearnMoreCard(
 
 @Composable
 private fun DonateCard(onOpenUrl: (String) -> Unit) {
-    Card(modifier = Modifier.fillMaxWidth()) {
+    Card(modifier = Modifier.fillMaxWidth(), colors = homeCardColors()) {
         BasicComponent(
             title = stringResource(R.string.home_support_title),
             summary = stringResource(R.string.home_support_content),
