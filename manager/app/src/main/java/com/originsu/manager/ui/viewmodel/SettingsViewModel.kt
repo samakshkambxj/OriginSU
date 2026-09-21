@@ -552,7 +552,7 @@ class SettingsViewModel(
 
     fun handleSuPromptChange(checked: Boolean) {
         if (checked && !suRequestRepository.isSupported()) {
-            mutableEvents.tryEmit(SettingsUiEvent.Error("Kernel does not support the blocking prompt yet — update kernel"))
+            mutableEvents.tryEmit(SettingsUiEvent.Message(R.string.settings_su_prompt_unsupported))
             mutableState.update { it.copy(isSuPromptEnabled = false) }
             return
         }

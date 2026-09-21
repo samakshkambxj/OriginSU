@@ -445,9 +445,9 @@ fun SettingsPage(bottomPadding: Dp) {
                             SettingsSwitchWidget(
                                 icon = Icons.TwoTone.Notifications,
                                 title = stringResource(id = R.string.settings_grant_toast),
-                                description = stringResource(id = R.string.feature_temporarily_unavailable),
+                                description = stringResource(id = R.string.settings_grant_toast_summary),
                                 checked = uiState.isGrantToastEnabled,
-                                enabled = false,
+                                enabled = uiState.sulogStatus == "supported",
                                 onCheckedChange = { enabled ->
                                     settingsViewModel.dispatch(
                                         SettingsUiAction.SetGrantToast(enabled)
@@ -460,9 +460,14 @@ fun SettingsPage(bottomPadding: Dp) {
                             SettingsSwitchWidget(
                                 icon = Icons.TwoTone.Security,
                                 title = stringResource(id = R.string.settings_su_prompt),
-                                description = stringResource(id = R.string.feature_temporarily_unavailable),
+                                description = stringResource(
+                                    id = if (uiState.isSuPromptSupported)
+                                        R.string.settings_su_prompt_summary
+                                    else
+                                        R.string.settings_su_prompt_unsupported
+                                ),
                                 checked = uiState.isSuPromptEnabled,
-                                enabled = false,
+                                enabled = uiState.isSuPromptSupported,
                                 onCheckedChange = { enabled ->
                                     settingsViewModel.dispatch(
                                         SettingsUiAction.SetSuPrompt(enabled)
