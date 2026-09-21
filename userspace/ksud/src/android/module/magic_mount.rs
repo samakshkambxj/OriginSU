@@ -13,6 +13,13 @@
 //!   files are bound into it (the marker itself is never exposed).
 //! - Modules with `skip_mount`, or disabled/removed modules, are skipped.
 //!
+//! Overlay backing: overlayfs rejects upper/work dirs on FBE-encrypted
+//! /data, so the work dir itself is turned into a tmpfs at boot and each
+//! module's `system/` tree is staged onto it before mounting. This keeps
+//! upper and work on the same (supported) filesystem on every device. When
+//! the tmpfs cannot be mounted, the pass falls back to on-/data paths,
+//! which still works on unencrypted /data.
+//!
 //! State is a single flag file ([defs::MAGIC_MOUNT_DISABLE_FILE]):
 //! absent means enabled (default). It takes effect on the next boot; the
 //! `ksud module magic-mount` CLI manages it.
@@ -142,8 +149,13 @@ fn metamodule_owns_mounting() -> bool {
 }
 
 fn overlay_supported() -> bool {
+    // Lines look like "nodev\toverlay": compare the last field, not the
+    // whole line.
     std::fs::read_to_string("/proc/filesystems")
-        .map(|s| s.lines().any(|l| l.trim_end() == "overlay"))
+        .map(|s| {
+            s.lines()
+                .any(|l| l.split_whitespace().last() == Some("overlay"))
+        })
         .unwrap_or(false)
 }
 
@@ -160,6 +172,189 @@ fn opt_cstr_ptr(s: Option<&CString>) -> *const libc::c_char {
     s.map_or_else(std::ptr::null, |v| v.as_ptr())
 }
 
+/// Copy `security.*` xattrs (SELinux contexts) from `src` to `dst`.
+/// Best-effort: any failure is ignored so a missing xattr backend never
+/// aborts the pass. Keeps staged files labeled exactly like the originals.
+fn copy_security_xattrs(src: &Path, dst: &Path) {
+    use std::os::unix::ffi::OsStrExt;
+    let (Ok(src_c), Ok(dst_c)) = (
+        CString::new(src.as_os_str().as_bytes()),
+        CString::new(dst.as_os_str().as_bytes()),
+    ) else {
+        return;
+    };
+    let list_len = unsafe { libc::llistxattr(src_c.as_ptr(), std::ptr::null_mut(), 0) };
+    if list_len <= 0 {
+        return;
+    }
+    let mut names = vec![0u8; list_len as usize];
+    let rc = unsafe {
+        libc::llistxattr(
+            src_c.as_ptr(),
+            names.as_mut_ptr().cast::<libc::c_char>(),
+            names.len(),
+        )
+    };
+    if rc < 0 {
+        return;
+    }
+    for name in names[..rc as usize].split(|&b| b == 0) {
+        if name.is_empty() || !name.starts_with(b"security.") {
+            continue;
+        }
+        let vlen = unsafe {
+            libc::lgetxattr(
+                src_c.as_ptr(),
+                name.as_ptr().cast::<libc::c_char>(),
+                std::ptr::null_mut(),
+                0,
+            )
+        };
+        if vlen < 0 {
+            continue;
+        }
+        let mut value = vec![0u8; vlen as usize];
+        let rc = unsafe {
+            libc::lgetxattr(
+                src_c.as_ptr(),
+                name.as_ptr().cast::<libc::c_char>(),
+                value.as_mut_ptr().cast::<libc::c_void>(),
+                value.len(),
+            )
+        };
+        if rc < 0 {
+            continue;
+        }
+        unsafe {
+            libc::lsetxattr(
+                dst_c.as_ptr(),
+                name.as_ptr().cast::<libc::c_char>(),
+                value.as_ptr().cast::<libc::c_void>(),
+                value.len(),
+                0,
+            );
+        }
+    }
+}
+
+/// Recursively copy a tree, preserving symlinks and unix modes plus
+/// `security.*` xattrs best-effort. Returns (files, bytes) staged.
+/// Sockets/fifos/devices are skipped: meaningless as an overlay upper.
+fn copy_tree(src: &Path, dst: &Path) -> Result<(u64, u64)> {
+    use std::os::unix::fs::PermissionsExt;
+    let meta = std::fs::symlink_metadata(src).with_context(|| format!("stat {}", src.display()))?;
+    if meta.file_type().is_symlink() {
+        let link =
+            std::fs::read_link(src).with_context(|| format!("readlink {}", src.display()))?;
+        if let Some(parent) = dst.parent() {
+            std::fs::create_dir_all(parent)
+                .with_context(|| format!("create {}", parent.display()))?;
+        }
+        let _ = std::fs::remove_file(dst);
+        std::os::unix::fs::symlink(&link, dst)
+            .with_context(|| format!("symlink {}", dst.display()))?;
+        copy_security_xattrs(src, dst);
+        return Ok((0, 0));
+    }
+    if meta.is_dir() {
+        std::fs::create_dir_all(dst).with_context(|| format!("create {}", dst.display()))?;
+        std::fs::set_permissions(dst, meta.permissions())
+            .with_context(|| format!("chmod {}", dst.display()))?;
+        copy_security_xattrs(src, dst);
+        let mut files = 0u64;
+        let mut bytes = 0u64;
+        let entries =
+            std::fs::read_dir(src).with_context(|| format!("readdir {}", src.display()))?;
+        for entry in entries.flatten() {
+            let path = entry.path();
+            let Some(name) = file_name_str(&path) else {
+                continue;
+            };
+            let (f, b) = copy_tree(&path, &dst.join(name))?;
+            files += f;
+            bytes += b;
+        }
+        return Ok((files, bytes));
+    }
+    if meta.is_file() {
+        if let Some(parent) = dst.parent() {
+            std::fs::create_dir_all(parent)
+                .with_context(|| format!("create {}", parent.display()))?;
+        }
+        std::fs::copy(src, dst)
+            .with_context(|| format!("copy {} -> {}", src.display(), dst.display()))?;
+        std::fs::set_permissions(
+            dst,
+            std::fs::Permissions::from_mode(meta.permissions().mode() & 0o7777),
+        )
+        .with_context(|| format!("chmod {}", dst.display()))?;
+        copy_security_xattrs(src, dst);
+        return Ok((1, meta.len()));
+    }
+    warn!("staging: skipping special file {}", src.display());
+    Ok((0, 0))
+}
+
+/// Turn the work base into a tmpfs so it can back overlay uppers + workdirs.
+///
+/// overlayfs rejects upper/work dirs on FBE-encrypted /data. Mounting tmpfs
+/// over the work base keeps upper and work on the same (supported)
+/// filesystem on every device. Returns None when the tmpfs cannot be
+/// mounted; callers then fall back to on-/data paths (works on unencrypted
+/// /data, fails on FBE like before — now with a loud warning).
+fn ensure_overlay_stage(work_base: &Path) -> Option<PathBuf> {
+    // Detach any previous mount (e.g. a manual re-run in the same boot),
+    // then start from a clean dir so stale uppers can't leak across runs.
+    if let Ok(base) = cstr(&work_base.to_string_lossy()) {
+        unsafe {
+            libc::umount2(base.as_ptr(), libc::MNT_DETACH);
+        }
+    }
+    if work_base.exists() {
+        let _ = std::fs::remove_dir_all(work_base);
+    }
+    if let Err(e) = std::fs::create_dir_all(work_base) {
+        warn!("staging: cannot create {}: {e:#}", work_base.display());
+        return None;
+    }
+    if let Err(e) = raw_mount(
+        Some("tmpfs"),
+        work_base,
+        Some("tmpfs"),
+        0,
+        Some("mode=0755"),
+    ) {
+        warn!(
+            "staging: cannot mount tmpfs on {}: {e:#}; overlay upper stays on /data",
+            work_base.display()
+        );
+        return None;
+    }
+    info!(
+        "staging: overlay backing is tmpfs at {}",
+        work_base.display()
+    );
+    Some(work_base.to_path_buf())
+}
+
+/// Copy a module's `system/` tree onto the tmpfs stage so it can serve as an
+/// overlayfs upperdir. Returns the staged root, or None on failure (the
+/// caller falls back to the on-/data path).
+fn stage_module(id: &str, system: &Path, stage_base: &Path) -> Option<PathBuf> {
+    let dest = stage_base.join("up").join(id);
+    match copy_tree(system, &dest) {
+        Ok((files, bytes)) => {
+            info!("{id}: staged {files} files ({bytes} bytes) to tmpfs");
+            Some(dest)
+        }
+        Err(e) => {
+            warn!("{id}: tmpfs staging failed: {e:#}; using on-/data path");
+            None
+        }
+    }
+}
+
+/// Thin wrapper over the mount(2) syscall.
 fn raw_mount(
     source: Option<&str>,
     target: &Path,
@@ -469,8 +664,22 @@ pub fn run_magic_mount() -> Result<()> {
         if use_overlay { "in use" } else { "not used" },
     );
 
+    // overlayfs rejects FBE-encrypted /data as upper/work, so back both by
+    // tmpfs and stage module trees onto it. When the tmpfs cannot be
+    // mounted the pass falls back to /data paths (unencrypted /data keeps
+    // working; FBE fails loudly per-mount instead of silently).
+    let stage_base = if use_overlay {
+        ensure_overlay_stage(work_base)
+    } else {
+        None
+    };
+
     let mut work_seq: u64 = 0;
     for (id, system) in &modules {
+        // Stage this module's tree for use as overlay upperdir.
+        let staged = stage_base
+            .as_ref()
+            .and_then(|base| stage_module(id, system, base));
         // Phase 1: overlay (or bind) each top-level entry.
         for top in list_top_entries(system) {
             let Some(name) = file_name_str(&top) else {
@@ -481,9 +690,18 @@ pub fn run_magic_mount() -> Result<()> {
             // symlinks (vendor, product, ...) onto the real partitions.
             if top.is_dir() {
                 if use_overlay {
+                    // Prefer the tmpfs-staged copy (works on FBE); fall back
+                    // to the on-/data tree when staging failed.
+                    let src = staged
+                        .as_ref()
+                        .and_then(|root| {
+                            let p = root.join(name);
+                            p.exists().then_some(p)
+                        })
+                        .unwrap_or_else(|| top.clone());
                     work_seq += 1;
                     let tag = format!("{id}_{work_seq}");
-                    if let Err(e) = overlay_mount(&top, &target, work_base, &tag) {
+                    if let Err(e) = overlay_mount(&src, &target, work_base, &tag) {
                         warn!("{id}: overlay {name} failed: {e:#}");
                     }
                 } else {
