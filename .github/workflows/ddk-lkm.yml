@@ -27,6 +27,11 @@ on:
         required: false
         default: ''
         type: string
+      hook:
+        description: 'Kconfig hook flavor suffix (TRACEPOINT_HOOK or TAMPER_SYSCALL_TABLE)'
+        required: false
+        default: 'TRACEPOINT_HOOK'
+        type: string
 
 
 jobs:
@@ -68,7 +73,7 @@ jobs:
           EXTRA_ARGS="KSU_EXPECTED_PR_BUILD_SIZE=$EXPECTED_PR_BUILD_SIZE KSU_EXPECTED_PR_BUILD_HASH=$EXPECTED_PR_BUILD_HASH"
         fi
 
-        CONFIG_KSU=m CONFIG_KSU_MULTI_MANAGER_SUPPORT=y CONFIG_KSU_TRACEPOINT_HOOK=y CC=clang make $EXTRA_ARGS
+        CONFIG_KSU=m CONFIG_KSU_MULTI_MANAGER_SUPPORT=y CONFIG_KSU_${{ inputs.hook }}=y CC=clang make $EXTRA_ARGS
         
         echo "=== Build completed ==="
         # Create output directory in GitHub workspace
@@ -147,9 +152,9 @@ jobs:
         MDIR=$(realpath .)
 
         if [ "$kmi" == "android17-6.18" ]; then
-          make -C $KDIR M=$MDIR MO=$MDIR compile_commands.json modules CONFIG_KSU=m CONFIG_KSU_MULTI_MANAGER_SUPPORT=y CONFIG_KSU_TRACEPOINT_HOOK=y CONFIG_KSU_X86_PATCH_SYSCALL_DISPATCHER=y $EXTRA_ARGS
+          make -C $KDIR M=$MDIR MO=$MDIR compile_commands.json modules CONFIG_KSU=m CONFIG_KSU_MULTI_MANAGER_SUPPORT=y CONFIG_KSU_${{ inputs.hook }}=y CONFIG_KSU_X86_PATCH_SYSCALL_DISPATCHER=y $EXTRA_ARGS
         else
-          make -C $KDIR M=$MDIR src=$MDIR compile_commands.json modules CONFIG_KSU=m CONFIG_KSU_MULTI_MANAGER_SUPPORT=y CONFIG_KSU_TRACEPOINT_HOOK=y CONFIG_KSU_X86_PATCH_SYSCALL_DISPATCHER=y $EXTRA_ARGS
+          make -C $KDIR M=$MDIR src=$MDIR compile_commands.json modules CONFIG_KSU=m CONFIG_KSU_MULTI_MANAGER_SUPPORT=y CONFIG_KSU_${{ inputs.hook }}=y CONFIG_KSU_X86_PATCH_SYSCALL_DISPATCHER=y $EXTRA_ARGS
         fi
 
         echo "=== Build completed ==="

@@ -10,6 +10,9 @@
 #include "../patch_memory.h"
 #include "arch.h"
 #include "klog.h" // IWYU pragma: keep
+#ifdef CONFIG_KSU_TAMPER_SYSCALL_TABLE
+#include "hook/syscall_event_bridge.h"
+#endif
 
 sys_call_ptr_t *ksu_syscall_table = NULL;
 int ksu_dispatcher_nr = -1;
@@ -318,6 +321,12 @@ void __init __nocfi ksu_syscall_hook_init(void)
 #endif
 
     // Find one ni_syscall slot for the dispatcher
+#ifdef CONFIG_KSU_TAMPER_SYSCALL_TABLE
+    // Tamper mode: no dispatcher slot, the hooked entries are patched
+    // directly by ksu_tamper_install().
+    ksu_dispatcher_nr = -1;
+    pr_info("tamper mode: syscall dispatcher not installed\n");
+#else
     if (ksu_find_ni_syscall_slots(&ni_slot, 1) < 1) {
         pr_err("failed to find ni_syscall slot for dispatcher\n");
         return;
@@ -326,6 +335,7 @@ void __init __nocfi ksu_syscall_hook_init(void)
     ksu_dispatcher_nr = ni_slot;
     ksu_syscall_table_hook(ksu_dispatcher_nr, (sys_call_ptr_t)ksu_syscall_dispatcher, NULL);
     pr_info("dispatcher installed at slot %d\n", ksu_dispatcher_nr);
+#endif
 }
 
 void __exit ksu_syscall_hook_exit(void)
@@ -381,5 +391,65 @@ clear_state:
 
     pr_info("all syscall hooks restored\n");
 }
+
+#ifdef CONFIG_KSU_TAMPER_SYSCALL_TABLE
+// Direct table-tampering trampolines. Each one runs the shared KSU handler
+// for its syscall; the handler calls back to the saved original (never the
+// live table entry, which points here).
+static long __nocfi ksu_tamper_setresuid(const struct pt_regs *regs)
+{
+    return ksu_hook_setresuid(__NR_setresuid, regs);
+}
+
+static long __nocfi ksu_tamper_execve(const struct pt_regs *regs)
+{
+    return ksu_hook_execve(__NR_execve, regs);
+}
+
+static long __nocfi ksu_tamper_execveat(const struct pt_regs *regs)
+{
+    return ksu_hook_execveat(__NR_execveat, regs);
+}
+
+static long __nocfi ksu_tamper_newfstatat(const struct pt_regs *regs)
+{
+    return ksu_hook_newfstatat(__NR_newfstatat, regs);
+}
+
+static long __nocfi ksu_tamper_faccessat(const struct pt_regs *regs)
+{
+    return ksu_hook_faccessat(__NR_faccessat, regs);
+}
+
+void ksu_tamper_install(void)
+{
+    if (!ksu_syscall_table) {
+        pr_err("tamper: no syscall table, hooks not installed\n");
+        return;
+    }
+    ksu_syscall_table_hook(__NR_setresuid, (sys_call_ptr_t)ksu_tamper_setresuid, NULL);
+    ksu_syscall_table_hook(__NR_execve, (sys_call_ptr_t)ksu_tamper_execve, NULL);
+    ksu_syscall_table_hook(__NR_execveat, (sys_call_ptr_t)ksu_tamper_execveat, NULL);
+    ksu_syscall_table_hook(__NR_newfstatat, (sys_call_ptr_t)ksu_tamper_newfstatat, NULL);
+    ksu_syscall_table_hook(__NR_faccessat, (sys_call_ptr_t)ksu_tamper_faccessat, NULL);
+    pr_info("tamper: direct syscall table hooks installed, no tracepoint registered\n");
+}
+
+sys_call_ptr_t ksu_tamper_saved_orig(int nr)
+{
+    int i;
+    sys_call_ptr_t orig = NULL;
+
+    mutex_lock(&hooked_entries_lock);
+    for (i = 0; i < hooked_count; i++) {
+        if (hooked_entries[i].nr == nr) {
+            orig = hooked_entries[i].orig;
+            break;
+        }
+    }
+    mutex_unlock(&hooked_entries_lock);
+    return orig;
+}
+#endif
 
 #endif /* __x86_64__ */

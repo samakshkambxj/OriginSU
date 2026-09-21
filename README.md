@@ -75,6 +75,7 @@
 | Mode | Description |
 | --- | --- |
 | `Tracepoint Syscall Redirect hook` | Default mode, from [upstream](https://github.com/tiann/KernelSU); GKI2 kernels with `arm64-v8a` or `x86_64` ABI only |
+| `Syscall Table Tampering` (`CONFIG_KSU_TAMPER_SYSCALL_TABLE`) | Test-branch stealth mode: patches the hooked entries directly in `sys_call_table`, registers no `sys_enter` tracepoint; GKI2 `arm64-v8a`/`x86_64` only |
 | `Manual Hook` | Most compatible; supports Linux kernels 3.4 – 6.18 |
 | `SuSFS Inline Hook` | From [SuSFS](https://github.com/simonpunk/susfs4ksu), like `Manual Hook` but provided by the SuSFS project |
 

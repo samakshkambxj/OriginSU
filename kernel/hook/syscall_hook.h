@@ -45,6 +45,18 @@ void ksu_syscall_table_hook(int nr, syscall_fn_t fn, syscall_fn_t *old);
 // (e.g. ksud unhooking __NR_read after init.rc injection is done).
 void ksu_syscall_table_unhook(int nr);
 
+#ifdef CONFIG_KSU_TAMPER_SYSCALL_TABLE
+// Directly patch the hooked syscall entries (setresuid, execve, execveat,
+// newfstatat, faccessat) with tamper trampolines. No tracepoint is
+// registered and no dispatcher slot is consumed.
+void ksu_tamper_install(void);
+
+// Saved original handler for a tampered entry, or NULL when @nr was not
+// tampered. Handlers use this (instead of the live table, which points at
+// our trampolines) to call through to the real syscall.
+syscall_fn_t ksu_tamper_saved_orig(int nr);
+#endif
+
 void ksu_syscall_hook_init(void);
 void ksu_syscall_hook_exit(void);
 

@@ -182,6 +182,33 @@ ifdef CONFIG_KSU_TRACEPOINT_HOOK
     endif
   endif
 
+else ifdef CONFIG_KSU_TAMPER_SYSCALL_TABLE
+  $(info -- $(REPO_NAME): using Syscall Table Tampering Hook)
+
+  # NOTE: manager/pkg_observer.o is intentionally not listed here: the
+  # shared block below already adds it for 6.8+ (and lsm_hooks.o below 6.8).
+  kernelsu-objs += hook/syscall_hook_manager.o
+  kernelsu-objs += hook/syscall_event_bridge.o
+  kernelsu-objs += hook/tp_marker.o
+  ifeq ($(CONFIG_ARM64),y)
+    kernelsu-objs += hook/arm64/syscall_hook.o
+  else ifeq ($(CONFIG_X86_64),y)
+    kernelsu-objs += hook/x86_64/syscall_hook.o
+  else
+    ifeq ($(CONFIG_KSU), y)
+      $(info -- Unsupported arch)
+      $(info -- Only arm64-v8a and x86-64 support for table tampering)
+      $(error Unsupported arch for table tampering)
+    endif
+  endif
+  ifeq ($(CONFIG_KSU),y)
+    ifneq ($(KERNEL_TYPE), GKI 2.0)
+      $(info -- $(REPO_NAME) table tampering is only supported on GKI 2.0 kernels.)
+      $(info -- Current Kernel Type: $(KERNEL_TYPE))
+      $(error Table tampering is incompatible with Non-GKI/GKI 1.0 kernels.)
+    endif
+  endif
+
 else ifdef CONFIG_KSU_MANUAL_HOOK
   $(info -- $(REPO_NAME): using Manual Hook)
   include $(KSU_SRC)/tools/manual_hook_check.mk
