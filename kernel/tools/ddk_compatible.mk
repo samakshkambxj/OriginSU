@@ -22,9 +22,14 @@ ifeq ($(CONFIG_KSU_X86_PATCH_SYSCALL_DISPATCHER),y)
 ccflags-y += -DCONFIG_KSU_X86_PATCH_SYSCALL_DISPATCHER=1
 endif
 
-# ddk are only support Tracepoint Syscall Redirect hook
+# ddk LKM builds select the hook via CONFIG_KSU_<HOOK>=y on the make
+# command line; mirror it into a C macro (autoconf.h has no KSU symbols).
 ifeq ($(CONFIG_KSU_TRACEPOINT_HOOK),y)
 ccflags-y += -DCONFIG_KSU_TRACEPOINT_HOOK
+endif
+
+ifeq ($(CONFIG_KSU_TAMPER_SYSCALL_TABLE),y)
+ccflags-y += -DCONFIG_KSU_TAMPER_SYSCALL_TABLE
 endif
 
 CONFIG_KSU_FULL_NAME_FORMAT := "%TAG_NAME%-%COMMIT_SHA%@%REPO_NAME%"

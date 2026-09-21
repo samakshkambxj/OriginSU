@@ -304,7 +304,7 @@ static struct user_arg_ptr ksu_sulog_user_argv(const char __user *const __user *
     return argv;
 }
 
-#ifdef CONFIG_KSU_TRACEPOINT_HOOK
+#if defined(CONFIG_KSU_TRACEPOINT_HOOK) || defined(CONFIG_KSU_TAMPER_SYSCALL_TABLE)
 // Tracepoint Syscall Redirect hook
 
 static inline struct ksu_sulog_pending_event *ksu_sulog_capture_tracepoint(__u16 event_type,

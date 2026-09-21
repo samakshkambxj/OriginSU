@@ -31,7 +31,7 @@
 #include "klog.h" // IWYU pragma: keep
 #include "selinux/selinux.h"
 #include "infra/su_mount_ns.h"
-#ifdef CONFIG_KSU_TRACEPOINT_HOOK
+#if defined(CONFIG_KSU_TRACEPOINT_HOOK) || defined(CONFIG_KSU_TAMPER_SYSCALL_TABLE)
 #include "hook/tp_marker.h"
 #endif
 
@@ -252,7 +252,7 @@ int escape_with_root_profile(void)
         set_thread_flag(TIF_KSU_DISABLE_ESCAPE_WITH_ROOT);
     }
 
-#ifdef CONFIG_KSU_TRACEPOINT_HOOK
+#if defined(CONFIG_KSU_TRACEPOINT_HOOK) || defined(CONFIG_KSU_TAMPER_SYSCALL_TABLE)
     for_each_thread (p, t) {
         ksu_set_task_tracepoint_flag(t);
     }

@@ -19,7 +19,7 @@
 #include "arch.h"
 #include "policy/feature.h"
 #include "selinux/selinux.h"
-#ifndef CONFIG_KSU_TRACEPOINT_HOOK
+#if !defined(CONFIG_KSU_TRACEPOINT_HOOK) && !defined(CONFIG_KSU_TAMPER_SYSCALL_TABLE)
 #include "runtime/ksud.h" // for user_arg_ptr
 #endif
 #include "compat/kernel_compat.h"
@@ -46,7 +46,7 @@ static inline long is_exec_adbd(const char *filename)
     return 1;
 }
 
-#ifdef CONFIG_KSU_TRACEPOINT_HOOK
+#if defined(CONFIG_KSU_TRACEPOINT_HOOK) || defined(CONFIG_KSU_TAMPER_SYSCALL_TABLE)
 static long is_exec_adbd_tracepoint(const char __user *filename_user)
 {
     // should be bigger than `/apex/com.android.adbd/bin/adbd`
@@ -194,7 +194,7 @@ out_release_env_p:
     return ret;
 }
 
-#ifdef CONFIG_KSU_TRACEPOINT_HOOK
+#if defined(CONFIG_KSU_TRACEPOINT_HOOK) || defined(CONFIG_KSU_TAMPER_SYSCALL_TABLE)
 static long do_ksu_adb_root_handle_execve(const char __user *filename_user, struct pt_regs *regs, unsigned long *envp_p)
 {
     if (likely(is_exec_adbd_tracepoint(filename_user) != 1)) {

@@ -21,7 +21,7 @@
 #include "manager/manager_identity.h"
 #include "infra/seccomp_cache.h"
 #include "supercall/supercall.h"
-#ifdef CONFIG_KSU_TRACEPOINT_HOOK
+#if defined(CONFIG_KSU_TRACEPOINT_HOOK) || defined(CONFIG_KSU_TAMPER_SYSCALL_TABLE)
 #include "hook/tp_marker.h"
 #endif
 #include "compat/kernel_compat.h"

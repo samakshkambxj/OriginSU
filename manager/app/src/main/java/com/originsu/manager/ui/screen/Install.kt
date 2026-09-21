@@ -361,6 +361,8 @@ fun InstallScreen(
                 onClickNext = onClickNext,
                 kpmPatchOption = kpmPatchOption,
                 onKpmPatchOptionChanged = { kpmPatchOption = it },
+                hookFlavor = hookFlavor,
+                onHookFlavorChanged = { hookFlavor = it },
                 containerColor = MaterialTheme.colorScheme.primary,
                 disabledContainerColor = MaterialTheme.colorScheme.surfaceBright.copy(
                     alpha = cardConfig.cardAlpha
@@ -393,6 +395,8 @@ private fun InstallBody(
     onClickNext: () -> Unit,
     kpmPatchOption: KpmPatchOption = KpmPatchOption.FOLLOW_KERNEL,
     onKpmPatchOptionChanged: (KpmPatchOption) -> Unit = {},
+    hookFlavor: HookFlavor = HookFlavor.TRACEPOINT,
+    onHookFlavorChanged: (HookFlavor) -> Unit = {},
     containerColor: Color,
     disabledContainerColor: Color,
     blurEnabled: Boolean,
@@ -623,7 +627,7 @@ private fun InstallBody(
 
                     HookFlavorSelector(
                         selectedOption = hookFlavor,
-                        onOptionChanged = { hookFlavor = it }
+                        onOptionChanged = onHookFlavorChanged
                     )
                 }
             }
