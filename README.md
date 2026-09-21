@@ -43,7 +43,7 @@
 - **Kernel-first root**: `su` access control lives in the kernel, managed per-app with profiles — including time-limited grants that auto-revoke.
 - **Hiding built in, not bolted on**: Origin Veil cloaks root traces per app, SuSFS manager ships with a one-tap strong-hiding preset, and every module zip passes through the OriginGuard pre-install audit.
 - **No Zygisk module hunt**: OriginZygisk (BreZygisk-based) ships inside the manager — deploy and toggle it from Settings, no provider module required.
-- **Kernel tuning with guardrails**: OriginTune exposes only the knobs your running kernel actually supports — TCP congestion, BORE presets, ZRAM, sysctls — applied live, optionally persisted.
+- **Kernel tuning with guardrails**: OriginTune exposes only the knobs your running kernel actually supports — CPU governor/frequencies, GPU clocks, I/O scheduler, memory presets, scheduler extras, LMK levels, TCP congestion, BORE presets, ZRAM, sysctls — applied live, optionally persisted, shareable as JSON profiles with live diagnostics.
 - **Installer-grade flashing**: direct install, AnyKernel3 zips, offline `boot.img` patching without root, Horizon kernels, plus LKM and GKI flows with KPM patch / undo-patch options.
 - **Safety nets**: automatic bootloop rescue (disables all modules after consecutive failed boots), biometric root gate, first-run setup wizard.
 
@@ -99,6 +99,14 @@ Pre-release tags containing `-rc` are published as GitHub pre-releases.
 
 Kernel tuning from a home hero card — every knob applies immediately and can persist across boot, and only knobs the running kernel exposes are shown:
 
+- CPU frequency: per-cluster governor and min/max frequencies, plus schedutil rate-limit tunables
+- GPU: governor and min/max clocks across Adreno/kGSL and devfreq (Mali) paths
+- I/O: per-device scheduler selection and read-ahead size
+- Memory preset profiles: curated VM presets (swappiness, dirty ratios, cache pressure) in the style of the BORE profiles
+- Scheduler extras: uclamp and energy-aware scheduling tunables where the kernel exposes them
+- LMK levels: lmkd minfree table and kernel-driver params with per-level presets and stock restore
+- Profile sharing: export/import tuning setups as JSON, with automatic backup before applying
+- Diagnostics: visible effect per tuning (live clocks, load average, ZRAM ratio and PSI stalls)
 - TCP congestion control
 - BORE scheduler presets (Balanced / Responsive / Throughput / Battery saver) plus manual knobs
 - ZRAM size / algorithm / streams / swappiness with live compression stats
@@ -172,14 +180,14 @@ just build_ksud      # ksud only
 
 ### OriginTune roadmap
 
-- CPU: per-cluster governor and min/max frequency, plus schedutil rate-limit tunables
-- GPU: governor and min/max clocks across Adreno/kGSL and Mali paths
-- I/O: per-device scheduler selection and read-ahead size
-- Memory preset profiles: curated VM presets (swappiness, dirty ratios, cache pressure) in the style of the BORE profiles
-- Scheduler extras: uclamp and energy-aware scheduling tunables where the kernel exposes them
-- LMK tuning: `lmkd`/PSI knobs with per-level presets
-- Profile sharing: export/import tuning setups as JSON, with automatic backup before applying
-- Diagnostics: visible effect per tuning (before/after stats such as ZRAM ratio and PSI stalls)
+- CPU ✅ (shipped): per-cluster governor and min/max frequency, plus schedutil rate-limit tunables
+- GPU ✅ (shipped): governor and min/max clocks across Adreno/kGSL and Mali paths
+- I/O ✅ (shipped): per-device scheduler selection and read-ahead size
+- Memory preset profiles ✅ (shipped): curated VM presets (swappiness, dirty ratios, cache pressure) in the style of the BORE profiles
+- Scheduler extras ✅ (shipped): uclamp and energy-aware scheduling tunables where the kernel exposes them
+- LMK tuning ✅ (shipped): `lmkd`/PSI knobs with per-level presets
+- Profile sharing ✅ (shipped): export/import tuning setups as JSON, with automatic backup before applying
+- Diagnostics ✅ (shipped): visible effect per tuning (live clocks, load average, ZRAM ratio and PSI stalls)
 
 See `docs/feature-porting-plan.md` for the full porting status.
 
