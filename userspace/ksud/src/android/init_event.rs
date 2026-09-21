@@ -147,6 +147,12 @@ pub fn on_post_data_fs() -> Result<()> {
         warn!("execute metamodule mount failed: {e}");
     }
 
+    // Magic Mount: userspace Magisk-style mounting of module system trees.
+    // Stands down when an enabled metamodule owns mounting.
+    if let Err(e) = module::magic_mount::run_magic_mount() {
+        warn!("magic mount failed: {e:#}");
+    }
+
     // Load umount config and apply to kernel
     if let Err(e) = crate::android::umount_config::load_umount_config() {
         warn!("load umount config failed: {e}");

@@ -285,6 +285,8 @@
     <string name="settings_check_module_update_summary">Auto-check for installed module updates</string>
     <string name="settings_originguard">OriginGuard</string>
     <string name="settings_originguard_summary">Scan modules for risky behavior before installing</string>
+    <string name="settings_magic_mount">Magic Mount</string>
+    <string name="settings_magic_mount_summary">Mount module files Magisk-style (takes effect on next boot)</string>
     <string name="grant_root_failed">Failed to grant root!</string>
     <string name="home_pr_build_warning">This is a PR debug build. Do NOT use it in production!</string>
     <string name="action">Action</string>
@@ -420,6 +422,7 @@
     <string name="origin_zygisk_running">Running</string>
     <string name="origin_zygisk_needs_reboot">Deployed, reboot to activate</string>
     <string name="origin_zygisk_failed">Origin Zygisk change failed</string>
+    <string name="magic_mount_failed">Magic Mount change failed</string>
     <string name="zygisk_provider_blocked">Conflicting Zygisk provider blocked while Origin Zygisk is on</string>
     <string name="onboarding_title_welcome">Welcome to OriginSU</string>
     <string name="onboarding_desc_welcome">Kernel-based root, modules and app profiles, all managed from here.</string>

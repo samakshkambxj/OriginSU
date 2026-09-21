@@ -1237,6 +1237,27 @@ class KsuCliRepository(context: Context) {
         )
     }
 
+    // ---- Magic Mount (userspace Magisk-style module mounting) ----
+    // ksud owns the state (flag file); the manager only shells out.
+    suspend fun isMagicMountEnabled(): Boolean = withContext(Dispatchers.IO) {
+        if (!rootAvailable()) {
+            return@withContext true
+        }
+        val shell = getRootShell()
+        runCatching {
+            runCmd(shell, "${getKsuDaemonPath()} module magic-mount status").trim()
+        }.getOrDefault("enabled") == "enabled"
+    }
+
+    suspend fun setMagicMountEnabled(enabled: Boolean): Boolean =
+        withContext(Dispatchers.IO) {
+            if (!rootAvailable()) {
+                return@withContext false
+            }
+            val op = if (enabled) "enable" else "disable"
+            runCatching { execKsud("module magic-mount $op") }.getOrDefault(false)
+        }
+
     suspend fun isOriginZygiskRunning(): Boolean = withContext(Dispatchers.IO) {
         if (!rootAvailable()) {
             return@withContext false

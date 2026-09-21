@@ -578,6 +578,22 @@ fun SettingsPage(bottomPadding: Dp) {
                                 }
                             )
                         }
+
+                        item {
+                            SettingsSwitchWidget(
+                                icon = Icons.TwoTone.Extension,
+                                title = stringResource(R.string.settings_magic_mount),
+                                description = stringResource(R.string.settings_magic_mount_summary),
+                                checked = uiState.isMagicMountEnabled,
+                                onCheckedChange = { enabled ->
+                                    settingsViewModel.dispatch(
+                                        SettingsUiAction.SetMagicMountEnabled(
+                                            enabled
+                                        )
+                                    )
+                                }
+                            )
+                        }
                     }
                 )
             }

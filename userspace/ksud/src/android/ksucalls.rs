@@ -313,7 +313,8 @@ pub mod veil_op {
 
 /// Origin Veil: run a cloak-list operation (ADD/REMOVE/QUERY/CLEAR/SET_AUTO/GET_AUTO).
 /// Returns the command's out value (QUERY/GET_AUTO result).
-pub fn veil_cloak_op(op: u32, uid: u32, value: u32) -> Result<u32> {    let mut cmd = uapi::ksu_veil_cloak_cmd {
+pub fn veil_cloak_op(op: u32, uid: u32, value: u32) -> Result<u32> {
+    let mut cmd = uapi::ksu_veil_cloak_cmd {
         op,
         uid,
         value,
