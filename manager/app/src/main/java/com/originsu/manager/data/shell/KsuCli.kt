@@ -116,9 +116,33 @@ class KsuCliRepository(context: Context) {
 
     fun getKsuDaemonPath(): String = getNativeLibraryPath("ksud")
 
+    /**
+     * Shared root shells, one per mount-namespace flavor. libsu multiplexes
+     * concurrent jobs over a single shell process, so sharing avoids a `su`
+     * fork per call and stops leaked shells from accumulating. Dead shells
+     * are detected via [Shell.isAlive] and transparently replaced.
+     *
+     * Callers needing an isolated, self-closed shell (e.g. the kernel-tuning
+     * repository) should use [createRootShell] with `use {}` instead.
+     */
+    @Volatile
+    private var cachedShell: Shell? = null
+
+    @Volatile
+    private var cachedGlobalShell: Shell? = null
+
+    @Synchronized
     fun getRootShell(globalMnt: Boolean = false): Shell {
-        return createRootShell(globalMnt)
+        if (!globalMnt) {
+            cachedShell?.takeIf { it.isAliveQuietly() }?.let { return it }
+            return createRootShell(false).also { cachedShell = it }
+        }
+        cachedGlobalShell?.takeIf { it.isAliveQuietly() }?.let { return it }
+        return createRootShell(true).also { cachedGlobalShell = it }
     }
+
+    private fun Shell.isAliveQuietly(): Boolean =
+        runCatching { isAlive }.getOrDefault(false)
 
     fun generateMainShellBuilder(): Shell.Builder {
         val builder = Shell.Builder.create()

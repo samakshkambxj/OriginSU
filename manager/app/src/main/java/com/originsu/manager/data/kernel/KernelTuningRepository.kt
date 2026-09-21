@@ -328,7 +328,7 @@ class KernelTuningRepository(
             runCatching {
                 // One root shell per refresh, closed on the way out: spawning
                 // a shell per read costs hundreds of `su` forks per refresh.
-                ksuCliRepository.getRootShell().use { shell ->
+                ksuCliRepository.createRootShell().use { shell ->
                 val available = ShellUtils.fastCmd(shell, "cat $TCP_AVAILABLE 2>/dev/null")
                     .trim().split(Regex("\\s+")).filter { it.isNotEmpty() }
                 val current = ShellUtils.fastCmd(shell, "cat $TCP_CURRENT 2>/dev/null").trim()
@@ -429,7 +429,7 @@ class KernelTuningRepository(
 
     suspend fun setTcp(name: String, persist: Boolean): Result<Unit> = mutex.withLock {
         withContext(Dispatchers.IO) {
-            ksuCliRepository.getRootShell().use { shell ->
+            ksuCliRepository.createRootShell().use { shell ->
             runCatching {
                 val available = mutableState.value.tcpAvailable
                 check(name.isNotEmpty()) { "empty algorithm" }
@@ -450,7 +450,7 @@ class KernelTuningRepository(
 
     suspend fun setTcpPersist(persist: Boolean): Result<Unit> = mutex.withLock {
         withContext(Dispatchers.IO) {
-            ksuCliRepository.getRootShell().use { shell ->
+            ksuCliRepository.createRootShell().use { shell ->
             runCatching {
                 prefs().edit().putBoolean(KEY_TCP_PERSIST, persist).apply()
                 if (persist) {
@@ -467,7 +467,7 @@ class KernelTuningRepository(
 
     suspend fun setBoreEnabled(enabled: Boolean): Result<Unit> = mutex.withLock {
         withContext(Dispatchers.IO) {
-            ksuCliRepository.getRootShell().use { shell ->
+            ksuCliRepository.createRootShell().use { shell ->
             runCatching {
                 check(mutableState.value.boreSupported) { "BORE not supported" }
                 val value = if (enabled) "1" else "0"
@@ -481,7 +481,7 @@ class KernelTuningRepository(
 
     suspend fun setBoreKnob(key: String, value: String): Result<Unit> = mutex.withLock {
         withContext(Dispatchers.IO) {
-            ksuCliRepository.getRootShell().use { shell ->
+            ksuCliRepository.createRootShell().use { shell ->
             runCatching {
                 val range = BORE_KNOBS[key.trim()]
                 check(range != null) { "unknown BORE knob" }
@@ -506,7 +506,7 @@ class KernelTuningRepository(
 
     suspend fun setBorePersist(persist: Boolean): Result<Unit> = mutex.withLock {
         withContext(Dispatchers.IO) {
-            ksuCliRepository.getRootShell().use { shell ->
+            ksuCliRepository.createRootShell().use { shell ->
             runCatching {
                 prefs().edit().putBoolean(KEY_BORE_PERSIST, persist).apply()
                 val boreKeys = mutableState.value.boreKnobs.map { it.key } + BORE_ENABLE_KEY
@@ -533,7 +533,7 @@ class KernelTuningRepository(
 
     suspend fun resetBoreDefaults(): Result<Unit> = mutex.withLock {
         withContext(Dispatchers.IO) {
-            ksuCliRepository.getRootShell().use { shell ->
+            ksuCliRepository.createRootShell().use { shell ->
             runCatching {
                 check(mutableState.value.boreSupported) { "BORE not supported" }
                 check(writeSysctl(BORE_ENABLE_KEY, "1", shell)) { "sysctl write failed" }
@@ -558,7 +558,7 @@ class KernelTuningRepository(
      */
     suspend fun applyBoreProfile(id: String): Result<Unit> = mutex.withLock {
         withContext(Dispatchers.IO) {
-            ksuCliRepository.getRootShell().use { shell ->
+            ksuCliRepository.createRootShell().use { shell ->
             runCatching {
                 check(mutableState.value.boreSupported) { "BORE not supported" }
                 val profile = BORE_PROFILES[id]
@@ -583,7 +583,7 @@ class KernelTuningRepository(
 
     suspend fun setVmKnob(key: String, value: String): Result<Unit> = mutex.withLock {
         withContext(Dispatchers.IO) {
-            ksuCliRepository.getRootShell().use { shell ->
+            ksuCliRepository.createRootShell().use { shell ->
             runCatching {
                 val range = VM_KNOBS[key.trim()]
                 check(range != null) { "unknown VM knob" }
@@ -610,7 +610,7 @@ class KernelTuningRepository(
 
     suspend fun setVmPersist(persist: Boolean): Result<Unit> = mutex.withLock {
         withContext(Dispatchers.IO) {
-            ksuCliRepository.getRootShell().use { shell ->
+            ksuCliRepository.createRootShell().use { shell ->
             runCatching {
                 prefs().edit().putBoolean(KEY_VM_PERSIST, persist).apply()
                 val vmKeys = mutableState.value.vm.knobs.map { it.key }
@@ -637,7 +637,7 @@ class KernelTuningRepository(
 
     suspend fun resetVmDefaults(): Result<Unit> = mutex.withLock {
         withContext(Dispatchers.IO) {
-            ksuCliRepository.getRootShell().use { shell ->
+            ksuCliRepository.createRootShell().use { shell ->
             runCatching {
                 check(mutableState.value.vm.supported) { "VM not supported" }
                 val knobs = mutableState.value.vm.knobs.map { knob ->
@@ -660,7 +660,7 @@ class KernelTuningRepository(
      */
     suspend fun applyVmProfile(id: String): Result<Unit> = mutex.withLock {
         withContext(Dispatchers.IO) {
-            ksuCliRepository.getRootShell().use { shell ->
+            ksuCliRepository.createRootShell().use { shell ->
             runCatching {
                 check(mutableState.value.vm.supported) { "VM not supported" }
                 val profile = VM_PROFILES[id]
@@ -688,7 +688,7 @@ class KernelTuningRepository(
      */
     suspend fun setSchedKnob(key: String, value: String): Result<Unit> = mutex.withLock {
         withContext(Dispatchers.IO) {
-            ksuCliRepository.getRootShell().use { shell ->
+            ksuCliRepository.createRootShell().use { shell ->
             runCatching {
                 val range = SCHED_KNOBS[key.trim()]
                 check(range != null) { "unknown scheduler knob" }
@@ -726,7 +726,7 @@ class KernelTuningRepository(
 
     suspend fun setSchedPersist(persist: Boolean): Result<Unit> = mutex.withLock {
         withContext(Dispatchers.IO) {
-            ksuCliRepository.getRootShell().use { shell ->
+            ksuCliRepository.createRootShell().use { shell ->
             runCatching {
                 prefs().edit().putBoolean(KEY_SCHED_PERSIST, persist).apply()
                 val schedKeys = mutableState.value.sched.knobs.map { it.key }
@@ -753,7 +753,7 @@ class KernelTuningRepository(
 
     suspend fun resetSchedDefaults(): Result<Unit> = mutex.withLock {
         withContext(Dispatchers.IO) {
-            ksuCliRepository.getRootShell().use { shell ->
+            ksuCliRepository.createRootShell().use { shell ->
             runCatching {
                 check(mutableState.value.sched.supported) { "scheduler not supported" }
                 // Order matters: raise max before min so min never exceeds max.
@@ -815,7 +815,7 @@ class KernelTuningRepository(
     suspend fun configureZram(sizeBytes: Long, algo: String, streams: Long): Result<Unit> =
         mutex.withLock {
             withContext(Dispatchers.IO) {
-                ksuCliRepository.getRootShell().use { shell ->
+                ksuCliRepository.createRootShell().use { shell ->
                 runCatching {
                     val zram = mutableState.value.zram
                     check(zram.supported) { "ZRAM not supported" }
@@ -842,7 +842,7 @@ class KernelTuningRepository(
 
     suspend fun setZramSwappiness(value: String): Result<Unit> = mutex.withLock {
         withContext(Dispatchers.IO) {
-            ksuCliRepository.getRootShell().use { shell ->
+            ksuCliRepository.createRootShell().use { shell ->
             runCatching {
                 check(mutableState.value.zram.supported) { "ZRAM not supported" }
                 val numeric = value.trim().toLongOrNull()
@@ -863,7 +863,7 @@ class KernelTuningRepository(
 
     suspend fun setZramPersist(persist: Boolean): Result<Unit> = mutex.withLock {
         withContext(Dispatchers.IO) {
-            ksuCliRepository.getRootShell().use { shell ->
+            ksuCliRepository.createRootShell().use { shell ->
             runCatching {
                 val p = prefs()
                 p.edit().putBoolean(KEY_ZRAM_PERSIST, persist).apply()
@@ -893,7 +893,7 @@ class KernelTuningRepository(
     suspend fun setCpuGovernor(policyId: String, governor: String): Result<Unit> =
         mutex.withLock {
             withContext(Dispatchers.IO) {
-                ksuCliRepository.getRootShell().use { shell ->
+                ksuCliRepository.createRootShell().use { shell ->
                 runCatching {
                     val policy = mutableState.value.cpu.policies.firstOrNull { it.id == policyId }
                     check(policy != null) { "unknown CPU policy" }
@@ -927,7 +927,7 @@ class KernelTuningRepository(
     suspend fun setCpuFreqs(policyId: String, minKhz: Long, maxKhz: Long): Result<Unit> =
         mutex.withLock {
             withContext(Dispatchers.IO) {
-                ksuCliRepository.getRootShell().use { shell ->
+                ksuCliRepository.createRootShell().use { shell ->
                 runCatching {
                     val policy = mutableState.value.cpu.policies.firstOrNull { it.id == policyId }
                     check(policy != null) { "unknown CPU policy" }
@@ -982,7 +982,7 @@ class KernelTuningRepository(
      */
     suspend fun setSchedutilRateLimit(valueUs: String): Result<Unit> = mutex.withLock {
         withContext(Dispatchers.IO) {
-            ksuCliRepository.getRootShell().use { shell ->
+            ksuCliRepository.createRootShell().use { shell ->
             runCatching {
                 check(mutableState.value.cpu.schedutilSupported) { "schedutil not supported" }
                 val numeric = valueUs.trim().toLongOrNull()
@@ -1003,7 +1003,7 @@ class KernelTuningRepository(
 
     suspend fun setCpuPersist(persist: Boolean): Result<Unit> = mutex.withLock {
         withContext(Dispatchers.IO) {
-            ksuCliRepository.getRootShell().use { shell ->
+            ksuCliRepository.createRootShell().use { shell ->
             runCatching {
                 val p = prefs()
                 p.edit().putBoolean(KEY_CPU_PERSIST, persist).apply()
@@ -1021,7 +1021,7 @@ class KernelTuningRepository(
 
     suspend fun setGpuGovernor(id: String, governor: String): Result<Unit> = mutex.withLock {
         withContext(Dispatchers.IO) {
-            ksuCliRepository.getRootShell().use { shell ->
+            ksuCliRepository.createRootShell().use { shell ->
             runCatching {
                 val node = gpuNode(id, shell)
                 check(node != null && node.governorPath != null) { "governor not supported" }
@@ -1054,7 +1054,7 @@ class KernelTuningRepository(
      */
     suspend fun setGpuFreqs(id: String, minHz: Long, maxHz: Long): Result<Unit> = mutex.withLock {
         withContext(Dispatchers.IO) {
-            ksuCliRepository.getRootShell().use { shell ->
+            ksuCliRepository.createRootShell().use { shell ->
             runCatching {
                 val node = gpuNode(id, shell)
                 check(node != null && node.minPath != null && node.maxPath != null) {
@@ -1094,7 +1094,7 @@ class KernelTuningRepository(
 
     suspend fun setGpuPersist(persist: Boolean): Result<Unit> = mutex.withLock {
         withContext(Dispatchers.IO) {
-            ksuCliRepository.getRootShell().use { shell ->
+            ksuCliRepository.createRootShell().use { shell ->
             runCatching {
                 val p = prefs()
                 p.edit().putBoolean(KEY_GPU_PERSIST, persist).apply()
@@ -1110,7 +1110,7 @@ class KernelTuningRepository(
 
     suspend fun setIoScheduler(name: String, scheduler: String): Result<Unit> = mutex.withLock {
         withContext(Dispatchers.IO) {
-            ksuCliRepository.getRootShell().use { shell ->
+            ksuCliRepository.createRootShell().use { shell ->
             runCatching {
                 val device = mutableState.value.io.devices.firstOrNull { it.name == name }
                 check(device != null) { "unknown block device" }
@@ -1139,7 +1139,7 @@ class KernelTuningRepository(
 
     suspend fun setIoReadAhead(name: String, kb: Long): Result<Unit> = mutex.withLock {
         withContext(Dispatchers.IO) {
-            ksuCliRepository.getRootShell().use { shell ->
+            ksuCliRepository.createRootShell().use { shell ->
             runCatching {
                 val device = mutableState.value.io.devices.firstOrNull { it.name == name }
                 check(device != null) { "unknown block device" }
@@ -1164,7 +1164,7 @@ class KernelTuningRepository(
 
     suspend fun setIoPersist(persist: Boolean): Result<Unit> = mutex.withLock {
         withContext(Dispatchers.IO) {
-            ksuCliRepository.getRootShell().use { shell ->
+            ksuCliRepository.createRootShell().use { shell ->
             runCatching {
                 val p = prefs()
                 p.edit().putBoolean(KEY_IO_PERSIST, persist).apply()
@@ -1755,7 +1755,7 @@ class KernelTuningRepository(
     suspend fun setLmkLevel(index: Int, pages: Long, adj: Long): Result<Unit> =
         mutex.withLock {
             withContext(Dispatchers.IO) {
-                ksuCliRepository.getRootShell().use { shell ->
+                ksuCliRepository.createRootShell().use { shell ->
                 runCatching {
                     val state = mutableState.value.lmk
                     check(state.supported) { "LMK not supported" }
@@ -1785,7 +1785,7 @@ class KernelTuningRepository(
      */
     suspend fun applyLmkProfile(id: String): Result<Unit> = mutex.withLock {
         withContext(Dispatchers.IO) {
-            ksuCliRepository.getRootShell().use { shell ->
+            ksuCliRepository.createRootShell().use { shell ->
             runCatching {
                 val state = mutableState.value.lmk
                 check(state.supported) { "LMK not supported" }
@@ -1808,7 +1808,7 @@ class KernelTuningRepository(
     /** Restore the stock table captured on first read. */
     suspend fun resetLmkStock(): Result<Unit> = mutex.withLock {
         withContext(Dispatchers.IO) {
-            ksuCliRepository.getRootShell().use { shell ->
+            ksuCliRepository.createRootShell().use { shell ->
             runCatching {
                 val state = mutableState.value.lmk
                 check(state.supported) { "LMK not supported" }
@@ -1826,7 +1826,7 @@ class KernelTuningRepository(
 
     suspend fun setLmkPersist(persist: Boolean): Result<Unit> = mutex.withLock {
         withContext(Dispatchers.IO) {
-            ksuCliRepository.getRootShell().use { shell ->
+            ksuCliRepository.createRootShell().use { shell ->
             runCatching {
                 val p = prefs()
                 p.edit().putBoolean(KEY_LMK_PERSIST, persist).apply()
@@ -2411,7 +2411,7 @@ class KernelTuningRepository(
     suspend fun addOrUpdateSysctl(key: String, value: String, persist: Boolean): Result<Unit> =
         mutex.withLock {
             withContext(Dispatchers.IO) {
-                ksuCliRepository.getRootShell().use { shell ->
+                ksuCliRepository.createRootShell().use { shell ->
                 upsertSysctl(key, value, persist, shell)
                 }
             }
@@ -2439,7 +2439,7 @@ class KernelTuningRepository(
 
     suspend fun removeSysctl(key: String): Result<Unit> = mutex.withLock {
         withContext(Dispatchers.IO) {
-            ksuCliRepository.getRootShell().use { shell ->
+            ksuCliRepository.createRootShell().use { shell ->
             runCatching {
                 saveStored(loadStored().filterNot { it.key == key })
                 syncBootScript(shell)
@@ -2451,7 +2451,7 @@ class KernelTuningRepository(
 
     suspend fun setSysctlPersist(key: String, persist: Boolean): Result<Unit> = mutex.withLock {
         withContext(Dispatchers.IO) {
-            ksuCliRepository.getRootShell().use { shell ->
+            ksuCliRepository.createRootShell().use { shell ->
             runCatching {
                 val updated = loadStored().map {
                     if (it.key == key) it.copy(persist = persist) else it
