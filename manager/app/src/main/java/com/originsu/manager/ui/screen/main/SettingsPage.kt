@@ -50,6 +50,7 @@ import androidx.compose.material.icons.twotone.Settings
 import androidx.compose.material.icons.twotone.Share
 import androidx.compose.material.icons.twotone.Shield
 import androidx.compose.material.icons.twotone.Timer
+import androidx.compose.material.icons.twotone.Tune
 import androidx.compose.material.icons.twotone.Update
 import androidx.compose.material.icons.twotone.Visibility
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -702,6 +703,17 @@ fun SettingsPage(bottomPadding: Dp) {
                                     description = stringResource(R.string.umount_path_manager_summary),
                                     onClick = {
                                         navigator.push(Route.UmountManager)
+                                    }
+                                )
+                            }
+
+                            item {
+                                SettingsJumpPageWidget(
+                                    icon = Icons.TwoTone.Tune,
+                                    title = stringResource(R.string.kernel_tuning),
+                                    description = stringResource(R.string.kernel_tuning_summary),
+                                    onClick = {
+                                        navigator.push(Route.KernelTuning)
                                     }
                                 )
                             }

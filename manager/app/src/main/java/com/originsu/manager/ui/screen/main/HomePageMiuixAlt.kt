@@ -67,6 +67,7 @@ import com.originsu.manager.domain.model.ManagerUpdateChannel
 import com.originsu.manager.domain.model.ManagerUpdateInfo
 import com.originsu.manager.magica.MagicaService
 import com.originsu.manager.ui.component.rememberConfirmDialog
+import com.originsu.manager.ui.component.OriginTuneCard
 import com.originsu.manager.ui.component.rememberLoadingDialog
 import com.originsu.manager.ui.component.miuix.WarningCard
 import com.originsu.manager.ui.component.rebootlistpopup.RebootListPopupMiuix
@@ -114,6 +115,7 @@ private data class HomeMiuixAltActions(
     val onJailbreakClick: () -> Unit,
     val onRebootClick: (String) -> Unit,
     val onUpdateClick: (ManagerUpdateInfo) -> Unit,
+    val onOriginTuneClick: () -> Unit,
 )
 
 @Composable
@@ -173,6 +175,7 @@ fun HomePageMiuixAlt(
                 )
             )
         },
+        onOriginTuneClick = { navigator.push(Route.KernelTuning) },
     )
 
     OriginMiuixTheme {
@@ -252,6 +255,9 @@ private fun HomePagerMiuixAlt(
                             state = state,
                             actions = actions,
                         )
+                        if (status.isRootAvailable) {
+                            OriginTuneCard(onClick = actions.onOriginTuneClick)
+                        }
                         if (state.isExtendedDataLoaded) {
                             InfoCardAlt(
                                 systemInfo = state.systemInfo,

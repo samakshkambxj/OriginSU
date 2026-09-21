@@ -104,6 +104,7 @@ import com.originsu.manager.ui.component.KsuIsValid
 import com.originsu.manager.ui.component.SwipeableSnackbarHost
 import com.originsu.manager.ui.component.WarningCard
 import com.originsu.manager.ui.component.WorkingStatusCard
+import com.originsu.manager.ui.component.OriginTuneCard
 import com.originsu.manager.ui.component.YinYangLogo
 import com.originsu.manager.ui.component.popupBlur
 import com.originsu.manager.ui.component.popupContainerColor
@@ -369,6 +370,12 @@ fun HomePage(
                     TimelineRow(
                         lastFlashTime = uiState.systemInfo.lastFlashTime,
                     )
+                    if (uiState.systemStatus.isRootAvailable) {
+                        Spacer(modifier = Modifier.height(10.dp))
+                        OriginTuneCard(
+                            onClick = { navigator.push(Route.KernelTuning) },
+                        )
+                    }
                 }
                 Spacer(modifier = Modifier.height(10.dp))
                 ManagerUpdateCard(uiState.stableManagerUpdate)

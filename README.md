@@ -54,6 +54,7 @@
 8. Inbuilt kernel flasher: direct install, AnyKernel zips, offline `boot.img` patching and Horizon kernels, with LKM and GKI flows
 9. Manager updater with stable/beta channels and dynamic manager support
 10. Extensive manager customization support
+11. OriginTune: kernel tuning from a home hero card — TCP congestion control, BORE scheduler presets (Balanced / Responsive / Throughput / Battery saver) plus manual knobs, ZRAM size / algorithm / streams / swappiness with live compression stats, and a generic sysctl editor; everything applies immediately and can persist across boot. Only knobs the running kernel actually exposes are shown
 
 ## Installation
 
@@ -93,6 +94,17 @@ manager APKs and LKM modules. Required Actions secrets: `KEYSTORE`,
 
 - Extensive manager customization support
 - Magic Mount for wider module compatibility
+
+### OriginTune roadmap
+
+- CPU: per-cluster governor and min/max frequency, plus schedutil rate-limit tunables
+- GPU: governor and min/max clocks across Adreno/kGSL and Mali paths
+- I/O: per-device scheduler selection and read-ahead size
+- Memory preset profiles: curated VM presets (swappiness, dirty ratios, cache pressure) in the style of the BORE profiles
+- Scheduler extras: uclamp and energy-aware scheduling tunables where the kernel exposes them
+- LMK tuning: `lmkd`/PSI knobs with per-level presets
+- Profile sharing: export/import tuning setups as JSON, with automatic backup before applying
+- Diagnostics: visible effect per tuning (before/after stats such as ZRAM ratio and PSI stalls)
 
 See `docs/feature-porting-plan.md` for the full porting status.
 

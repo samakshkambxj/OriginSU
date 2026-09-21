@@ -19,6 +19,7 @@ import com.originsu.manager.data.bootloop.BootloopRepository
 import com.originsu.manager.data.su.SuRequestRepository
 import com.originsu.manager.data.grant.TempGrantRepository
 import com.originsu.manager.data.kernel.SuNotifyRepository
+import com.originsu.manager.data.kernel.KernelTuningRepository
 import com.originsu.manager.data.kernel.VeilManageRepository
 import com.originsu.manager.data.kernel.VeilRepository
 import com.originsu.manager.data.logging.BugreportRepository
@@ -198,6 +199,7 @@ import com.originsu.manager.ui.viewmodel.TemplateEditorViewModel
 import com.originsu.manager.ui.viewmodel.TemplateViewModel
 import com.originsu.manager.ui.viewmodel.AppIconViewModel
 import com.originsu.manager.ui.viewmodel.UmountManagerScreenViewModel
+import com.originsu.manager.ui.viewmodel.KernelTuningViewModel
 import com.originsu.manager.ui.viewmodel.UpdaterViewModel
 import com.originsu.manager.ui.viewmodel.VeilViewModel
 import com.originsu.manager.ui.webui.MonetColorsProvider
@@ -304,6 +306,7 @@ val repositoryModule = module {
     singleOf(::VeilRepository)
     singleOf(::VeilManageRepository)
     singleOf(::SuNotifyRepository)
+    single { KernelTuningRepository(androidApplication(), get()) }
     single { TempGrantRepository(androidApplication(), get()) }
     single { GrantToastRepository(androidApplication(), get()) }
     single { SuRequestRepository(androidApplication(), get()) }
@@ -526,6 +529,7 @@ val viewModelModule = module {
     viewModelOf(::DynamicManagerViewModel)
     viewModelOf(::FlashViewModel)
     viewModelOf(::UmountManagerScreenViewModel)
+    viewModelOf(::KernelTuningViewModel)
     viewModelOf(::VeilViewModel)
     viewModel { parameters ->
         ExecuteModuleActionViewModel(

@@ -81,6 +81,7 @@ import com.originsu.manager.ui.screen.VeilScreen
 import com.originsu.manager.ui.screen.VeilSpyScreen
 import com.originsu.manager.ui.screen.TemplateEditorScreen
 import com.originsu.manager.ui.screen.UmountManagerScreen
+import com.originsu.manager.ui.screen.KernelTuningScreen
 import com.originsu.manager.ui.screen.about.AboutScreen
 import com.originsu.manager.ui.screen.about.OpenSourceLicenseScreen
 import com.originsu.manager.ui.screen.kernelFlash.KernelFlashScreen
@@ -677,6 +678,17 @@ fun NavContainer(
                     useBlur = useBlur,
                 ) {
                     UmountManagerScreen()
+                }
+            }
+            entry<Route.KernelTuning>(swipeDismiss = swipeBackDirection) {
+                ManagerNavEntry(
+                    interceptPredictiveBack = interceptPredictiveBack,
+                    onBack = onBack,
+                    themeConfig = themeConfig,
+                    backgroundRenderState = backgroundRenderState,
+                    useBlur = useBlur,
+                ) {
+                    KernelTuningScreen()
                 }
             }
             entry<Route.DynamicManager>(swipeDismiss = swipeBackDirection) {
