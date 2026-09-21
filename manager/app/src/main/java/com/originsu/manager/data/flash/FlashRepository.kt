@@ -189,6 +189,7 @@ class FlashRepository(
                         onFinish,
                         onStdout,
                         onStderr,
+                        operation.kmi,
                     )
 
                     FlashOperation.Restore -> ksuCliRepository.restoreBoot(

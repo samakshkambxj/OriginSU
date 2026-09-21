@@ -912,7 +912,7 @@ sealed class FlashIt : Parcelable {
     data class FlashModule(val uri: String) : FlashIt()
     data class FlashModules(val uris: List<String>, val currentIndex: Int = 0) : FlashIt()
     data class FlashAnyKernelZip(val uri: String) : FlashIt()
-    data class FlashPatchBootImage(val boot: String, val zip: String) : FlashIt()
+    data class FlashPatchBootImage(val boot: String, val zip: String, val kmi: String? = null) : FlashIt()
     data class FlashModuleUpdate(val uri: String) : FlashIt() // 模块更新
     data object FlashRestore : FlashIt()
     data object FlashUninstall : FlashIt()
@@ -1032,7 +1032,7 @@ private suspend fun flashIt(
 
         is FlashIt.FlashModule -> FlashOperation.Module(flashIt.uri, auditConfirmed, noAudit)
         is FlashIt.FlashAnyKernelZip -> FlashOperation.AnyKernelZip(flashIt.uri)
-        is FlashIt.FlashPatchBootImage -> FlashOperation.PatchBootImage(flashIt.boot, flashIt.zip)
+        is FlashIt.FlashPatchBootImage -> FlashOperation.PatchBootImage(flashIt.boot, flashIt.zip, flashIt.kmi)
         is FlashIt.FlashModules -> {
             if (flashIt.uris.isEmpty() || flashIt.currentIndex >= flashIt.uris.size) {
                 onFinish(false, 0)

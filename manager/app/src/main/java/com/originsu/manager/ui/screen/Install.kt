@@ -203,7 +203,13 @@ fun InstallScreen(
                     val bootUri = method.bootUri
                     val zipUri = method.zipUri
                     if (bootUri != null && zipUri != null) {
-                        navigator.push(Route.Flash.patchBootImage(bootUri.toString(), zipUri.toString()))
+                        navigator.push(
+                            Route.Flash.patchBootImage(
+                                bootUri.toString(),
+                                zipUri.toString(),
+                                (lkmSelection as? LkmSelection.KmiString)?.value
+                            )
+                        )
                     }
                 }
                 else -> {
@@ -256,7 +262,12 @@ fun InstallScreen(
     }
 
     val onClickNext = {
-        if (isGKI && lkmSelection == LkmSelection.KmiNone && currentKmi.isBlank() && installMethod !is InstallMethod.HorizonKernel) {
+        // SettingsChooseDialog renders nothing for an empty list, so only
+        // gate on the dialog when there is actually something to pick.
+        // Otherwise fall through and let ksud attempt auto-detection.
+        if (isGKI && lkmSelection == LkmSelection.KmiNone && currentKmi.isBlank() &&
+            environment.supportedKmis.isNotEmpty() && installMethod !is InstallMethod.HorizonKernel
+        ) {
             selectKmiDialog.show()
         } else {
             onInstall()

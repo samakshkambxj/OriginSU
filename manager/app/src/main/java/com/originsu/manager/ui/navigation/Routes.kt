@@ -124,8 +124,8 @@ sealed interface Route : NavKey, Parcelable {
 
             fun module(uri: String) = Flash(TYPE_MODULE, uris = listOf(uri))
             fun anyKernelZip(uri: String) = Flash(TYPE_ANYKERNEL_ZIP, uris = listOf(uri))
-            fun patchBootImage(bootUri: String, zipUri: String) =
-                Flash(TYPE_PATCH_BOOT, uris = listOf(bootUri, zipUri))
+            fun patchBootImage(bootUri: String, zipUri: String, kmi: String? = null) =
+                Flash(TYPE_PATCH_BOOT, uris = listOf(bootUri, zipUri), kmi = kmi)
             fun modules(uris: List<String>, currentIndex: Int = 0) =
                 Flash(TYPE_MODULES, uris = uris, currentIndex = currentIndex)
 

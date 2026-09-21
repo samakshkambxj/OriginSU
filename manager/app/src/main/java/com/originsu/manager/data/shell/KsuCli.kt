@@ -578,7 +578,8 @@ class KsuCliRepository(context: Context) {
         zipUri: Uri,
         onFinish: (Boolean, Int) -> Unit,
         onStdout: (String) -> Unit,
-        onStderr: (String) -> Unit
+        onStderr: (String) -> Unit,
+        kmi: String? = null
     ): Boolean {
         val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
         val workDir = File(context.cacheDir, "akpatch_$timestamp")
@@ -657,10 +658,13 @@ class KsuCliRepository(context: Context) {
                 }
                 // App-private binaries are not directly executable on most
                 // ROMs, so patch natively with ksud instead of magiskboot.
+                val kmiArg =
+                    kmi?.takeIf { it.isNotBlank() }?.let { " --kmi ${shellQuote(it.trim())}" }.orEmpty()
                 it.newJob().add(
                     "${getKsuDaemonPath()} boot-patch" +
                         " -b ${shellQuote(bootImg.absolutePath)}" +
                         " -k ${shellQuote(newKernel.absolutePath)}" +
+                        kmiArg +
                         " --no-install -o ${shellQuote(outDir.absolutePath)}"
                 ).to(stdoutCallback, stderrCallback).exec()
             }

@@ -14,7 +14,7 @@ sealed interface FlashOperation {
         val noAudit: Boolean = false,
     ) : FlashOperation
     data class AnyKernelZip(val uri: String) : FlashOperation
-    data class PatchBootImage(val bootUri: String, val zipUri: String) : FlashOperation
+    data class PatchBootImage(val bootUri: String, val zipUri: String, val kmi: String? = null) : FlashOperation
     data object Restore : FlashOperation
     data object Uninstall : FlashOperation
 }
