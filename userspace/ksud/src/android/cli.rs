@@ -473,6 +473,12 @@ enum MagicMountCmd {
 
     /// run the Magic Mount pass now (post-mount stage)
     Mount,
+
+    /// get or set the Magic Mount backend (auto/overlay/bind, takes effect next boot)
+    Backend {
+        /// backend to use (omit to print the current one)
+        mode: Option<String>,
+    },
 }
 
 #[derive(clap::Subcommand, Debug)]
@@ -781,6 +787,10 @@ pub fn run() -> Result<()> {
                     MagicMountCmd::Enable => module::magic_mount::set_enabled(true),
                     MagicMountCmd::Disable => module::magic_mount::set_enabled(false),
                     MagicMountCmd::Mount => module::magic_mount::run_magic_mount(),
+                    MagicMountCmd::Backend { mode } => match mode {
+                        Some(mode) => module::magic_mount::set_backend(&mode),
+                        None => module::magic_mount::print_backend(),
+                    },
                 },
                 Module::Config { internal, command } => {
                     let module_id = match internal {

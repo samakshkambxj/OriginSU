@@ -72,6 +72,60 @@ pub fn status() -> Result<()> {
     Ok(())
 }
 
+/// Which mount engine Magic Mount uses. `Auto` (default) prefers overlayfs
+/// and falls back to per-file bind mounts on kernels without it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MountBackend {
+    Auto,
+    Overlay,
+    Bind,
+}
+
+impl MountBackend {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::Auto => "auto",
+            Self::Overlay => "overlay",
+            Self::Bind => "bind",
+        }
+    }
+
+    fn parse(s: &str) -> Result<Self> {
+        match s.trim() {
+            "auto" => Ok(Self::Auto),
+            "overlay" => Ok(Self::Overlay),
+            "bind" => Ok(Self::Bind),
+            other => bail!("unknown Magic Mount backend '{other}' (want auto/overlay/bind)"),
+        }
+    }
+}
+
+/// Read the persisted backend (`auto` when unset or unreadable).
+pub fn backend() -> MountBackend {
+    std::fs::read_to_string(defs::MAGIC_MOUNT_BACKEND_FILE)
+        .ok()
+        .and_then(|s| MountBackend::parse(&s).ok())
+        .unwrap_or(MountBackend::Auto)
+}
+
+/// Persist the backend (`auto`/`overlay`/`bind`). Takes effect next boot.
+pub fn set_backend(mode: &str) -> Result<()> {
+    let parsed = MountBackend::parse(mode)?;
+    if let Some(parent) = Path::new(defs::MAGIC_MOUNT_BACKEND_FILE).parent() {
+        std::fs::create_dir_all(parent)
+            .with_context(|| format!("Failed to create {}", parent.display()))?;
+    }
+    std::fs::write(defs::MAGIC_MOUNT_BACKEND_FILE, parsed.as_str())
+        .with_context(|| format!("Failed to write {}", defs::MAGIC_MOUNT_BACKEND_FILE))?;
+    info!("Magic Mount backend set to {} (takes effect on next boot)", parsed.as_str());
+    Ok(())
+}
+
+pub fn print_backend() -> Result<()> {
+    println!("{}", backend().as_str());
+    Ok(())
+}
+
 /// Whether an enabled metamodule provides its own mount script. When it
 /// does, the metamodule owns mounting and Magic Mount stands down.
 fn metamodule_owns_mounting() -> bool {
@@ -394,14 +448,26 @@ pub fn run_magic_mount() -> Result<()> {
     std::fs::create_dir_all(work_base)
         .with_context(|| format!("create {}", work_base.display()))?;
 
-    let use_overlay = overlay_supported();
+    let use_overlay = match backend() {
+        MountBackend::Auto => overlay_supported(),
+        MountBackend::Bind => false,
+        MountBackend::Overlay => {
+            if !overlay_supported() {
+                warn!("backend forced to overlay but kernel lacks overlayfs; using bind fallback");
+                false
+            } else {
+                true
+            }
+        }
+    };
     info!(
-        "Magic Mount: {} module(s), overlayfs {}",
+        "Magic Mount: {} module(s), backend {} (overlayfs {})",
         modules.len(),
+        backend().as_str(),
         if use_overlay {
-            "available"
+            "in use"
         } else {
-            "unavailable (bind fallback)"
+            "not used"
         },
     );
 

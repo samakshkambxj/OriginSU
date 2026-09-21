@@ -50,6 +50,9 @@ class KsuCliRepository(context: Context) {
         const val ORIGIN_ZYGISK_DIR = "/data/adb/ksu/originzygisk"
         const val ORIGIN_ZYGISK_HOOK = "/data/adb/post-fs-data.d/originzygisk.sh"
 
+        // Magic Mount backend ids accepted by `ksud module magic-mount backend`.
+        val MAGIC_MOUNT_BACKENDS = listOf("auto", "overlay", "bind")
+
         // Zygisk *provider* module ids that conflict with the built-in
         // engine. Zygisk *modules* (e.g. LSPosed) are NOT blocked.
         val BLOCKED_ZYGISK_IMPL_IDS = setOf(
@@ -1256,6 +1259,25 @@ class KsuCliRepository(context: Context) {
             }
             val op = if (enabled) "enable" else "disable"
             runCatching { execKsud("module magic-mount $op") }.getOrDefault(false)
+        }
+
+    suspend fun getMagicMountBackend(): String = withContext(Dispatchers.IO) {
+        if (!rootAvailable()) {
+            return@withContext "auto"
+        }
+        val shell = getRootShell()
+        runCatching {
+            runCmd(shell, "${getKsuDaemonPath()} module magic-mount backend").trim()
+        }.getOrDefault("auto").takeIf { it in MAGIC_MOUNT_BACKENDS } ?: "auto"
+    }
+
+    suspend fun setMagicMountBackend(backend: String): Boolean =
+        withContext(Dispatchers.IO) {
+            if (!rootAvailable() || backend !in MAGIC_MOUNT_BACKENDS) {
+                return@withContext false
+            }
+            runCatching { execKsud("module magic-mount backend $backend") }
+                .getOrDefault(false)
         }
 
     suspend fun isOriginZygiskRunning(): Boolean = withContext(Dispatchers.IO) {

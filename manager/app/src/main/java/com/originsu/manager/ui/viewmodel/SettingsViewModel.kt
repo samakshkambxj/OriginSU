@@ -126,6 +126,7 @@ data class SettingsUiState(
     val isSecureRootEnabled: Boolean = false,
     val isOriginGuardEnabled: Boolean = true,
     val isMagicMountEnabled: Boolean = true,
+    val magicMountBackend: String = "auto",
     val isThemedShortcutsEnabled: Boolean = false,
     val isOriginZygiskEnabled: Boolean = false,
     val isOriginZygiskRunning: Boolean = false,
@@ -181,7 +182,9 @@ sealed interface SettingsUiAction {
     data object RefreshOverlayPermission : SettingsUiAction
     data class SetDefaultUmountModules(val enabled: Boolean) : SettingsUiAction
     data class SetSecureRootEnabled(val enabled: Boolean) : SettingsUiAction
-    data class SetOriginGuardEnabled(val enabled: Boolean) : SettingsUiAction    data class SetMagicMountEnabled(val enabled: Boolean) : SettingsUiAction    data class SetThemedShortcutsEnabled(val enabled: Boolean) : SettingsUiAction
+    data class SetOriginGuardEnabled(val enabled: Boolean) : SettingsUiAction    data class SetMagicMountEnabled(val enabled: Boolean) : SettingsUiAction
+    data class SetMagicMountBackend(val backend: String) : SettingsUiAction
+    data class SetThemedShortcutsEnabled(val enabled: Boolean) : SettingsUiAction
     data class SetOriginZygiskEnabled(val enabled: Boolean) : SettingsUiAction
     data object RefreshOriginZygisk : SettingsUiAction
     data object RefreshBootloop : SettingsUiAction
@@ -458,13 +461,26 @@ class SettingsViewModel(
         viewModelScope.launch {
             val enabled = runCatching { ksuCliRepository.isMagicMountEnabled() }
                 .getOrDefault(true)
-            mutableState.update { it.copy(isMagicMountEnabled = enabled) }
+            val backend = runCatching { ksuCliRepository.getMagicMountBackend() }
+                .getOrDefault("auto")
+            mutableState.update { it.copy(isMagicMountEnabled = enabled, magicMountBackend = backend) }
         }
     }
 
     fun handleMagicMountChange(enabled: Boolean) {
         viewModelScope.launch {
             val ok = runCatching { ksuCliRepository.setMagicMountEnabled(enabled) }
+                .getOrDefault(false)
+            if (!ok) {
+                mutableEvents.tryEmit(SettingsUiEvent.Message(R.string.magic_mount_failed))
+            }
+            refreshMagicMount()
+        }
+    }
+
+    fun handleMagicMountBackendChange(backend: String) {
+        viewModelScope.launch {
+            val ok = runCatching { ksuCliRepository.setMagicMountBackend(backend) }
                 .getOrDefault(false)
             if (!ok) {
                 mutableEvents.tryEmit(SettingsUiEvent.Message(R.string.magic_mount_failed))
@@ -714,6 +730,8 @@ fun dispatch(action: SettingsUiAction) {
                 handleOriginGuardChange(action.enabled)
             is SettingsUiAction.SetMagicMountEnabled ->
                 handleMagicMountChange(action.enabled)
+            is SettingsUiAction.SetMagicMountBackend ->
+                handleMagicMountBackendChange(action.backend)
             is SettingsUiAction.SetThemedShortcutsEnabled ->
                 handleThemedShortcutsChange(action.enabled)
             is SettingsUiAction.SetOriginZygiskEnabled ->

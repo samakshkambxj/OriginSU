@@ -287,6 +287,11 @@
     <string name="settings_originguard_summary">Scan modules for risky behavior before installing</string>
     <string name="settings_magic_mount">Magic Mount</string>
     <string name="settings_magic_mount_summary">Mount module files Magisk-style (takes effect on next boot)</string>
+    <string name="settings_magic_mount_backend">Mount backend</string>
+    <string name="settings_magic_mount_backend_summary">Overlayfs merges directories; bind mounts individual files</string>
+    <string name="magic_mount_backend_auto">Auto</string>
+    <string name="magic_mount_backend_overlay">Overlayfs</string>
+    <string name="magic_mount_backend_bind">Bind</string>
     <string name="grant_root_failed">Failed to grant root!</string>
     <string name="home_pr_build_warning">This is a PR debug build. Do NOT use it in production!</string>
     <string name="action">Action</string>
