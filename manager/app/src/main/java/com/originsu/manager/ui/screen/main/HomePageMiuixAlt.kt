@@ -74,11 +74,11 @@ import com.originsu.manager.ui.component.rebootlistpopup.RebootListPopupMiuix
 import com.originsu.manager.ui.miuix.LocalEnableBlur
 import com.originsu.manager.ui.miuix.OriginMiuixTheme
 import com.originsu.manager.ui.miuix.homeCardColors
+import com.originsu.manager.ui.miuix.miuixTileColor
 import com.originsu.manager.ui.navigation.LocalNavigator
 import com.originsu.manager.ui.navigation.Route
-import com.originsu.manager.ui.theme.CardConfig
 import com.originsu.manager.ui.util.BlurredBar
-import com.originsu.manager.ui.util.miuixTileBlur
+import com.originsu.manager.ui.util.miuixHomeTileBlur
 import com.originsu.manager.ui.util.rememberBlurBackdrop
 import com.originsu.manager.ui.viewmodel.HomeUiAction
 import com.originsu.manager.ui.viewmodel.HomeUiEvent
@@ -239,8 +239,7 @@ private fun HomePagerMiuixAlt(
                             if ((status.kernelUAPIVersion ?: 1) > status.managerUAPIVersion) {
                                 WarningCard(
                                     message = stringResource(R.string.require_manager_version),
-                                    backdrop = backdrop,
-                                )
+                                    )
                             } else {
                                 WarningCard(
                                     message = if (status.lkmMode == true)
@@ -248,20 +247,17 @@ private fun HomePagerMiuixAlt(
                                     else
                                         stringResource(R.string.require_kernel_version_gki),
                                     onClick = actions.onInstallClick,
-                                    backdrop = backdrop,
-                                )
+                                    )
                             }
                         }
                         if (status.ksuVersion != null && !status.isRootAvailable) {
                             WarningCard(
                                 stringResource(id = R.string.grant_root_failed),
-                                backdrop = backdrop,
                             )
                         }
                         StatusCardAlt(
                             state = state,
                             actions = actions,
-                            backdrop = backdrop,
                         )
                         if (status.isRootAvailable) {
                             OriginTuneCard(onClick = actions.onOriginTuneClick)
@@ -270,19 +266,16 @@ private fun HomePagerMiuixAlt(
                             InfoCardAlt(
                                 systemInfo = state.systemInfo,
                                 modifier = Modifier.fillMaxWidth(),
-                                backdrop = backdrop,
                             )
                         }
                         UpdateCardAlt(
                             stableUpdate = state.stableManagerUpdate,
                             betaUpdate = state.betaManagerUpdate,
                             onUpdateClick = actions.onUpdateClick,
-                            backdrop = backdrop,
                         )
                         SupportLinks(
                             onOpenUrl = actions.onOpenUrl,
                             modifier = Modifier.fillMaxWidth(),
-                            backdrop = backdrop,
                         )
                         Spacer(
                             Modifier.height(
@@ -302,7 +295,6 @@ private fun UpdateCardAlt(
     stableUpdate: ManagerUpdateInfo?,
     betaUpdate: ManagerUpdateInfo?,
     onUpdateClick: (ManagerUpdateInfo) -> Unit,
-    backdrop: LayerBackdrop?,
 ) {
     val update = stableUpdate ?: betaUpdate ?: return
     val title = stringResource(id = R.string.module_changelog)
@@ -322,7 +314,6 @@ private fun UpdateCardAlt(
         WarningCard(
             message = message,
             color = colorScheme.outline,
-            backdrop = backdrop,
             onClick = {
                 if (update.changelog.isEmpty()) {
                     onUpdateClick(update)
@@ -368,10 +359,8 @@ private fun TopBarAlt(
 private fun StatusCardAlt(
     state: HomeDashboardState,
     actions: HomeMiuixAltActions,
-    backdrop: LayerBackdrop?,
 ) {
     val status = state.systemStatus
-    val cardConfig: CardConfig = koinInject()
     Column {
         when {
             status.ksuVersion != null -> {
@@ -396,16 +385,17 @@ private fun StatusCardAlt(
                         .height(IntrinsicSize.Min),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
+                    val statusColor = when {
+                        isDynamicColor -> colorScheme.secondaryContainer
+                        isInDarkThemeAlt() -> Color(0xFF1A3825)
+                        else -> Color(0xFFDFFAE4)
+                    }
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .miuixTileBlur(backdrop),
+                            .miuixHomeTileBlur(statusColor),
                         colors = CardDefaults.defaultColors(
-                            color = (when {
-                                isDynamicColor -> colorScheme.secondaryContainer
-                                isInDarkThemeAlt() -> Color(0xFF1A3825)
-                                else -> Color(0xFFDFFAE4)
-                            }).copy(alpha = cardConfig.cardAlpha)
+                            color = miuixTileColor(statusColor)
                         ),
                         onClick = {
                             if (!status.isLateLoadMode) {
@@ -471,7 +461,7 @@ private fun StatusCardAlt(
                         colors = homeCardColors(),
                         modifier = Modifier
                             .weight(1f)
-                            .miuixTileBlur(backdrop),
+                            .miuixHomeTileBlur(MiuixTheme.colorScheme.surfaceContainerHigh),
                         onClick = {
                             if (!status.isLateLoadMode) {
                                 actions.onInstallClick()
@@ -508,7 +498,7 @@ private fun StatusCardAlt(
             else -> {
                 Card(
                     colors = homeCardColors(),
-                    modifier = Modifier.miuixTileBlur(backdrop),
+                    modifier = Modifier.miuixHomeTileBlur(MiuixTheme.colorScheme.surfaceContainerHigh),
                     onClick = {
                         if (!status.isLateLoadMode) {
                             actions.onInstallClick()
@@ -539,11 +529,10 @@ private fun StatusCardAlt(
 private fun SupportLinks(
     onOpenUrl: (String) -> Unit,
     modifier: Modifier = Modifier,
-    backdrop: LayerBackdrop? = null,
 ) {
     val learnMoreUrl = stringResource(R.string.home_learn_kernelsu_url)
     Card(
-        modifier = modifier.miuixTileBlur(backdrop),
+        modifier = modifier.miuixHomeTileBlur(MiuixTheme.colorScheme.surfaceContainerHigh),
         colors = homeCardColors(),
     ) {
         ArrowPreference(
@@ -579,7 +568,6 @@ private fun SupportLinks(
 private fun InfoCardAlt(
     systemInfo: HomeSystemInfo,
     modifier: Modifier = Modifier,
-    backdrop: LayerBackdrop? = null,
 ) {
     @Composable
     fun InfoText(
@@ -640,7 +628,7 @@ private fun InfoCardAlt(
         Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .miuixTileBlur(backdrop),
+                .miuixHomeTileBlur(MiuixTheme.colorScheme.surfaceContainerHigh),
             colors = homeCardColors(),
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
@@ -663,14 +651,26 @@ private fun InfoCardAlt(
                     icon = Icons.Filled.Fingerprint,
                     title = stringResource(R.string.home_fingerprint),
                     content = Build.FINGERPRINT,
-                    bottomPadding = 0.dp,
+                    bottomPadding = if (systemInfo.magicMountBackend.isNotEmpty()) 24.dp else 0.dp,
                 )
+                if (systemInfo.magicMountBackend.isNotEmpty()) {
+                    InfoText(
+                        icon = Icons.Filled.FilterList,
+                        title = stringResource(R.string.settings_magic_mount_backend),
+                        content = when (systemInfo.magicMountBackend) {
+                            "overlay" -> stringResource(R.string.magic_mount_backend_overlay)
+                            "bind" -> stringResource(R.string.magic_mount_backend_bind)
+                            else -> stringResource(R.string.magic_mount_backend_auto)
+                        },
+                        bottomPadding = 0.dp,
+                    )
+                }
             }
         }
         Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .miuixTileBlur(backdrop),
+                .miuixHomeTileBlur(MiuixTheme.colorScheme.surfaceContainerHigh),
             colors = homeCardColors(),
         ) {
             Column(modifier = Modifier.padding(16.dp)) {

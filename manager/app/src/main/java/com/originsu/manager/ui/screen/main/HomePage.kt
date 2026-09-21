@@ -44,6 +44,7 @@ import androidx.compose.material.icons.twotone.FilterList
 import androidx.compose.material.icons.twotone.Group
 import androidx.compose.material.icons.twotone.ContentCopy
 import androidx.compose.material.icons.twotone.Info
+import androidx.compose.material.icons.twotone.Layers
 import androidx.compose.material.icons.twotone.Memory
 import androidx.compose.material.icons.twotone.PowerSettingsNew
 import androidx.compose.material.icons.twotone.Security
@@ -879,6 +880,21 @@ private fun InfoCard(
                 iconPlaceholder = false,
                 title = stringResource(R.string.home_manager_version),
                 description = "${systemInfo.managerVersion.first} (${systemInfo.managerVersion.second}/${systemInfo.managerVersion.third})",
+            )
+        }
+
+        item(
+            visible = !isSimpleMode && systemInfo.magicMountBackend.isNotEmpty()
+        ) {
+            SettingsBaseWidget(
+                icon = Icons.TwoTone.Layers.takeIf { showHomeCardIcons },
+                iconPlaceholder = false,
+                title = stringResource(R.string.settings_magic_mount_backend),
+                description = when (systemInfo.magicMountBackend) {
+                    "overlay" -> stringResource(R.string.magic_mount_backend_overlay)
+                    "bind" -> stringResource(R.string.magic_mount_backend_bind)
+                    else -> stringResource(R.string.magic_mount_backend_auto)
+                },
             )
         }
 

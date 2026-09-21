@@ -40,6 +40,7 @@ data class HomeSystemInfo(
     val isDynamicSignEnabled: Boolean = false,
     val zygiskImplement: String = "",
     val metaModuleImplement: String = "",
+    val magicMountBackend: String = "",
     val seccompStatus: Int = -1,
     val lastFlashTime: Long = 0L,
 )

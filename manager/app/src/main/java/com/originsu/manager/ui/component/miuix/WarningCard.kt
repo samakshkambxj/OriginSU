@@ -10,14 +10,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.originsu.manager.ui.theme.CardConfig
+import com.originsu.manager.ui.miuix.miuixTileColor
 import com.originsu.manager.ui.theme.ThemeConfig
-import com.originsu.manager.ui.util.miuixTileBlur
+import com.originsu.manager.ui.util.miuixHomeTileBlur
 import org.koin.compose.koinInject
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.CardDefaults
 import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.blur.LayerBackdrop
 import top.yukonga.miuix.kmp.theme.MiuixTheme.colorScheme
 import top.yukonga.miuix.kmp.theme.MiuixTheme.isDynamicColor
 import top.yukonga.miuix.kmp.utils.PressFeedbackType
@@ -29,21 +28,20 @@ fun WarningCard(
     color: Color? = null,
     onClick: (() -> Unit)? = null,
     action: (@Composable () -> Unit)? = null,
-    backdrop: LayerBackdrop? = null,
 ) {
     val themeConfig: ThemeConfig = koinInject()
-    val cardConfig: CardConfig = koinInject()
     val darkTheme = themeConfig.forceDarkMode
         ?: androidx.compose.foundation.isSystemInDarkTheme()
+    val baseColor = color ?: when {
+        isDynamicColor -> colorScheme.errorContainer
+        darkTheme -> Color(0XFF310808)
+        else -> Color(0xFFF8E2E2)
+    }
     Card(
-        modifier = Modifier.miuixTileBlur(backdrop),
+        modifier = Modifier.miuixHomeTileBlur(baseColor),
         onClick = { onClick?.invoke() },
         colors = CardDefaults.defaultColors(
-            color = (color ?: when {
-                isDynamicColor -> colorScheme.errorContainer
-                darkTheme -> Color(0XFF310808)
-                else -> Color(0xFFF8E2E2)
-            }).copy(alpha = cardConfig.cardAlpha)
+            color = miuixTileColor(baseColor)
         ),
         showIndication = onClick != null,
         pressFeedbackType = PressFeedbackType.Tilt

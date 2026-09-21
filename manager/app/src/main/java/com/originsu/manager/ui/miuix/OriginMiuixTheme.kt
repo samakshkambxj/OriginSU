@@ -31,16 +31,28 @@ val LocalEnableBlur = staticCompositionLocalOf { false }
 
 /**
  * Card colors lifted one tonal step so flat cards stay visible on the
- * manager-matched page background. Translucent (via cardAlpha) when a custom
- * background is enabled so the background shows through, matching the
- * Material tiles; opaque otherwise.
+ * manager-matched page background. Transparent while experimental blur
+ * paints the tile (see [miuixHomeTileBlur]); otherwise translucent via
+ * cardAlpha when a custom background is enabled, opaque otherwise —
+ * mirroring SettingsBaseWidget tiles.
  */
 @Composable
-fun homeCardColors(): top.yukonga.miuix.kmp.basic.CardColors {
-    val cardConfig: CardConfig = koinInject()
-    return top.yukonga.miuix.kmp.basic.CardDefaults.defaultColors(
-        color = MiuixTheme.colorScheme.surfaceContainerHigh.copy(alpha = cardConfig.cardAlpha),
+fun homeCardColors(): top.yukonga.miuix.kmp.basic.CardColors =
+    top.yukonga.miuix.kmp.basic.CardDefaults.defaultColors(
+        color = miuixTileColor(MiuixTheme.colorScheme.surfaceContainerHigh),
     )
+
+/**
+ * Tile background for a custom [base] color under the same rule: transparent
+ * while experimental blur is active (the blur modifier paints
+ * [base] as its tint), else [base] with cardAlpha.
+ */
+@Composable
+fun miuixTileColor(base: Color): Color {
+    val themeConfig: ThemeConfig = koinInject()
+    val cardConfig: CardConfig = koinInject()
+    return if (themeConfig.isEnableBlurExp) Color.Transparent
+    else base.copy(alpha = cardConfig.cardAlpha)
 }
 
 @Composable
