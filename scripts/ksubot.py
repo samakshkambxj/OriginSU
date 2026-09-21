@@ -2,7 +2,7 @@ import asyncio
 import os,re
 import random
 import sys,json
-from telegram import Bot,InputMediaDocument
+from telegram import Bot
 from telegram.error import RetryAfter
 from telegram.constants import ParseMode
 
@@ -172,15 +172,18 @@ async def send_message(bot: Bot, chat_id: int, text: str, message_thread_id=None
     except:
         raise
 
-async def send_media_group(bot: Bot, chat_id: int, media: list, message_thread_id=None):
+async def send_document(bot: Bot, chat_id: int, file: str, filename: str, caption=None, message_thread_id=None):
     try:
         await asyncio.sleep(random.uniform(0.2, 0.8))
-        return await bot.send_media_group(chat_id=chat_id, media=media, message_thread_id=message_thread_id,
+        with open(file, "rb") as f:
+            return await bot.send_document(chat_id=chat_id, document=f, filename=filename,
+                                       caption=caption, parse_mode=ParseMode.HTML if caption else None,
+                                       message_thread_id=message_thread_id,
                                        read_timeout=350,write_timeout=350,connect_timeout=350,pool_timeout=350)
     except RetryAfter as e:
         print(f"[-] Hit Telegram flood limit, retrying after {e.retry_after} seconds...")
         await asyncio.sleep(e.retry_after)
-        return await send_media_group(bot, chat_id, media, message_thread_id)
+        return await send_document(bot, chat_id, file, filename, caption, message_thread_id)
     except:
         raise
 
@@ -206,11 +209,7 @@ async def main():
         if os.path.basename(file).find("debug") != -1:
             # If the filename contains "debug", skip it.
             continue
-        elif index == len(files) - 1:
-            # Only add caption to the last file
-            upload_release_files.append(InputMediaDocument(media=open(file, "rb"), filename=os.path.basename(file), caption=f"{caption if not no_caption else '<b>Release Manager</b>'}", parse_mode=ParseMode.HTML))
-            continue
-        upload_release_files.append(InputMediaDocument(media=open(file, "rb"), filename=os.path.basename(file)))
+        upload_release_files.append(file)
 
     print("[+] Caption: ")
     print("---")
@@ -222,8 +221,23 @@ async def main():
         print("[+] Sending")
         if no_caption:
             await send_message(bot=bot, chat_id=CHAT_ID, text=caption, message_thread_id=MESSAGE_THREAD_ID)
-        if len(upload_release_files) > 0:
-            await send_media_group(bot=bot, chat_id=CHAT_ID, media=upload_release_files, message_thread_id=MESSAGE_THREAD_ID)
+        # One document per request: a media group with all APKs trips
+        # Telegram's request-size limit ("Request Entity Too Large") now
+        # that each APK embeds the full LKM matrix.
+        for index, file in enumerate(upload_release_files):
+            name = os.path.basename(file)
+            # Caption rides on the first file so it is delivered even if a
+            # later upload fails.
+            file_caption = caption if (not no_caption and index == 0) else None
+            try:
+                await send_document(bot=bot, chat_id=CHAT_ID, file=file, filename=name,
+                                    caption=file_caption, message_thread_id=MESSAGE_THREAD_ID)
+                print(f"[+] Sent {name}")
+            except Exception as e:
+                print(f"[-] Failed to upload {name}: {e}")
+                fallback = (f"⚠️ Could not upload <b>{escape_telegram_html(name)}</b> ({escape_telegram_html(str(e))}). "
+                            f"Get it from the <a href=\"{RUN_URL}\">workflow run</a>.")
+                await send_message(bot=bot, chat_id=CHAT_ID, text=fallback, message_thread_id=MESSAGE_THREAD_ID)
         if TITLE.lower() == "manager" and (BRANCH == "main" or GITHUB_REF_TYPE == "tag"):
             print("[+] Sending main branch updated message")
             await send_message(bot=bot,chat_id=CHAT_ID, text=MAIN_UPDATED_MSG, message_thread_id=DEVELOPING_THREAD_ID)
