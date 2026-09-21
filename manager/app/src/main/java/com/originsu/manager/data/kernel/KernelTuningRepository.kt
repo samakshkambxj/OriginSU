@@ -22,6 +22,7 @@ import com.originsu.manager.domain.model.VmKnob
 import com.originsu.manager.domain.model.VmState
 import com.originsu.manager.domain.model.SysctlEntry
 import com.originsu.manager.domain.model.ZramState
+import com.topjohnwu.superuser.Shell
 import com.topjohnwu.superuser.ShellUtils
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -325,22 +326,24 @@ class KernelTuningRepository(
         withContext(Dispatchers.IO) {
             mutableState.update { it.copy(isRefreshing = !it.isLoading) }
             runCatching {
-                val shell = ksuCliRepository.getRootShell()
+                // One root shell per refresh, closed on the way out: spawning
+                // a shell per read costs hundreds of `su` forks per refresh.
+                ksuCliRepository.getRootShell().use { shell ->
                 val available = ShellUtils.fastCmd(shell, "cat $TCP_AVAILABLE 2>/dev/null")
                     .trim().split(Regex("\\s+")).filter { it.isNotEmpty() }
                 val current = ShellUtils.fastCmd(shell, "cat $TCP_CURRENT 2>/dev/null").trim()
                 val stored = loadStored()
                 // Re-read live values so the UI shows actual kernel state.
                 val live = stored.map { entry ->
-                    entry.copy(value = readSysctl(entry.key).getOrDefault(entry.value))
+                    entry.copy(value = readSysctl(entry.key, shell).getOrDefault(entry.value))
                 }
                 val p = prefs()
-                val boreEnabledRaw = readSysctl(BORE_ENABLE_KEY).getOrNull()
+                val boreEnabledRaw = readSysctl(BORE_ENABLE_KEY, shell).getOrNull()
                 val boreKnobs = if (boreEnabledRaw == null) {
                     emptyList()
                 } else {
                     BORE_KNOBS.mapNotNull { (key, range) ->
-                        readSysctl(key).getOrNull()?.let { value ->
+                        readSysctl(key, shell).getOrNull()?.let { value ->
                             BoreKnob(key, value, range.first, range.second, range.third)
                         }
                     }
@@ -356,12 +359,12 @@ class KernelTuningRepository(
                         } == true
                     }.orEmpty()
                 }
-                val zram = readZramState(p)
-                val cpu = readCpuState(p)
-                val gpu = readGpuState(p)
-                val io = readIoState(p)
+                val zram = readZramState(p, shell)
+                val cpu = readCpuState(p, shell)
+                val gpu = readGpuState(p, shell)
+                val io = readIoState(p, shell)
                 val vmKnobs = VM_KNOBS.mapNotNull { (key, range) ->
-                    readSysctl(key).getOrNull()?.let { value ->
+                    readSysctl(key, shell).getOrNull()?.let { value ->
                         VmKnob(key, value, range.first, range.second, range.third)
                     }
                 }
@@ -382,7 +385,7 @@ class KernelTuningRepository(
                     profileId = vmProfileId,
                 )
                 val schedKnobs = SCHED_KNOBS.mapNotNull { (key, range) ->
-                    readSysctl(key).getOrNull()?.let { value ->
+                    readSysctl(key, shell).getOrNull()?.let { value ->
                         SchedKnob(key, value, range.first, range.second, range.third)
                     }
                 }
@@ -391,8 +394,8 @@ class KernelTuningRepository(
                     persist = p.getBoolean(KEY_SCHED_PERSIST, false),
                     knobs = schedKnobs,
                 )
-                val lmk = readLmkState(p)
-                val diagnostics = readDiagnosticsState()
+                val lmk = readLmkState(p, shell)
+                val diagnostics = readDiagnosticsState(shell)
                 mutableState.value = KernelTuningState(
                     tcpAvailable = available,
                     tcpCurrent = current,
@@ -414,6 +417,7 @@ class KernelTuningRepository(
                     isLoading = false,
                     isRefreshing = false,
                 )
+                }
             }.onFailure {
                 Log.w(TAG, "refresh failed", it)
                 mutableState.update { current ->
@@ -425,25 +429,28 @@ class KernelTuningRepository(
 
     suspend fun setTcp(name: String, persist: Boolean): Result<Unit> = mutex.withLock {
         withContext(Dispatchers.IO) {
+            ksuCliRepository.getRootShell().use { shell ->
             runCatching {
                 val available = mutableState.value.tcpAvailable
                 check(name.isNotEmpty()) { "empty algorithm" }
                 check(available.isEmpty() || name in available) { "unknown algorithm" }
-                check(writeSysctl(TCP_KEY, name)) { "sysctl write failed" }
+                check(writeSysctl(TCP_KEY, name, shell)) { "sysctl write failed" }
                 prefs().edit()
                     .putBoolean(KEY_TCP_PERSIST, persist)
                     .putString(KEY_TCP_CHOICE, name)
                     .apply()
-                syncBootScript()
+                syncBootScript(shell)
                 mutableState.update {
                     it.copy(tcpCurrent = name, tcpPersist = persist)
                 }
+            }
             }
         }
     }
 
     suspend fun setTcpPersist(persist: Boolean): Result<Unit> = mutex.withLock {
         withContext(Dispatchers.IO) {
+            ksuCliRepository.getRootShell().use { shell ->
             runCatching {
                 prefs().edit().putBoolean(KEY_TCP_PERSIST, persist).apply()
                 if (persist) {
@@ -451,26 +458,30 @@ class KernelTuningRepository(
                         .putString(KEY_TCP_CHOICE, mutableState.value.tcpCurrent)
                         .apply()
                 }
-                syncBootScript()
+                syncBootScript(shell)
                 mutableState.update { it.copy(tcpPersist = persist) }
+            }
             }
         }
     }
 
     suspend fun setBoreEnabled(enabled: Boolean): Result<Unit> = mutex.withLock {
         withContext(Dispatchers.IO) {
+            ksuCliRepository.getRootShell().use { shell ->
             runCatching {
                 check(mutableState.value.boreSupported) { "BORE not supported" }
                 val value = if (enabled) "1" else "0"
-                check(writeSysctl(BORE_ENABLE_KEY, value)) { "sysctl write failed" }
-                storeBoreValue(BORE_ENABLE_KEY, value)
+                check(writeSysctl(BORE_ENABLE_KEY, value, shell)) { "sysctl write failed" }
+                storeBoreValue(BORE_ENABLE_KEY, value, shell)
                 mutableState.update { it.copy(boreEnabled = enabled, boreProfileId = "") }
+            }
             }
         }
     }
 
     suspend fun setBoreKnob(key: String, value: String): Result<Unit> = mutex.withLock {
         withContext(Dispatchers.IO) {
+            ksuCliRepository.getRootShell().use { shell ->
             runCatching {
                 val range = BORE_KNOBS[key.trim()]
                 check(range != null) { "unknown BORE knob" }
@@ -478,8 +489,8 @@ class KernelTuningRepository(
                 check(numeric != null && numeric in range.first..range.second) {
                     "value out of range"
                 }
-                check(writeSysctl(key, numeric.toString())) { "sysctl write failed" }
-                storeBoreValue(key, numeric.toString())
+                check(writeSysctl(key, numeric.toString(), shell)) { "sysctl write failed" }
+                storeBoreValue(key, numeric.toString(), shell)
                 mutableState.update {
                     it.copy(
                         boreKnobs = it.boreKnobs.map { knob ->
@@ -489,11 +500,13 @@ class KernelTuningRepository(
                     )
                 }
             }
+            }
         }
     }
 
     suspend fun setBorePersist(persist: Boolean): Result<Unit> = mutex.withLock {
         withContext(Dispatchers.IO) {
+            ksuCliRepository.getRootShell().use { shell ->
             runCatching {
                 prefs().edit().putBoolean(KEY_BORE_PERSIST, persist).apply()
                 val boreKeys = mutableState.value.boreKnobs.map { it.key } + BORE_ENABLE_KEY
@@ -502,7 +515,7 @@ class KernelTuningRepository(
                 // the whole BORE setup, not just knobs touched this session.
                 val backfill = if (persist) {
                     boreKeys.filter { key -> stored.none { it.key == key } }.mapNotNull { key ->
-                        readSysctl(key).getOrNull()?.let { SysctlEntry(key, it, true) }
+                        readSysctl(key, shell).getOrNull()?.let { SysctlEntry(key, it, true) }
                     }
                 } else {
                     emptyList()
@@ -511,26 +524,29 @@ class KernelTuningRepository(
                     if (it.key in boreKeys) it.copy(persist = persist) else it
                 } + backfill
                 saveStored(updated)
-                syncBootScript()
+                syncBootScript(shell)
                 mutableState.update { it.copy(borePersist = persist) }
+            }
             }
         }
     }
 
     suspend fun resetBoreDefaults(): Result<Unit> = mutex.withLock {
         withContext(Dispatchers.IO) {
+            ksuCliRepository.getRootShell().use { shell ->
             runCatching {
                 check(mutableState.value.boreSupported) { "BORE not supported" }
-                check(writeSysctl(BORE_ENABLE_KEY, "1")) { "sysctl write failed" }
-                storeBoreValue(BORE_ENABLE_KEY, "1")
+                check(writeSysctl(BORE_ENABLE_KEY, "1", shell)) { "sysctl write failed" }
+                storeBoreValue(BORE_ENABLE_KEY, "1", shell)
                 val knobs = mutableState.value.boreKnobs.map { knob ->
                     val range = BORE_KNOBS[knob.key] ?: return@map knob
                     val def = range.third.toString()
-                    check(writeSysctl(knob.key, def)) { "sysctl write failed: ${knob.key}" }
-                    storeBoreValue(knob.key, def)
+                    check(writeSysctl(knob.key, def, shell)) { "sysctl write failed: ${knob.key}" }
+                    storeBoreValue(knob.key, def, shell)
                     knob.copy(value = def)
                 }
                 mutableState.update { it.copy(boreEnabled = true, boreKnobs = knobs, boreProfileId = "balanced") }
+            }
             }
         }
     }
@@ -542,29 +558,32 @@ class KernelTuningRepository(
      */
     suspend fun applyBoreProfile(id: String): Result<Unit> = mutex.withLock {
         withContext(Dispatchers.IO) {
+            ksuCliRepository.getRootShell().use { shell ->
             runCatching {
                 check(mutableState.value.boreSupported) { "BORE not supported" }
                 val profile = BORE_PROFILES[id]
                 check(profile != null) { "unknown profile" }
-                check(writeSysctl(BORE_ENABLE_KEY, "1")) { "sysctl write failed" }
-                storeBoreValue(BORE_ENABLE_KEY, "1")
+                check(writeSysctl(BORE_ENABLE_KEY, "1", shell)) { "sysctl write failed" }
+                storeBoreValue(BORE_ENABLE_KEY, "1", shell)
                 val knobs = mutableState.value.boreKnobs.map { knob ->
                     val want = profile[knob.key] ?: return@map knob
-                    check(writeSysctl(knob.key, want.toString())) {
+                    check(writeSysctl(knob.key, want.toString(), shell)) {
                         "sysctl write failed: ${knob.key}"
                     }
-                    storeBoreValue(knob.key, want.toString())
+                    storeBoreValue(knob.key, want.toString(), shell)
                     knob.copy(value = want.toString())
                 }
                 mutableState.update {
                     it.copy(boreEnabled = true, boreKnobs = knobs, boreProfileId = id)
                 }
             }
+            }
         }
     }
 
     suspend fun setVmKnob(key: String, value: String): Result<Unit> = mutex.withLock {
         withContext(Dispatchers.IO) {
+            ksuCliRepository.getRootShell().use { shell ->
             runCatching {
                 val range = VM_KNOBS[key.trim()]
                 check(range != null) { "unknown VM knob" }
@@ -572,8 +591,8 @@ class KernelTuningRepository(
                 check(numeric != null && numeric in range.first..range.second) {
                     "value out of range"
                 }
-                check(writeSysctl(key, numeric.toString())) { "sysctl write failed" }
-                storeVmValue(key, numeric.toString())
+                check(writeSysctl(key, numeric.toString(), shell)) { "sysctl write failed" }
+                storeVmValue(key, numeric.toString(), shell)
                 mutableState.update {
                     it.copy(
                         vm = it.vm.copy(
@@ -585,11 +604,13 @@ class KernelTuningRepository(
                     )
                 }
             }
+            }
         }
     }
 
     suspend fun setVmPersist(persist: Boolean): Result<Unit> = mutex.withLock {
         withContext(Dispatchers.IO) {
+            ksuCliRepository.getRootShell().use { shell ->
             runCatching {
                 prefs().edit().putBoolean(KEY_VM_PERSIST, persist).apply()
                 val vmKeys = mutableState.value.vm.knobs.map { it.key }
@@ -598,7 +619,7 @@ class KernelTuningRepository(
                 // the whole VM setup, not just knobs touched this session.
                 val backfill = if (persist) {
                     vmKeys.filter { key -> stored.none { it.key == key } }.mapNotNull { key ->
-                        readSysctl(key).getOrNull()?.let { SysctlEntry(key, it, true) }
+                        readSysctl(key, shell).getOrNull()?.let { SysctlEntry(key, it, true) }
                     }
                 } else {
                     emptyList()
@@ -607,24 +628,27 @@ class KernelTuningRepository(
                     if (it.key in vmKeys) it.copy(persist = persist) else it
                 } + backfill
                 saveStored(updated)
-                syncBootScript()
+                syncBootScript(shell)
                 mutableState.update { it.copy(vm = it.vm.copy(persist = persist)) }
+            }
             }
         }
     }
 
     suspend fun resetVmDefaults(): Result<Unit> = mutex.withLock {
         withContext(Dispatchers.IO) {
+            ksuCliRepository.getRootShell().use { shell ->
             runCatching {
                 check(mutableState.value.vm.supported) { "VM not supported" }
                 val knobs = mutableState.value.vm.knobs.map { knob ->
                     val range = VM_KNOBS[knob.key] ?: return@map knob
                     val def = range.third.toString()
-                    check(writeSysctl(knob.key, def)) { "sysctl write failed: ${knob.key}" }
-                    storeVmValue(knob.key, def)
+                    check(writeSysctl(knob.key, def, shell)) { "sysctl write failed: ${knob.key}" }
+                    storeVmValue(knob.key, def, shell)
                     knob.copy(value = def)
                 }
                 mutableState.update { it.copy(vm = it.vm.copy(knobs = knobs, profileId = "balanced")) }
+            }
             }
         }
     }
@@ -636,21 +660,23 @@ class KernelTuningRepository(
      */
     suspend fun applyVmProfile(id: String): Result<Unit> = mutex.withLock {
         withContext(Dispatchers.IO) {
+            ksuCliRepository.getRootShell().use { shell ->
             runCatching {
                 check(mutableState.value.vm.supported) { "VM not supported" }
                 val profile = VM_PROFILES[id]
                 check(profile != null) { "unknown profile" }
                 val knobs = mutableState.value.vm.knobs.map { knob ->
                     val want = profile[knob.key] ?: return@map knob
-                    check(writeSysctl(knob.key, want.toString())) {
+                    check(writeSysctl(knob.key, want.toString(), shell)) {
                         "sysctl write failed: ${knob.key}"
                     }
-                    storeVmValue(knob.key, want.toString())
+                    storeVmValue(knob.key, want.toString(), shell)
                     knob.copy(value = want.toString())
                 }
                 mutableState.update {
                     it.copy(vm = it.vm.copy(knobs = knobs, profileId = id))
                 }
+            }
             }
         }
     }
@@ -662,6 +688,7 @@ class KernelTuningRepository(
      */
     suspend fun setSchedKnob(key: String, value: String): Result<Unit> = mutex.withLock {
         withContext(Dispatchers.IO) {
+            ksuCliRepository.getRootShell().use { shell ->
             runCatching {
                 val range = SCHED_KNOBS[key.trim()]
                 check(range != null) { "unknown scheduler knob" }
@@ -681,8 +708,8 @@ class KernelTuningRepository(
                         ?.value?.trim()?.toLongOrNull()
                     check(liveMin == null || numeric >= liveMin) { "max must not be below min" }
                 }
-                check(writeSysctl(key, numeric.toString())) { "sysctl write failed" }
-                storeSchedValue(key, numeric.toString())
+                check(writeSysctl(key, numeric.toString(), shell)) { "sysctl write failed" }
+                storeSchedValue(key, numeric.toString(), shell)
                 mutableState.update {
                     it.copy(
                         sched = it.sched.copy(
@@ -693,11 +720,13 @@ class KernelTuningRepository(
                     )
                 }
             }
+            }
         }
     }
 
     suspend fun setSchedPersist(persist: Boolean): Result<Unit> = mutex.withLock {
         withContext(Dispatchers.IO) {
+            ksuCliRepository.getRootShell().use { shell ->
             runCatching {
                 prefs().edit().putBoolean(KEY_SCHED_PERSIST, persist).apply()
                 val schedKeys = mutableState.value.sched.knobs.map { it.key }
@@ -706,7 +735,7 @@ class KernelTuningRepository(
                 // the whole scheduler setup, not just knobs touched this session.
                 val backfill = if (persist) {
                     schedKeys.filter { key -> stored.none { it.key == key } }.mapNotNull { key ->
-                        readSysctl(key).getOrNull()?.let { SysctlEntry(key, it, true) }
+                        readSysctl(key, shell).getOrNull()?.let { SysctlEntry(key, it, true) }
                     }
                 } else {
                     emptyList()
@@ -715,14 +744,16 @@ class KernelTuningRepository(
                     if (it.key in schedKeys) it.copy(persist = persist) else it
                 } + backfill
                 saveStored(updated)
-                syncBootScript()
+                syncBootScript(shell)
                 mutableState.update { it.copy(sched = it.sched.copy(persist = persist)) }
+            }
             }
         }
     }
 
     suspend fun resetSchedDefaults(): Result<Unit> = mutex.withLock {
         withContext(Dispatchers.IO) {
+            ksuCliRepository.getRootShell().use { shell ->
             runCatching {
                 check(mutableState.value.sched.supported) { "scheduler not supported" }
                 // Order matters: raise max before min so min never exceeds max.
@@ -733,8 +764,8 @@ class KernelTuningRepository(
                 ordered.forEach { knob ->
                     val range = SCHED_KNOBS[knob.key] ?: return@forEach
                     val def = range.third.toString()
-                    check(writeSysctl(knob.key, def)) { "sysctl write failed: ${knob.key}" }
-                    storeSchedValue(knob.key, def)
+                    check(writeSysctl(knob.key, def, shell)) { "sysctl write failed: ${knob.key}" }
+                    storeSchedValue(knob.key, def, shell)
                     updated[knob.key] = def
                 }
                 mutableState.update {
@@ -747,6 +778,7 @@ class KernelTuningRepository(
                     )
                 }
             }
+            }
         }
     }
 
@@ -754,24 +786,24 @@ class KernelTuningRepository(
      * Mirror a scheduler value into the stored sysctl list (honoring the
      * scheduler persist flag) and regenerate the boot script.
      */
-    private fun storeSchedValue(key: String, value: String) {
+    private fun storeSchedValue(key: String, value: String, shell: Shell) {
         val persist = prefs().getBoolean(KEY_SCHED_PERSIST, false)
         val updated = loadStored().filterNot { it.key == key } +
                 SysctlEntry(key, value, persist)
         saveStored(updated)
-        syncBootScript()
+        syncBootScript(shell)
     }
 
     /**
      * Mirror a VM value into the stored sysctl list (honoring the VM
      * persist flag) and regenerate the boot script.
      */
-    private fun storeVmValue(key: String, value: String) {
+    private fun storeVmValue(key: String, value: String, shell: Shell) {
         val persist = prefs().getBoolean(KEY_VM_PERSIST, false)
         val updated = loadStored().filterNot { it.key == key } +
                 SysctlEntry(key, value, persist)
         saveStored(updated)
-        syncBootScript()
+        syncBootScript(shell)
     }
 
     /**
@@ -783,6 +815,7 @@ class KernelTuningRepository(
     suspend fun configureZram(sizeBytes: Long, algo: String, streams: Long): Result<Unit> =
         mutex.withLock {
             withContext(Dispatchers.IO) {
+                ksuCliRepository.getRootShell().use { shell ->
                 runCatching {
                     val zram = mutableState.value.zram
                     check(zram.supported) { "ZRAM not supported" }
@@ -794,20 +827,22 @@ class KernelTuningRepository(
                     check(streams in 1..ZRAM_MAX_STREAMS_LIMIT) { "streams out of range" }
                     val maxSize = if (zram.totalRamBytes > 0) zram.totalRamBytes else Long.MAX_VALUE
                     check(sizeBytes in ZRAM_MIN_SIZE..maxSize) { "size out of range" }
-                    check(reinitZram(sizeBytes, cleanAlgo, streams)) { "zram reinit failed" }
+                    check(reinitZram(sizeBytes, cleanAlgo, streams, shell)) { "zram reinit failed" }
                     prefs().edit()
                         .putLong(KEY_ZRAM_SIZE, sizeBytes)
                         .putString(KEY_ZRAM_ALGO, cleanAlgo)
                         .putLong(KEY_ZRAM_STREAMS, streams)
                         .apply()
-                    syncBootScript()
-                    mutableState.update { it.copy(zram = readZramState(prefs())) }
+                    syncBootScript(shell)
+                    mutableState.update { it.copy(zram = readZramState(prefs(), shell)) }
                 }
+            }
             }
         }
 
     suspend fun setZramSwappiness(value: String): Result<Unit> = mutex.withLock {
         withContext(Dispatchers.IO) {
+            ksuCliRepository.getRootShell().use { shell ->
             runCatching {
                 check(mutableState.value.zram.supported) { "ZRAM not supported" }
                 val numeric = value.trim().toLongOrNull()
@@ -816,16 +851,19 @@ class KernelTuningRepository(
                     SWAPPINESS_KEY,
                     numeric.toString(),
                     prefs().getBoolean(KEY_ZRAM_PERSIST, false),
+                    shell,
                 ).getOrThrow()
                 mutableState.update {
                     it.copy(zram = it.zram.copy(swappiness = numeric.toString()))
                 }
+            }
             }
         }
     }
 
     suspend fun setZramPersist(persist: Boolean): Result<Unit> = mutex.withLock {
         withContext(Dispatchers.IO) {
+            ksuCliRepository.getRootShell().use { shell ->
             runCatching {
                 val p = prefs()
                 p.edit().putBoolean(KEY_ZRAM_PERSIST, persist).apply()
@@ -845,8 +883,9 @@ class KernelTuningRepository(
                     if (it.key == SWAPPINESS_KEY) it.copy(persist = persist) else it
                 }
                 saveStored(updated)
-                syncBootScript()
+                syncBootScript(shell)
                 mutableState.update { it.copy(zram = it.zram.copy(persist = persist)) }
+            }
             }
         }
     }
@@ -854,6 +893,7 @@ class KernelTuningRepository(
     suspend fun setCpuGovernor(policyId: String, governor: String): Result<Unit> =
         mutex.withLock {
             withContext(Dispatchers.IO) {
+                ksuCliRepository.getRootShell().use { shell ->
                 runCatching {
                     val policy = mutableState.value.cpu.policies.firstOrNull { it.id == policyId }
                     check(policy != null) { "unknown CPU policy" }
@@ -863,8 +903,8 @@ class KernelTuningRepository(
                         "unknown governor"
                     }
                     val dir = cpuPolicyDir(policyId)
-                    check(writeSysfs("$dir/scaling_governor", clean)) { "cpufreq write failed" }
-                    storeCpuValue(policyId, governor = clean)
+                    check(writeSysfs("$dir/scaling_governor", clean, shell)) { "cpufreq write failed" }
+                    storeCpuValue(policyId, governor = clean, shell = shell)
                     mutableState.update {
                         it.copy(
                             cpu = it.cpu.copy(
@@ -876,6 +916,7 @@ class KernelTuningRepository(
                     }
                 }
             }
+            }
         }
 
     /**
@@ -886,6 +927,7 @@ class KernelTuningRepository(
     suspend fun setCpuFreqs(policyId: String, minKhz: Long, maxKhz: Long): Result<Unit> =
         mutex.withLock {
             withContext(Dispatchers.IO) {
+                ksuCliRepository.getRootShell().use { shell ->
                 runCatching {
                     val policy = mutableState.value.cpu.policies.firstOrNull { it.id == policyId }
                     check(policy != null) { "unknown CPU policy" }
@@ -900,21 +942,21 @@ class KernelTuningRepository(
                     val dir = cpuPolicyDir(policyId)
                     val minFirst = maxKhz < policy.minFreqKhz
                     if (minFirst) {
-                        check(writeSysfs("$dir/scaling_min_freq", minKhz.toString())) {
+                        check(writeSysfs("$dir/scaling_min_freq", minKhz.toString(), shell)) {
                             "cpufreq write failed"
                         }
-                        check(writeSysfs("$dir/scaling_max_freq", maxKhz.toString())) {
+                        check(writeSysfs("$dir/scaling_max_freq", maxKhz.toString(), shell)) {
                             "cpufreq write failed"
                         }
                     } else {
-                        check(writeSysfs("$dir/scaling_max_freq", maxKhz.toString())) {
+                        check(writeSysfs("$dir/scaling_max_freq", maxKhz.toString(), shell)) {
                             "cpufreq write failed"
                         }
-                        check(writeSysfs("$dir/scaling_min_freq", minKhz.toString())) {
+                        check(writeSysfs("$dir/scaling_min_freq", minKhz.toString(), shell)) {
                             "cpufreq write failed"
                         }
                     }
-                    storeCpuValue(policyId, minKhz = minKhz, maxKhz = maxKhz)
+                    storeCpuValue(policyId, minKhz = minKhz, maxKhz = maxKhz, shell = shell)
                     mutableState.update {
                         it.copy(
                             cpu = it.cpu.copy(
@@ -930,6 +972,7 @@ class KernelTuningRepository(
                     }
                 }
             }
+            }
         }
 
     /**
@@ -939,25 +982,28 @@ class KernelTuningRepository(
      */
     suspend fun setSchedutilRateLimit(valueUs: String): Result<Unit> = mutex.withLock {
         withContext(Dispatchers.IO) {
+            ksuCliRepository.getRootShell().use { shell ->
             runCatching {
                 check(mutableState.value.cpu.schedutilSupported) { "schedutil not supported" }
                 val numeric = valueUs.trim().toLongOrNull()
                 check(numeric != null && numeric in 0..1_000_000) { "value out of range" }
-                val targets = schedutilRatePaths()
+                val targets = schedutilRatePaths(shell)
                 check(targets.isNotEmpty()) { "schedutil not supported" }
                 targets.forEach { path ->
-                    check(writeSysfs(path, numeric.toString())) { "cpufreq write failed" }
+                    check(writeSysfs(path, numeric.toString(), shell)) { "cpufreq write failed" }
                 }
-                storeCpuValue(policyId = "", rateLimitUs = numeric.toString())
+                storeCpuValue(policyId = "", rateLimitUs = numeric.toString(), shell = shell)
                 mutableState.update {
                     it.copy(cpu = it.cpu.copy(schedutilRateLimitUs = numeric.toString()))
                 }
+            }
             }
         }
     }
 
     suspend fun setCpuPersist(persist: Boolean): Result<Unit> = mutex.withLock {
         withContext(Dispatchers.IO) {
+            ksuCliRepository.getRootShell().use { shell ->
             runCatching {
                 val p = prefs()
                 p.edit().putBoolean(KEY_CPU_PERSIST, persist).apply()
@@ -966,16 +1012,18 @@ class KernelTuningRepository(
                     // current setup, not just values changed afterwards.
                     backfillCpuStored()
                 }
-                syncBootScript()
+                syncBootScript(shell)
                 mutableState.update { it.copy(cpu = it.cpu.copy(persist = persist)) }
+            }
             }
         }
     }
 
     suspend fun setGpuGovernor(id: String, governor: String): Result<Unit> = mutex.withLock {
         withContext(Dispatchers.IO) {
+            ksuCliRepository.getRootShell().use { shell ->
             runCatching {
-                val node = gpuNode(id)
+                val node = gpuNode(id, shell)
                 check(node != null && node.governorPath != null) { "governor not supported" }
                 val device = node.device
                 val clean = governor.trim()
@@ -983,8 +1031,8 @@ class KernelTuningRepository(
                 check(device.availableGovernors.isEmpty() || clean in device.availableGovernors) {
                     "unknown governor"
                 }
-                check(writeSysfs(node.governorPath, clean)) { "gpu write failed" }
-                storeGpuValue(id, governor = clean)
+                check(writeSysfs(node.governorPath, clean, shell)) { "gpu write failed" }
+                storeGpuValue(id, governor = clean, shell = shell)
                 mutableState.update {
                     it.copy(
                         gpu = it.gpu.copy(
@@ -994,6 +1042,7 @@ class KernelTuningRepository(
                         ),
                     )
                 }
+            }
             }
         }
     }
@@ -1005,8 +1054,9 @@ class KernelTuningRepository(
      */
     suspend fun setGpuFreqs(id: String, minHz: Long, maxHz: Long): Result<Unit> = mutex.withLock {
         withContext(Dispatchers.IO) {
+            ksuCliRepository.getRootShell().use { shell ->
             runCatching {
-                val node = gpuNode(id)
+                val node = gpuNode(id, shell)
                 check(node != null && node.minPath != null && node.maxPath != null) {
                     "clocks not supported"
                 }
@@ -1021,13 +1071,13 @@ class KernelTuningRepository(
                 }
                 val minFirst = maxHz < device.minFreqHz
                 if (minFirst) {
-                    check(writeSysfs(node.minPath, minHz.toString())) { "gpu write failed" }
-                    check(writeSysfs(node.maxPath, maxHz.toString())) { "gpu write failed" }
+                    check(writeSysfs(node.minPath, minHz.toString(), shell)) { "gpu write failed" }
+                    check(writeSysfs(node.maxPath, maxHz.toString(), shell)) { "gpu write failed" }
                 } else {
-                    check(writeSysfs(node.maxPath, maxHz.toString())) { "gpu write failed" }
-                    check(writeSysfs(node.minPath, minHz.toString())) { "gpu write failed" }
+                    check(writeSysfs(node.maxPath, maxHz.toString(), shell)) { "gpu write failed" }
+                    check(writeSysfs(node.minPath, minHz.toString(), shell)) { "gpu write failed" }
                 }
-                storeGpuValue(id, minHz = minHz, maxHz = maxHz)
+                storeGpuValue(id, minHz = minHz, maxHz = maxHz, shell = shell)
                 mutableState.update {
                     it.copy(
                         gpu = it.gpu.copy(
@@ -1038,25 +1088,29 @@ class KernelTuningRepository(
                     )
                 }
             }
+            }
         }
     }
 
     suspend fun setGpuPersist(persist: Boolean): Result<Unit> = mutex.withLock {
         withContext(Dispatchers.IO) {
+            ksuCliRepository.getRootShell().use { shell ->
             runCatching {
                 val p = prefs()
                 p.edit().putBoolean(KEY_GPU_PERSIST, persist).apply()
                 if (persist && !p.contains(KEY_GPU_JSON)) {
                     backfillGpuStored()
                 }
-                syncBootScript()
+                syncBootScript(shell)
                 mutableState.update { it.copy(gpu = it.gpu.copy(persist = persist)) }
+            }
             }
         }
     }
 
     suspend fun setIoScheduler(name: String, scheduler: String): Result<Unit> = mutex.withLock {
         withContext(Dispatchers.IO) {
+            ksuCliRepository.getRootShell().use { shell ->
             runCatching {
                 val device = mutableState.value.io.devices.firstOrNull { it.name == name }
                 check(device != null) { "unknown block device" }
@@ -1065,10 +1119,10 @@ class KernelTuningRepository(
                 check(device.availableSchedulers.isEmpty() || clean in device.availableSchedulers) {
                     "unknown scheduler"
                 }
-                check(writeSysfs("$BLOCK_BASE/$name/queue/scheduler", clean)) {
+                check(writeSysfs("$BLOCK_BASE/$name/queue/scheduler", clean, shell)) {
                     "scheduler write failed"
                 }
-                storeIoValue(name, scheduler = clean)
+                storeIoValue(name, scheduler = clean, shell = shell)
                 mutableState.update {
                     it.copy(
                         io = it.io.copy(
@@ -1079,19 +1133,21 @@ class KernelTuningRepository(
                     )
                 }
             }
+            }
         }
     }
 
     suspend fun setIoReadAhead(name: String, kb: Long): Result<Unit> = mutex.withLock {
         withContext(Dispatchers.IO) {
+            ksuCliRepository.getRootShell().use { shell ->
             runCatching {
                 val device = mutableState.value.io.devices.firstOrNull { it.name == name }
                 check(device != null) { "unknown block device" }
                 check(kb in 0..READ_AHEAD_MAX_KB) { "value out of range" }
-                check(writeSysfs("$BLOCK_BASE/$name/queue/read_ahead_kb", kb.toString())) {
+                check(writeSysfs("$BLOCK_BASE/$name/queue/read_ahead_kb", kb.toString(), shell)) {
                     "read-ahead write failed"
                 }
-                storeIoValue(name, readAheadKb = kb)
+                storeIoValue(name, readAheadKb = kb, shell = shell)
                 mutableState.update {
                     it.copy(
                         io = it.io.copy(
@@ -1102,19 +1158,22 @@ class KernelTuningRepository(
                     )
                 }
             }
+            }
         }
     }
 
     suspend fun setIoPersist(persist: Boolean): Result<Unit> = mutex.withLock {
         withContext(Dispatchers.IO) {
+            ksuCliRepository.getRootShell().use { shell ->
             runCatching {
                 val p = prefs()
                 p.edit().putBoolean(KEY_IO_PERSIST, persist).apply()
                 if (persist && !p.contains(KEY_IO_JSON)) {
                     backfillIoStored()
                 }
-                syncBootScript()
+                syncBootScript(shell)
                 mutableState.update { it.copy(io = it.io.copy(persist = persist)) }
+            }
             }
         }
     }
@@ -1125,8 +1184,7 @@ class KernelTuningRepository(
      * per-CPU `cpuN/cpufreq` directories, which are treated as one policy
      * each.
      */
-    private fun readCpuState(prefs: android.content.SharedPreferences): CpuState {
-        val shell = ksuCliRepository.getRootShell()
+    private fun readCpuState(prefs: android.content.SharedPreferences, shell: Shell): CpuState {
         val policyIds = ShellUtils.fastCmd(
             shell,
             "ls -d $CPUFREQ_BASE/policy* 2>/dev/null$ONE_LINE",
@@ -1145,32 +1203,32 @@ class KernelTuningRepository(
         if (ids.isEmpty()) return CpuState()
         val policies = ids.mapNotNull { id ->
             val dir = cpuPolicyDir(id)
-            val governor = readSysfs("$dir/scaling_governor").getOrNull()?.trim()
+            val governor = readSysfs("$dir/scaling_governor", shell).getOrNull()?.trim()
                 ?: return@mapNotNull null
-            val available = readSysfs("$dir/scaling_available_governors").getOrNull()
+            val available = readSysfs("$dir/scaling_available_governors", shell).getOrNull()
                 ?.trim()?.split(Regex("\\s+"))?.filter { it.isNotEmpty() }
                 .orEmpty()
-            val cpus = readSysfs("$dir/affected_cpus").getOrNull()?.trim().orEmpty()
+            val cpus = readSysfs("$dir/affected_cpus", shell).getOrNull()?.trim().orEmpty()
             CpuPolicy(
                 id = id,
                 cpus = cpus,
                 governor = governor,
                 availableGovernors = available,
-                minFreqKhz = readSysfs("$dir/scaling_min_freq").getOrNull()
+                minFreqKhz = readSysfs("$dir/scaling_min_freq", shell).getOrNull()
                     ?.trim()?.toLongOrNull() ?: 0,
-                maxFreqKhz = readSysfs("$dir/scaling_max_freq").getOrNull()
+                maxFreqKhz = readSysfs("$dir/scaling_max_freq", shell).getOrNull()
                     ?.trim()?.toLongOrNull() ?: 0,
-                cpuinfoMinKhz = readSysfs("$dir/cpuinfo_min_freq").getOrNull()
+                cpuinfoMinKhz = readSysfs("$dir/cpuinfo_min_freq", shell).getOrNull()
                     ?.trim()?.toLongOrNull() ?: 0,
-                cpuinfoMaxKhz = readSysfs("$dir/cpuinfo_max_freq").getOrNull()
+                cpuinfoMaxKhz = readSysfs("$dir/cpuinfo_max_freq", shell).getOrNull()
                     ?.trim()?.toLongOrNull() ?: 0,
-                curFreqKhz = readSysfs("$dir/scaling_cur_freq").getOrNull()
+                curFreqKhz = readSysfs("$dir/scaling_cur_freq", shell).getOrNull()
                     ?.trim()?.toLongOrNull() ?: 0,
             )
         }
         if (policies.isEmpty()) return CpuState()
-        val rateLimit = schedutilRatePaths().firstNotNullOfOrNull { path ->
-            readSysfs(path).getOrNull()?.trim()?.takeIf { it.isNotEmpty() }
+        val rateLimit = schedutilRatePaths(shell).firstNotNullOfOrNull { path ->
+            readSysfs(path, shell).getOrNull()?.trim()?.takeIf { it.isNotEmpty() }
         }
         return CpuState(
             supported = true,
@@ -1189,8 +1247,7 @@ class KernelTuningRepository(
     }
 
     /** All existing schedutil rate_limit_us nodes (global + per-policy). */
-    private fun schedutilRatePaths(): List<String> {
-        val shell = ksuCliRepository.getRootShell()
+    private fun schedutilRatePaths(shell: Shell): List<String> {
         val out = ShellUtils.fastCmd(
             shell,
             "ls $SCHEDUTIL_GLOBAL_RATE $CPUFREQ_BASE/policy*/schedutil/rate_limit_us " +
@@ -1255,6 +1312,7 @@ class KernelTuningRepository(
         minKhz: Long? = null,
         maxKhz: Long? = null,
         rateLimitUs: String? = null,
+        shell: Shell,
     ) {
         val stored = loadCpuStored()
         val policies = if (policyId.isEmpty()) {
@@ -1270,7 +1328,7 @@ class KernelTuningRepository(
             stored.policies.filterNot { it.id == policyId } + next
         }
         saveCpuStored(stored.copy(policies = policies, rateLimitUs = rateLimitUs ?: stored.rateLimitUs))
-        syncBootScript()
+        syncBootScript(shell)
     }
 
     private fun backfillCpuStored() {
@@ -1350,39 +1408,39 @@ class KernelTuningRepository(
     )
 
     /** Resolve a live GPU device (by sysfs id) to its writable nodes. */
-    private fun gpuNode(id: String): GpuNode? {
+    private fun gpuNode(id: String, shell: Shell): GpuNode? {
         val device = mutableState.value.gpu.devices.firstOrNull { it.id == id }
             ?: return null
-        return resolveGpuNode(device)
+        return resolveGpuNode(device, shell)
     }
 
-    private fun resolveGpuNode(device: GpuDevice): GpuNode {
+    private fun resolveGpuNode(device: GpuDevice, shell: Shell): GpuNode {
         if (device.id.startsWith("kgsl-")) {
             val base = "$KGSL_BASE/${device.id}"
             val devfreqGov = "$base/devfreq/governor"
-            return if (readSysfs(devfreqGov).isSuccess) {
+            return if (readSysfs(devfreqGov, shell).isSuccess) {
                 GpuNode(
                     device,
                     governorPath = devfreqGov,
-                    minPath = "$base/devfreq/min_freq".takeIf { readSysfs(it).isSuccess },
-                    maxPath = "$base/devfreq/max_freq".takeIf { readSysfs(it).isSuccess },
+                    minPath = "$base/devfreq/min_freq".takeIf { readSysfs(it, shell).isSuccess },
+                    maxPath = "$base/devfreq/max_freq".takeIf { readSysfs(it, shell).isSuccess },
                 )
             } else {
                 // Legacy kGSL layout without a devfreq governor node.
                 GpuNode(
                     device,
                     governorPath = null,
-                    minPath = "$base/min_gpuclk".takeIf { readSysfs(it).isSuccess },
-                    maxPath = "$base/max_gpuclk".takeIf { readSysfs(it).isSuccess },
+                    minPath = "$base/min_gpuclk".takeIf { readSysfs(it, shell).isSuccess },
+                    maxPath = "$base/max_gpuclk".takeIf { readSysfs(it, shell).isSuccess },
                 )
             }
         }
         val base = "$DEVFREQ_BASE/${device.id}"
         return GpuNode(
             device,
-            governorPath = "$base/governor".takeIf { readSysfs(it).isSuccess },
-            minPath = "$base/min_freq".takeIf { readSysfs(it).isSuccess },
-            maxPath = "$base/max_freq".takeIf { readSysfs(it).isSuccess },
+            governorPath = "$base/governor".takeIf { readSysfs(it, shell).isSuccess },
+            minPath = "$base/min_freq".takeIf { readSysfs(it, shell).isSuccess },
+            maxPath = "$base/max_freq".takeIf { readSysfs(it, shell).isSuccess },
         )
     }
 
@@ -1391,22 +1449,21 @@ class KernelTuningRepository(
      * nodes whose `name` matches a GPU. Only nodes with at least one
      * readable clock knob are surfaced.
      */
-    private fun readGpuState(prefs: android.content.SharedPreferences): GpuState {
-        val shell = ksuCliRepository.getRootShell()
+    private fun readGpuState(prefs: android.content.SharedPreferences, shell: Shell): GpuState {
         val devices = mutableListOf<GpuDevice>()
-        if (readSysfs("$KGSL_BASE/$KGSL_NODE/gpuclk").isSuccess ||
-            readSysfs("$KGSL_BASE/$KGSL_NODE/devfreq/cur_freq").isSuccess
+        if (readSysfs("$KGSL_BASE/$KGSL_NODE/gpuclk", shell).isSuccess ||
+            readSysfs("$KGSL_BASE/$KGSL_NODE/devfreq/cur_freq", shell).isSuccess
         ) {
-            readKgslDevice()?.let { devices.add(it) }
+            readKgslDevice(shell)?.let { devices.add(it) }
         }
         val devfreqNodes = ShellUtils.fastCmd(shell, "ls -d $DEVFREQ_BASE/* 2>/dev/null$ONE_LINE")
             .trim().split(Regex("\\s+")).filter { it.isNotEmpty() }
         devfreqNodes.forEach { path ->
             val id = path.substringAfterLast('/')
-            val name = readSysfs("$path/name").getOrNull()?.trim().orEmpty()
+            val name = readSysfs("$path/name", shell).getOrNull()?.trim().orEmpty()
             val haystack = "$id $name".lowercase()
             if (GPU_NAME_KEYWORDS.none { haystack.contains(it) }) return@forEach
-            readDevfreqDevice(id)?.let { devices.add(it) }
+            readDevfreqDevice(id, shell)?.let { devices.add(it) }
         }
         if (devices.isEmpty()) return GpuState()
         return GpuState(
@@ -1416,25 +1473,25 @@ class KernelTuningRepository(
         )
     }
 
-    private fun readKgslDevice(): GpuDevice? {
+    private fun readKgslDevice(shell: Shell): GpuDevice? {
         val base = "$KGSL_BASE/$KGSL_NODE"
-        val devfreq = readSysfs("$base/devfreq/cur_freq").getOrNull() != null
+        val devfreq = readSysfs("$base/devfreq/cur_freq", shell).getOrNull() != null
         val cur = if (devfreq) {
-            readSysfs("$base/devfreq/cur_freq").getOrNull()?.trim()?.toLongOrNull()
+            readSysfs("$base/devfreq/cur_freq", shell).getOrNull()?.trim()?.toLongOrNull()
         } else {
-            readSysfs("$base/gpuclk").getOrNull()?.trim()?.toLongOrNull()
+            readSysfs("$base/gpuclk", shell).getOrNull()?.trim()?.toLongOrNull()
         } ?: return null
         val (governor, governors) = if (devfreq) {
-            readSysfs("$base/devfreq/governor").getOrNull()?.trim().orEmpty() to
-                    readSysfs("$base/devfreq/available_governors").getOrNull()
+            readSysfs("$base/devfreq/governor", shell).getOrNull()?.trim().orEmpty() to
+                    readSysfs("$base/devfreq/available_governors", shell).getOrNull()
                         ?.trim()?.split(Regex("\\s+"))?.filter { it.isNotEmpty() }.orEmpty()
         } else {
             "" to emptyList()
         }
         val avail = if (devfreq) {
-            readSysfs("$base/devfreq/available_frequencies").getOrNull()
+            readSysfs("$base/devfreq/available_frequencies", shell).getOrNull()
         } else {
-            readSysfs("$base/gpu_available_frequencies").getOrNull()
+            readSysfs("$base/gpu_available_frequencies", shell).getOrNull()
         }?.trim()?.split(Regex("\\s+"))?.mapNotNull { it.toLongOrNull() }.orEmpty()
         return GpuDevice(
             id = KGSL_NODE,
@@ -1443,50 +1500,49 @@ class KernelTuningRepository(
             availableGovernors = governors,
             curFreqHz = cur,
             minFreqHz = if (devfreq) {
-                readSysfs("$base/devfreq/min_freq").getOrNull()?.trim()?.toLongOrNull() ?: 0
+                readSysfs("$base/devfreq/min_freq", shell).getOrNull()?.trim()?.toLongOrNull() ?: 0
             } else {
-                readSysfs("$base/min_gpuclk").getOrNull()?.trim()?.toLongOrNull() ?: 0
+                readSysfs("$base/min_gpuclk", shell).getOrNull()?.trim()?.toLongOrNull() ?: 0
             },
             maxFreqHz = if (devfreq) {
-                readSysfs("$base/devfreq/max_freq").getOrNull()?.trim()?.toLongOrNull() ?: 0
+                readSysfs("$base/devfreq/max_freq", shell).getOrNull()?.trim()?.toLongOrNull() ?: 0
             } else {
-                readSysfs("$base/max_gpuclk").getOrNull()?.trim()?.toLongOrNull() ?: 0
+                readSysfs("$base/max_gpuclk", shell).getOrNull()?.trim()?.toLongOrNull() ?: 0
             },
             availableFreqsHz = avail,
         )
     }
 
-    private fun readDevfreqDevice(id: String): GpuDevice? {
+    private fun readDevfreqDevice(id: String, shell: Shell): GpuDevice? {
         val base = "$DEVFREQ_BASE/$id"
-        val cur = readSysfs("$base/cur_freq").getOrNull()?.trim()?.toLongOrNull()
+        val cur = readSysfs("$base/cur_freq", shell).getOrNull()?.trim()?.toLongOrNull()
             ?: return null
-        val name = readSysfs("$base/name").getOrNull()?.trim().orEmpty()
+        val name = readSysfs("$base/name", shell).getOrNull()?.trim().orEmpty()
         return GpuDevice(
             id = id,
             label = name.ifEmpty { id },
-            governor = readSysfs("$base/governor").getOrNull()?.trim().orEmpty(),
-            availableGovernors = readSysfs("$base/available_governors").getOrNull()
+            governor = readSysfs("$base/governor", shell).getOrNull()?.trim().orEmpty(),
+            availableGovernors = readSysfs("$base/available_governors", shell).getOrNull()
                 ?.trim()?.split(Regex("\\s+"))?.filter { it.isNotEmpty() }.orEmpty(),
             curFreqHz = cur,
-            minFreqHz = readSysfs("$base/min_freq").getOrNull()?.trim()?.toLongOrNull() ?: 0,
-            maxFreqHz = readSysfs("$base/max_freq").getOrNull()?.trim()?.toLongOrNull() ?: 0,
-            availableFreqsHz = readSysfs("$base/available_frequencies").getOrNull()
+            minFreqHz = readSysfs("$base/min_freq", shell).getOrNull()?.trim()?.toLongOrNull() ?: 0,
+            maxFreqHz = readSysfs("$base/max_freq", shell).getOrNull()?.trim()?.toLongOrNull() ?: 0,
+            availableFreqsHz = readSysfs("$base/available_frequencies", shell).getOrNull()
                 ?.trim()?.split(Regex("\\s+"))?.mapNotNull { it.toLongOrNull() }.orEmpty(),
         )
     }
 
-    private fun readIoState(prefs: android.content.SharedPreferences): IoState {
-        val shell = ksuCliRepository.getRootShell()
+    private fun readIoState(prefs: android.content.SharedPreferences, shell: Shell): IoState {
         val names = ShellUtils.fastCmd(shell, "ls $BLOCK_BASE 2>/dev/null$ONE_LINE")
             .trim().split(Regex("\\s+")).filter { it.isNotEmpty() }
             .filter { name -> IO_SKIP_PREFIXES.none { name.startsWith(it) } }
         val devices = names.mapNotNull { name ->
-            val schedRaw = readSysfs("$BLOCK_BASE/$name/queue/scheduler").getOrNull()?.trim()
+            val schedRaw = readSysfs("$BLOCK_BASE/$name/queue/scheduler", shell).getOrNull()?.trim()
             val current = schedRaw?.let { Regex("\\[(.+?)]").find(it)?.groupValues?.get(1) }
             val available = schedRaw
                 ?.replace("[", "")?.replace("]", "")
                 ?.split(Regex("\\s+"))?.filter { it.isNotEmpty() }.orEmpty()
-            val readAhead = readSysfs("$BLOCK_BASE/$name/queue/read_ahead_kb").getOrNull()
+            val readAhead = readSysfs("$BLOCK_BASE/$name/queue/read_ahead_kb", shell).getOrNull()
                 ?.trim()?.toLongOrNull() ?: -1
             if (available.isEmpty() && readAhead < 0) return@mapNotNull null
             IoDevice(
@@ -1542,7 +1598,7 @@ class KernelTuningRepository(
         prefs().edit().putString(KEY_GPU_JSON, array.toString()).apply()
     }
 
-    private fun storeGpuValue(id: String, governor: String? = null, minHz: Long? = null, maxHz: Long? = null) {
+    private fun storeGpuValue(id: String, governor: String? = null, minHz: Long? = null, maxHz: Long? = null, shell: Shell) {
         val prev = loadGpuStored().firstOrNull { it.id == id }
         val next = StoredGpuDevice(
             id = id,
@@ -1551,7 +1607,7 @@ class KernelTuningRepository(
             maxHz = maxHz ?: prev?.maxHz,
         )
         saveGpuStored(loadGpuStored().filterNot { it.id == id } + next)
-        syncBootScript()
+        syncBootScript(shell)
     }
 
     private fun backfillGpuStored() {
@@ -1597,7 +1653,7 @@ class KernelTuningRepository(
         prefs().edit().putString(KEY_IO_JSON, array.toString()).apply()
     }
 
-    private fun storeIoValue(name: String, scheduler: String? = null, readAheadKb: Long? = null) {
+    private fun storeIoValue(name: String, scheduler: String? = null, readAheadKb: Long? = null, shell: Shell) {
         val prev = loadIoStored().firstOrNull { it.name == name }
         val next = StoredIoDevice(
             name = name,
@@ -1605,7 +1661,7 @@ class KernelTuningRepository(
             readAheadKb = readAheadKb ?: prev?.readAheadKb,
         )
         saveIoStored(loadIoStored().filterNot { it.name == name } + next)
-        syncBootScript()
+        syncBootScript(shell)
     }
 
     private fun backfillIoStored() {
@@ -1699,6 +1755,7 @@ class KernelTuningRepository(
     suspend fun setLmkLevel(index: Int, pages: Long, adj: Long): Result<Unit> =
         mutex.withLock {
             withContext(Dispatchers.IO) {
+                ksuCliRepository.getRootShell().use { shell ->
                 runCatching {
                     val state = mutableState.value.lmk
                     check(state.supported) { "LMK not supported" }
@@ -1711,12 +1768,13 @@ class KernelTuningRepository(
                     val levels = state.levels.mapIndexed { i, level ->
                         if (i == index) LmkLevel(pages, adj) else level
                     }
-                    check(writeLmkLevels(state.useProps, levels)) { "lmk write failed" }
-                    storeLmkLevels(levels)
+                    check(writeLmkLevels(state.useProps, levels, shell)) { "lmk write failed" }
+                    storeLmkLevels(levels, shell)
                     mutableState.update {
                         it.copy(lmk = it.lmk.copy(levels = levels, profileId = ""))
                     }
                 }
+            }
             }
         }
 
@@ -1727,6 +1785,7 @@ class KernelTuningRepository(
      */
     suspend fun applyLmkProfile(id: String): Result<Unit> = mutex.withLock {
         withContext(Dispatchers.IO) {
+            ksuCliRepository.getRootShell().use { shell ->
             runCatching {
                 val state = mutableState.value.lmk
                 check(state.supported) { "LMK not supported" }
@@ -1736,11 +1795,12 @@ class KernelTuningRepository(
                 val levels = state.levels.mapIndexed { i, level ->
                     LmkLevel(presetMb[i] * PAGES_PER_MB, level.adj)
                 }
-                check(writeLmkLevels(state.useProps, levels)) { "lmk write failed" }
-                storeLmkLevels(levels)
+                check(writeLmkLevels(state.useProps, levels, shell)) { "lmk write failed" }
+                storeLmkLevels(levels, shell)
                 mutableState.update {
                     it.copy(lmk = it.lmk.copy(levels = levels, profileId = id))
                 }
+            }
             }
         }
     }
@@ -1748,32 +1808,36 @@ class KernelTuningRepository(
     /** Restore the stock table captured on first read. */
     suspend fun resetLmkStock(): Result<Unit> = mutex.withLock {
         withContext(Dispatchers.IO) {
+            ksuCliRepository.getRootShell().use { shell ->
             runCatching {
                 val state = mutableState.value.lmk
                 check(state.supported) { "LMK not supported" }
                 val stock = loadLmkStock()
                 check(stock != null && stock.size == state.levels.size) { "no stock table saved" }
-                check(writeLmkLevels(state.useProps, stock)) { "lmk write failed" }
-                storeLmkLevels(stock)
+                check(writeLmkLevels(state.useProps, stock, shell)) { "lmk write failed" }
+                storeLmkLevels(stock, shell)
                 mutableState.update {
                     it.copy(lmk = it.lmk.copy(levels = stock, profileId = matchLmkProfile(stock)))
                 }
+            }
             }
         }
     }
 
     suspend fun setLmkPersist(persist: Boolean): Result<Unit> = mutex.withLock {
         withContext(Dispatchers.IO) {
+            ksuCliRepository.getRootShell().use { shell ->
             runCatching {
                 val p = prefs()
                 p.edit().putBoolean(KEY_LMK_PERSIST, persist).apply()
                 if (persist && !p.contains(KEY_LMK_JSON)) {
                     // Backfill live levels so enabling persistence captures
                     // the current table, not just values changed afterwards.
-                    saveLmkStored(mutableState.value.lmk.levels)
+                    saveLmkStored(mutableState.value.lmk.levels, shell)
                 }
-                syncBootScript()
+                syncBootScript(shell)
                 mutableState.update { it.copy(lmk = it.lmk.copy(persist = persist)) }
+            }
             }
         }
     }
@@ -2072,9 +2136,9 @@ class KernelTuningRepository(
         }
     }
 
-    private fun readLmkState(prefs: android.content.SharedPreferences): LmkState {
+    private fun readLmkState(prefs: android.content.SharedPreferences, shell: Shell): LmkState {
         // Modern path: userspace lmkd through a system property.
-        val propLevels = readProp(LMK_PROP).getOrNull()?.let { parseLmkLevels(it) }
+        val propLevels = readProp(LMK_PROP, shell).getOrNull()?.let { parseLmkLevels(it) }
         if (!propLevels.isNullOrEmpty()) {
             if (!prefs.contains(KEY_LMK_STOCK)) saveLmkStock(propLevels)
             return LmkState(
@@ -2086,8 +2150,8 @@ class KernelTuningRepository(
             )
         }
         // Legacy path: in-kernel lowmemorykiller module parameters.
-        val minfree = readSysfs(LMK_MINFREE_SYSFS).getOrNull()
-        val adj = readSysfs(LMK_ADJ_SYSFS).getOrNull()
+        val minfree = readSysfs(LMK_MINFREE_SYSFS, shell).getOrNull()
+        val adj = readSysfs(LMK_ADJ_SYSFS, shell).getOrNull()
         if (minfree != null && adj != null) {
             val levels = zipLmkLists(minfree, adj)
             if (levels.isNotEmpty()) {
@@ -2135,26 +2199,24 @@ class KernelTuningRepository(
             .filter { it.pages > 0 && it.adj in -1000..1000 }
     }
 
-    private fun writeLmkLevels(useProps: Boolean, levels: List<LmkLevel>): Boolean {
+    private fun writeLmkLevels(useProps: Boolean, levels: List<LmkLevel>, shell: Shell): Boolean {
         return runCatching {
             if (useProps) {
                 val value = levels.joinToString(",") { "${it.pages}:${it.adj}" }
-                val shell = ksuCliRepository.getRootShell()
                 if (!ShellUtils.fastCmdResult(shell, "setprop '$LMK_PROP' '$value' >/dev/null 2>&1")) {
                     return false
                 }
                 // Verify lmkd accepted the table.
-                parseLmkLevels(readProp(LMK_PROP).getOrDefault("")).map { it.pages } ==
+                parseLmkLevels(readProp(LMK_PROP, shell).getOrDefault("")).map { it.pages } ==
                         levels.map { it.pages }
             } else {
-                writeSysfs(LMK_MINFREE_SYSFS, levels.joinToString(",") { it.pages.toString() }) &&
-                        writeSysfs(LMK_ADJ_SYSFS, levels.joinToString(",") { it.adj.toString() })
+                writeSysfs(LMK_MINFREE_SYSFS, levels.joinToString(",") { it.pages.toString() }, shell) &&
+                        writeSysfs(LMK_ADJ_SYSFS, levels.joinToString(",") { it.adj.toString() }, shell)
             }
         }.getOrDefault(false)
     }
 
-    private fun readProp(name: String): Result<String> = runCatching {
-        val shell = ksuCliRepository.getRootShell()
+    private fun readProp(name: String, shell: Shell): Result<String> = runCatching {
         val out = ShellUtils.fastCmd(shell, "getprop '$name' 2>/dev/null").trim()
         check(out.isNotEmpty()) { "unreadable" }
         out
@@ -2188,9 +2250,9 @@ class KernelTuningRepository(
         return levelsFromJson(raw)
     }
 
-    private fun saveLmkStored(levels: List<LmkLevel>) {
+    private fun saveLmkStored(levels: List<LmkLevel>, shell: Shell) {
         prefs().edit().putString(KEY_LMK_JSON, levelsToJson(levels)).apply()
-        syncBootScript()
+        syncBootScript(shell)
     }
 
     private fun loadLmkStored(): List<LmkLevel>? {
@@ -2200,9 +2262,9 @@ class KernelTuningRepository(
     }
 
     /** Mirror applied levels into the stored config and refresh the boot script. */
-    private fun storeLmkLevels(levels: List<LmkLevel>) {
+    private fun storeLmkLevels(levels: List<LmkLevel>, shell: Shell) {
         prefs().edit().putString(KEY_LMK_JSON, levelsToJson(levels)).apply()
-        syncBootScript()
+        syncBootScript(shell)
     }
 
     /** Boot-script lines for the stored LMK table. */
@@ -2232,17 +2294,16 @@ class KernelTuningRepository(
      * for CPU, memory and I/O. Never fails the refresh — missing nodes
      * simply mark diagnostics unsupported.
      */
-    private fun readDiagnosticsState(): DiagnosticsState {
+    private fun readDiagnosticsState(shell: Shell): DiagnosticsState {
         return runCatching {
-            val shell = ksuCliRepository.getRootShell()
             val load = ShellUtils.fastCmd(shell, "cat /proc/loadavg 2>/dev/null").trim()
             check(load.isNotEmpty()) { "no loadavg" }
             DiagnosticsState(
                 supported = true,
                 loadAvg = load.split(Regex("\\s+")).take(3).joinToString(" "),
-                cpu = parsePsiStats(readPressure("cpu")),
-                memory = parsePsiStats(readPressure("memory")),
-                io = parsePsiStats(readPressure("io")),
+                cpu = parsePsiStats(readPressure("cpu", shell)),
+                memory = parsePsiStats(readPressure("memory", shell)),
+                io = parsePsiStats(readPressure("io", shell)),
             )
         }.getOrDefault(DiagnosticsState())
     }
@@ -2251,8 +2312,7 @@ class KernelTuningRepository(
      * Read a /proc/pressure node. fastCmd returns only the last line, so
      * lines are joined with ';' for the multi-line parser below.
      */
-    private fun readPressure(resource: String): String {
-        val shell = ksuCliRepository.getRootShell()
+    private fun readPressure(resource: String, shell: Shell): String {
         return ShellUtils.fastCmd(
             shell,
             "cat /proc/pressure/$resource 2>/dev/null | tr '\\n' ';'",
@@ -2281,8 +2341,7 @@ class KernelTuningRepository(
         return PsiStats(someAvg, someTotal, fullAvg, fullTotal)
     }
 
-    private fun readZramState(prefs: android.content.SharedPreferences): ZramState {
-        val shell = ksuCliRepository.getRootShell()
+    private fun readZramState(prefs: android.content.SharedPreferences, shell: Shell): ZramState {
         val disksize = ShellUtils.fastCmd(shell, "cat $ZRAM_DISKSIZE 2>/dev/null")
             .trim().toLongOrNull() ?: return ZramState()
         val algoRaw = ShellUtils.fastCmd(shell, "cat $ZRAM_COMP_ALGO 2>/dev/null").trim()
@@ -2299,7 +2358,7 @@ class KernelTuningRepository(
             shell,
             "awk '/^MemTotal:/{print \$2}' /proc/meminfo 2>/dev/null",
         ).trim().toLongOrNull() ?: 0L
-        val swappiness = readSysctl(SWAPPINESS_KEY).getOrDefault("")
+        val swappiness = readSysctl(SWAPPINESS_KEY, shell).getOrDefault("")
         return ZramState(
             supported = true,
             disksizeBytes = disksize,
@@ -2316,9 +2375,8 @@ class KernelTuningRepository(
     }
 
     /** Runs the full swapoff/reset/setup/mkswap/swapon cycle; true on success. */
-    private fun reinitZram(sizeBytes: Long, algo: String, streams: Long): Boolean {
+    private fun reinitZram(sizeBytes: Long, algo: String, streams: Long, shell: Shell): Boolean {
         return runCatching {
-            val shell = ksuCliRepository.getRootShell()
             val detect = "if [ -e /dev/block/zram0 ]; then Z=/dev/block/zram0; " +
                     "else Z=/dev/zram0; fi"
             val script = "$detect && " +
@@ -2342,18 +2400,20 @@ class KernelTuningRepository(
      * Mirror a BORE value into the stored sysctl list (honoring the BORE
      * persist flag) and regenerate the boot script.
      */
-    private fun storeBoreValue(key: String, value: String) {
+    private fun storeBoreValue(key: String, value: String, shell: Shell) {
         val persist = prefs().getBoolean(KEY_BORE_PERSIST, false)
         val updated = loadStored().filterNot { it.key == key } +
                 SysctlEntry(key, value, persist)
         saveStored(updated)
-        syncBootScript()
+        syncBootScript(shell)
     }
 
     suspend fun addOrUpdateSysctl(key: String, value: String, persist: Boolean): Result<Unit> =
         mutex.withLock {
             withContext(Dispatchers.IO) {
-                upsertSysctl(key, value, persist)
+                ksuCliRepository.getRootShell().use { shell ->
+                upsertSysctl(key, value, persist, shell)
+                }
             }
         }
 
@@ -2361,16 +2421,16 @@ class KernelTuningRepository(
      * Same as [addOrUpdateSysctl] but assumes [mutex] is already held, so ZRAM
      * and other composite operations can reuse it without deadlocking.
      */
-    private suspend fun upsertSysctl(key: String, value: String, persist: Boolean): Result<Unit> =
+    private suspend fun upsertSysctl(key: String, value: String, persist: Boolean, shell: Shell): Result<Unit> =
         runCatching {
             val cleanKey = key.trim()
             check(cleanKey.matches(KEY_PATTERN)) { "invalid key" }
             check(!value.contains('\n') && !value.contains('\'')) { "invalid value" }
-            check(writeSysctl(cleanKey, value)) { "sysctl write failed" }
+            check(writeSysctl(cleanKey, value, shell)) { "sysctl write failed" }
             val updated = loadStored()
                 .filterNot { it.key == cleanKey } + SysctlEntry(cleanKey, value, persist)
             saveStored(updated)
-            syncBootScript()
+            syncBootScript(shell)
             mutableState.update {
                 it.copy(sysctls = it.sysctls.filterNot { e -> e.key == cleanKey } +
                         SysctlEntry(cleanKey, value, persist))
@@ -2379,54 +2439,54 @@ class KernelTuningRepository(
 
     suspend fun removeSysctl(key: String): Result<Unit> = mutex.withLock {
         withContext(Dispatchers.IO) {
+            ksuCliRepository.getRootShell().use { shell ->
             runCatching {
                 saveStored(loadStored().filterNot { it.key == key })
-                syncBootScript()
+                syncBootScript(shell)
                 mutableState.update { it.copy(sysctls = it.sysctls.filterNot { e -> e.key == key }) }
+            }
             }
         }
     }
 
     suspend fun setSysctlPersist(key: String, persist: Boolean): Result<Unit> = mutex.withLock {
         withContext(Dispatchers.IO) {
+            ksuCliRepository.getRootShell().use { shell ->
             runCatching {
                 val updated = loadStored().map {
                     if (it.key == key) it.copy(persist = persist) else it
                 }
                 saveStored(updated)
-                syncBootScript()
+                syncBootScript(shell)
                 mutableState.update {
                     it.copy(sysctls = it.sysctls.map { e ->
                         if (e.key == key) e.copy(persist = persist) else e
                     })
                 }
             }
+            }
         }
     }
 
-    private fun readSysctl(key: String): Result<String> = runCatching {
+    private fun readSysctl(key: String, shell: Shell): Result<String> = runCatching {
         val path = "/proc/sys/" + key.replace('.', '/')
-        val shell = ksuCliRepository.getRootShell()
         val out = ShellUtils.fastCmd(shell, "cat '$path' 2>/dev/null").trim()
         check(out.isNotEmpty()) { "unreadable" }
         out
     }
 
-    private fun writeSysctl(key: String, value: String): Boolean = runCatching {
-        val shell = ksuCliRepository.getRootShell()
+    private fun writeSysctl(key: String, value: String, shell: Shell): Boolean = runCatching {
         ShellUtils.fastCmdResult(shell, "sysctl -w '$key'='$value' >/dev/null 2>&1")
     }.getOrDefault(false)
 
-    private fun readSysfs(path: String): Result<String> = runCatching {
-        val shell = ksuCliRepository.getRootShell()
+    private fun readSysfs(path: String, shell: Shell): Result<String> = runCatching {
         val out = ShellUtils.fastCmd(shell, "cat '$path' 2>/dev/null").trim()
         check(out.isNotEmpty()) { "unreadable" }
         out
     }
 
-    private fun writeSysfs(path: String, value: String): Boolean = runCatching {
+    private fun writeSysfs(path: String, value: String, shell: Shell): Boolean = runCatching {
         check(!value.contains('\n') && !value.contains('\'')) { "invalid value" }
-        val shell = ksuCliRepository.getRootShell()
         ShellUtils.fastCmdResult(shell, "echo '$value' > '$path' 2>/dev/null")
     }.getOrDefault(false)
 
@@ -2457,7 +2517,7 @@ class KernelTuningRepository(
      * Regenerate (or remove, when nothing persists) the boot-completed script.
      * Must be called with root available, on a background thread.
      */
-    private fun syncBootScript() {
+    private fun syncBootScript(shell: Shell) {
         val lines = mutableListOf<String>()
         val p = prefs()
         lines.addAll(cpuBootLines())
@@ -2486,7 +2546,6 @@ class KernelTuningRepository(
                 lines.add("swapon \"\$ZRAM_DEV\" >/dev/null 2>&1")
             }
         }
-        val shell = ksuCliRepository.getRootShell()
         if (lines.isEmpty()) {
             ShellUtils.fastCmd(shell, "rm -f '$BOOT_SCRIPT' 2>/dev/null; true")
             return
