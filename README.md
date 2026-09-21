@@ -41,16 +41,20 @@
 3. [App Profile](https://kernelsu.org/guide/app-profile.html): Lock up the root power in a cage
 4. GKI 2.0, GKI 1.0 and non-GKI (3.4+) support
 5. Works as manager with the official [KernelSU](https://github.com/tiann/KernelSU), [RKSU](https://github.com/rsuntk/KernelSU), [MKSU](https://github.com/5ec1cff/KernelSU) and [SukiSU](https://github.com/SukiSU-Ultra/SukiSU-Ultra) kernels
+6. KPM (KernelPatch module) support: load, unload and control KPM modules from the manager (the tab appears when the kernel supports it)
+7. Home status cards reporting hook type plus BasebandGuard, ZeroMount, KPM and SuSFS versions
 
 **Origin Lab**
 
 1. Time-limited grants: give root for N minutes, auto-revoked by a persistent waiter plus a sweep on every `ksud` start
-2. Origin Veil: kernel-side root-probe detection with a per-app cloak set that hides module mounts from probing apps
+2. Origin Veil: kernel-side root-probe detection with a per-app cloak set that hides module mounts from probing apps, probe history persisted across reboots, per-app detail (permissions / freeze / force-stop), a Spy live activity log, and su-notify Grant / Cloak / Ignore prompts
 3. Origin Zygisk (BreZygisk-based) ships inside the manager: deploy, status and kill-switch in Settings > Origin Lab, no provider module needed
 4. Built-in SuSFS manager with a one-tap strong-hiding preset
 5. Automatic bootloop protection: disables all modules after consecutive failed boots and tells you about the rescue
-6. Inbuilt kernel flasher: direct install, AnyKernel zips, offline `boot.img` patching and Horizon kernels, with LKM and GKI flows
-7. Manager updater with stable/beta channels, dynamic manager support and a multi-icon app-icon picker
+6. Magic Mount: Magisk-style module mounting with a backend selector (Auto / Overlayfs / Bind mounts, takes effect on next boot)
+7. OriginGuard: pre-install module firewall — audits module packages for risky behavior, blocks critical findings or asks before installing
+8. Inbuilt kernel flasher: direct install, AnyKernel zips, offline `boot.img` patching and Horizon kernels, with LKM and GKI flows, per-KMI module selection and a tracepoint/tamper hook-flavor picker
+9. Manager updater with stable/beta channels, dynamic manager support and a multi-icon app-icon picker
 
 ## Installation
 
@@ -75,7 +79,7 @@
 | Mode | Description |
 | --- | --- |
 | `Tracepoint Syscall Redirect hook` | Default mode, from [upstream](https://github.com/tiann/KernelSU); GKI2 kernels with `arm64-v8a` or `x86_64` ABI only |
-| `Syscall Table Tampering` (`CONFIG_KSU_TAMPER_SYSCALL_TABLE`) | Test-branch stealth mode: patches the hooked entries directly in `sys_call_table`, registers no `sys_enter` tracepoint; GKI2 `arm64-v8a`/`x86_64` only |
+| `Syscall Table Tampering` (`CONFIG_KSU_TAMPER_SYSCALL_TABLE`) | Stealth mode: patches the hooked entries directly in `sys_call_table`, registers no `sys_enter` tracepoint; GKI2 `arm64-v8a`/`x86_64` only. CI builds both LKM flavors per KMI and releases ship them side by side; pick one in the Install screen's hook-flavor selector |
 | `Manual Hook` | Most compatible; supports Linux kernels 3.4 – 6.18 |
 | `SuSFS Inline Hook` | From [SuSFS](https://github.com/simonpunk/susfs4ksu), like `Manual Hook` but provided by the SuSFS project |
 
@@ -88,10 +92,8 @@ manager APKs and LKM modules. Required Actions secrets: `KEYSTORE`,
 
 ## Roadmap
 
-- KPM (KernelPatch module) support
-- **Inbuilt kernel manager**: flash, back up and manage kernels from inside the app
-- MIUI / official-style theme options
-- Magic Mount for wider module compatibility
+- MIUI / official-style theme options (paused, see the porting plan)
+- GKI OTA survival polish
 
 See `docs/feature-porting-plan.md` for the full porting status.
 
