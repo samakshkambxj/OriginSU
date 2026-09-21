@@ -1,5 +1,6 @@
 package com.originsu.manager.ui.screen.main
 
+import android.annotation.SuppressLint
 import android.app.Activity.RESULT_OK
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -64,6 +65,7 @@ import org.koin.compose.viewmodel.koinViewModel
 import java.io.File
 
 @OptIn(ExperimentalMaterial3Api::class)
+@SuppressLint("LocalContextGetResourceValueCall")
 @Composable
 fun KpmPage(bottomPadding: Dp) {
     val context = LocalContext.current

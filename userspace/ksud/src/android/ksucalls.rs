@@ -300,7 +300,9 @@ pub fn get_sulog_fd() -> Result<RawFd> {
     Ok(result)
 }
 
-/// Mirror of enum ksu_veil_cloak_op (uapi/supercall.h).
+/// Mirror of enum ksu_veil_cloak_op (uapi/supercall.h). Unused variants are
+/// kept so the mapping stays complete.
+#[allow(dead_code)]
 pub mod veil_op {
     pub const ADD: u32 = 0;
     pub const REMOVE: u32 = 1;
@@ -353,9 +355,12 @@ pub fn veil_cloak_list() -> Result<Vec<u32>> {
 }
 
 /// One entry of the kernel's per-uid probe history.
+/// Mirrors struct ksu_veil_hist_entry (uapi/supercall.h); `count` is
+/// currently unused by ksud but kept for layout parity.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct VeilHistEntry {
     pub uid: u32,
+    #[allow(dead_code)]
     pub count: u32,
     pub kinds: u32,
     pub last_ns: u64,

@@ -117,7 +117,10 @@ pub fn set_backend(mode: &str) -> Result<()> {
     }
     std::fs::write(defs::MAGIC_MOUNT_BACKEND_FILE, parsed.as_str())
         .with_context(|| format!("Failed to write {}", defs::MAGIC_MOUNT_BACKEND_FILE))?;
-    info!("Magic Mount backend set to {} (takes effect on next boot)", parsed.as_str());
+    info!(
+        "Magic Mount backend set to {} (takes effect on next boot)",
+        parsed.as_str()
+    );
     Ok(())
 }
 
@@ -267,17 +270,16 @@ fn collect_replace_dirs(system: &Path) -> Vec<(PathBuf, PathBuf)> {
         for entry in entries.flatten() {
             let path = entry.path();
             if path.is_dir() {
-                if path.join(REPLACE_MARKER).is_file() {
-                    if let Ok(rel) = path.strip_prefix(system) {
-                        out.push((path.clone(), PathBuf::from("/system").join(rel)));
-                    }
+                if path.join(REPLACE_MARKER).is_file()
+                    && let Ok(rel) = path.strip_prefix(system) {
+                    out.push((path.clone(), PathBuf::from("/system").join(rel)));
                 }
                 stack.push(path);
             }
         }
     }
     // Deepest first so child tmpfs mounts land on top of parent overlays.
-    out.sort_by(|a, b| b.0.components().count().cmp(&a.0.components().count()));
+    out.sort_by_key(|a| std::cmp::Reverse(a.0.components().count()));
     out
 }
 
@@ -464,11 +466,7 @@ pub fn run_magic_mount() -> Result<()> {
         "Magic Mount: {} module(s), backend {} (overlayfs {})",
         modules.len(),
         backend().as_str(),
-        if use_overlay {
-            "in use"
-        } else {
-            "not used"
-        },
+        if use_overlay { "in use" } else { "not used" },
     );
 
     let mut work_seq: u64 = 0;
