@@ -292,6 +292,12 @@
     <string name="magic_mount_backend_auto">Auto</string>
     <string name="magic_mount_backend_overlay">Overlayfs</string>
     <string name="magic_mount_backend_bind">Bind</string>
+    <string name="install_hook_flavor">Hook flavor</string>
+    <string name="install_hook_flavor_summary">Which embedded LKM build to flash (built-in KMI modules only)</string>
+    <string name="hook_flavor_tracepoint">Tracepoint</string>
+    <string name="hook_flavor_tracepoint_description">Default upstream hook via sys_enter tracepoint</string>
+    <string name="hook_flavor_tamper">Tamper</string>
+    <string name="hook_flavor_tamper_description">Stealth hook, patches the syscall table directly</string>
     <string name="grant_root_failed">Failed to grant root!</string>
     <string name="home_pr_build_warning">This is a PR debug build. Do NOT use it in production!</string>
     <string name="action">Action</string>

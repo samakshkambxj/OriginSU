@@ -94,7 +94,7 @@ jobs:
       if: ${{ inputs.arch == 'arm64' }}
       uses: actions/upload-artifact@v7
       with:
-        name: aarch64-${{ inputs.kmi }}-lkm
+        name: aarch64-${{ inputs.kmi }}-lkm${{ inputs.hook == 'TAMPER_SYSCALL_TABLE' && '-tamper' || '' }}
         path: /github/workspace/out/aarch64/${{ inputs.kmi }}_kernelsu.ko
 
     - name: Build kernelsu.ko for x64
@@ -177,5 +177,5 @@ jobs:
       if: ${{ inputs.arch == 'x86_64' }}
       uses: actions/upload-artifact@v7
       with:
-        name: x86_64-${{ inputs.kmi }}-lkm
+        name: x86_64-${{ inputs.kmi }}-lkm${{ inputs.hook == 'TAMPER_SYSCALL_TABLE' && '-tamper' || '' }}
         path: /github/workspace/out/x86_64/${{ inputs.kmi }}_kernelsu.ko

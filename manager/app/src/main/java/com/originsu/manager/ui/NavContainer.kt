@@ -801,6 +801,7 @@ private fun Route.Flash.toFlashIt(): FlashIt = when (type) {
         boot = bootUri,
         lkmUri = lkmUri,
         kmi = kmi,
+        hook = hook,
         ota = ota,
         partition = partition,
     )

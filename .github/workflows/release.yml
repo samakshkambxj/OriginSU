@@ -29,6 +29,27 @@ jobs:
           path: lkm
           pattern: "*-lkm"
 
+      - name: Download Tamper LKM artifacts
+        uses: actions/download-artifact@v8
+        with:
+          path: lkm-tamper
+          pattern: "*-lkm-tamper"
+
+      - name: Prepare Tamper LKM release assets
+        run: |
+          mkdir -p release-lkm-tamper
+          for d in lkm-tamper/*/; do
+            [ -d "$d" ] || continue
+            artifact=$(basename "$d")
+            for f in $(find "$d" -type f -name "*.ko"); do
+              base=$(basename "$f")
+              cp "$f" "release-lkm-tamper/${artifact}-${base}"
+            done
+          done
+          echo "Tamper LKM release assets:"
+          ls -l release-lkm-tamper
+          test -n "$(ls release-lkm-tamper/*.ko 2>/dev/null)"
+
       - name: Check is rc tags
         id: is_rc_tag
         run: |
@@ -46,3 +67,4 @@ jobs:
           files: |
             manager/*.apk
             lkm/**/*.ko
+            release-lkm-tamper/*.ko

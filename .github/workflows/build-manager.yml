@@ -89,11 +89,20 @@ jobs:
       expected_pr_build_hash: ${{ needs.prepare.outputs.expected_hash || '' }}
     secrets: inherit
 
+  build-lkm-tamper:
+    needs: prepare
+    uses: ./.github/workflows/build-lkm.yml
+    with:
+      expected_pr_build_size: ${{ needs.prepare.outputs.expected_size || '' }}
+      expected_pr_build_hash: ${{ needs.prepare.outputs.expected_hash || '' }}
+      hook: TAMPER_SYSCALL_TABLE
+    secrets: inherit
+
   build-ksuinit:
     uses: ./.github/workflows/ksuinit.yml
 
   build-ksud:
-    needs: [build-lkm, build-ksuinit]
+    needs: [build-lkm, build-lkm-tamper, build-ksuinit]
     strategy:
       matrix:
         target:

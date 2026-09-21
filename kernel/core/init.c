@@ -43,8 +43,9 @@
 #include "compat/apatch_conflict.h"
 #endif
 
-// if we are in Tracepoint hook, and won't enable PATCH_SYSCALL_DISPATCHER, check x86-64 hooks
-#if defined(CONFIG_KSU_TRACEPOINT_HOOK) && defined(__x86_64__) && !defined(CONFIG_KSU_X86_PATCH_SYSCALL_DISPATCHER)
+// if we are in Tracepoint/tamper hook, and won't enable PATCH_SYSCALL_DISPATCHER, check x86-64 hooks
+#if (defined(CONFIG_KSU_TRACEPOINT_HOOK) || defined(CONFIG_KSU_TAMPER_SYSCALL_TABLE)) &&                      \
+    defined(__x86_64__) && !defined(CONFIG_KSU_X86_PATCH_SYSCALL_DISPATCHER)
 #include <asm/cpufeature.h>
 #include <linux/version.h>
 #ifndef X86_FEATURE_INDIRECT_SAFE
@@ -91,10 +92,11 @@ struct cred *ksu_cred;
 bool ksu_late_loaded;
 
 // dispatcher of ksu hooks
-#ifdef CONFIG_KSU_TRACEPOINT_HOOK
+#if defined(CONFIG_KSU_TRACEPOINT_HOOK) || defined(CONFIG_KSU_TAMPER_SYSCALL_TABLE)
 #include "hook/syscall_hook_manager.h"
 #include "hook/syscall_hook.h"
-#else
+#endif
+#if !defined(CONFIG_KSU_TRACEPOINT_HOOK)
 #include "hook/lsm_hooks.h"
 #endif
 
@@ -108,9 +110,14 @@ static inline void __init ksu_hook_init(void)
     ksu_lsm_hook_magic_init();
 #endif
 
-#if defined(CONFIG_KSU_TRACEPOINT_HOOK)
+#if defined(CONFIG_KSU_TRACEPOINT_HOOK) || defined(CONFIG_KSU_TAMPER_SYSCALL_TABLE)
     ksu_syscall_hook_init();
     ksu_syscall_hook_manager_init();
+#if defined(CONFIG_KSU_TAMPER_SYSCALL_TABLE) && LINUX_VERSION_CODE < KERNEL_VERSION(6, 8, 0)
+    // Tamper still compiles in lsm_hooks.o below 6.8 (see Kbuild), so init it
+    // for rename tracking like the manual hook does.
+    ksu_lsm_hook_built_in_init();
+#endif
 #elif defined(CONFIG_KSU_MANUAL_HOOK)
 // only lsm hook need call init
 #if LINUX_VERSION_CODE < KERNEL_VERSION(6, 8, 0)
@@ -132,7 +139,7 @@ static inline void __exit ksu_hook_exit(void)
     ksu_lsm_hook_magic_exit();
 #endif
 
-#if defined(CONFIG_KSU_TRACEPOINT_HOOK)
+#if defined(CONFIG_KSU_TRACEPOINT_HOOK) || defined(CONFIG_KSU_TAMPER_SYSCALL_TABLE)
     ksu_syscall_hook_manager_exit();
 #else
     ksu_sucompat_exit();

@@ -91,6 +91,7 @@ sealed interface Route : NavKey, Parcelable {
         val bootUri: String? = null,
         val lkmUri: String? = null,
         val kmi: String? = null,
+        val hook: String? = null,
         val ota: Boolean = false,
         val partition: String? = null,
     ) : Route {
@@ -110,11 +111,13 @@ sealed interface Route : NavKey, Parcelable {
                 kmi: String?,
                 ota: Boolean,
                 partition: String?,
+                hook: String? = null,
             ) = Flash(
                 type = TYPE_BOOT,
                 bootUri = bootUri,
                 lkmUri = lkmUri,
                 kmi = kmi,
+                hook = hook,
                 ota = ota,
                 partition = partition,
             )

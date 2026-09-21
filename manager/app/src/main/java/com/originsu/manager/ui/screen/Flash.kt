@@ -904,6 +904,7 @@ sealed class FlashIt : Parcelable {
         val boot: String? = null,
         val lkmUri: String? = null,
         val kmi: String? = null,
+        val hook: String? = null,
         val ota: Boolean,
         val partition: String? = null,
     ) : FlashIt()
@@ -1019,7 +1020,10 @@ private suspend fun flashIt(
             bootUri = flashIt.boot,
             lkm = when {
                 flashIt.lkmUri != null -> LkmSelection.LkmUri(flashIt.lkmUri)
-                flashIt.kmi != null -> LkmSelection.KmiString(flashIt.kmi)
+                flashIt.kmi != null -> LkmSelection.KmiString(
+                    flashIt.kmi,
+                    flashIt.hook ?: "tracepoint"
+                )
                 else -> LkmSelection.KmiNone
             },
             ota = flashIt.ota,

@@ -883,6 +883,9 @@ class KsuCliRepository(context: Context) {
 
             is LkmSelection.KmiString -> {
                 cmd += " --kmi ${lkm.value}"
+                if (lkm.hook == "tamper") {
+                    cmd += " --hook tamper"
+                }
             }
 
             LkmSelection.KmiNone -> {

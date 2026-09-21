@@ -120,9 +120,13 @@ struct Asset;
 pub fn list_supported_kmi() -> std::vec::Vec<std::string::String> {
     let mut list = Vec::new();
     for file in Asset::iter() {
-        // kmi_name = "xxx_kernelsu.ko"
+        // kmi_name = "xxx_kernelsu.ko"; tamper flavors are stored as
+        // "tamper-xxx_kernelsu.ko" and share the same KMI entry.
         if let Some(kmi) = file.strip_suffix("_kernelsu.ko") {
-            list.push(kmi.to_string());
+            let kmi = kmi.strip_prefix("tamper-").unwrap_or(kmi);
+            if !list.iter().any(|v| v == kmi) {
+                list.push(kmi.to_string());
+            }
         }
     }
     list
