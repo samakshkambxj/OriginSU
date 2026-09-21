@@ -89,12 +89,10 @@ class GrantToastService : Service() {
     }
 
     private fun startMonitoring() {
-        // Boot receiver starts us unconditionally; exit early when disabled so
-        // we don't linger as a foreground service nobody asked for.
-        if (!repository.isToastEnabled()) {
-            stopSelf()
-            return
-        }
+        // startForegroundService() requires startForeground() within ~10s even
+        // when we are about to exit (e.g. toggle off at boot). Promote first,
+        // then stop if disabled — otherwise the system kills the app with
+        // ForegroundServiceDidNotStartInTimeException (seen in logcat).
         val notification = NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.mipmap.ic_launcher_foreground)
             .setContentTitle(getString(R.string.grant_toast_monitoring))
@@ -134,6 +132,13 @@ class GrantToastService : Service() {
             // Android 12+ (FGS-start restriction) or when the declared
             // foregroundServiceType mismatches. Don't crash: without the
             // foreground promotion the monitor would be killed, so stop.
+            stopSelf()
+            return
+        }
+        // Boot receiver starts us unconditionally; exit now when disabled so
+        // we don't linger as a foreground service nobody asked for.
+        if (!repository.isToastEnabled()) {
+            stopForeground(STOP_FOREGROUND_REMOVE)
             stopSelf()
             return
         }

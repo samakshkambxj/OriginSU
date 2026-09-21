@@ -80,10 +80,61 @@ fn write_profile(profile: &uapi::app_profile) -> Result<()> {
     Ok(())
 }
 
+/// v4 `struct app_profile` layout (see `uapi/app_profile.h`, KSU_APP_PROFILE_VER=4):
+/// { u32 version @0, char key[256] @4, i32 curr_uid @260, bool allow_su @264,
+///   union @272 (align 8): { bool use_default @272, char template_name[256] @273,
+///   struct root_profile @536, char selinux_domain[64] @704 } }, size 784.
+/// Offsets verified with gcc aarch64 `offsetof`; the size assert guards them.
+/// The kernel re-validates everything, so a mismatch can only fail the write,
+/// never corrupt state.
+const PROFILE_SIZE: usize = 784;
+const UNION_OFF: usize = 272;
+const USE_DEFAULT_OFF: usize = 272;
+/// `nrp_config.profile.umount_modules` (bool) overlaps `template_name[0]`.
+const UMOUNT_OFF: usize = 273;
+const DOMAIN_OFF: usize = 704;
+const DOMAIN: &[u8] = b"u:r:ksu:s0";
+
+fn profile_bytes(profile: &mut uapi::app_profile) -> Result<&mut [u8]> {
+    ensure!(
+        std::mem::size_of::<uapi::app_profile>() == PROFILE_SIZE,
+        "app_profile layout changed, update tempgrant offsets"
+    );
+    // SAFETY: in-bounds view into our own struct (size asserted above).
+    Ok(unsafe {
+        std::slice::from_raw_parts_mut(
+            profile as *mut uapi::app_profile as *mut u8,
+            PROFILE_SIZE,
+        )
+    })
+}
+
+/// Zero the union area and fill the minimum fields the kernel's
+/// `profile_valid()` requires: for allow, `use_default=1` + ksu domain
+/// (groups_count=0, empty template); for deny, `use_default=1` + umount=1.
+fn normalize_union(profile: &mut uapi::app_profile, allow: bool) -> Result<()> {
+    let bytes = profile_bytes(profile)?;
+    for b in &mut bytes[UNION_OFF..PROFILE_SIZE] {
+        *b = 0;
+    }
+    bytes[USE_DEFAULT_OFF] = 1;
+    if allow {
+        bytes[DOMAIN_OFF..DOMAIN_OFF + DOMAIN.len()].copy_from_slice(DOMAIN);
+    } else {
+        bytes[UMOUNT_OFF] = 1;
+    }
+    Ok(())
+}
+
 fn set_allow_su(package: &str, uid: u32, allow: bool) -> Result<()> {
     match read_profile(package, uid) {
         Ok(mut profile) => {
             profile.allow_su = allow;
+            // A deny profile's union bytes are all zero past the first two
+            // bytes, so flipping `allow_su` alone leaves `selinux_domain`
+            // empty and the kernel rejects the write with EINVAL. Always
+            // rewrite the union to a valid allow/deny default.
+            normalize_union(&mut profile, allow)?;
             write_profile(&profile)
         }
         // Fresh target with no profile yet: create a default allow-profile
@@ -100,36 +151,13 @@ fn set_allow_su(package: &str, uid: u32, allow: bool) -> Result<()> {
 
 /// Build a default allow-profile for an app that has none yet. Mirrors what
 /// the manager sends for a default allow: default root config + ksu domain.
-///
-/// Only the union fields are written by byte offset: struct app_profile is
-/// { u32 version @0, char key[256] @4, i32 curr_uid @260, bool allow_su @264,
-/// union @268: { bool use_default @268, char template_name[256] @272,
-/// struct root_profile @528: { ..., char selinux_domain[64] @528+164=692 } } }.
-/// The size assert guards the offsets; the kernel re-validates everything, so
-/// a mismatch can only fail the write, never corrupt state.
 fn default_allow_profile(package: &str, uid: u32) -> Result<uapi::app_profile> {
-    const PROFILE_SIZE: usize = 776;
-    const USE_DEFAULT_OFF: usize = 268;
-    const DOMAIN_OFF: usize = 692;
-    const DOMAIN: &[u8] = b"u:r:ksu:s0";
-    ensure!(
-        std::mem::size_of::<uapi::app_profile>() == PROFILE_SIZE,
-        "app_profile layout changed, update tempgrant offsets"
-    );
     let mut profile: uapi::app_profile = unsafe { std::mem::zeroed() };
     profile.version = uapi::KSU_APP_PROFILE_VER;
     copy_key(&mut profile.key, package);
     profile.curr_uid = uid as i32;
     profile.allow_su = true;
-    // SAFETY: in-bounds writes into our own zeroed struct (size asserted above).
-    let bytes = unsafe {
-        std::slice::from_raw_parts_mut(
-            &mut profile as *mut uapi::app_profile as *mut u8,
-            PROFILE_SIZE,
-        )
-    };
-    bytes[USE_DEFAULT_OFF] = 1;
-    bytes[DOMAIN_OFF..DOMAIN_OFF + DOMAIN.len()].copy_from_slice(DOMAIN);
+    normalize_union(&mut profile, true)?;
     Ok(profile)
 }
 

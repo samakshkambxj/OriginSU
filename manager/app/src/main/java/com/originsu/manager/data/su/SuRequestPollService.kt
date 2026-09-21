@@ -55,12 +55,10 @@ class SuRequestPollService : Service() {
     }
 
     private fun startPolling() {
-        // Boot receiver starts us unconditionally; exit early when disabled so
-        // we don't linger as a foreground service nobody asked for.
-        if (!repository.isPromptEnabled()) {
-            stopSelf()
-            return
-        }
+        // startForegroundService() requires startForeground() within ~10s even
+        // when we are about to exit (e.g. toggle off at boot). Promote first,
+        // then stop if disabled — otherwise the system kills the app with
+        // ForegroundServiceDidNotStartInTimeException.
         val notification = androidx.core.app.NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.mipmap.ic_launcher_foreground)
             .setContentTitle(getString(R.string.su_request_title))
@@ -82,6 +80,13 @@ class SuRequestPollService : Service() {
                 startForeground(NOTIFICATION_ID, notification)
             }
         }.onFailure {
+            stopSelf()
+            return
+        }
+        // Boot receiver starts us unconditionally; exit now when disabled so
+        // we don't linger as a foreground service nobody asked for.
+        if (!repository.isPromptEnabled()) {
+            stopForeground(STOP_FOREGROUND_REMOVE)
             stopSelf()
             return
         }
