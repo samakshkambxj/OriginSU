@@ -29,6 +29,23 @@ jobs:
           path: lkm
           pattern: "*-lkm"
 
+      - name: Prepare LKM release assets
+        run: |
+          mkdir -p release-lkm
+          for d in lkm/*/; do
+            [ -d "$d" ] || continue
+            artifact=$(basename "$d")
+            for f in $(find "$d" -type f -name "*.ko"); do
+              base=$(basename "$f")
+              cp "$f" "release-lkm/${artifact}-${base}"
+            done
+          done
+          echo "LKM release assets:"
+          ls -l release-lkm
+          # Fail early on duplicate basenames instead of hitting
+          # softprops "already exists (race condition)" errors.
+          test -n "$(ls release-lkm/*.ko 2>/dev/null)"
+
       - name: Check is rc tags
         id: is_rc_tag
         run: |
@@ -45,4 +62,4 @@ jobs:
           generate_release_notes: true
           files: |
             manager/*.apk
-            lkm/**/*.ko
+            release-lkm/*.ko
