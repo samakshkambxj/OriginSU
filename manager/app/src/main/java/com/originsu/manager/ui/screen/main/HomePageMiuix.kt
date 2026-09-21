@@ -65,8 +65,10 @@ import com.originsu.manager.ui.miuix.OriginMiuixTheme
 import com.originsu.manager.ui.miuix.homeCardColors
 import com.originsu.manager.ui.navigation.LocalNavigator
 import com.originsu.manager.ui.navigation.Route
+import com.originsu.manager.ui.theme.CardConfig
 import com.originsu.manager.ui.util.BlurredBar
 import com.originsu.manager.ui.util.LocalHandlePageChange
+import com.originsu.manager.ui.util.miuixTileBlur
 import com.originsu.manager.ui.util.rememberBlurBackdrop
 import com.originsu.manager.ui.viewmodel.HomeUiAction
 import com.originsu.manager.ui.viewmodel.HomeUiEvent
@@ -236,14 +238,19 @@ private fun HomePagerMiuix(
                                 else
                                     stringResource(R.string.require_kernel_version_gki),
                                 onClick = actions.onInstallClick,
+                                backdrop = backdrop,
                             )
                         }
                         if (status.ksuVersion != null && !status.isRootAvailable) {
-                            WarningCard(stringResource(id = R.string.grant_root_failed))
+                            WarningCard(
+                                stringResource(id = R.string.grant_root_failed),
+                                backdrop = backdrop,
+                            )
                         }
                         StatusCard(
                             state = state,
                             actions = actions,
+                            backdrop = backdrop,
                         )
                         if (status.isRootAvailable) {
                             OriginTuneCard(onClick = actions.onOriginTuneClick)
@@ -252,12 +259,13 @@ private fun HomePagerMiuix(
                             stableUpdate = state.stableManagerUpdate,
                             betaUpdate = state.betaManagerUpdate,
                             onUpdateClick = actions.onUpdateClick,
+                            backdrop = backdrop,
                         )
                         if (state.isExtendedDataLoaded) {
-                            InfoCard(systemInfo = state.systemInfo)
+                            InfoCard(systemInfo = state.systemInfo, backdrop = backdrop)
                         }
-                        DonateCard(onOpenUrl = actions.onOpenUrl)
-                        LearnMoreCard(onOpenUrl = actions.onOpenUrl)
+                        DonateCard(onOpenUrl = actions.onOpenUrl, backdrop = backdrop)
+                        LearnMoreCard(onOpenUrl = actions.onOpenUrl, backdrop = backdrop)
                     }
                     Spacer(Modifier.height(bottomInnerPadding))
                 }
@@ -271,6 +279,7 @@ private fun UpdateCard(
     stableUpdate: ManagerUpdateInfo?,
     betaUpdate: ManagerUpdateInfo?,
     onUpdateClick: (ManagerUpdateInfo) -> Unit,
+    backdrop: LayerBackdrop?,
 ) {
     val update = stableUpdate ?: betaUpdate ?: return
     val title = stringResource(id = R.string.module_changelog)
@@ -290,6 +299,7 @@ private fun UpdateCard(
         WarningCard(
             message = message,
             color = colorScheme.outline,
+            backdrop = backdrop,
             onClick = {
                 if (update.changelog.isEmpty()) {
                     onUpdateClick(update)
@@ -335,9 +345,11 @@ private fun TopBar(
 private fun StatusCard(
     state: HomeDashboardState,
     actions: HomeMiuixActions,
+    backdrop: LayerBackdrop?,
 ) {
     val status = state.systemStatus
     val systemInfo = state.systemInfo
+    val cardConfig: CardConfig = koinInject()
     Column {
         when {
             status.ksuVersion != null -> {
@@ -366,13 +378,14 @@ private fun StatusCard(
                     Card(
                         modifier = Modifier
                             .weight(1f)
-                            .fillMaxHeight(),
+                            .fillMaxHeight()
+                            .miuixTileBlur(backdrop),
                         colors = CardDefaults.defaultColors(
-                            color = when {
+                            color = (when {
                                 isDynamicColor -> colorScheme.secondaryContainer
                                 isInDarkTheme() -> Color(0xFF1A3825)
                                 else -> Color(0xFFDFFAE4)
-                            }
+                            }).copy(alpha = cardConfig.cardAlpha)
                         ),
                         onClick = {
                             if (!status.isLateLoadMode) {
@@ -430,7 +443,8 @@ private fun StatusCard(
                             colors = homeCardColors(),
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .weight(1f),
+                                .weight(1f)
+                                .miuixTileBlur(backdrop),
                             insideMargin = PaddingValues(16.dp),
                             onClick = { actions.onSuperuserClick() },
                             showIndication = true,
@@ -458,7 +472,8 @@ private fun StatusCard(
                             colors = homeCardColors(),
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .weight(1f),
+                                .weight(1f)
+                                .miuixTileBlur(backdrop),
                             insideMargin = PaddingValues(16.dp),
                             onClick = { actions.onModuleClick() },
                             showIndication = true,
@@ -489,7 +504,9 @@ private fun StatusCard(
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     Card(
                         colors = homeCardColors(),
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier
+                            .weight(1f)
+                            .miuixTileBlur(backdrop),
                         onClick = {
                             if (!status.isLateLoadMode) {
                                 actions.onInstallClick()
@@ -526,6 +543,7 @@ private fun StatusCard(
             else -> {
                 Card(
                     colors = homeCardColors(),
+                    modifier = Modifier.miuixTileBlur(backdrop),
                     onClick = {
                         if (!status.isLateLoadMode) {
                             actions.onInstallClick()
@@ -555,9 +573,15 @@ private fun StatusCard(
 @Composable
 private fun LearnMoreCard(
     onOpenUrl: (String) -> Unit,
+    backdrop: LayerBackdrop?,
 ) {
     val url = stringResource(R.string.home_learn_kernelsu_url)
-    Card(modifier = Modifier.fillMaxWidth(), colors = homeCardColors()) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .miuixTileBlur(backdrop),
+        colors = homeCardColors(),
+    ) {
         BasicComponent(
             title = stringResource(R.string.home_learn_kernelsu),
             summary = stringResource(R.string.home_click_to_learn_kernelsu),
@@ -574,8 +598,16 @@ private fun LearnMoreCard(
 }
 
 @Composable
-private fun DonateCard(onOpenUrl: (String) -> Unit) {
-    Card(modifier = Modifier.fillMaxWidth(), colors = homeCardColors()) {
+private fun DonateCard(
+    onOpenUrl: (String) -> Unit,
+    backdrop: LayerBackdrop?,
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .miuixTileBlur(backdrop),
+        colors = homeCardColors(),
+    ) {
         BasicComponent(
             title = stringResource(R.string.home_support_title),
             summary = stringResource(R.string.home_support_content),
@@ -593,7 +625,10 @@ private fun DonateCard(onOpenUrl: (String) -> Unit) {
 }
 
 @Composable
-private fun InfoCard(systemInfo: HomeSystemInfo) {
+private fun InfoCard(
+    systemInfo: HomeSystemInfo,
+    backdrop: LayerBackdrop?,
+) {
     @Composable
     fun InfoText(
         title: String,
@@ -614,7 +649,10 @@ private fun InfoCard(systemInfo: HomeSystemInfo) {
         )
     }
 
-    Card {
+    Card(
+        modifier = Modifier.miuixTileBlur(backdrop),
+        colors = homeCardColors(),
+    ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()

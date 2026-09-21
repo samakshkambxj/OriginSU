@@ -12,6 +12,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.view.WindowInsetsControllerCompat
 import com.materialkolor.dynamiccolor.ColorSpec
+import com.originsu.manager.ui.theme.CardConfig
 import com.originsu.manager.ui.theme.ThemeConfig
 import com.originsu.manager.ui.theme.isInDarkTheme
 import org.koin.compose.koinInject
@@ -30,12 +31,17 @@ val LocalEnableBlur = staticCompositionLocalOf { false }
 
 /**
  * Card colors lifted one tonal step so flat cards stay visible on the
- * manager-matched page background.
+ * manager-matched page background. Translucent (via cardAlpha) when a custom
+ * background is enabled so the background shows through, matching the
+ * Material tiles; opaque otherwise.
  */
 @Composable
-fun homeCardColors() = top.yukonga.miuix.kmp.basic.CardDefaults.defaultColors(
-    color = MiuixTheme.colorScheme.surfaceContainerHigh,
-)
+fun homeCardColors(): top.yukonga.miuix.kmp.basic.CardColors {
+    val cardConfig: CardConfig = koinInject()
+    return top.yukonga.miuix.kmp.basic.CardDefaults.defaultColors(
+        color = MiuixTheme.colorScheme.surfaceContainerHigh.copy(alpha = cardConfig.cardAlpha),
+    )
+}
 
 @Composable
 fun OriginMiuixTheme(content: @Composable () -> Unit) {

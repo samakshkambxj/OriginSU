@@ -76,7 +76,9 @@ import com.originsu.manager.ui.miuix.OriginMiuixTheme
 import com.originsu.manager.ui.miuix.homeCardColors
 import com.originsu.manager.ui.navigation.LocalNavigator
 import com.originsu.manager.ui.navigation.Route
+import com.originsu.manager.ui.theme.CardConfig
 import com.originsu.manager.ui.util.BlurredBar
+import com.originsu.manager.ui.util.miuixTileBlur
 import com.originsu.manager.ui.util.rememberBlurBackdrop
 import com.originsu.manager.ui.viewmodel.HomeUiAction
 import com.originsu.manager.ui.viewmodel.HomeUiEvent
@@ -237,6 +239,7 @@ private fun HomePagerMiuixAlt(
                             if ((status.kernelUAPIVersion ?: 1) > status.managerUAPIVersion) {
                                 WarningCard(
                                     message = stringResource(R.string.require_manager_version),
+                                    backdrop = backdrop,
                                 )
                             } else {
                                 WarningCard(
@@ -245,15 +248,20 @@ private fun HomePagerMiuixAlt(
                                     else
                                         stringResource(R.string.require_kernel_version_gki),
                                     onClick = actions.onInstallClick,
+                                    backdrop = backdrop,
                                 )
                             }
                         }
                         if (status.ksuVersion != null && !status.isRootAvailable) {
-                            WarningCard(stringResource(id = R.string.grant_root_failed))
+                            WarningCard(
+                                stringResource(id = R.string.grant_root_failed),
+                                backdrop = backdrop,
+                            )
                         }
                         StatusCardAlt(
                             state = state,
                             actions = actions,
+                            backdrop = backdrop,
                         )
                         if (status.isRootAvailable) {
                             OriginTuneCard(onClick = actions.onOriginTuneClick)
@@ -262,16 +270,19 @@ private fun HomePagerMiuixAlt(
                             InfoCardAlt(
                                 systemInfo = state.systemInfo,
                                 modifier = Modifier.fillMaxWidth(),
+                                backdrop = backdrop,
                             )
                         }
                         UpdateCardAlt(
                             stableUpdate = state.stableManagerUpdate,
                             betaUpdate = state.betaManagerUpdate,
                             onUpdateClick = actions.onUpdateClick,
+                            backdrop = backdrop,
                         )
                         SupportLinks(
                             onOpenUrl = actions.onOpenUrl,
                             modifier = Modifier.fillMaxWidth(),
+                            backdrop = backdrop,
                         )
                         Spacer(
                             Modifier.height(
@@ -291,6 +302,7 @@ private fun UpdateCardAlt(
     stableUpdate: ManagerUpdateInfo?,
     betaUpdate: ManagerUpdateInfo?,
     onUpdateClick: (ManagerUpdateInfo) -> Unit,
+    backdrop: LayerBackdrop?,
 ) {
     val update = stableUpdate ?: betaUpdate ?: return
     val title = stringResource(id = R.string.module_changelog)
@@ -310,6 +322,7 @@ private fun UpdateCardAlt(
         WarningCard(
             message = message,
             color = colorScheme.outline,
+            backdrop = backdrop,
             onClick = {
                 if (update.changelog.isEmpty()) {
                     onUpdateClick(update)
@@ -355,8 +368,10 @@ private fun TopBarAlt(
 private fun StatusCardAlt(
     state: HomeDashboardState,
     actions: HomeMiuixAltActions,
+    backdrop: LayerBackdrop?,
 ) {
     val status = state.systemStatus
+    val cardConfig: CardConfig = koinInject()
     Column {
         when {
             status.ksuVersion != null -> {
@@ -382,13 +397,15 @@ private fun StatusCardAlt(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Card(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .miuixTileBlur(backdrop),
                         colors = CardDefaults.defaultColors(
-                            color = when {
+                            color = (when {
                                 isDynamicColor -> colorScheme.secondaryContainer
                                 isInDarkThemeAlt() -> Color(0xFF1A3825)
                                 else -> Color(0xFFDFFAE4)
-                            }
+                            }).copy(alpha = cardConfig.cardAlpha)
                         ),
                         onClick = {
                             if (!status.isLateLoadMode) {
@@ -452,7 +469,9 @@ private fun StatusCardAlt(
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     Card(
                         colors = homeCardColors(),
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier
+                            .weight(1f)
+                            .miuixTileBlur(backdrop),
                         onClick = {
                             if (!status.isLateLoadMode) {
                                 actions.onInstallClick()
@@ -489,6 +508,7 @@ private fun StatusCardAlt(
             else -> {
                 Card(
                     colors = homeCardColors(),
+                    modifier = Modifier.miuixTileBlur(backdrop),
                     onClick = {
                         if (!status.isLateLoadMode) {
                             actions.onInstallClick()
@@ -519,9 +539,13 @@ private fun StatusCardAlt(
 private fun SupportLinks(
     onOpenUrl: (String) -> Unit,
     modifier: Modifier = Modifier,
+    backdrop: LayerBackdrop? = null,
 ) {
     val learnMoreUrl = stringResource(R.string.home_learn_kernelsu_url)
-    Card(modifier = modifier, colors = homeCardColors()) {
+    Card(
+        modifier = modifier.miuixTileBlur(backdrop),
+        colors = homeCardColors(),
+    ) {
         ArrowPreference(
             title = stringResource(R.string.home_support_title),
             summary = stringResource(R.string.home_support_content),
@@ -555,6 +579,7 @@ private fun SupportLinks(
 private fun InfoCardAlt(
     systemInfo: HomeSystemInfo,
     modifier: Modifier = Modifier,
+    backdrop: LayerBackdrop? = null,
 ) {
     @Composable
     fun InfoText(
@@ -612,7 +637,12 @@ private fun InfoCardAlt(
         modifier = modifier,
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Card(modifier = Modifier.fillMaxWidth(), colors = homeCardColors()) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .miuixTileBlur(backdrop),
+            colors = homeCardColors(),
+        ) {
             Column(modifier = Modifier.padding(16.dp)) {
                 InfoText(
                     icon = Icons.Filled.Tag,
@@ -637,7 +667,12 @@ private fun InfoCardAlt(
                 )
             }
         }
-        Card(modifier = Modifier.fillMaxWidth(), colors = homeCardColors()) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .miuixTileBlur(backdrop),
+            colors = homeCardColors(),
+        ) {
             Column(modifier = Modifier.padding(16.dp)) {
                 InfoText(
                     icon = Icons.Filled.Security,
