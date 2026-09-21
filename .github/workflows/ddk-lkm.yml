@@ -45,10 +45,13 @@ jobs:
     steps:
     - name: Checkout source code
       uses: actions/checkout@v7
+      with:
+        # Full history: Kbuild derives KSU_VERSION from rev-list --count.
+        fetch-depth: 0
 
     - name: Add Safe Directory
       run: |
-        git config --global --add safe.directory /__w/ReSukiSU/ReSukiSU
+        git config --global --add safe.directory '*'
 
     - name: Build kernelsu.ko
       if: ${{ inputs.arch == 'arm64' }}
