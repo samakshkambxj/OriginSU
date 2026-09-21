@@ -101,6 +101,16 @@ enum class KpmPatchOption {
     UNDO_PATCH_KPM
 }
 
+enum class HookFlavor {
+    TRACEPOINT,
+    TAMPER;
+
+    fun id(): String = when (this) {
+        TRACEPOINT -> "tracepoint"
+        TAMPER -> "tamper"
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun InstallScreen(
@@ -115,6 +125,7 @@ fun InstallScreen(
     var installMethod by remember { mutableStateOf<InstallMethod?>(null) }
     var lkmSelection by remember { mutableStateOf<LkmSelection>(LkmSelection.KmiNone) }
     var kpmPatchOption by remember { mutableStateOf(KpmPatchOption.FOLLOW_KERNEL) }
+    var hookFlavor by remember { mutableStateOf(HookFlavor.TRACEPOINT) }
     var showSlotSelectionDialog by remember { mutableStateOf(false) }
     var tempKernelUri by remember { mutableStateOf<Uri?>(null) }
     // 0 = LKM tab, 1 = GKI tab.
@@ -192,7 +203,13 @@ fun InstallScreen(
                     val bootUri = method.bootUri
                     val zipUri = method.zipUri
                     if (bootUri != null && zipUri != null) {
-                        navigator.push(Route.Flash.patchBootImage(bootUri.toString(), zipUri.toString()))
+                        navigator.push(
+                            Route.Flash.patchBootImage(
+                                bootUri.toString(),
+                                zipUri.toString(),
+                                (lkmSelection as? LkmSelection.KmiString)?.value
+                            )
+                        )
                     }
                 }
                 else -> {
@@ -209,6 +226,7 @@ fun InstallScreen(
                             kmi = (lkmSelection as? LkmSelection.KmiString)?.value,
                             ota = isOta,
                             partition = partitionSelection,
+                            hook = hookFlavor.id(),
                         )
                     )
                 }
@@ -244,7 +262,12 @@ fun InstallScreen(
     }
 
     val onClickNext = {
-        if (isGKI && lkmSelection == LkmSelection.KmiNone && currentKmi.isBlank() && installMethod !is InstallMethod.HorizonKernel) {
+        // SettingsChooseDialog renders nothing for an empty list, so only
+        // gate on the dialog when there is actually something to pick.
+        // Otherwise fall through and let ksud attempt auto-detection.
+        if (isGKI && lkmSelection == LkmSelection.KmiNone && currentKmi.isBlank() &&
+            environment.supportedKmis.isNotEmpty() && installMethod !is InstallMethod.HorizonKernel
+        ) {
             selectKmiDialog.show()
         } else {
             onInstall()
@@ -338,6 +361,8 @@ fun InstallScreen(
                 onClickNext = onClickNext,
                 kpmPatchOption = kpmPatchOption,
                 onKpmPatchOptionChanged = { kpmPatchOption = it },
+                hookFlavor = hookFlavor,
+                onHookFlavorChanged = { hookFlavor = it },
                 containerColor = MaterialTheme.colorScheme.primary,
                 disabledContainerColor = MaterialTheme.colorScheme.surfaceBright.copy(
                     alpha = cardConfig.cardAlpha
@@ -370,6 +395,8 @@ private fun InstallBody(
     onClickNext: () -> Unit,
     kpmPatchOption: KpmPatchOption = KpmPatchOption.FOLLOW_KERNEL,
     onKpmPatchOptionChanged: (KpmPatchOption) -> Unit = {},
+    hookFlavor: HookFlavor = HookFlavor.TRACEPOINT,
+    onHookFlavorChanged: (HookFlavor) -> Unit = {},
     containerColor: Color,
     disabledContainerColor: Color,
     blurEnabled: Boolean,
@@ -597,6 +624,11 @@ private fun InstallBody(
                         },
                         onClick = onLkmUpload,
                     )
+
+                    HookFlavorSelector(
+                        selectedOption = hookFlavor,
+                        onOptionChanged = onHookFlavorChanged
+                    )
                 }
             }
 
@@ -694,6 +726,39 @@ private fun KpmPatchOptionSelector(
             SettingsChooseWidget(
                 title = stringResource(R.string.kpm_patch_options),
                 description = stringResource(R.string.kpm_patch_description),
+                items = labels,
+                itemDescriptions = descriptions,
+                selectedIndex = options.indexOf(selectedOption).takeIf { it >= 0 } ?: 0,
+                onSelectedIndexChange = { index ->
+                    options.getOrNull(index)?.let(onOptionChanged)
+                }
+            )
+        }
+    }
+}
+
+@Composable
+private fun HookFlavorSelector(
+    selectedOption: HookFlavor,
+    onOptionChanged: (HookFlavor) -> Unit,
+) {
+    val options = HookFlavor.entries.toList()
+    val labels = listOf(
+        stringResource(R.string.hook_flavor_tracepoint),
+        stringResource(R.string.hook_flavor_tamper)
+    )
+    val descriptions = listOf(
+        stringResource(R.string.hook_flavor_tracepoint_description),
+        stringResource(R.string.hook_flavor_tamper_description)
+    )
+    SegmentedColumn(
+        title = stringResource(R.string.install_hook_flavor),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        item {
+            SettingsChooseWidget(
+                title = stringResource(R.string.install_hook_flavor),
+                description = stringResource(R.string.install_hook_flavor_summary),
                 items = labels,
                 itemDescriptions = descriptions,
                 selectedIndex = options.indexOf(selectedOption).takeIf { it >= 0 } ?: 0,

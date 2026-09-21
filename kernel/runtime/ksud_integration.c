@@ -42,7 +42,7 @@
 #include "compat/kernel_compat.h"
 #include "selinux/selinux.h"
 #include "manager/throne_tracker.h"
-#ifdef CONFIG_KSU_TRACEPOINT_HOOK
+#if defined(CONFIG_KSU_TRACEPOINT_HOOK) || defined(CONFIG_KSU_TAMPER_SYSCALL_TABLE)
 #include "hook/syscall_hook.h"
 #endif
 
@@ -75,7 +75,7 @@ static void stop_init_rc_hook(void);
 static void stop_execve_hook(void);
 
 // clang-format off
-#if defined(CONFIG_KSU_TRACEPOINT_HOOK)
+#if defined(CONFIG_KSU_TRACEPOINT_HOOK) || defined(CONFIG_KSU_TAMPER_SYSCALL_TABLE)
     static struct work_struct stop_input_hook_work;
 
     // tp hook will ask kernel unregister hook when we no need
@@ -950,7 +950,7 @@ bool ksu_is_safe_mode()
     return false;
 }
 
-#ifdef CONFIG_KSU_TRACEPOINT_HOOK
+#if defined(CONFIG_KSU_TRACEPOINT_HOOK) || defined(CONFIG_KSU_TAMPER_SYSCALL_TABLE)
 static void ksu_execve_hook_ksud_common(const char __user *filename_user, const char __user *const __user *argv_user)
 {
     struct user_arg_ptr argv = { .ptr.native = argv_user };
@@ -1074,7 +1074,7 @@ void ksu_stop_input_hook_runtime(void)
 // ksud: module support
 void __init ksu_ksud_init(void)
 {
-#ifdef CONFIG_KSU_TRACEPOINT_HOOK
+#if defined(CONFIG_KSU_TRACEPOINT_HOOK) || defined(CONFIG_KSU_TAMPER_SYSCALL_TABLE)
     int ret;
 
     ksu_syscall_table_hook(__NR_read, ksu_sys_read, &orig_sys_read);
@@ -1092,7 +1092,7 @@ void __init ksu_ksud_init(void)
 
 void __exit ksu_ksud_exit(void)
 {
-#ifdef CONFIG_KSU_TRACEPOINT_HOOK
+#if defined(CONFIG_KSU_TRACEPOINT_HOOK) || defined(CONFIG_KSU_TAMPER_SYSCALL_TABLE)
     // TODO:
     // this should be done before unregister vfs_read_kp
     // stop_init_rc_hook();

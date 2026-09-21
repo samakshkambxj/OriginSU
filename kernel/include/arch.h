@@ -66,7 +66,7 @@
 #endif
 
 #else
-#ifdef CONFIG_KSU_TRACEPOINT_HOOK
+#if defined(CONFIG_KSU_TRACEPOINT_HOOK) || defined(CONFIG_KSU_TAMPER_SYSCALL_TABLE)
 #error "Unsupported arch"
 #endif
 #endif

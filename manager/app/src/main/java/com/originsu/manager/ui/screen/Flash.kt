@@ -904,6 +904,7 @@ sealed class FlashIt : Parcelable {
         val boot: String? = null,
         val lkmUri: String? = null,
         val kmi: String? = null,
+        val hook: String? = null,
         val ota: Boolean,
         val partition: String? = null,
     ) : FlashIt()
@@ -911,7 +912,7 @@ sealed class FlashIt : Parcelable {
     data class FlashModule(val uri: String) : FlashIt()
     data class FlashModules(val uris: List<String>, val currentIndex: Int = 0) : FlashIt()
     data class FlashAnyKernelZip(val uri: String) : FlashIt()
-    data class FlashPatchBootImage(val boot: String, val zip: String) : FlashIt()
+    data class FlashPatchBootImage(val boot: String, val zip: String, val kmi: String? = null) : FlashIt()
     data class FlashModuleUpdate(val uri: String) : FlashIt() // 模块更新
     data object FlashRestore : FlashIt()
     data object FlashUninstall : FlashIt()
@@ -1019,7 +1020,10 @@ private suspend fun flashIt(
             bootUri = flashIt.boot,
             lkm = when {
                 flashIt.lkmUri != null -> LkmSelection.LkmUri(flashIt.lkmUri)
-                flashIt.kmi != null -> LkmSelection.KmiString(flashIt.kmi)
+                flashIt.kmi != null -> LkmSelection.KmiString(
+                    flashIt.kmi,
+                    flashIt.hook ?: "tracepoint"
+                )
                 else -> LkmSelection.KmiNone
             },
             ota = flashIt.ota,
@@ -1028,7 +1032,7 @@ private suspend fun flashIt(
 
         is FlashIt.FlashModule -> FlashOperation.Module(flashIt.uri, auditConfirmed, noAudit)
         is FlashIt.FlashAnyKernelZip -> FlashOperation.AnyKernelZip(flashIt.uri)
-        is FlashIt.FlashPatchBootImage -> FlashOperation.PatchBootImage(flashIt.boot, flashIt.zip)
+        is FlashIt.FlashPatchBootImage -> FlashOperation.PatchBootImage(flashIt.boot, flashIt.zip, flashIt.kmi)
         is FlashIt.FlashModules -> {
             if (flashIt.uris.isEmpty() || flashIt.currentIndex >= flashIt.uris.size) {
                 onFinish(false, 0)

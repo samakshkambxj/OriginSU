@@ -476,6 +476,11 @@ pub struct BootPatchArgs {
     #[arg(long, default_value = None)]
     pub kmi: Option<String>,
 
+    /// Hook flavor of the builtin LKM (tracepoint/tamper). Only used when
+    /// no explicit module file is given; defaults to tracepoint.
+    #[arg(long, default_value = None)]
+    pub hook: Option<String>,
+
     /// target partition override (init_boot | boot | vendor_boot)
     #[cfg(target_os = "android")]
     #[arg(long, default_value = None)]
@@ -526,6 +531,31 @@ pub struct BootPatchArgs {
     ramdisk: bool,
 }
 
+/// Canonical hook flavor name (`tracepoint` when unset).
+fn hook_flavor_name(hook: Option<&str>) -> &'static str {
+    match hook.map(str::trim) {
+        Some("tamper") => "tamper",
+        _ => "tracepoint",
+    }
+}
+
+/// Embedded LKM asset name for a KMI + hook flavor. Tamper builds are
+/// stored with a `tamper-` prefix so both flavors coexist in the binary.
+fn builtin_lkm_name(kmi: &str, hook: Option<&str>) -> String {
+    if hook_flavor_name(hook) == "tamper" {
+        format!("tamper-{kmi}_kernelsu.ko")
+    } else {
+        format!("{kmi}_kernelsu.ko")
+    }
+}
+
+fn ensure_valid_hook(hook: Option<&str>) -> Result<()> {
+    match hook.map(str::trim) {
+        None | Some("tracepoint") | Some("tamper") => Ok(()),
+        Some(other) => bail!("unknown hook flavor '{other}' (want tracepoint/tamper)"),
+    }
+}
+
 pub fn patch(args: BootPatchArgs) -> Result<()> {
     let inner = move || {
         let BootPatchArgs {
@@ -535,6 +565,7 @@ pub fn patch(args: BootPatchArgs) -> Result<()> {
             module: kmod,
             out,
             kmi,
+            hook,
             out_name,
             allow_shell,
             enable_adbd,
@@ -564,6 +595,8 @@ pub fn patch(args: BootPatchArgs) -> Result<()> {
         }
 
         println!("{}", banner::print_banner());
+
+        ensure_valid_hook(hook.as_deref())?;
 
         #[cfg(target_os = "android")]
         let patch_file = image.is_some();
@@ -688,7 +721,8 @@ pub fn patch(args: BootPatchArgs) -> Result<()> {
             #[cfg(target_os = "android")]
             {
                 println!("- KMI: {kmi}");
-                let name = format!("{kmi}_kernelsu.ko");
+                let name = builtin_lkm_name(&kmi, hook.as_deref());
+                println!("- Hook flavor: {}", hook_flavor_name(hook.as_deref()));
                 Box::new(
                     assets::get_asset(&name).with_context(|| format!("Failed to load {name}"))?,
                 )
@@ -697,7 +731,7 @@ pub fn patch(args: BootPatchArgs) -> Result<()> {
             {
                 println!("- KMI: {kmi}");
                 println!("- Arch: {arch}");
-                let name = format!("{arch}/{kmi}_kernelsu.ko");
+                let name = format!("{arch}/{}", builtin_lkm_name(&kmi, hook.as_deref()));
                 Box::new(
                     assets::get_asset(&name).with_context(|| format!("Failed to load {name}"))?,
                 )

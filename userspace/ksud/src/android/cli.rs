@@ -452,6 +452,33 @@ enum Module {
         #[command(subcommand)]
         command: ModuleConfigCmd,
     },
+
+    /// manage Magic Mount (userspace Magisk-style module mounting)
+    MagicMount {
+        #[command(subcommand)]
+        command: MagicMountCmd,
+    },
+}
+
+#[derive(clap::Subcommand, Debug)]
+enum MagicMountCmd {
+    /// show whether Magic Mount is enabled (prints enabled/disabled)
+    Status,
+
+    /// enable Magic Mount (takes effect on next boot)
+    Enable,
+
+    /// disable Magic Mount (takes effect on next boot)
+    Disable,
+
+    /// run the Magic Mount pass now (post-mount stage)
+    Mount,
+
+    /// get or set the Magic Mount backend (auto/overlay/bind, takes effect next boot)
+    Backend {
+        /// backend to use (omit to print the current one)
+        mode: Option<String>,
+    },
 }
 
 #[derive(clap::Subcommand, Debug)]
@@ -755,6 +782,16 @@ pub fn run() -> Result<()> {
                 Module::Disable { id } => module::disable_module(&id),
                 Module::Action { id } => module::run_action(&id),
                 Module::List => module::list_modules(),
+                Module::MagicMount { command } => match command {
+                    MagicMountCmd::Status => module::magic_mount::status(),
+                    MagicMountCmd::Enable => module::magic_mount::set_enabled(true),
+                    MagicMountCmd::Disable => module::magic_mount::set_enabled(false),
+                    MagicMountCmd::Mount => module::magic_mount::run_magic_mount(),
+                    MagicMountCmd::Backend { mode } => match mode {
+                        Some(mode) => module::magic_mount::set_backend(&mode),
+                        None => module::magic_mount::print_backend(),
+                    },
+                },
                 Module::Config { internal, command } => {
                     let module_id = match internal {
                         Some(internal_name) => format!("internal.{internal_name}"),
@@ -960,7 +997,7 @@ pub fn run() -> Result<()> {
                 }
                 Kpm::Version => kpm::version(),
             }
-        },
+        }
         Commands::Debug { command } => match command {
             Debug::SetManager { apk } => debug::set_manager(&apk),
             Debug::GetSign { apk } => {

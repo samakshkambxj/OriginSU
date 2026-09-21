@@ -12,7 +12,21 @@ on:
         required: false
         default: ''
         type: string
+      hook:
+        description: 'Kconfig hook flavor suffix (TRACEPOINT_HOOK or TAMPER_SYSCALL_TABLE)'
+        required: false
+        default: 'TRACEPOINT_HOOK'
+        type: string
   workflow_dispatch:
+    inputs:
+      hook:
+        description: 'Kconfig hook flavor suffix'
+        required: false
+        default: 'TRACEPOINT_HOOK'
+        type: choice
+        options:
+          - TRACEPOINT_HOOK
+          - TAMPER_SYSCALL_TABLE
 jobs:
   build-lkm:
     strategy:
@@ -36,3 +50,4 @@ jobs:
       arch: ${{ matrix.arch }}
       expected_pr_build_size: ${{ inputs.expected_pr_build_size || '' }}
       expected_pr_build_hash: ${{ inputs.expected_pr_build_hash || '' }}
+      hook: ${{ inputs.hook || 'TRACEPOINT_HOOK' }}

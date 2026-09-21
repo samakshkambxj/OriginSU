@@ -25,8 +25,7 @@ const MAX_PRINTED_FINDINGS: usize = 50;
 /// With `json`, prints the full machine-readable [`AuditReport`]; otherwise
 /// prints a capped human-readable summary.
 pub fn audit_zip(zip: &str, json: bool) -> Result<()> {
-    let report =
-        scan_zip_path(zip, &AuditConfig::default()).context("module audit failed")?;
+    let report = scan_zip_path(zip, &AuditConfig::default()).context("module audit failed")?;
     if json {
         println!("{}", serde_json::to_string_pretty(&report)?);
     } else {
@@ -42,8 +41,7 @@ pub fn audit_zip(zip: &str, json: bool) -> Result<()> {
 /// proceed.
 pub fn gate_install(zip: &str, audit_confirmed: bool, force: bool) -> Result<()> {
     println!("- Auditing module package");
-    let report =
-        scan_zip_path(zip, &AuditConfig::default()).context("module audit failed")?;
+    let report = scan_zip_path(zip, &AuditConfig::default()).context("module audit failed")?;
     print_summary(&report);
 
     let critical = report.count(Severity::Critical);

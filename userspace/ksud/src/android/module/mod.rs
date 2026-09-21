@@ -1,4 +1,5 @@
 pub mod audit;
+pub mod magic_mount;
 pub mod metamodule;
 pub mod module_config;
 

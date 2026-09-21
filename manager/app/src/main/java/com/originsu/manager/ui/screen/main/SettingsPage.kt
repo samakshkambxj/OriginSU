@@ -28,6 +28,7 @@ import androidx.compose.material.icons.automirrored.twotone.Article
 import androidx.compose.material.icons.automirrored.twotone.Undo
 import androidx.compose.material.icons.twotone.Adb
 import androidx.compose.material.icons.twotone.BugReport
+import androidx.compose.material.icons.twotone.Dashboard
 import androidx.compose.material.icons.twotone.Delete
 import androidx.compose.material.icons.twotone.DeleteForever
 import androidx.compose.material.icons.twotone.ElectricalServices
@@ -576,6 +577,49 @@ fun SettingsPage(bottomPadding: Dp) {
                                             enabled
                                         )
                                     )
+                                }
+                            )
+                        }
+
+                        item {
+                            SettingsSwitchWidget(
+                                icon = Icons.TwoTone.Extension,
+                                title = stringResource(R.string.settings_magic_mount),
+                                description = stringResource(R.string.settings_magic_mount_summary),
+                                checked = uiState.isMagicMountEnabled,
+                                onCheckedChange = { enabled ->
+                                    settingsViewModel.dispatch(
+                                        SettingsUiAction.SetMagicMountEnabled(
+                                            enabled
+                                        )
+                                    )
+                                }
+                            )
+                        }
+
+                        item {
+                            val backendItems = listOf(
+                                stringResource(R.string.magic_mount_backend_auto),
+                                stringResource(R.string.magic_mount_backend_overlay),
+                                stringResource(R.string.magic_mount_backend_bind),
+                            )
+                            val backendIds = listOf("auto", "overlay", "bind")
+                            val selectedBackend =
+                                backendIds.indexOf(uiState.magicMountBackend).takeIf { it >= 0 } ?: 0
+                            SettingsChooseWidget(
+                                icon = Icons.TwoTone.Dashboard,
+                                title = stringResource(R.string.settings_magic_mount_backend),
+                                description = stringResource(R.string.settings_magic_mount_backend_summary),
+                                items = backendItems,
+                                selectedIndex = selectedBackend,
+                                onSelectedIndexChange = { index ->
+                                    backendIds.getOrNull(index)?.let { backend ->
+                                        settingsViewModel.dispatch(
+                                            SettingsUiAction.SetMagicMountBackend(
+                                                backend
+                                            )
+                                        )
+                                    }
                                 }
                             )
                         }

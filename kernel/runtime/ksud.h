@@ -24,7 +24,7 @@ struct user_arg_ptr {
 
 void ksu_handle_execveat_ksud(const char *filename, struct user_arg_ptr *argv, struct user_arg_ptr *envp, int *flags);
 void ksu_stop_ksud_execve_hook(void);
-#ifdef CONFIG_KSU_TRACEPOINT_HOOK
+#if defined(CONFIG_KSU_TRACEPOINT_HOOK) || defined(CONFIG_KSU_TAMPER_SYSCALL_TABLE)
 void ksu_execve_hook_ksud(const struct pt_regs *regs);
 void ksu_execveat_hook_ksud(const struct pt_regs *regs);
 #endif

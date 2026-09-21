@@ -66,7 +66,7 @@ Each `v*` tag publishes a GitHub Release with:
 | `Manager-release` APKs (`arm64-v8a`, `armeabi-v7a`, `universal`) | The only manager builds the OriginSU kernel trusts. Pick the APK matching your ABI (`arm64-v8a` for most modern phones). |
 | `Spoofed-Manager-release` APK | Same manager with a randomized package name — installs side-by-side, useful when the stock package name is detected. |
 | `Manager-debug` APK | Debug build for development. The kernel rejects it as unofficial — do not use for daily root. |
-| `<arch>-<kmi>-lkm-<kmi>_kernelsu.ko` | Loadable kernel modules per KMI and architecture (`aarch64-*` for phones, `x86_64-*` for emulator/x86 tablets). Match `<kmi>` to your kernel (e.g. `android14-6.1`); the `arch-` prefix tells the two same-KMI files apart. |
+| `<arch>-<kmi>-lkm[-tamper]-<kmi>_kernelsu.ko` | Loadable kernel modules per KMI and architecture (`aarch64-*` for phones, `x86_64-*` for emulator/x86 tablets). Match `<kmi>` to your kernel (e.g. `android14-6.1`); the `arch-` prefix tells the two same-KMI files apart. `-tamper-` variants use the stealth syscall-table hook instead of the tracepoint default. |
 
 Pre-release tags containing `-rc` are published as GitHub pre-releases.
 
@@ -90,7 +90,8 @@ Pre-release tags containing `-rc` are published as GitHub pre-releases.
 | **OriginGuard** | Static pre-install audit of module zips — critical findings block the install, high-severity findings ask first. Toggle in `Settings > Origin Lab`. |
 | **KPM** | Kernel `CONFIG_KPM` (64-bit only) plus a manager KPM tab gated on KPM status: load now or embed to `/data/adb/kpm`, with patch / undo-patch options at flash time. |
 | **Bootloop protection** | Disables all modules after consecutive failed boots and tells you about the rescue. |
-| **Kernel flasher** | Direct install, AnyKernel3 zips (legacy busybox runner), offline `boot.img` patching to `Downloads/OriginSU/` without root, Horizon kernels; LKM and GKI flows. |
+| **Magic Mount** | Magisk-style module mounting with a backend selector (Auto / Overlayfs / Bind); takes effect on next boot. |
+| **Kernel flasher** | Direct install, AnyKernel3 zips (legacy busybox runner), offline `boot.img` patching to `Downloads/OriginSU/` without root, Horizon kernels; LKM (per-KMI module plus tracepoint/tamper hook-flavor picker) and GKI flows. |
 | **Updater** | Stable / beta channels with dynamic-manager support. |
 | **Secure root gate** | Biometric confirmation before granting root, with a Settings toggle. |
 
@@ -128,6 +129,8 @@ See [Roadmap](#roadmap) for the CPU / GPU / I/O / LMK / profile-sharing work que
 | Mode | Description |
 | --- | --- |
 | `Tracepoint Syscall Redirect hook` | Default mode, from [upstream](https://github.com/tiann/KernelSU); GKI2 kernels with `arm64-v8a` or `x86_64` ABI only |
+| `Syscall Table Tampering` (`CONFIG_KSU_TAMPER_SYSCALL_TABLE`) | Stealth mode: patches the hooked entries directly in `sys_call_table`, registers no `sys_enter` tracepoint; GKI2 `arm64-v8a`/`x86_64` only. CI builds both LKM flavors per KMI and releases ship them side by side; pick one in the Install screen's hook-flavor selector |
+| `Syscall Table Tampering` (`CONFIG_KSU_TAMPER_SYSCALL_TABLE`) | Stealth mode: patches the hooked entries directly in `sys_call_table`, registers no `sys_enter` tracepoint; GKI2 `arm64-v8a`/`x86_64` only. CI builds both LKM flavors per KMI and releases ship them side by side; pick one in the Install screen's hook-flavor selector |
 | `Manual Hook` | Most compatible; supports Linux kernels 3.4 – 6.18 |
 | `SuSFS Inline Hook` | From [SuSFS](https://github.com/simonpunk/susfs4ksu), like `Manual Hook` but provided by the SuSFS project |
 
@@ -165,7 +168,7 @@ just build_ksud      # ksud only
 ## Roadmap
 
 - Extensive manager customization support
-- Magic Mount for wider module compatibility
+- GKI OTA survival polish
 
 ### OriginTune roadmap
 

@@ -114,6 +114,20 @@ config KSU_TRACEPOINT_HOOK
 	  The implementation is only for devices with GKI2 support.
 	  Support for kernel 5.10+
 
+config KSU_TAMPER_SYSCALL_TABLE
+	bool "Syscall Table Tampering"
+	depends on ARM64 || X86_64
+	help
+	  Surgical, assembly-level interception: patches the hooked syscall
+	  entries (setresuid, execve, execveat, newfstatat, faccessat)
+	  directly in sys_call_table instead of registering a sys_enter
+	  tracepoint. Nothing is registered on the tracepoint, so standard
+	  tracepoint detection sees no probes while root requests are still
+	  intercepted. Originals are saved and restored at module exit.
+	  Only the 64-bit table is patched; 32-bit compat tasks bypass the
+	  hooks (same as tracepoint mode today).
+	  arm64 and x86_64, GKI 2.0 (5.10+). LKM supported.
+
 config KSU_MANUAL_HOOK
 	bool "Manually hook KernelSU"
 	depends on KSU != m

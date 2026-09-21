@@ -64,6 +64,13 @@ mod android {
     pub const DYNAMIC_MANAGER: &str = concatcp!(WORKING_DIR, ".dynamic_manager");
     pub const SUSFS_CONFIG: &str = concatcp!(WORKING_DIR, ".susfs.json");
 
+    /// Presence disables Magic Mount (absent = enabled, the default).
+    pub const MAGIC_MOUNT_DISABLE_FILE: &str = concatcp!(WORKING_DIR, ".magic_mount_disable");
+    /// Backend override: file content is one of `auto` (default), `overlay`, `bind`.
+    pub const MAGIC_MOUNT_BACKEND_FILE: &str = concatcp!(WORKING_DIR, ".magic_mount_backend");
+    /// Scratch dir for Magic Mount overlay workdirs (same fs as /data upper layers).
+    pub const MAGIC_MOUNT_WORK_DIR: &str = concatcp!(WORKING_DIR, "magic_mount/");
+
     #[derive(Serialize)]
     pub struct MountInfo {
         pub path: String,

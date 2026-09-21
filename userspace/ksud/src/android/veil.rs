@@ -2,8 +2,9 @@
 // /data/adb/ksu/veil.json on every change and re-apply at boot, since the
 // kernel state resets on reboot.
 
-use crate::android::{feature, ksucalls};
 use crate::android::ksucalls::veil_op;
+
+use crate::android::{feature, ksucalls};
 
 const VEIL_CONF: &str = "/data/adb/ksu/veil.json";
 

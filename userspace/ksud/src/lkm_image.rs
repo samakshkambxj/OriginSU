@@ -76,6 +76,10 @@ pub struct BootPatchV2Args {
     #[arg(short, long)]
     pub module: Option<PathBuf>,
 
+    /// Hook flavor of the embedded LKM (tracepoint/tamper)
+    #[arg(long, default_value = None)]
+    pub hook: Option<String>,
+
     /// Patched boot image output
     #[arg(short, long)]
     pub output: PathBuf,
@@ -2528,14 +2532,18 @@ fn inject_image(original_image: &[u8], module: &[u8]) -> Result<(Vec<u8>, ImageI
 
 // boot-patch-v2 orchestration.
 
-fn embedded_module_name(kmi: &str) -> String {
+fn embedded_module_name(kmi: &str, hook: Option<&str>) -> String {
+    let base = match hook.map(str::trim) {
+        Some("tamper") => format!("tamper-{kmi}_kernelsu.ko"),
+        _ => format!("{kmi}_kernelsu.ko"),
+    };
     #[cfg(target_os = "android")]
     {
-        format!("{kmi}_kernelsu.ko")
+        base
     }
     #[cfg(not(target_os = "android"))]
     {
-        format!("aarch64/{kmi}_kernelsu.ko")
+        format!("aarch64/{base}")
     }
 }
 
@@ -2592,7 +2600,7 @@ pub fn patch_boot(args: &BootPatchV2Args) -> Result<()> {
     } else {
         let kmi = boot_patch::parse_kmi(&raw_kernel)
             .context("cannot detect KMI from the boot image kernel")?;
-        let name = embedded_module_name(&kmi);
+        let name = embedded_module_name(&kmi, args.hook.as_deref());
         println!("- KMI: {kmi}");
         println!("- Embedded module: {name}");
         assets::get_asset(&name)
@@ -2906,12 +2914,17 @@ mod tests {
 
     #[test]
     fn embedded_module_uses_release_asset_layout() {
-        let name = embedded_module_name("android12-5.10");
+        let name = embedded_module_name("android12-5.10", None);
         #[cfg(target_os = "android")]
         assert_eq!(name, "android12-5.10_kernelsu.ko");
         #[cfg(not(target_os = "android"))]
         assert_eq!(name, "aarch64/android12-5.10_kernelsu.ko");
         assert!(!assets::get_asset_data(&name).unwrap().is_empty());
+        let tamper = embedded_module_name("android12-5.10", Some("tamper"));
+        #[cfg(target_os = "android")]
+        assert_eq!(tamper, "tamper-android12-5.10_kernelsu.ko");
+        #[cfg(not(target_os = "android"))]
+        assert_eq!(tamper, "aarch64/tamper-android12-5.10_kernelsu.ko");
     }
 
     #[test]

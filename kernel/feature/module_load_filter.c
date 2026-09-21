@@ -16,7 +16,7 @@
 #include "feature/module_load_filter.h"
 #include "klog.h" // IWYU pragma: keep
 #include "arch.h"
-#ifdef CONFIG_KSU_TRACEPOINT_HOOK
+#if defined(CONFIG_KSU_TRACEPOINT_HOOK) || defined(CONFIG_KSU_TAMPER_SYSCALL_TABLE)
 #include "hook/syscall_hook.h"
 #endif
 
@@ -283,7 +283,7 @@ int ksu_handle_finit_module(int fd, int flags)
     return 1;
 }
 
-#ifdef CONFIG_KSU_TRACEPOINT_HOOK
+#if defined(CONFIG_KSU_TRACEPOINT_HOOK) || defined(CONFIG_KSU_TAMPER_SYSCALL_TABLE)
 // init_module(2): sys_init_module(void __user *umod, unsigned long len,
 //                                const char __user *uargs)
 static long (*orig_sys_init_module)(const struct pt_regs *regs);
@@ -317,7 +317,7 @@ void __init ksu_module_load_filter_hook_init(void)
         return;
     }
 
-#ifdef CONFIG_KSU_TRACEPOINT_HOOK
+#if defined(CONFIG_KSU_TRACEPOINT_HOOK) || defined(CONFIG_KSU_TAMPER_SYSCALL_TABLE)
     ksu_syscall_table_hook(__NR_init_module, ksu_sys_init_module, &orig_sys_init_module);
     ksu_syscall_table_hook(__NR_finit_module, ksu_sys_finit_module, &orig_sys_finit_module);
 #endif
@@ -329,7 +329,7 @@ void __exit ksu_module_load_filter_hook_exit(void)
     if (!ksu_block_modules[0])
         return;
 
-#ifdef CONFIG_KSU_TRACEPOINT_HOOK
+#if defined(CONFIG_KSU_TRACEPOINT_HOOK) || defined(CONFIG_KSU_TAMPER_SYSCALL_TABLE)
     ksu_syscall_table_unhook(__NR_init_module);
     ksu_syscall_table_unhook(__NR_finit_module);
 #endif

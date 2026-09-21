@@ -50,6 +50,9 @@ class KsuCliRepository(context: Context) {
         const val ORIGIN_ZYGISK_DIR = "/data/adb/ksu/originzygisk"
         const val ORIGIN_ZYGISK_HOOK = "/data/adb/post-fs-data.d/originzygisk.sh"
 
+        // Magic Mount backend ids accepted by `ksud module magic-mount backend`.
+        val MAGIC_MOUNT_BACKENDS = listOf("auto", "overlay", "bind")
+
         // Zygisk *provider* module ids that conflict with the built-in
         // engine. Zygisk *modules* (e.g. LSPosed) are NOT blocked.
         val BLOCKED_ZYGISK_IMPL_IDS = setOf(
@@ -575,7 +578,8 @@ class KsuCliRepository(context: Context) {
         zipUri: Uri,
         onFinish: (Boolean, Int) -> Unit,
         onStdout: (String) -> Unit,
-        onStderr: (String) -> Unit
+        onStderr: (String) -> Unit,
+        kmi: String? = null
     ): Boolean {
         val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
         val workDir = File(context.cacheDir, "akpatch_$timestamp")
@@ -654,10 +658,13 @@ class KsuCliRepository(context: Context) {
                 }
                 // App-private binaries are not directly executable on most
                 // ROMs, so patch natively with ksud instead of magiskboot.
+                val kmiArg =
+                    kmi?.takeIf { it.isNotBlank() }?.let { " --kmi ${shellQuote(it.trim())}" }.orEmpty()
                 it.newJob().add(
                     "${getKsuDaemonPath()} boot-patch" +
                         " -b ${shellQuote(bootImg.absolutePath)}" +
                         " -k ${shellQuote(newKernel.absolutePath)}" +
+                        kmiArg +
                         " --no-install -o ${shellQuote(outDir.absolutePath)}"
                 ).to(stdoutCallback, stderrCallback).exec()
             }
@@ -880,6 +887,9 @@ class KsuCliRepository(context: Context) {
 
             is LkmSelection.KmiString -> {
                 cmd += " --kmi ${lkm.value}"
+                if (lkm.hook == "tamper") {
+                    cmd += " --hook tamper"
+                }
             }
 
             LkmSelection.KmiNone -> {
@@ -1236,6 +1246,46 @@ class KsuCliRepository(context: Context) {
             "[ -f $ORIGIN_ZYGISK_DIR/enable ] && [ -f $ORIGIN_ZYGISK_HOOK ]"
         )
     }
+
+    // ---- Magic Mount (userspace Magisk-style module mounting) ----
+    // ksud owns the state (flag file); the manager only shells out.
+    suspend fun isMagicMountEnabled(): Boolean = withContext(Dispatchers.IO) {
+        if (!rootAvailable()) {
+            return@withContext true
+        }
+        val shell = getRootShell()
+        runCatching {
+            runCmd(shell, "${getKsuDaemonPath()} module magic-mount status").trim()
+        }.getOrDefault("enabled") == "enabled"
+    }
+
+    suspend fun setMagicMountEnabled(enabled: Boolean): Boolean =
+        withContext(Dispatchers.IO) {
+            if (!rootAvailable()) {
+                return@withContext false
+            }
+            val op = if (enabled) "enable" else "disable"
+            runCatching { execKsud("module magic-mount $op") }.getOrDefault(false)
+        }
+
+    suspend fun getMagicMountBackend(): String = withContext(Dispatchers.IO) {
+        if (!rootAvailable()) {
+            return@withContext "auto"
+        }
+        val shell = getRootShell()
+        runCatching {
+            runCmd(shell, "${getKsuDaemonPath()} module magic-mount backend").trim()
+        }.getOrDefault("auto").takeIf { it in MAGIC_MOUNT_BACKENDS } ?: "auto"
+    }
+
+    suspend fun setMagicMountBackend(backend: String): Boolean =
+        withContext(Dispatchers.IO) {
+            if (!rootAvailable() || backend !in MAGIC_MOUNT_BACKENDS) {
+                return@withContext false
+            }
+            runCatching { execKsud("module magic-mount backend $backend") }
+                .getOrDefault(false)
+        }
 
     suspend fun isOriginZygiskRunning(): Boolean = withContext(Dispatchers.IO) {
         if (!rootAvailable()) {

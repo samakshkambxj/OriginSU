@@ -813,6 +813,7 @@ private fun Route.Flash.toFlashIt(): FlashIt = when (type) {
         boot = bootUri,
         lkmUri = lkmUri,
         kmi = kmi,
+        hook = hook,
         ota = ota,
         partition = partition,
     )
@@ -822,6 +823,7 @@ private fun Route.Flash.toFlashIt(): FlashIt = when (type) {
     Route.Flash.TYPE_PATCH_BOOT -> FlashIt.FlashPatchBootImage(
         boot = uris.getOrNull(0).orEmpty(),
         zip = uris.getOrNull(1).orEmpty(),
+        kmi = kmi,
     )
     Route.Flash.TYPE_MODULES -> FlashIt.FlashModules(uris, currentIndex)
     Route.Flash.TYPE_MODULE_UPDATE -> FlashIt.FlashModuleUpdate(uris.firstOrNull().orEmpty())

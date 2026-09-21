@@ -345,6 +345,19 @@
     <string name="kernel_tuning_zram_gb">%1$.1f GB</string>
     <string name="kernel_tuning_zram_ram_pct">%1$d%% of RAM (%2$s)</string>
     <string name="kernel_tuning_zram_custom">Custom</string>
+    <string name="settings_magic_mount">Magic Mount</string>
+    <string name="settings_magic_mount_summary">Mount module files Magisk-style (takes effect on next boot)</string>
+    <string name="settings_magic_mount_backend">Mount backend</string>
+    <string name="settings_magic_mount_backend_summary">Overlayfs merges directories; bind mounts individual files</string>
+    <string name="magic_mount_backend_auto">Auto</string>
+    <string name="magic_mount_backend_overlay">Overlayfs</string>
+    <string name="magic_mount_backend_bind">Bind</string>
+    <string name="install_hook_flavor">Hook flavor</string>
+    <string name="install_hook_flavor_summary">Which embedded LKM build to flash (built-in KMI modules only)</string>
+    <string name="hook_flavor_tracepoint">Tracepoint</string>
+    <string name="hook_flavor_tracepoint_description">Default upstream hook via sys_enter tracepoint</string>
+    <string name="hook_flavor_tamper">Tamper</string>
+    <string name="hook_flavor_tamper_description">Stealth hook, patches the syscall table directly</string>
     <string name="grant_root_failed">Failed to grant root!</string>
     <string name="home_pr_build_warning">This is a PR debug build. Do NOT use it in production!</string>
     <string name="action">Action</string>
@@ -480,6 +493,7 @@
     <string name="origin_zygisk_running">Running</string>
     <string name="origin_zygisk_needs_reboot">Deployed, reboot to activate</string>
     <string name="origin_zygisk_failed">Origin Zygisk change failed</string>
+    <string name="magic_mount_failed">Magic Mount change failed</string>
     <string name="zygisk_provider_blocked">Conflicting Zygisk provider blocked while Origin Zygisk is on</string>
     <string name="onboarding_title_welcome">Welcome to OriginSU</string>
     <string name="onboarding_desc_welcome">Kernel-based root, modules and app profiles, all managed from here.</string>

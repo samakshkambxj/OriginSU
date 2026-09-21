@@ -3,7 +3,7 @@
 #include <asm/ptrace.h>
 #include "runtime/ksud.h"
 
-#ifdef CONFIG_KSU_TRACEPOINT_HOOK
+#if defined(CONFIG_KSU_TRACEPOINT_HOOK) || defined(CONFIG_KSU_TAMPER_SYSCALL_TABLE)
 long ksu_adb_root_handle_execve_tracepoint(struct pt_regs *regs);
 long ksu_adb_root_handle_execveat_tracepoint(struct pt_regs *regs);
 #else

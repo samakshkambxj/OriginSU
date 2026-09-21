@@ -91,6 +91,7 @@ sealed interface Route : NavKey, Parcelable {
         val bootUri: String? = null,
         val lkmUri: String? = null,
         val kmi: String? = null,
+        val hook: String? = null,
         val ota: Boolean = false,
         val partition: String? = null,
     ) : Route {
@@ -110,19 +111,21 @@ sealed interface Route : NavKey, Parcelable {
                 kmi: String?,
                 ota: Boolean,
                 partition: String?,
+                hook: String? = null,
             ) = Flash(
                 type = TYPE_BOOT,
                 bootUri = bootUri,
                 lkmUri = lkmUri,
                 kmi = kmi,
+                hook = hook,
                 ota = ota,
                 partition = partition,
             )
 
             fun module(uri: String) = Flash(TYPE_MODULE, uris = listOf(uri))
             fun anyKernelZip(uri: String) = Flash(TYPE_ANYKERNEL_ZIP, uris = listOf(uri))
-            fun patchBootImage(bootUri: String, zipUri: String) =
-                Flash(TYPE_PATCH_BOOT, uris = listOf(bootUri, zipUri))
+            fun patchBootImage(bootUri: String, zipUri: String, kmi: String? = null) =
+                Flash(TYPE_PATCH_BOOT, uris = listOf(bootUri, zipUri), kmi = kmi)
             fun modules(uris: List<String>, currentIndex: Int = 0) =
                 Flash(TYPE_MODULES, uris = uris, currentIndex = currentIndex)
 

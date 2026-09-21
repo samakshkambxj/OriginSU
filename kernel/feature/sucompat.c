@@ -34,7 +34,7 @@
 #include "feature/sucompat.h"
 #include "policy/app_profile.h"
 #include "supercall/supercall.h"
-#ifdef CONFIG_KSU_TRACEPOINT_HOOK
+#if defined(CONFIG_KSU_TRACEPOINT_HOOK) || defined(CONFIG_KSU_TAMPER_SYSCALL_TABLE)
 #include "hook/syscall_hook.h"
 #else
 #include "feature/adb_root.h"
@@ -45,6 +45,19 @@
 #include "uapi/veil.h"
 #include "compat/kernel_compat.h"
 #include "ksu.h"
+
+#ifdef CONFIG_KSU_TAMPER_SYSCALL_TABLE
+// In tamper mode the hooked entries (setresuid, execve, execveat,
+// newfstatat, faccessat) point at our trampolines, so call through to the
+// saved original instead of recursing into ourselves.
+static inline syscall_fn_t ksu_sucompat_orig(int nr)
+{
+    syscall_fn_t saved = ksu_tamper_saved_orig(nr);
+    return saved ? saved : ksu_syscall_table[nr];
+}
+#else
+#define ksu_sucompat_orig(nr) (ksu_syscall_table[nr])
+#endif
 
 #define SU_PATH "/system/bin/su"
 #define SH_PATH "/system/bin/sh"
@@ -170,7 +183,7 @@ static bool is_ksud_exists()
 
 extern bool ksu_kernel_umount_enabled;
 
-#ifdef CONFIG_KSU_TRACEPOINT_HOOK
+#if defined(CONFIG_KSU_TRACEPOINT_HOOK) || defined(CONFIG_KSU_TAMPER_SYSCALL_TABLE)
 #include <linux/file.h>
 #include <linux/namei.h>
 #include <linux/fcntl.h>
@@ -197,7 +210,7 @@ long ksu_handle_faccessat_sucompat_internal(int orig_nr, struct pt_regs *regs)
             pr_info("faccessat su->ksud!\n");
             orig_filename = *filename_user;
             *filename_user = ksud_user_path();
-            ret = ksu_syscall_table[orig_nr](regs);
+            ret = ksu_sucompat_orig(orig_nr)(regs);
             revert_creds(old_cred);
             *filename_user = orig_filename;
             return ret;
@@ -207,7 +220,7 @@ long ksu_handle_faccessat_sucompat_internal(int orig_nr, struct pt_regs *regs)
     }
 
 do_orig_facessat:
-    return ksu_syscall_table[orig_nr](regs);
+    return ksu_sucompat_orig(orig_nr)(regs);
 }
 
 long ksu_handle_stat_sucompat_internal(int orig_nr, struct pt_regs *regs)
@@ -232,7 +245,7 @@ long ksu_handle_stat_sucompat_internal(int orig_nr, struct pt_regs *regs)
             pr_info("newfstatat su->ksud!\n");
             orig_filename = *filename_user;
             *filename_user = ksud_user_path();
-            ret = ksu_syscall_table[orig_nr](regs);
+            ret = ksu_sucompat_orig(orig_nr)(regs);
             revert_creds(old_cred);
             *filename_user = orig_filename;
             return ret;
@@ -242,7 +255,7 @@ long ksu_handle_stat_sucompat_internal(int orig_nr, struct pt_regs *regs)
     }
 
 do_orig_stat:
-    return ksu_syscall_table[orig_nr](regs);
+    return ksu_sucompat_orig(orig_nr)(regs);
 }
 
 // ensure call from tracepoint
@@ -332,7 +345,7 @@ static long ksu_handle_execve_sucompat_common_internal(const char __user **filen
     }
     ksu_sulog_emit_pending(pending_sucompat, ret, GFP_KERNEL);
 
-    ret = ksu_syscall_table[__NR_execveat](regs);
+    ret = ksu_sucompat_orig(__NR_execveat)(regs);
     if (ret < 0) {
         ksu_close_fd(tmp_fd);
         regs->__PT_PARM1_REG = orig_regs[0];
@@ -351,7 +364,7 @@ static long ksu_handle_execve_sucompat_common_internal(const char __user **filen
     return ret;
 
 do_orig_execve:
-    return ksu_syscall_table[orig_nr](regs);
+    return ksu_sucompat_orig(orig_nr)(regs);
 }
 
 long ksu_handle_execve_sucompat_internal(const char __user **filename_user, int orig_nr, struct pt_regs *regs)
@@ -451,7 +464,7 @@ static inline void ksu_handle_execveat_init(const char *filename, void *envp)
             pr_info("hook_manager: escape to root for init executing ksud: %d\n", current->pid);
             escape_to_root_for_init();
         }
-#if !defined(CONFIG_KSU_TRACEPOINT_HOOK)
+#if !defined(CONFIG_KSU_TRACEPOINT_HOOK) && !defined(CONFIG_KSU_TAMPER_SYSCALL_TABLE)
         else if (likely(strstr(filename, "/app_process") == NULL && strstr(filename, "/adbd") == NULL)) {
             pr_info("mark no sucompat checks for pid: '%d', exec: '%s'\n", current->pid, filename);
 
@@ -470,7 +483,7 @@ int ksu_handle_execve(int *fd, const char *filename, void *argv, void *envp, int
 {
     struct ksu_sulog_pending_event *pending_root_execve = NULL;
 
-#ifndef CONFIG_KSU_TRACEPOINT_HOOK
+#if !defined(CONFIG_KSU_TRACEPOINT_HOOK) && !defined(CONFIG_KSU_TAMPER_SYSCALL_TABLE)
     if (ksu_is_current_proc_unprivillege()) {
         return -EINVAL;
     }
@@ -556,6 +569,18 @@ int ksu_handle_post_execveat_sucompat(int *fd, struct filename **filename_ptr, v
 #endif
 #endif
 
+#ifdef CONFIG_KSU_TAMPER_SYSCALL_TABLE
+// Tamper LKM on <6.8 compiles hook/lsm_hooks.o (see Kbuild) for rename
+// tracking like the manual hook does; its bprm hook references
+// ksu_handle_post_execve. Tamper drives execve through the syscall bridge
+// instead, so this is a no-op stub (matches the manual behavior when the
+// TIF_PROC_IN_KSU_EXECVE flag is unset).
+int ksu_handle_post_execve(int *fd, const char *filename, void *argv, void *envp, int *flags, int *retval)
+{
+    return -EINVAL;
+}
+#endif
+
 #ifdef CONFIG_KSU_SUSFS
 int ksu_handle_faccessat(int *dfd, struct filename **filename, int *mode, int *__unused_flags)
 {
@@ -593,7 +618,7 @@ int ksu_handle_faccessat(int *dfd, const char __user **filename_user, int *mode,
     char path[sizeof(su_path) + 1] = { 0 };
     const struct cred *old_cred;
 
-#ifndef CONFIG_KSU_TRACEPOINT_HOOK
+#if !defined(CONFIG_KSU_TRACEPOINT_HOOK) && !defined(CONFIG_KSU_TAMPER_SYSCALL_TABLE)
     if (ksu_is_current_proc_unprivillege()) {
         return 0;
     }
@@ -672,7 +697,7 @@ int ksu_handle_stat(int *dfd, const char __user **filename_user, int *flags)
     const struct cred *old_cred;
     char path[sizeof(su_path) + 1] = { 0 };
 
-#ifndef CONFIG_KSU_TRACEPOINT_HOOK
+#if !defined(CONFIG_KSU_TRACEPOINT_HOOK) && !defined(CONFIG_KSU_TAMPER_SYSCALL_TABLE)
     if (ksu_is_current_proc_unprivillege()) {
         return 0;
     }
