@@ -652,16 +652,6 @@ private fun InfoCard(
                 content = "${systemInfo.managerVersion.first} (${systemInfo.managerVersion.second})"
             )
             InfoText(title = stringResource(R.string.home_fingerprint), content = Build.FINGERPRINT)
-            if (systemInfo.magicMountBackend.isNotEmpty()) {
-                InfoText(
-                    title = stringResource(R.string.settings_magic_mount_backend),
-                    content = when (systemInfo.magicMountBackend) {
-                        "overlay" -> stringResource(R.string.magic_mount_backend_overlay)
-                        "bind" -> stringResource(R.string.magic_mount_backend_bind)
-                        else -> stringResource(R.string.magic_mount_backend_auto)
-                    },
-                )
-            }
             val selinuxDisplay = when (systemInfo.selinuxStatus) {
                 "Enforcing" -> stringResource(R.string.selinux_status_enforcing)
                 "Permissive" -> stringResource(R.string.selinux_status_permissive)

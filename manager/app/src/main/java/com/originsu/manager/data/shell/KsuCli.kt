@@ -1275,12 +1275,12 @@ class KsuCliRepository(context: Context) {
     // ksud owns the state (flag file); the manager only shells out.
     suspend fun isMagicMountEnabled(): Boolean = withContext(Dispatchers.IO) {
         if (!rootAvailable()) {
-            return@withContext true
+            return@withContext false
         }
         val shell = getRootShell()
         runCatching {
             runCmd(shell, "${getKsuDaemonPath()} module magic-mount status").trim()
-        }.getOrDefault("enabled") == "enabled"
+        }.getOrDefault("disabled") == "enabled"
     }
 
     suspend fun setMagicMountEnabled(enabled: Boolean): Boolean =

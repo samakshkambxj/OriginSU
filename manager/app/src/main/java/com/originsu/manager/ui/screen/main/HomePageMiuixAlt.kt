@@ -651,20 +651,7 @@ private fun InfoCardAlt(
                     icon = Icons.Filled.Fingerprint,
                     title = stringResource(R.string.home_fingerprint),
                     content = Build.FINGERPRINT,
-                    bottomPadding = if (systemInfo.magicMountBackend.isNotEmpty()) 24.dp else 0.dp,
                 )
-                if (systemInfo.magicMountBackend.isNotEmpty()) {
-                    InfoText(
-                        icon = Icons.Filled.FilterList,
-                        title = stringResource(R.string.settings_magic_mount_backend),
-                        content = when (systemInfo.magicMountBackend) {
-                            "overlay" -> stringResource(R.string.magic_mount_backend_overlay)
-                            "bind" -> stringResource(R.string.magic_mount_backend_bind)
-                            else -> stringResource(R.string.magic_mount_backend_auto)
-                        },
-                        bottomPadding = 0.dp,
-                    )
-                }
             }
         }
         Card(

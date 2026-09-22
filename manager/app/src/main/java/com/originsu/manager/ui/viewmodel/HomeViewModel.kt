@@ -158,10 +158,6 @@ class HomeViewModel(
                             }
                         }.getOrDefault(false to "")
                     }
-                    val magicMountBackend = async {
-                        runCatching { ksuCliRepository.getMagicMountBackend() }
-                            .getOrDefault("")
-                    }
                     val kpm = async {
                         runCatching {
                             kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
@@ -186,7 +182,6 @@ class HomeViewModel(
                     val kpmInfo = kpm.await()
                     val bbgInfo = bbg.await()
                     val zeromountInfo = zeromount.await()
-                    val backendInfo = magicMountBackend.await()
                     homeStateRepository.update { current ->
                         current.copy(
                             systemInfo = HomeSystemInfo(
@@ -212,7 +207,6 @@ class HomeViewModel(
                                 bbgVersion = bbgInfo.second,
                                 zeromountEnabled = zeromountInfo.first,
                                 zeromountVersion = zeromountInfo.second,
-                                magicMountBackend = backendInfo,
                             ),
                             isInitialDataLoaded = true,
                             isExtendedDataLoaded = true,

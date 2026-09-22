@@ -20,9 +20,10 @@
 //! the tmpfs cannot be mounted, the pass falls back to on-/data paths,
 //! which still works on unencrypted /data.
 //!
-//! State is a single flag file ([defs::MAGIC_MOUNT_DISABLE_FILE]):
-//! absent means enabled (default). It takes effect on the next boot; the
-//! `ksud module magic-mount` CLI manages it.
+//! State is a single flag file ([defs::MAGIC_MOUNT_ENABLE_FILE]):
+//! present means enabled, absent means disabled. Magic Mount is temporarily
+//! disabled by default, so the pass only runs after an explicit
+//! `ksud module magic-mount enable`. It takes effect on the next boot.
 
 use std::{
     ffi::CString,
@@ -44,27 +45,28 @@ use crate::{
 /// merging into it (Magisk semantics).
 const REPLACE_MARKER: &str = ".replace";
 
-/// Magic Mount is enabled unless the disable flag file exists.
+/// Magic Mount is enabled only when the enable flag file exists (disabled by
+/// default while the feature is turned off).
 pub fn is_enabled() -> bool {
-    !Path::new(defs::MAGIC_MOUNT_DISABLE_FILE).exists()
+    Path::new(defs::MAGIC_MOUNT_ENABLE_FILE).exists()
 }
 
 /// Persist the Magic Mount toggle. Takes effect on the next boot.
 pub fn set_enabled(enabled: bool) -> Result<()> {
-    let flag = Path::new(defs::MAGIC_MOUNT_DISABLE_FILE);
+    let flag = Path::new(defs::MAGIC_MOUNT_ENABLE_FILE);
     if enabled {
-        if flag.exists() {
-            std::fs::remove_file(flag)
-                .with_context(|| format!("Failed to remove {}", flag.display()))?;
-        }
-        info!("Magic Mount enabled (takes effect on next boot)");
-    } else {
         if let Some(parent) = flag.parent() {
             std::fs::create_dir_all(parent)
                 .with_context(|| format!("Failed to create {}", parent.display()))?;
         }
         std::fs::write(flag, b"1")
             .with_context(|| format!("Failed to write {}", flag.display()))?;
+        info!("Magic Mount enabled (takes effect on next boot)");
+    } else {
+        if flag.exists() {
+            std::fs::remove_file(flag)
+                .with_context(|| format!("Failed to remove {}", flag.display()))?;
+        }
         info!("Magic Mount disabled (takes effect on next boot)");
     }
     Ok(())

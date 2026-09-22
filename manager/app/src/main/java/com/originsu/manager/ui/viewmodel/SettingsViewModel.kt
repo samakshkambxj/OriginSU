@@ -125,7 +125,7 @@ data class SettingsUiState(
     val useBuiltinMonoFont: Boolean = false,
     val isSecureRootEnabled: Boolean = false,
     val isOriginGuardEnabled: Boolean = true,
-    val isMagicMountEnabled: Boolean = true,
+    val isMagicMountEnabled: Boolean = false,
     val magicMountBackend: String = "auto",
     val isThemedShortcutsEnabled: Boolean = false,
     val isOriginZygiskEnabled: Boolean = false,
@@ -460,7 +460,7 @@ class SettingsViewModel(
     fun refreshMagicMount() {
         viewModelScope.launch {
             val enabled = runCatching { ksuCliRepository.isMagicMountEnabled() }
-                .getOrDefault(true)
+                .getOrDefault(false)
             val backend = runCatching { ksuCliRepository.getMagicMountBackend() }
                 .getOrDefault("auto")
             mutableState.update { it.copy(isMagicMountEnabled = enabled, magicMountBackend = backend) }
