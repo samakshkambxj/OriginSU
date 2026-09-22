@@ -25,6 +25,7 @@ import com.originsu.manager.data.kernel.VeilRepository
 import com.originsu.manager.data.logging.BugreportRepository
 import com.originsu.manager.data.logging.SulogRepository
 import com.originsu.manager.data.module.ModuleActionRepository
+import com.originsu.manager.data.module.ModuleBackupRepository
 import com.originsu.manager.data.module.ModuleCatalogRepository
 import com.originsu.manager.data.module.KpmRepository
 import com.originsu.manager.data.module.ModuleAuditRepository
@@ -169,6 +170,15 @@ import com.originsu.manager.domain.usecase.StartKernelFlashUseCase
 import com.originsu.manager.domain.usecase.SuSFSConfigUseCase
 import com.originsu.manager.domain.usecase.TakeModuleUriPermissionUseCase
 import com.originsu.manager.domain.usecase.TransliterateTextUseCase
+import com.originsu.manager.domain.usecase.BackupModulesUseCase
+import com.originsu.manager.domain.usecase.BuildBundleScriptUseCase
+import com.originsu.manager.domain.usecase.BuildModuleBundleUseCase
+import com.originsu.manager.domain.usecase.DeleteModuleBackupUseCase
+import com.originsu.manager.domain.usecase.ImportModuleBundleUseCase
+import com.originsu.manager.domain.usecase.ListModuleBackupsUseCase
+import com.originsu.manager.domain.usecase.ParseBundleScriptUseCase
+import com.originsu.manager.domain.usecase.RestoreModuleBackupUseCase
+import com.originsu.manager.domain.usecase.WriteCacheFileToUriUseCase
 import com.originsu.manager.domain.usecase.UpdateAppearanceUseCase
 import com.originsu.manager.domain.usecase.UpdateCachedModuleEnabledUseCase
 import com.originsu.manager.domain.usecase.UpdatePlatformSettingUseCase
@@ -191,6 +201,7 @@ import com.originsu.manager.ui.viewmodel.MainIntentViewModel
 import com.originsu.manager.ui.viewmodel.ModuleDetailViewModel
 import com.originsu.manager.ui.viewmodel.ModuleRepoViewModel
 import com.originsu.manager.ui.viewmodel.ModuleViewModel
+import com.originsu.manager.ui.viewmodel.ModuleBackupViewModel
 import com.originsu.manager.ui.viewmodel.SettingsViewModel
 import com.originsu.manager.ui.viewmodel.SuSFSViewModel
 import com.originsu.manager.ui.viewmodel.SulogViewModel
@@ -325,6 +336,7 @@ val repositoryModule = module {
     singleOf(::UmountRepository)
     singleOf(::ModuleCatalogRepository)
     singleOf(::ModuleRepository)
+    singleOf(::ModuleBackupRepository)
     singleOf(::KpmRepository)
     singleOf(::ModulePreferencesRepository)
     singleOf(::ModuleActionRepository)
@@ -472,6 +484,15 @@ val useCaseModule = module {
     factoryOf(::SaveModuleActionLogUseCase)
     factoryOf(::SetModuleEnabledUseCase)
     factoryOf(::SetModuleRemovedUseCase)
+    factoryOf(::BackupModulesUseCase)
+    factoryOf(::ListModuleBackupsUseCase)
+    factoryOf(::RestoreModuleBackupUseCase)
+    factoryOf(::DeleteModuleBackupUseCase)
+    factoryOf(::BuildModuleBundleUseCase)
+    factoryOf(::ImportModuleBundleUseCase)
+    factoryOf(::WriteCacheFileToUriUseCase)
+    factoryOf(::ParseBundleScriptUseCase)
+    factoryOf(::BuildBundleScriptUseCase)
     factoryOf(::TransliterateTextUseCase)
 }
 
@@ -507,6 +528,7 @@ val viewModelModule = module {
         )
     }
     viewModelOf(::ModuleViewModel)
+    viewModelOf(::ModuleBackupViewModel)
     viewModelOf(::KpmViewModel)
     viewModelOf(::SuperUserViewModel)
     viewModelOf(::AppIconViewModel)

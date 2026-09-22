@@ -32,6 +32,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -44,6 +45,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.twotone.Undo
 import androidx.compose.material.icons.automirrored.twotone.Wysiwyg
 import androidx.compose.material.icons.twotone.AddToHomeScreen
+import androidx.compose.material.icons.twotone.Archive
+import androidx.compose.material.icons.twotone.Backup
 import androidx.compose.material.icons.twotone.Check
 import androidx.compose.material.icons.twotone.ChevronRight
 import androidx.compose.material.icons.twotone.Close
@@ -51,16 +54,18 @@ import androidx.compose.material.icons.twotone.Cloud
 import androidx.compose.material.icons.twotone.Delete
 import androidx.compose.material.icons.twotone.Download
 import androidx.compose.material.icons.twotone.Extension
+import androidx.compose.material.icons.twotone.Link
 import androidx.compose.material.icons.twotone.MoreVert
 import androidx.compose.material.icons.twotone.Photo
 import androidx.compose.material.icons.twotone.PlayArrow
 import androidx.compose.material.icons.twotone.Refresh
 import androidx.compose.material.icons.twotone.Restore
+import androidx.compose.material.icons.twotone.Upload
 import androidx.compose.material.icons.twotone.Warning
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CheckableDropdownMenuItem
 import androidx.compose.material3.DropdownMenuGroup
 import androidx.compose.material3.DropdownMenuItem
@@ -134,8 +139,12 @@ import androidx.core.net.toUri
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.kyant.capsule.ContinuousRoundedRectangle
 import com.originsu.manager.R
+import com.originsu.manager.domain.model.BundleScriptModule
 import com.originsu.manager.domain.model.InstalledModule
 import com.originsu.manager.domain.model.MetaModuleStatus
+import com.originsu.manager.domain.model.ModuleBackupEntry
+import com.originsu.manager.domain.model.ModuleBackupInfo
+import com.originsu.manager.domain.model.ScriptParseResult
 import com.originsu.manager.domain.usecase.EnqueueDownloadUseCase
 import com.originsu.manager.domain.usecase.ExtractModuleNameUseCase
 import com.originsu.manager.domain.usecase.FetchRemoteTextUseCase
@@ -153,6 +162,7 @@ import com.originsu.manager.ui.component.ZipType
 import com.originsu.manager.ui.component.popupBlur
 import com.originsu.manager.ui.component.popupContainerColor
 import com.originsu.manager.ui.component.rememberConfirmDialog
+import com.originsu.manager.ui.component.rememberCustomDialog
 import com.originsu.manager.ui.component.rememberLoadingDialog
 import com.originsu.manager.ui.component.rememberSearchAppBarScrollBehavior
 import com.originsu.manager.ui.component.settings.SegmentedColumn
@@ -173,14 +183,20 @@ import com.originsu.manager.ui.util.downloader.download
 import com.originsu.manager.ui.util.module.Shortcut
 import com.originsu.manager.ui.util.showReplacingSnackbar
 import com.originsu.manager.ui.viewmodel.HomeViewModel
+import com.originsu.manager.ui.viewmodel.ModuleBackupViewModel
 import com.originsu.manager.ui.viewmodel.ModuleUiAction
 import com.originsu.manager.ui.viewmodel.ModuleUiEvent
 import com.originsu.manager.ui.viewmodel.ModuleUiState
 import com.originsu.manager.ui.viewmodel.ModuleViewModel
+import com.originsu.manager.ui.viewmodel.formatFileSize
 import com.originsu.manager.ui.webui.WebUIActivity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import top.yukonga.miuix.kmp.utils.overScrollVertical
 import top.yukonga.miuix.kmp.utils.scrollEndHaptic
 import kotlinx.coroutines.withContext
@@ -222,6 +238,258 @@ fun ModulePage(bottomPadding: Dp) {
     val updateAllEnqueue = koinInject<EnqueueDownloadUseCase>()
     val updateAllObserve = koinInject<ObserveDownloadUseCase>()
     val updateAllPermission = LocalPermissionRequestInterface.current
+
+    val backupVm = koinViewModel<ModuleBackupViewModel>()
+    val backupState by backupVm.state.collectAsStateWithLifecycle()
+    val backupLoading = rememberLoadingDialog()
+    val backupConfirm = rememberConfirmDialog()
+    val rebootStr = stringResource(R.string.reboot)
+    val rebootToApplyStr = stringResource(R.string.reboot_to_apply)
+    val backupsTitleStr = stringResource(R.string.module_backups_title)
+    val backupDoneFmt = stringResource(R.string.module_backup_done)
+    val backupFailedStr = stringResource(R.string.module_backup_failed)
+    val restoreFailedFmt = stringResource(R.string.module_restore_failed)
+    val backupDeletedStr = stringResource(R.string.module_backup_deleted)
+    val deleteConfirmFmt = stringResource(R.string.module_backup_delete_confirm)
+    val bundleExportedStr = stringResource(R.string.module_bundle_exported)
+    val bundleExportFailedStr = stringResource(R.string.module_bundle_export_failed)
+    val bundleImportedFmt = stringResource(R.string.module_bundle_imported)
+    val bundleInvalidStr = stringResource(R.string.module_bundle_invalid)
+    val scriptTitleStr = stringResource(R.string.module_bundle_script_title)
+    val scriptDownloadStr = stringResource(R.string.module_bundle_script_download)
+    val scriptEmptyStr = stringResource(R.string.module_bundle_script_empty)
+    val scriptNoUrlFmt = stringResource(R.string.module_bundle_no_url)
+    val batchResultFmt = stringResource(R.string.batch_result)
+    val okStr = stringResource(android.R.string.ok)
+    var pendingExportFile by remember { mutableStateOf<File?>(null) }
+    var pendingScript by remember { mutableStateOf<ScriptParseResult?>(null) }
+
+    fun selectionOrAllModules(): List<InstalledModule> {
+        val selected = uiState.selectedModuleIds
+        if (selected.isEmpty()) return uiState.moduleList
+        return uiState.moduleList.filter { it.dirId in selected }
+    }
+
+    suspend fun doBackupModules(modules: List<InstalledModule>) {
+        if (modules.isEmpty()) return
+        val outcome = backupLoading.withLoading {
+            backupVm.backup(modules.map { ModuleBackupEntry(it.dirId, it.versionCode) })
+        }
+        snackBarHost.showReplacingSnackbar(
+            if (outcome.succeeded.isEmpty()) backupFailedStr
+            else backupDoneFmt.format(outcome.succeeded.size, modules.size)
+        )
+    }
+
+    suspend fun doRestoreBackup(info: ModuleBackupInfo) {
+        val ok = backupLoading.withLoading { backupVm.restore(info.fileName) }
+        if (ok) {
+            viewModel.dispatch(ModuleUiAction.MarkNeedRefresh)
+            viewModel.dispatch(ModuleUiAction.Refresh())
+            val result = snackBarHost.showReplacingSnackbar(
+                message = rebootToApplyStr,
+                actionLabel = rebootStr,
+                duration = SnackbarDuration.Long,
+            )
+            if (result == SnackbarResult.ActionPerformed) {
+                viewModel.dispatch(ModuleUiAction.Reboot)
+            }
+        } else {
+            snackBarHost.showReplacingSnackbar(restoreFailedFmt.format(info.moduleId))
+        }
+    }
+
+    val backupsDialog = rememberCustomDialog { dismiss ->
+        ManageBackupsDialog(
+            backups = backupState.backups,
+            isWorking = backupState.isWorking,
+            title = backupsTitleStr,
+            restoreAllText = stringResource(R.string.module_backups_restore_all),
+            emptyText = stringResource(R.string.module_backups_empty),
+            closeText = cancelText,
+            onRestore = { info -> scope.launch { doRestoreBackup(info) } },
+            onRestoreAll = {
+                scope.launch {
+                    val names = backupState.backups.map { it.fileName }
+                    if (names.isEmpty()) return@launch
+                    val (ok, failed) = backupLoading.withLoading { backupVm.restoreAll(names) }
+                    if (failed == 0) {
+                        viewModel.dispatch(ModuleUiAction.MarkNeedRefresh)
+                        viewModel.dispatch(ModuleUiAction.Refresh())
+                        snackBarHost.showReplacingSnackbar(rebootToApplyStr)
+                    } else {
+                        snackBarHost.showReplacingSnackbar(
+                            batchResultFmt.format(ok, failed)
+                        )
+                    }
+                }
+            },
+            onDelete = { info ->
+                scope.launch {
+                    val confirmed = backupConfirm.awaitConfirm(
+                        title = backupsTitleStr,
+                        content = deleteConfirmFmt.format(info.fileName),
+                        confirm = okStr,
+                        dismiss = cancelText,
+                    )
+                    if (confirmed != ConfirmResult.Confirmed) return@launch
+                    if (backupVm.delete(info.fileName)) {
+                        snackBarHost.showReplacingSnackbar(backupDeletedStr)
+                    } else {
+                        snackBarHost.showReplacingSnackbar(backupFailedStr)
+                    }
+                }
+            },
+            onClose = dismiss,
+        )
+    }
+
+    val exportBundleLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/zip")
+    ) { uri ->
+        val file = pendingExportFile
+        pendingExportFile = null
+        if (file == null || uri == null) return@rememberLauncherForActivityResult
+        scope.launch {
+            val ok = backupLoading.withLoading { backupVm.exportToUri(file, uri.toString()) }
+            snackBarHost.showReplacingSnackbar(if (ok) bundleExportedStr else bundleExportFailedStr)
+        }
+    }
+
+    val exportScriptLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/json")
+    ) { uri ->
+        val file = pendingExportFile
+        pendingExportFile = null
+        if (file == null || uri == null) return@rememberLauncherForActivityResult
+        scope.launch {
+            val ok = backupLoading.withLoading { backupVm.exportToUri(file, uri.toString()) }
+            snackBarHost.showReplacingSnackbar(if (ok) bundleExportedStr else bundleExportFailedStr)
+        }
+    }
+
+    val importBundleLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        scope.launch {
+            val result = backupLoading.withLoading { backupVm.importBundleZip(uri.toString()) }
+            result
+                .onSuccess { snackBarHost.showReplacingSnackbar(bundleImportedFmt.format(it.imported, it.skipped)) }
+                .onFailure { snackBarHost.showReplacingSnackbar(bundleInvalidStr) }
+        }
+    }
+
+    val importScriptLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        scope.launch {
+            val result = backupLoading.withLoading { backupVm.parseScript(uri.toString()) }
+            result
+                .onSuccess { pendingScript = it }
+                .onFailure { snackBarHost.showReplacingSnackbar(bundleInvalidStr) }
+        }
+    }
+
+    suspend fun installScriptModules(script: ScriptParseResult) {
+        if (script.modules.isEmpty()) {
+            snackBarHost.showReplacingSnackbar(scriptEmptyStr)
+            return
+        }
+        var content = script.modules.joinToString("\n") { "• ${it.name}" }
+        if (script.skippedNoUrl > 0) {
+            content += "\n\n" + scriptNoUrlFmt.format(script.skippedNoUrl)
+        }
+        val confirmed = backupConfirm.awaitConfirm(
+            title = scriptTitleStr,
+            content = content,
+            confirm = scriptDownloadStr,
+            dismiss = cancelText,
+        )
+        if (confirmed != ConfirmResult.Confirmed) return
+        val uris = mutableListOf<String>()
+        withContext(Dispatchers.IO) {
+            for (module in script.modules) {
+                val downloaded = kotlinx.coroutines.CompletableDeferred<String>()
+                val fileName = module.name.replace(Regex("[^A-Za-z0-9._-]"), "_") + ".zip"
+                download(
+                    context,
+                    updateAllPermission,
+                    module.zipUrl,
+                    fileName,
+                    updateAllEnqueue,
+                    updateAllObserve,
+                    onDownloaded = { uri ->
+                        if (!downloaded.isCompleted) {
+                            downloaded.complete(uri.toString())
+                        }
+                    },
+                )
+                uris.add(downloaded.await())
+            }
+        }
+        if (uris.isNotEmpty()) {
+            navigator.push(Route.Flash.modules(uris))
+        }
+        viewModel.dispatch(ModuleUiAction.MarkNeedRefresh)
+    }
+
+    LaunchedEffect(pendingScript) {
+        pendingScript?.let {
+            installScriptModules(it)
+            pendingScript = null
+        }
+    }
+
+    fun exportBundle(modules: List<InstalledModule>) {
+        if (modules.isEmpty()) return
+        scope.launch {
+            // Bundle the live module dirs so the zip restores current state.
+            val outcome = backupLoading.withLoading {
+                backupVm.backup(modules.map { ModuleBackupEntry(it.dirId, it.versionCode) })
+            }
+            if (outcome.succeeded.isEmpty()) {
+                snackBarHost.showReplacingSnackbar(backupFailedStr)
+                return@launch
+            }
+            val staged = backupLoading.withLoading {
+                backupVm.buildBundleZip(outcome.succeeded, "modules")
+            }
+            staged
+                .onSuccess {
+                    pendingExportFile = it
+                    exportBundleLauncher.launch("originsu-module-bundle.zip")
+                }
+                .onFailure { snackBarHost.showReplacingSnackbar(bundleExportFailedStr) }
+        }
+    }
+
+    fun exportScript(modules: List<InstalledModule>) {
+        val entries = modules.mapNotNull { module ->
+            val zipUrl = module.moduleUpdate?.zipUrl.orEmpty()
+            val updateJson = module.updateJson
+            if (zipUrl.isBlank() && updateJson.isBlank()) return@mapNotNull null
+            BundleScriptModule(
+                id = module.id,
+                name = module.name,
+                zipUrl = zipUrl,
+                updateJson = updateJson,
+            )
+        }
+        if (entries.isEmpty()) {
+            scope.launch { snackBarHost.showReplacingSnackbar(scriptEmptyStr) }
+            return
+        }
+        scope.launch {
+            backupVm.buildScript(entries, "modules")
+                .onSuccess {
+                    pendingExportFile = it
+                    exportScriptLauncher.launch("originsu-module-bundle.json")
+                }
+                .onFailure { snackBarHost.showReplacingSnackbar(bundleExportFailedStr) }
+        }
+    }
 
     suspend fun onUpdateAllClicked(modules: List<InstalledModule>) {
         val updatable = modules.filter { it.moduleUpdate != null && !it.remove }
@@ -401,6 +669,31 @@ fun ModulePage(bottomPadding: Dp) {
                                     )
                                 }
                             },
+                            onBackupAll = {
+                                showDropdown = false
+                                scope.launch { doBackupModules(uiState.moduleList) }
+                            },
+                            onManageBackups = {
+                                showDropdown = false
+                                backupVm.refresh()
+                                backupsDialog.show()
+                            },
+                            onExportBundle = {
+                                showDropdown = false
+                                exportBundle(selectionOrAllModules())
+                            },
+                            onImportBundle = {
+                                showDropdown = false
+                                importBundleLauncher.launch(arrayOf("application/zip"))
+                            },
+                            onExportScript = {
+                                showDropdown = false
+                                exportScript(selectionOrAllModules())
+                            },
+                            onImportScript = {
+                                showDropdown = false
+                                importScriptLauncher.launch(arrayOf("application/json"))
+                            },
                         )
                     }
                 },
@@ -543,6 +836,12 @@ fun ModulePage(bottomPadding: Dp) {
                             return@ModuleList
                         }
                     },
+                    onBackupModules = { modules ->
+                        scope.launch { doBackupModules(modules) }
+                    },
+                    onBackupModule = { module ->
+                        scope.launch { doBackupModules(listOf(module)) }
+                    },
                     context = context,
                     snackBarHost = snackBarHost,
                     bottomPadding = bottomPadding + innerPadding.calculateBottomPadding(),
@@ -560,9 +859,11 @@ private fun BatchActionBar(
     enableText: String,
     disableText: String,
     uninstallText: String,
+    backupText: String,
     onEnable: () -> Unit,
     onDisable: () -> Unit,
     onUninstall: () -> Unit,
+    onBackup: () -> Unit,
     onClear: () -> Unit,
 ) {
     Surface(
@@ -592,6 +893,9 @@ private fun BatchActionBar(
             TextButton(onClick = onUninstall) {
                 Text(uninstallText)
             }
+            TextButton(onClick = onBackup) {
+                Text(backupText)
+            }
             IconButton(onClick = onClear) {
                 Icon(
                     imageVector = Icons.TwoTone.Close,
@@ -609,6 +913,12 @@ private fun ModuleDropdown(
     viewModel: ModuleViewModel,
     uiState: ModuleUiState,
     onUpdateAll: () -> Unit,
+    onBackupAll: () -> Unit,
+    onManageBackups: () -> Unit,
+    onExportBundle: () -> Unit,
+    onImportBundle: () -> Unit,
+    onExportScript: () -> Unit,
+    onImportScript: () -> Unit,
 ) {
     DropdownMenuPopup(
         expanded = expanded,
@@ -669,6 +979,197 @@ private fun ModuleDropdown(
                 ),
             )
         }
+        DropdownMenuGroup(
+            shapes = MenuDefaults.groupShapes(),
+        ) {
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.module_backup_all)) },
+                leadingIcon = {
+                    Icon(
+                        imageVector = Icons.TwoTone.Backup,
+                        contentDescription = null
+                    )
+                },
+                onClick = onBackupAll,
+            )
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.module_backups_title)) },
+                leadingIcon = {
+                    Icon(
+                        imageVector = Icons.TwoTone.Restore,
+                        contentDescription = null
+                    )
+                },
+                onClick = onManageBackups,
+            )
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.module_bundle_export)) },
+                leadingIcon = {
+                    Icon(
+                        imageVector = Icons.TwoTone.Archive,
+                        contentDescription = null
+                    )
+                },
+                onClick = onExportBundle,
+            )
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.module_bundle_import)) },
+                leadingIcon = {
+                    Icon(
+                        imageVector = Icons.TwoTone.Upload,
+                        contentDescription = null
+                    )
+                },
+                onClick = onImportBundle,
+            )
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.module_bundle_script_export)) },
+                leadingIcon = {
+                    Icon(
+                        imageVector = Icons.TwoTone.Download,
+                        contentDescription = null
+                    )
+                },
+                onClick = onExportScript,
+            )
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.module_bundle_script_import)) },
+                leadingIcon = {
+                    Icon(
+                        imageVector = Icons.TwoTone.Link,
+                        contentDescription = null
+                    )
+                },
+                onClick = onImportScript,
+            )
+        }
+    }
+}
+
+@Composable
+private fun ManageBackupsDialog(
+    backups: List<ModuleBackupInfo>,
+    isWorking: Boolean,
+    title: String,
+    restoreAllText: String,
+    emptyText: String,
+    closeText: String,
+    onRestore: (ModuleBackupInfo) -> Unit,
+    onRestoreAll: () -> Unit,
+    onDelete: (ModuleBackupInfo) -> Unit,
+    onClose: () -> Unit,
+) {
+    val dateFormat = remember {
+        SimpleDateFormat.getDateTimeInstance(
+            SimpleDateFormat.SHORT,
+            SimpleDateFormat.SHORT,
+            Locale.getDefault()
+        )
+    }
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 24.dp)
+            .popupBlur(),
+        shape = MaterialTheme.shapes.extraLarge,
+        color = popupContainerColor(),
+    ) {
+        Column(
+            modifier = Modifier.padding(24.dp)
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.headlineSmall,
+                modifier = Modifier.align(Alignment.CenterHorizontally)
+            )
+            if (backups.isEmpty()) {
+                Text(
+                    text = emptyText,
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier
+                        .align(Alignment.CenterHorizontally)
+                        .padding(vertical = 16.dp)
+                )
+            } else {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 320.dp)
+                        .padding(top = 8.dp)
+                ) {
+                    items(backups, key = { it.fileName }) { info ->
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 4.dp)
+                        ) {
+                            Column(
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text(
+                                    text = info.moduleId,
+                                    style = MaterialTheme.typography.titleSmall,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Text(
+                                    text = if (info.createdAtMillis > 0) {
+                                        "${formatFileSize(info.sizeBytes)} • ${
+                                            dateFormat.format(Date(info.createdAtMillis))
+                                        }"
+                                    } else {
+                                        "${formatFileSize(info.sizeBytes)} • ${info.fileName}"
+                                    },
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                            IconButton(
+                                onClick = { onRestore(info) },
+                                enabled = !isWorking
+                            ) {
+                                Icon(
+                                    imageVector = Icons.TwoTone.Restore,
+                                    contentDescription = null
+                                )
+                            }
+                            IconButton(
+                                onClick = { onDelete(info) },
+                                enabled = !isWorking
+                            ) {
+                                Icon(
+                                    imageVector = Icons.TwoTone.Delete,
+                                    contentDescription = null
+                                )
+                            }
+                        }
+                        HorizontalDivider(thickness = Dp.Hairline)
+                    }
+                }
+            }
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 12.dp),
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                if (backups.isNotEmpty()) {
+                    TextButton(
+                        onClick = onRestoreAll,
+                        enabled = !isWorking
+                    ) {
+                        Text(text = restoreAllText)
+                    }
+                }
+                TextButton(onClick = onClose) {
+                    Text(text = closeText)
+                }
+            }
+        }
     }
 }
 
@@ -721,6 +1222,8 @@ private fun ModuleList(
     boxModifier: Modifier = Modifier,
     onUpdateModule: (Uri) -> Unit,
     onClickModule: (id: String, name: String, hasWebUi: Boolean) -> Unit,
+    onBackupModules: (List<InstalledModule>) -> Unit = {},
+    onBackupModule: (InstalledModule) -> Unit = {},
     context: Context,
     snackBarHost: SnackbarHostState,
     bottomPadding : Dp,
@@ -749,6 +1252,7 @@ private fun ModuleList(
     val batchEnable = stringResource(R.string.batch_enable)
     val batchDisable = stringResource(R.string.batch_disable)
     val batchUninstall = stringResource(R.string.batch_uninstall)
+    val batchBackup = stringResource(R.string.module_backup)
     val selectedCountFmt = stringResource(R.string.selected_count)
     val metaModuleUninstallConfirm = stringResource(R.string.metamodule_uninstall_confirm)
     val updateText = stringResource(R.string.module_update)
@@ -1107,6 +1611,7 @@ private fun ModuleList(
                         enableText = batchEnable,
                         disableText = batchDisable,
                         uninstallText = batchUninstall,
+                        backupText = batchBackup,
                         onEnable = {
                             viewModel.dispatch(ModuleUiAction.BatchSetEnabled(true))
                         },
@@ -1138,6 +1643,11 @@ private fun ModuleList(
                         },
                         onClear = {
                             viewModel.dispatch(ModuleUiAction.ClearSelection)
+                        },
+                        onBackup = {
+                            onBackupModules(
+                                uiState.moduleList.filter { it.dirId in uiState.selectedModuleIds }
+                            )
                         },
                     )
                     Spacer(modifier = Modifier.height(16.dp))
@@ -1178,6 +1688,9 @@ private fun ModuleList(
                     },
                     onClick = {
                         onClickModule(it.dirId, it.name, it.hasWebUi)
+                    },
+                    onBackup = {
+                        onBackupModule(it)
                     },
                     onModuleAddShortcut = {
                         onModuleAddShortcut(it)
@@ -1481,6 +1994,7 @@ fun ModuleItem(
     onCheckChanged: suspend (Boolean) -> Boolean,
     onUpdate: (InstalledModule) -> Unit,
     onClick: (InstalledModule) -> Unit,
+    onBackup: (InstalledModule) -> Unit = {},
     onModuleAddShortcut: (InstalledModule) -> Unit,
     showMoreModuleInfo: Boolean,
     showBanners: Boolean,
@@ -1818,6 +2332,24 @@ fun ModuleItem(
 
                 FilledTonalButton(
                     modifier = Modifier.defaultMinSize(minWidth = 52.dp, minHeight = 32.dp),
+                    enabled = !module.remove,
+                    onClick = { onBackup(module) },
+                    contentPadding = PaddingValues(
+                        start = 12.dp,
+                        top = 7.dp,
+                        end = 12.dp,
+                        bottom = 7.dp,
+                    ),
+                ) {
+                    Icon(
+                        modifier = Modifier.size(20.dp),
+                        imageVector = Icons.TwoTone.Backup,
+                        contentDescription = stringResource(R.string.module_backup)
+                    )
+                }
+
+                FilledTonalButton(
+                    modifier = Modifier.defaultMinSize(minWidth = 52.dp, minHeight = 32.dp),
                     onClick = { onUninstallClicked(module) },
                     contentPadding = PaddingValues(
                         start = 12.dp,
@@ -1878,6 +2410,7 @@ fun ModuleItemPreview() {
         "",
         {},
         { true },
+        {},
         {},
         {},
         {},

@@ -468,7 +468,8 @@ fn collect_replace_dirs(system: &Path) -> Vec<(PathBuf, PathBuf)> {
             let path = entry.path();
             if path.is_dir() {
                 if path.join(REPLACE_MARKER).is_file()
-                    && let Ok(rel) = path.strip_prefix(system) {
+                    && let Ok(rel) = path.strip_prefix(system)
+                {
                     out.push((path.clone(), PathBuf::from("/system").join(rel)));
                 }
                 stack.push(path);

@@ -75,7 +75,7 @@ Pre-release tags containing `-rc` are published as GitHub pre-releases.
 ### Core root
 
 - Kernel-based `su` and root access management
-- Module system based on [metamodules](https://kernelsu.org/guide/metamodule.html) for systemless modifications — with batch multi-select actions, update-all multi-flash, and `banner=` artwork from `module.prop`
+- Module system based on [metamodules](https://kernelsu.org/guide/metamodule.html) for systemless modifications — with batch multi-select actions, update-all multi-flash, `banner=` artwork from `module.prop`, internal backups with restore, shareable bundle zips, and download-script (JSON) batch install
 - [App profiles](https://kernelsu.org/guide/app-profile.html): cage root power per app, with **time-limited grants** (10 min / 30 min / 1 h / 8 h / 24 h) revoked by a persistent waiter plus a sweep on every `ksud` start
 - GKI 2.0, GKI 1.0 and non-GKI (3.4+) kernel support
 - Manager interop: works with official [KernelSU](https://github.com/tiann/KernelSU), [RKSU](https://github.com/rsuntk/KernelSU), [MKSU](https://github.com/5ec1cff/KernelSU) and [SukiSU](https://github.com/SukiSU-Ultra/SukiSU-Ultra) kernels

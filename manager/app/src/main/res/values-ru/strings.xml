@@ -240,6 +240,9 @@
     <string name="batch_uninstall">Uninstall</string>
     <string name="batch_uninstall_confirm">Uninstall %1$d selected modules?</string>
     <string name="batch_result">%1$d succeeded, %2$d failed</string>
+    <string name="module_backup">Резервная копия</string>
+    <string name="module_backups_title">Резервные копии модулей</string>
+    <string name="module_bundle_invalid">Недопустимый файл пакета</string>
     <string name="selected_count">%1$d selected</string>
     <string name="copy_device_info">Copy device info</string>
     <string name="device_info_copied">Device info copied</string>

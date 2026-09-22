@@ -102,10 +102,7 @@ fn profile_bytes(profile: &mut uapi::app_profile) -> Result<&mut [u8]> {
     );
     // SAFETY: in-bounds view into our own struct (size asserted above).
     Ok(unsafe {
-        std::slice::from_raw_parts_mut(
-            profile as *mut uapi::app_profile as *mut u8,
-            PROFILE_SIZE,
-        )
+        std::slice::from_raw_parts_mut(profile as *mut uapi::app_profile as *mut u8, PROFILE_SIZE)
     })
 }
 
