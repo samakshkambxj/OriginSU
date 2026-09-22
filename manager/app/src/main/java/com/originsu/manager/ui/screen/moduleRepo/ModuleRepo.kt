@@ -3,6 +3,7 @@ package com.originsu.manager.ui.screen.moduleRepo
 import android.content.Context
 import android.widget.Toast
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -14,6 +15,7 @@ import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -23,23 +25,29 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.twotone.Close
+import androidx.compose.material.icons.twotone.Delete
 import androidx.compose.material.icons.twotone.Download
 import androidx.compose.material.icons.twotone.Extension
 import androidx.compose.material.icons.twotone.MoreVert
 import androidx.compose.material.icons.twotone.Star
 import androidx.compose.material.icons.twotone.WebAsset
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CheckableDropdownMenuItem
 import androidx.compose.material3.DropdownMenuGroup
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.DropdownMenuPopup
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuDefaults
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -63,6 +71,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -78,8 +87,10 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.originsu.manager.R
 import com.originsu.manager.domain.model.CatalogAuthor
 import com.originsu.manager.domain.model.CatalogModule
+import com.originsu.manager.domain.model.ModuleCategory
 import com.originsu.manager.domain.model.ModuleRelease
 import com.originsu.manager.domain.model.ModuleReleaseAsset
+import com.originsu.manager.domain.model.RepoSource
 import com.originsu.manager.domain.usecase.EnqueueDownloadUseCase
 import com.originsu.manager.domain.usecase.ObserveDownloadUseCase
 import com.originsu.manager.ui.activity.PermissionRequestInterface
@@ -89,8 +100,11 @@ import com.originsu.manager.ui.component.DialogHandle
 import com.originsu.manager.ui.component.NetworkRefreshContent
 import com.originsu.manager.ui.component.SearchAppBar
 import com.originsu.manager.ui.component.SwipeableSnackbarHost
+import com.originsu.manager.ui.component.popupBlur
+import com.originsu.manager.ui.component.popupContainerColor
 import com.originsu.manager.ui.component.rememberConfirmDialog
 import com.originsu.manager.ui.component.rememberCustomDialog
+import com.originsu.manager.ui.component.rememberLoadingDialog
 import com.originsu.manager.ui.component.rememberSearchAppBarScrollBehavior
 import com.originsu.manager.ui.navigation.LocalNavigator
 import com.originsu.manager.ui.navigation.Navigator
@@ -106,13 +120,17 @@ import com.originsu.manager.ui.util.LocalSnackbarHost
 import com.originsu.manager.ui.util.adaptiveScaffoldWindowInsets
 import com.originsu.manager.ui.util.downloader.download
 import com.originsu.manager.ui.viewmodel.ModuleRepoUiAction
+import com.originsu.manager.ui.viewmodel.ModuleRepoUiEvent
 import com.originsu.manager.ui.viewmodel.ModuleRepoUiState
 import com.originsu.manager.ui.viewmodel.ModuleRepoViewModel
 import com.originsu.manager.ui.viewmodel.formatFileSize
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import coil.compose.AsyncImage
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -144,9 +162,107 @@ fun ModuleRepoScreen() {
         )
     })
     val confirmDialog = rememberConfirmDialog()
+    val queueLoading = rememberLoadingDialog()
+    val repoPermission = LocalPermissionRequestInterface.current
+    val queueEmptyText = stringResource(R.string.module_repo_queue_empty)
+    val queueInstallText = stringResource(R.string.module_repo_queue_install)
+    val selectedCountFmt = stringResource(R.string.selected_count)
+    val removeConfirmFmt = stringResource(R.string.module_repo_remove_confirm)
+    val repoSourcesTitle = stringResource(R.string.module_repo_sources)
+    val cancelText = stringResource(android.R.string.cancel)
+    val okText = stringResource(android.R.string.ok)
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     var showDropdown by remember { mutableStateOf(false) }
     val pullRefreshState = rememberPullToRefreshState()
-    val refreshModules = { viewModel.dispatch(ModuleRepoUiAction.Refresh) }
+    var loadError by remember { mutableStateOf<String?>(null) }
+    val refreshModules = {
+        loadError = null
+        viewModel.dispatch(ModuleRepoUiAction.Refresh)
+    }
+
+    LaunchedEffect(viewModel) {
+        viewModel.events.collectLatest { event ->
+            when (event) {
+                ModuleRepoUiEvent.Offline -> Unit
+                is ModuleRepoUiEvent.Error -> {
+                    loadError = event.message.ifBlank { null }
+                    if (loadError != null) {
+                        snackBarHost.showSnackbar(loadError.orEmpty())
+                    }
+                }
+            }
+        }
+    }
+
+    suspend fun installQueuedModules(ids: List<String>) {
+        if (ids.isEmpty()) return
+        val urls = queueLoading.withLoading { viewModel.resolveQueue(ids) }
+        if (urls.isEmpty()) {
+            snackBarHost.showSnackbar(queueEmptyText)
+            return
+        }
+        val uris = mutableListOf<String>()
+        withContext(Dispatchers.IO) {
+            for ((id, url) in urls) {
+                val downloaded = CompletableDeferred<String>()
+                val fileName = id.replace(Regex("[^A-Za-z0-9._-]"), "_") + ".zip"
+                download(
+                    context,
+                    repoPermission,
+                    url,
+                    fileName,
+                    enqueueDownload,
+                    observeDownload,
+                    onDownloaded = { uri ->
+                        if (!downloaded.isCompleted) {
+                            downloaded.complete(uri.toString())
+                        }
+                    },
+                )
+                uris.add(downloaded.await())
+            }
+        }
+        if (uris.isNotEmpty()) {
+            navigator.push(Route.Flash.modules(uris))
+        }
+        viewModel.dispatch(ModuleRepoUiAction.ClearSelection)
+    }
+
+    val repoManagerDialog = rememberCustomDialog { dismiss ->
+        RepoManagerDialog(
+            sources = uiState.sources,
+            isWorking = uiState.isRefreshing,
+            onToggle = { viewModel.setSourceEnabled(it.id, !it.enabled) },
+            onDelete = { source ->
+                scope.launch {
+                    val confirmed = confirmDialog.awaitConfirm(
+                        title = repoSourcesTitle,
+                        content = removeConfirmFmt.format(source.name),
+                        confirm = okText,
+                        dismiss = cancelText,
+                    )
+                    if (confirmed != ConfirmResult.Confirmed) return@launch
+                    viewModel.removeSource(source.id)
+                }
+            },
+            onAdd = { name, url ->
+                scope.launch {
+                    val schema = queueLoading.withLoading { viewModel.probeSource(url) }
+                    if (schema == null) {
+                        snackBarHost.showSnackbar(
+                            context.getString(R.string.module_repo_source_invalid)
+                        )
+                    } else if (!viewModel.addSource(name, url, schema)) {
+                        snackBarHost.showSnackbar(
+                            context.getString(R.string.module_repo_source_invalid)
+                        )
+                    }
+                }
+            },
+            onClose = dismiss,
+        )
+    }
 
     LaunchedEffect(Unit) {
         scrollBehavior.state.heightOffset = scrollBehavior.state.heightOffsetLimit
@@ -157,7 +273,8 @@ fun ModuleRepoScreen() {
         refreshModules()
     }
 
-    val isLoading = uiState.modules.isEmpty() && uiState.search.isEmpty()
+    val isLoading = uiState.modules.isEmpty() && uiState.search.isEmpty() &&
+        uiState.category == null
 
     Scaffold(
         topBar = {
@@ -181,6 +298,10 @@ fun ModuleRepoScreen() {
                             onDismissRequest = { showDropdown = false },
                             viewModel = viewModel,
                             uiState = uiState,
+                            onManageRepos = {
+                                showDropdown = false
+                                repoManagerDialog.show()
+                            },
                         )
                     }
                 },
@@ -196,16 +317,19 @@ fun ModuleRepoScreen() {
         contentWindowInsets = adaptiveScaffoldWindowInsets(),
         snackbarHost = { SwipeableSnackbarHost(hostState = snackBarHost) }
     ) { innerPadding ->
-        if (isLoading) {
+        if (isLoading || (loadError != null && uiState.modules.isEmpty() && !uiState.isRefreshing)) {
             NetworkRefreshContent(
                 offline = uiState.offline,
                 onRetry = refreshModules,
+                errorMessage = loadError?.takeIf { !uiState.isRefreshing },
                 modifier = Modifier
                     .fillMaxSize()
                     .blurSource()
                     .padding(innerPadding),
             )
-        } else if (uiState.modules.isEmpty() && uiState.search.isNotEmpty()) {
+        } else if (uiState.modules.isEmpty() &&
+            (uiState.search.isNotEmpty() || uiState.category != null)
+        ) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -265,12 +389,67 @@ fun ModuleRepoScreen() {
                         Spacer(modifier = Modifier.height(innerPadding.calculateTopPadding()))
                     }
 
+                    item(key = "filters") {
+                        val chipAll = stringResource(R.string.category_all)
+                        val chipLabels = mapOf(
+                            ModuleCategory.OSS to stringResource(R.string.category_oss),
+                            ModuleCategory.NON_FREE to stringResource(R.string.category_non_free),
+                            ModuleCategory.META to stringResource(R.string.category_meta),
+                            ModuleCategory.ARCHIVE to stringResource(R.string.category_archive),
+                        )
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState())
+                                .padding(vertical = 4.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            FilterChip(
+                                selected = uiState.category == null,
+                                onClick = { viewModel.dispatch(ModuleRepoUiAction.SetCategory(null)) },
+                                label = { Text(chipAll) }
+                            )
+                            chipLabels.forEach { (category, label) ->
+                                FilterChip(
+                                    selected = uiState.category == category,
+                                    onClick = {
+                                        viewModel.dispatch(ModuleRepoUiAction.SetCategory(category))
+                                    },
+                                    label = { Text(label) }
+                                )
+                            }
+                        }
+                    }
+
+                    if (uiState.selectedModuleIds.isNotEmpty()) {
+                        item(key = "queue-bar") {
+                            RepoQueueBar(
+                                countText = selectedCountFmt.format(uiState.selectedModuleIds.size),
+                                installText = queueInstallText,
+                                onInstall = {
+                                    scope.launch {
+                                        installQueuedModules(uiState.selectedModuleIds.toList())
+                                    }
+                                },
+                                onClear = {
+                                    viewModel.dispatch(ModuleRepoUiAction.ClearSelection)
+                                },
+                            )
+                            Spacer(modifier = Modifier.height(16.dp))
+                        }
+                    }
+
                     items(uiState.modules) { module ->
                         OnlineModuleItem(
                             module,
                             confirmDialog,
                             chooseDialog,
-                            currentModuleForChooseDialog
+                            currentModuleForChooseDialog,
+                            selected = module.moduleId in uiState.selectedModuleIds,
+                            selectionMode = uiState.selectedModuleIds.isNotEmpty(),
+                            onToggleSelect = {
+                                viewModel.dispatch(ModuleRepoUiAction.ToggleSelect(module.moduleId))
+                            }
                         )
                         Spacer(modifier = Modifier.height(16.dp))
                     }
@@ -290,6 +469,7 @@ private fun ModuleRepoDropdown(
     onDismissRequest: () -> Unit,
     viewModel: ModuleRepoViewModel,
     uiState: ModuleRepoUiState,
+    onManageRepos: () -> Unit,
 ) {
     DropdownMenuPopup(
         expanded = expanded,
@@ -306,9 +486,171 @@ private fun ModuleRepoDropdown(
                 text = { Text(stringResource(R.string.module_sort_star_first)) },
                 shapes = MenuDefaults.itemShape(
                     index = 0,
-                    count = 1,
+                    count = 2,
                 ),
             )
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.module_repo_sources)) },
+                onClick = onManageRepos,
+            )
+        }
+    }
+}
+
+@Composable
+private fun RepoQueueBar(
+    countText: String,
+    installText: String,
+    onInstall: () -> Unit,
+    onClear: () -> Unit,
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.6f),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = countText,
+                style = MaterialTheme.typography.titleSmall,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
+            )
+            TextButton(onClick = onInstall) {
+                Text(installText)
+            }
+            IconButton(onClick = onClear) {
+                Icon(
+                    imageVector = Icons.TwoTone.Close,
+                    contentDescription = stringResource(android.R.string.cancel)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun RepoManagerDialog(
+    sources: List<RepoSource>,
+    isWorking: Boolean,
+    onToggle: (RepoSource) -> Unit,
+    onDelete: (RepoSource) -> Unit,
+    onAdd: (String, String) -> Unit,
+    onClose: () -> Unit,
+) {
+    var name by remember { mutableStateOf("") }
+    var url by remember { mutableStateOf("") }
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 24.dp)
+            .popupBlur(),
+        shape = MaterialTheme.shapes.extraLarge,
+        color = popupContainerColor(),
+    ) {
+        Column(
+            modifier = Modifier.padding(24.dp)
+        ) {
+            Text(
+                text = stringResource(R.string.module_repo_sources),
+                style = MaterialTheme.typography.headlineSmall,
+                modifier = Modifier.align(Alignment.CenterHorizontally)
+            )
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 280.dp)
+                    .padding(top = 8.dp)
+            ) {
+                items(sources, key = { it.id }) { source ->
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp)
+                    ) {
+                        Checkbox(
+                            checked = source.enabled,
+                            onCheckedChange = { onToggle(source) },
+                            enabled = !isWorking
+                        )
+                        Column(
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text(
+                                text = source.name,
+                                style = MaterialTheme.typography.titleSmall,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Text(
+                                text = source.url,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                        if (!source.builtIn) {
+                            IconButton(
+                                onClick = { onDelete(source) },
+                                enabled = !isWorking
+                            ) {
+                                Icon(
+                                    imageVector = Icons.TwoTone.Delete,
+                                    contentDescription = null
+                                )
+                            }
+                        }
+                    }
+                    HorizontalDivider(thickness = Dp.Hairline)
+                }
+            }
+            OutlinedTextField(
+                value = name,
+                onValueChange = { name = it },
+                label = { Text(stringResource(R.string.module_repo_name)) },
+                singleLine = true,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 8.dp)
+            )
+            OutlinedTextField(
+                value = url,
+                onValueChange = { url = it },
+                label = { Text(stringResource(R.string.module_repo_url)) },
+                singleLine = true,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 8.dp)
+            )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 12.dp),
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                TextButton(onClick = onClose) {
+                    Text(text = stringResource(android.R.string.cancel))
+                }
+                TextButton(
+                    onClick = {
+                        onAdd(name.trim(), url.trim())
+                        name = ""
+                        url = ""
+                    },
+                    enabled = name.isNotBlank() && url.isNotBlank() && !isWorking
+                ) {
+                    Text(text = stringResource(R.string.module_repo_add))
+                }
+            }
         }
     }
 }
@@ -318,7 +660,10 @@ fun OnlineModuleItem(
     module: CatalogModule,
     confirmDialog: ConfirmDialogHandle,
     chooseDialog: DialogHandle,
-    currentModuleForChooseDialog: MutableState<CatalogModule?>
+    currentModuleForChooseDialog: MutableState<CatalogModule?>,
+    selected: Boolean = false,
+    selectionMode: Boolean = false,
+    onToggleSelect: () -> Unit = {},
 ) {
     val themeConfig: ThemeConfig = koinInject()
     val cardConfig: CardConfig = koinInject()
@@ -337,16 +682,44 @@ fun OnlineModuleItem(
                 MaterialTheme.colorScheme.surfaceBright.copy(cardConfig.cardAlpha),
         modifier = Modifier
             .clip(RoundedCornerShape(16.dp))
-            .clickable {
-                navigator.push(Route.ModuleRepoDetail(module.moduleId))
-            }
+            .combinedClickable(
+                onClick = {
+                    if (selectionMode) onToggleSelect()
+                    else navigator.push(Route.ModuleRepoDetail(module.moduleId))
+                },
+                onLongClick = onToggleSelect,
+            )
             .renderBackgroundBlur(),
     ) {
-        Column(
-            modifier = Modifier
-                .padding(horizontal = 16.dp)
-                .padding(top = 12.dp)
-        ) {
+        Column {
+            if (module.bannerUrl.isNotBlank()) {
+                AsyncImage(
+                    model = module.bannerUrl,
+                    contentDescription = null,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(96.dp)
+                        .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)),
+                    contentScale = ContentScale.Crop,
+                    alpha = 0.9f
+                )
+            }
+            if (selectionMode) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(start = 4.dp, top = 4.dp)
+                ) {
+                    Checkbox(
+                        checked = selected,
+                        onCheckedChange = { onToggleSelect() }
+                    )
+                }
+            }
+            Column(
+                modifier = Modifier
+                    .padding(horizontal = 16.dp)
+                    .padding(top = 12.dp)
+            ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -445,6 +818,12 @@ fun OnlineModuleItem(
                         containerColor = MaterialTheme.colorScheme.secondary,
                     )
                 }
+                if (module.sourceName.isNotBlank()) {
+                    LabelText(
+                        label = module.sourceName,
+                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                    )
+                }
             }
             Spacer(modifier = Modifier.height(16.dp))
 
@@ -526,6 +905,7 @@ fun OnlineModuleItem(
             }
         }
     }
+}
 }
 
 fun downloadAssetAndInstall(

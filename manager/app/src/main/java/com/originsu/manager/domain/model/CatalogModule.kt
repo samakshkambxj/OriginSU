@@ -38,6 +38,13 @@ data class CatalogModule(
     val readme: String,
     val sourceUrl: String,
     val releases: List<ModuleRelease>,
+    val category: ModuleCategory = ModuleCategory.ARCHIVE,
+    val sourceId: String = "",
+    val sourceName: String = "",
+    val bannerUrl: String = "",
+    val repoUrl: String = "",
+    /** Index location for legacy per-module detail files. */
+    val detailBase: String = "",
 )
 
 sealed interface ModuleCatalogFailure {

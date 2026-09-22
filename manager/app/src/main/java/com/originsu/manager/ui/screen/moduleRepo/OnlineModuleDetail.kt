@@ -353,6 +353,16 @@ fun ReleasesTab(
         ) {
             ReleaseCard(module, it, coroutineScope)
         }
+        if (module.releases.isEmpty()) {
+            item {
+                Text(
+                    text = stringResource(R.string.module_repo_no_releases),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 16.dp)
+                )
+            }
+        }
         item {
             Spacer(Modifier.height(innerPadding.calculateBottomPadding()))
         }

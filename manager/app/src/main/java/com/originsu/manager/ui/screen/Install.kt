@@ -81,6 +81,7 @@ import com.originsu.manager.ui.component.settings.AppBackButton
 import com.originsu.manager.ui.component.settings.SegmentedColumn
 import com.originsu.manager.ui.component.settings.SettingsChooseDialog
 import com.originsu.manager.ui.component.settings.SettingsChooseWidget
+import com.originsu.manager.ui.component.settings.SettingsSwitchWidget
 import com.originsu.manager.ui.navigation.LocalNavigator
 import com.originsu.manager.ui.navigation.Route
 import com.originsu.manager.ui.screen.kernelFlash.component.SlotSelectionDialog
@@ -143,6 +144,8 @@ fun InstallScreen(
     var kpmSource by remember { mutableStateOf<KpmInstallSource?>(null) }
     var kpmSlot by remember { mutableStateOf<String?>(null) }
     var showKpmSlotDialog by remember { mutableStateOf(false) }
+    var kpmSavePatched by remember { mutableStateOf(true) }
+    var kpmKmi by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
     val kpmLoading = rememberLoadingDialog()
     val patchAnyKernelWithKpm = koinInject<PatchAnyKernelWithKpmUseCase>()
@@ -313,24 +316,40 @@ fun InstallScreen(
                     return
                 }
                 scope.launch {
-                    val patched = kpmLoading.withLoading {
+                    val target = kpmLoading.withLoading {
                         runCatching {
+                            val ts = System.currentTimeMillis()
                             val cacheFile =
-                                File(context.cacheDir, "kpm-anykernel-${System.currentTimeMillis()}.zip")
+                                File(context.cacheDir, "kpm-anykernel-$ts.zip")
                             context.contentResolver.openInputStream(uri)?.use { input ->
                                 cacheFile.outputStream().use { input.copyTo(it) }
                             } ?: error(context.getString(R.string.horizon_copy_failed))
                             patchAnyKernelWithKpm(context, cacheFile, undo) {}.getOrThrow()
+                            if (kpmSavePatched) {
+                                val saved = saveKpmPatchedFile(
+                                    context, cacheFile, "originsu-kpm-anykernel-$ts.zip"
+                                )
+                                runCatching { cacheFile.delete() }
+                                saved.toString()
+                            } else {
+                                FileProvider.getUriForFile(
+                                    context,
+                                    "${BuildConfig.APPLICATION_ID}.fileprovider",
+                                    cacheFile
+                                ).toString()
+                            }
                         }
                     }
-                    patched
-                        .onSuccess { file ->
-                            val contentUri = FileProvider.getUriForFile(
-                                context,
-                                "${BuildConfig.APPLICATION_ID}.fileprovider",
-                                file
-                            )
-                            navigator.push(Route.Flash.anyKernelZip(contentUri.toString()))
+                    target
+                        .onSuccess { targetUri ->
+                            if (kpmSavePatched) {
+                                Toast.makeText(
+                                    context,
+                                    context.getString(R.string.kpm_file_saved),
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            }
+                            navigator.push(Route.Flash.anyKernelZip(targetUri))
                         }
                         .onFailure { error ->
                             Toast.makeText(
@@ -348,7 +367,7 @@ fun InstallScreen(
                         Route.Flash.boot(
                             bootUri = uri.toString(),
                             lkmUri = null,
-                            kmi = null,
+                            kmi = kpmKmi,
                             ota = false,
                             partition = partition,
                             hook = null
@@ -357,27 +376,39 @@ fun InstallScreen(
                     return
                 }
                 scope.launch {
-                    val saved = kpmLoading.withLoading {
+                    val target = kpmLoading.withLoading {
                         runCatching {
+                            val ts = System.currentTimeMillis()
                             val patched = patchBootImageWithKpm(context, uri, undo) {}.getOrThrow()
-                            val name = "originsu-kpm-boot-${System.currentTimeMillis()}.img"
-                            val savedUri = saveKpmPatchedFile(context, patched, name)
-                            runCatching { patched.delete() }
-                            savedUri
+                            if (kpmSavePatched) {
+                                val saved = saveKpmPatchedFile(
+                                    context, patched, "originsu-kpm-boot-$ts.img"
+                                )
+                                runCatching { patched.delete() }
+                                saved.toString()
+                            } else {
+                                FileProvider.getUriForFile(
+                                    context,
+                                    "${BuildConfig.APPLICATION_ID}.fileprovider",
+                                    patched
+                                ).toString()
+                            }
                         }
                     }
-                    saved
-                        .onSuccess { savedUri ->
-                            Toast.makeText(
-                                context,
-                                context.getString(R.string.kpm_boot_saved),
-                                Toast.LENGTH_SHORT
-                            ).show()
+                    target
+                        .onSuccess { targetUri ->
+                            if (kpmSavePatched) {
+                                Toast.makeText(
+                                    context,
+                                    context.getString(R.string.kpm_file_saved),
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            }
                             navigator.push(
                                 Route.Flash.boot(
-                                    bootUri = savedUri.toString(),
+                                    bootUri = targetUri,
                                     lkmUri = null,
-                                    kmi = null,
+                                    kmi = kpmKmi,
                                     ota = false,
                                     partition = partition,
                                     hook = null
@@ -403,6 +434,10 @@ fun InstallScreen(
             lkmSelection = LkmSelection.KmiString(it)
             onInstall()
         }
+    }
+
+    val kpmKmiDialog = rememberSelectKmiDialog(environment.supportedKmis) { kmi ->
+        kpmKmi = kmi
     }
 
     val onClickNext = {
@@ -511,6 +546,11 @@ fun InstallScreen(
                 onKpmSourceSelected = { kpmSource = it },
                 onKpmKernelZipPicked = { onKpmKernelZipPicked(it) },
                 kpmSlot = kpmSlot,
+                kpmSavePatched = kpmSavePatched,
+                onKpmSavePatchedChanged = { kpmSavePatched = it },
+                kpmKmi = kpmKmi,
+                showKpmKmiRow = environment.supportedKmis.isNotEmpty(),
+                onKpmKmiClick = { kpmKmiDialog.show() },
                 kpmPatchOption = kpmPatchOption,
                 onKpmPatchOptionChanged = { kpmPatchOption = it },
                 hookFlavor = hookFlavor,
@@ -550,6 +590,11 @@ private fun InstallBody(
     onKpmSourceSelected: (KpmInstallSource) -> Unit,
     onKpmKernelZipPicked: (Uri) -> Unit,
     kpmSlot: String?,
+    kpmSavePatched: Boolean,
+    onKpmSavePatchedChanged: (Boolean) -> Unit,
+    kpmKmi: String?,
+    showKpmKmiRow: Boolean,
+    onKpmKmiClick: () -> Unit,
     kpmPatchOption: KpmPatchOption = KpmPatchOption.FOLLOW_KERNEL,
     onKpmPatchOptionChanged: (KpmPatchOption) -> Unit = {},
     hookFlavor: HookFlavor = HookFlavor.TRACEPOINT,
@@ -918,10 +963,36 @@ private fun InstallBody(
                         }
                     }
 
+                    if (kpmSource is KpmInstallSource.BootImage && showKpmKmiRow) {
+                        InstallActionRow(
+                            icon = Icons.TwoTone.Edit,
+                            title = stringResource(id = R.string.select_kmi),
+                            description = kpmKmi
+                                ?: stringResource(id = R.string.magic_mount_backend_auto),
+                            onClick = onKpmKmiClick,
+                        )
+                    }
+
                     KpmPatchOptionSelector(
                         selectedOption = kpmPatchOption,
                         onOptionChanged = onKpmPatchOptionChanged
                     )
+
+                    if (kpmPatchOption != KpmPatchOption.FOLLOW_KERNEL) {
+                        SegmentedColumn(
+                            title = stringResource(R.string.kpm_save_patched),
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            item {
+                                SettingsSwitchWidget(
+                                    title = stringResource(R.string.kpm_save_patched),
+                                    description = stringResource(R.string.kpm_save_patched_summary),
+                                    checked = kpmSavePatched,
+                                    onCheckedChange = onKpmSavePatchedChanged
+                                )
+                            }
+                        }
+                    }
                 } else {
                     Text(
                         text = stringResource(R.string.root_required),

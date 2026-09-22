@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.twotone.CloudOff
 import androidx.compose.material.icons.twotone.SignalWifiOff
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
@@ -30,12 +31,13 @@ fun NetworkRefreshContent(
     offline: Boolean,
     onRetry: () -> Unit,
     modifier: Modifier = Modifier,
+    errorMessage: String? = null,
 ) {
     Box(
         modifier = modifier,
         contentAlignment = Alignment.Center,
     ) {
-        if (offline) {
+        if (offline || errorMessage != null) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Box(
                     modifier = Modifier
@@ -45,7 +47,7 @@ fun NetworkRefreshContent(
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(
-                        imageVector = Icons.TwoTone.SignalWifiOff,
+                        imageVector = if (offline) Icons.TwoTone.SignalWifiOff else Icons.TwoTone.CloudOff,
                         contentDescription = null,
                         modifier = Modifier.size(32.dp),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -54,14 +56,22 @@ fun NetworkRefreshContent(
                 Spacer(Modifier.height(12.dp))
 
                 Text(
-                    text = stringResource(R.string.network_offline),
+                    text = if (offline) {
+                        stringResource(R.string.network_offline)
+                    } else {
+                        stringResource(R.string.module_repo_load_failed)
+                    },
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     style = MaterialTheme.typography.titleMediumEmphasized,
                 )
                 Spacer(modifier = Modifier.height(1.dp))
 
                 Text(
-                    text = stringResource(R.string.please_check_network),
+                    text = if (offline) {
+                        stringResource(R.string.please_check_network)
+                    } else {
+                        errorMessage.orEmpty()
+                    },
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     style = MaterialTheme.typography.bodyMediumEmphasized,
                 )

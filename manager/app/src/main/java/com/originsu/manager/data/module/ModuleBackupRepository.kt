@@ -230,7 +230,9 @@ class ModuleBackupRepository(
     suspend fun buildBundleScript(modules: List<BundleScriptModule>, name: String): Result<File> =
         withContext(Dispatchers.IO) {
             runCatching {
-                val usable = modules.filter { it.name.isNotBlank() && it.zipUrl.isNotBlank() }.take(MAX_BUNDLE_ENTRIES)
+                val usable = modules.filter {
+                    it.name.isNotBlank() && (it.zipUrl.isNotBlank() || it.updateJson.isNotBlank())
+                }.take(MAX_BUNDLE_ENTRIES)
                 require(usable.isNotEmpty()) { "no downloadable modules" }
                 val dir = File(application.cacheDir, BUNDLE_CACHE_DIR).apply { mkdirs() }
                 val outFile = File(dir, "script_${sanitize(name.ifBlank { "modules" })}_${System.currentTimeMillis()}.json")

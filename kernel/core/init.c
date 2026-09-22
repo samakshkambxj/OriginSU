@@ -44,8 +44,8 @@
 #endif
 
 // if we are in Tracepoint/tamper hook, and won't enable PATCH_SYSCALL_DISPATCHER, check x86-64 hooks
-#if (defined(CONFIG_KSU_TRACEPOINT_HOOK) || defined(CONFIG_KSU_TAMPER_SYSCALL_TABLE)) &&                               \
-    defined(__x86_64__) && !defined(CONFIG_KSU_X86_PATCH_SYSCALL_DISPATCHER)
+#if (defined(CONFIG_KSU_TRACEPOINT_HOOK) || defined(CONFIG_KSU_TAMPER_SYSCALL_TABLE)) && defined(__x86_64__) &&        \
+    !defined(CONFIG_KSU_X86_PATCH_SYSCALL_DISPATCHER)
 #include <asm/cpufeature.h>
 #include <linux/version.h>
 #ifndef X86_FEATURE_INDIRECT_SAFE

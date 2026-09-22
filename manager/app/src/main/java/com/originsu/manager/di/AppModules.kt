@@ -28,6 +28,7 @@ import com.originsu.manager.data.logging.SulogRepository
 import com.originsu.manager.data.module.ModuleActionRepository
 import com.originsu.manager.data.module.ModuleBackupRepository
 import com.originsu.manager.data.module.ModuleCatalogRepository
+import com.originsu.manager.data.module.ModuleRepoSourceRepository
 import com.originsu.manager.data.module.KpmRepository
 import com.originsu.manager.data.module.ModuleAuditRepository
 import com.originsu.manager.data.module.ModulePreferencesRepository
@@ -95,6 +96,12 @@ import com.originsu.manager.domain.usecase.GetAppProfileUseCase
 import com.originsu.manager.domain.usecase.GetAppSepolicyUseCase
 import com.originsu.manager.domain.usecase.GetBooleanPreferenceUseCase
 import com.originsu.manager.domain.usecase.GetCatalogModuleUseCase
+import com.originsu.manager.domain.usecase.AddRepoSourceUseCase
+import com.originsu.manager.domain.usecase.ObserveRepoSourcesUseCase
+import com.originsu.manager.domain.usecase.ProbeRepoSourceUseCase
+import com.originsu.manager.domain.usecase.RemoveRepoSourceUseCase
+import com.originsu.manager.domain.usecase.ResolveQueueDownloadsUseCase
+import com.originsu.manager.domain.usecase.SetRepoSourceEnabledUseCase
 import com.originsu.manager.domain.usecase.GetDefaultUmountModulesUseCase
 import com.originsu.manager.domain.usecase.GetHomeBasicInfoUseCase
 import com.originsu.manager.domain.usecase.GetInstallEnvironmentUseCase
@@ -340,6 +347,7 @@ val repositoryModule = module {
     singleOf(::BugreportRepository)
     singleOf(::UmountRepository)
     singleOf(::ModuleCatalogRepository)
+    singleOf(::ModuleRepoSourceRepository)
     singleOf(::ModuleRepository)
     singleOf(::ModuleBackupRepository)
     singleOf(::KpmRepository)
@@ -428,6 +436,12 @@ val useCaseModule = module {
     factoryOf(::ObserveModuleCatalogOfflineUseCase)
     factoryOf(::RefreshModuleCatalogUseCase)
     factoryOf(::GetCatalogModuleUseCase)
+    factoryOf(::ObserveRepoSourcesUseCase)
+    factoryOf(::ProbeRepoSourceUseCase)
+    factoryOf(::AddRepoSourceUseCase)
+    factoryOf(::RemoveRepoSourceUseCase)
+    factoryOf(::SetRepoSourceEnabledUseCase)
+    factoryOf(::ResolveQueueDownloadsUseCase)
     factoryOf(::ObserveProfileTemplatesUseCase)
     factoryOf(::ObserveProfileTemplateRefreshingUseCase)
     factoryOf(::ObserveProfileTemplateOfflineUseCase)

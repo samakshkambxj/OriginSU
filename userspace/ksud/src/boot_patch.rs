@@ -656,6 +656,13 @@ pub fn patch(args: BootPatchArgs) -> Result<()> {
                 if kmod.is_some() {
                     return Ok(String::new());
                 }
+                // The KMI only selects the built-in LKM and the automatic boot
+                // partition. With an explicit image and no install neither
+                // applies, so don't fail here (e.g. the KPM repack flow feeds
+                // its own kernel and never needs the KMI).
+                if no_install && image.is_some() {
+                    return Ok(String::new());
+                }
                 #[cfg(target_os = "android")]
                 if ota {
                     let slot_suffix = get_slot_suffix(true);
