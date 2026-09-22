@@ -236,6 +236,7 @@ fun SettingsChooseWidget(
     itemDescriptions: List<String?> = emptyList(),
     selectedIndices: Set<Int>,
     maxSelected: Int = items.size,
+    minSelected: Int = 0,
     maxHeight: Dp? = 400.dp,
     onSelectedIndicesChange: (Set<Int>) -> Unit
 ) {
@@ -308,16 +309,21 @@ fun SettingsChooseWidget(
             ) {
                 lazySegmentColumn(items, noHorizontalPadding = true) { index, item ->
                     val isSelected = index in currentSelection
+                    // A selection at the minimum cannot drop any more entries.
+                    val canDeselect = currentSelection.size > minSelected
 
                     SettingsBaseWidget(
                         title = item,
                         selected = isSelected,
+                        enabled = !isSelected || canDeselect,
                         fillMaxWidth = false,
                         isOnBackground = false,
                         description = itemDescriptions.getOrNull(index),
                         onClick = {
                             if (isSelected) {
-                                currentSelection.remove(index)
+                                if (canDeselect) {
+                                    currentSelection.remove(index)
+                                }
                             } else if (currentSelection.size < maxSelected) {
                                 currentSelection.add(index)
                                 currentSelection.sort()

@@ -544,6 +544,8 @@
     <string name="simple_mode_summary">Hides unnecessary cards when turned on</string>
     <string name="navigation_bar_badge">Navigation bar badges</string>
     <string name="navigation_bar_badge_summary">Show superuser / module counts in the navigation bar</string>
+    <string name="navigation_bar_tabs">Navigation bar tabs</string>
+    <string name="navigation_bar_tabs_summary">%1$d of %2$d tabs shown</string>
     <string name="home_card_icons">Show icons on home cards</string>
     <string name="home_card_icons_summary">Add icons to the home information cards</string>
     <string name="theme_mode">Theme</string>

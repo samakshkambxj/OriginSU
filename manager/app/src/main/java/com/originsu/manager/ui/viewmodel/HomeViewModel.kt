@@ -12,6 +12,7 @@ import com.originsu.manager.domain.model.HomeSystemInfo
 import com.originsu.manager.domain.model.ManagerUpdateChannel
 import com.originsu.manager.domain.usecase.CheckManagerUpdateUseCase
 import com.originsu.manager.domain.usecase.GetBooleanPreferenceUseCase
+import com.originsu.manager.domain.usecase.GetStringSetPreferenceUseCase
 import com.originsu.manager.domain.usecase.GetLongPreferenceUseCase
 import com.originsu.manager.domain.usecase.LAST_FLASH_PREF_KEY
 import com.originsu.manager.domain.usecase.THEMED_SHORTCUTS_PREF_KEY
@@ -22,6 +23,7 @@ import com.originsu.manager.domain.usecase.GetSuSFSStatusUseCase
 import com.originsu.manager.domain.usecase.IsNetworkAvailableUseCase
 import com.originsu.manager.domain.usecase.RebootUseCase
 import com.originsu.manager.domain.usecase.SetBooleanPreferenceUseCase
+import com.originsu.manager.domain.usecase.SetStringSetPreferenceUseCase
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
@@ -42,6 +44,7 @@ sealed interface HomeUiAction {
     data class Refresh(val showIndicator: Boolean = true) : HomeUiAction
     data class SetSimpleMode(val enabled: Boolean) : HomeUiAction
     data class SetNavigationBarBadge(val enabled: Boolean) : HomeUiAction
+    data class SetNavigationBarTabs(val hiddenTabs: Set<String>) : HomeUiAction
     data class SetHomeCardIcons(val enabled: Boolean) : HomeUiAction
     data class Reboot(val reason: String) : HomeUiAction
 }
@@ -64,6 +67,8 @@ class HomeViewModel(
     private val isNetworkAvailable: IsNetworkAvailableUseCase,
     private val getBooleanPreference: GetBooleanPreferenceUseCase,
     private val setBooleanPreference: SetBooleanPreferenceUseCase,
+    private val getStringSetPreference: GetStringSetPreferenceUseCase,
+    private val setStringSetPreference: SetStringSetPreferenceUseCase,
     private val getLongPreference: GetLongPreferenceUseCase,
     private val reboot: RebootUseCase,
 ) : ViewModel() {
@@ -232,6 +237,11 @@ class HomeViewModel(
             it.copy(showNavigationBarBadge = enabled)
         }
 
+    fun handleNavigationBarTabsChange(hiddenTabs: Set<String>) =
+        updatePreference(PREF_HIDDEN_NAVIGATION_BAR_TABS, hiddenTabs) {
+            it.copy(hiddenNavigationBarTabs = hiddenTabs)
+        }
+
     fun handleHomeCardIconsChange(enabled: Boolean) =
         updatePreference(PREF_SHOW_HOME_CARD_ICONS, enabled) {
             it.copy(showHomeCardIcons = enabled)
@@ -243,6 +253,7 @@ class HomeViewModel(
             is HomeUiAction.Refresh -> refreshData(action.showIndicator)
             is HomeUiAction.SetSimpleMode -> handleSimpleModeChange(action.enabled)
             is HomeUiAction.SetNavigationBarBadge -> handleNavigationBarBadgeChange(action.enabled)
+            is HomeUiAction.SetNavigationBarTabs -> handleNavigationBarTabsChange(action.hiddenTabs)
             is HomeUiAction.SetHomeCardIcons -> handleHomeCardIconsChange(action.enabled)
             is HomeUiAction.Reboot -> viewModelScope.launch {
                 reboot(action.reason).onFailure {
@@ -294,6 +305,9 @@ class HomeViewModel(
                     PREF_SHOW_NAVIGATION_BAR_BADGE,
                     true,
                 ),
+                hiddenNavigationBarTabs = getStringSetPreference(
+                    PREF_HIDDEN_NAVIGATION_BAR_TABS,
+                ),
                 showHomeCardIcons = getBooleanPreference(PREF_SHOW_HOME_CARD_ICONS),
             )
         }
@@ -308,6 +322,15 @@ class HomeViewModel(
         homeStateRepository.update(reducer)
     }
 
+    private fun updatePreference(
+        key: String,
+        value: Set<String>,
+        reducer: (HomeUiState) -> HomeUiState,
+    ) {
+        setStringSetPreference(key, value)
+        homeStateRepository.update(reducer)
+    }
+
     private fun completedJob(): Job = Job().apply { complete() }
 
     private companion object {
@@ -315,6 +338,7 @@ class HomeViewModel(
         const val PREF_CHECK_BETA_UPDATE = "check_beta_update"
         const val PREF_SIMPLE_MODE = "is_simple_mode"
         const val PREF_SHOW_NAVIGATION_BAR_BADGE = "show_navigation_bar_badge"
+        const val PREF_HIDDEN_NAVIGATION_BAR_TABS = "hidden_navigation_bar_tabs"
         const val PREF_SHOW_HOME_CARD_ICONS = "show_home_card_icons"
     }
 }

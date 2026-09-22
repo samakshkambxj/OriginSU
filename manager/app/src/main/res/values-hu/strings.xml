@@ -580,6 +580,8 @@
     <string name="home_card_icons">Ikonok megjelenítése a kezdőlap kártyáin</string>
     <string name="navigation_bar_badge_summary">Superuser folyamatok és modulok számának megjelenítése a navigációs sávon</string>
     <string name="navigation_bar_badge">Bélyegek a navigációs sávon</string>
+    <string name="navigation_bar_tabs">Lapok a navigációs sávon</string>
+    <string name="navigation_bar_tabs_summary">%1$d / %2$d lap jelenik meg</string>
     <string name="sort_size">Méret szerint</string>
     <string name="reverse_order">Fordított sorrendben</string>
     <string name="sort_update_time">Legutóbbi frissítés ideje szerint</string>

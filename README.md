@@ -90,7 +90,7 @@ Pre-release tags containing `-rc` are published as GitHub pre-releases.
 | **OriginGuard** | Static pre-install audit of module zips — critical findings block the install, high-severity findings ask first. Toggle in `Settings > Origin Lab`. |
 | **KPM** | Kernel `CONFIG_KPM` (64-bit only) plus a manager KPM tab gated on KPM status: load now or embed to `/data/adb/kpm`, with patch / undo-patch options at flash time. |
 | **Bootloop protection** | Disables all modules after consecutive failed boots and tells you about the rescue. |
-| **Magic Mount** | Magisk-style module mounting with a backend selector (Auto / Overlayfs / Bind); temporarily disabled by default — re-enable in `Settings` (takes effect on next boot). |
+| **Magic Mount** | Magisk-style module mounting with a backend selector (Auto / Overlayfs / Bind); temporarily unavailable — the `Settings` toggle is disabled until the feature stabilizes (takes effect on next boot). |
 | **Kernel flasher** | Direct install, AnyKernel3 zips (legacy busybox runner), offline `boot.img` patching to `Downloads/OriginSU/` without root, Horizon kernels; LKM (per-KMI module plus tracepoint/tamper hook-flavor picker) and GKI flows. |
 | **Updater** | Stable / beta channels with dynamic-manager support. |
 | **Secure root gate** | Biometric confirmation before granting root, with a Settings toggle. |

@@ -575,6 +575,8 @@
     <string name="about_anime_character_sticker"><![CDATA[Les icônes sont régies par un accord de licence spécifique : dessinées par 怡子曰曰, elles sont la propriété intellectuelle de 明风 OuO, et leurs versions vectorisées sont fournies par ce projet.]]></string>
     <string name="navigation_bar_badge">Badges de la barre de navigation</string>
     <string name="navigation_bar_badge_summary">Affiche le nombre d\'applications superutilisateur et de modules dans la barre de navigation</string>
+    <string name="navigation_bar_tabs">Onglets de la barre de navigation</string>
+    <string name="navigation_bar_tabs_summary">%1$d onglets affichés sur %2$d</string>
     <string name="home_card_icons">Icônes dans le panneau d\'accueil</string>
     <string name="home_card_icons_summary">Ajoute des icônes aux cartes du panneau d\'accueil</string>
     <string name="sort_name">Par nom</string>

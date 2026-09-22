@@ -591,6 +591,9 @@ fun SettingsPage(bottomPadding: Dp) {
                                 icon = Icons.TwoTone.Extension,
                                 title = stringResource(R.string.settings_magic_mount),
                                 description = stringResource(R.string.settings_magic_mount_summary),
+                                // Magic Mount is currently unstable: keep the switch visible but
+                                // disabled so it cannot be turned on.
+                                enabled = false,
                                 checked = uiState.isMagicMountEnabled,
                                 onCheckedChange = { enabled ->
                                     settingsViewModel.dispatch(

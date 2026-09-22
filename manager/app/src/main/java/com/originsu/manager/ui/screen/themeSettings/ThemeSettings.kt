@@ -56,6 +56,7 @@ import androidx.compose.material.icons.twotone.Palette
 import androidx.compose.material.icons.twotone.Pin
 import androidx.compose.material.icons.twotone.Style
 import androidx.compose.material.icons.twotone.SwapHoriz
+import androidx.compose.material.icons.twotone.Tab
 import androidx.compose.material.icons.twotone.Translate
 import androidx.compose.material.icons.twotone.Wallpaper
 import androidx.compose.material3.Button
@@ -109,6 +110,7 @@ import com.originsu.manager.ui.component.settings.SettingsJumpPageWidget
 import com.originsu.manager.ui.component.settings.SettingsSwitchWidget
 import com.originsu.manager.ui.navigation.LocalNavigator
 import com.originsu.manager.ui.navigation.Route
+import com.originsu.manager.ui.screen.BottomBarDestination
 import com.originsu.manager.ui.screen.themeSettings.component.LanguageSelectionDialog
 import com.originsu.manager.ui.screen.themeSettings.component.ThemeSettingsDialogs
 import com.originsu.manager.ui.screen.themeSettings.crop.BackgroundCropActivity
@@ -818,6 +820,46 @@ private fun CustomizationSettings(
                 onCheckedChange = { enabled ->
                     homeViewModel.dispatch(HomeUiAction.SetNavigationBarBadge(enabled))
                 }
+            )
+        }
+
+        item {
+            val availableTabs = remember(
+                homeUiState.systemStatus.isFullFeatured,
+                homeUiState.systemInfo.isKpmEnabled,
+            ) {
+                BottomBarDestination.getPages(
+                    isKsuValid = homeUiState.systemStatus.isFullFeatured,
+                    isKpmEnabled = homeUiState.systemInfo.isKpmEnabled,
+                )
+            }
+            val hiddenTabs = homeUiState.hiddenNavigationBarTabs
+            val visibleCount = availableTabs.count { it.name !in hiddenTabs }
+            SettingsChooseWidget(
+                icon = Icons.TwoTone.Tab,
+                title = stringResource(R.string.navigation_bar_tabs),
+                description = stringResource(
+                    R.string.navigation_bar_tabs_summary,
+                    visibleCount,
+                    availableTabs.size,
+                ),
+                items = availableTabs.map { stringResource(it.label) },
+                selectedIndices = availableTabs.indices
+                    .filter { availableTabs[it].name !in hiddenTabs }
+                    .toSet(),
+                minSelected = 1,
+                onSelectedIndicesChange = { selectedIndices ->
+                    val availableNames = availableTabs.map { it.name }.toSet()
+                    val newlyHidden = availableTabs
+                        .filterIndexed { index, _ -> index !in selectedIndices }
+                        .map { it.name }
+                    // Keep hiding choices for tabs that are currently unavailable.
+                    homeViewModel.dispatch(
+                        HomeUiAction.SetNavigationBarTabs(
+                            (hiddenTabs - availableNames) + newlyHidden,
+                        )
+                    )
+                },
             )
         }
 

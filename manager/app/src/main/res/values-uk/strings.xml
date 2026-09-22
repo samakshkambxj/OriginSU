@@ -580,6 +580,8 @@
     <string name="home_card_icons">Показувати іконки на картках головного екрана</string>
     <string name="navigation_bar_badge_summary">Показувати кількість прав суперкористувача / модулів на панелі навігації</string>
     <string name="navigation_bar_badge">Позначки на панелі навігації</string>
+    <string name="navigation_bar_tabs">Вкладки на панелі навігації</string>
+    <string name="navigation_bar_tabs_summary">Показано вкладок: %1$d із %2$d</string>
     <string name="sort_install_time">Час встановлення</string>
     <string name="sort_update_time">Час оновлення</string>
     <string name="sort_size">Розмір</string>

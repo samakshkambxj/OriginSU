@@ -55,11 +55,19 @@ fun MainScreen() {
     val themeConfig: ThemeConfig = koinInject()
     val homeViewModel = koinViewModel<HomeViewModel>()
     val homeState by homeViewModel.uiState.collectAsStateWithLifecycle()
-    val pages = remember(homeState.systemStatus.isFullFeatured, homeState.systemInfo.isKpmEnabled) {
-        BottomBarDestination.getPages(
+    val pages = remember(
+        homeState.systemStatus.isFullFeatured,
+        homeState.systemInfo.isKpmEnabled,
+        homeState.hiddenNavigationBarTabs,
+    ) {
+        val available = BottomBarDestination.getPages(
             homeState.systemStatus.isFullFeatured,
             homeState.systemInfo.isKpmEnabled
         )
+        // Drop tabs the user hid in settings; never render an empty navbar.
+        available
+            .filter { it.name !in homeState.hiddenNavigationBarTabs }
+            .ifEmpty { available }
     }
 
     val coroutineScope = rememberCoroutineScope()
@@ -112,6 +120,15 @@ fun MainScreen() {
     LaunchedEffect(pagerState) {
         snapshotFlow { pagerState.currentPage }.collect { page ->
             if (!animating) uiSelectedPage = page
+        }
+    }
+
+    // Hiding tabs shrinks the page list; keep the selected page inside the new range.
+    LaunchedEffect(pages.size) {
+        if (pages.isEmpty()) return@LaunchedEffect
+        val target = uiSelectedPage.coerceIn(0, pages.size - 1)
+        if (target != uiSelectedPage || pagerState.currentPage >= pages.size) {
+            handlePageChange(target)
         }
     }
 
