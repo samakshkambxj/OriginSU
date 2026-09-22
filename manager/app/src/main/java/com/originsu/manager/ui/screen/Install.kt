@@ -51,6 +51,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -67,10 +68,15 @@ import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.originsu.manager.R
+import com.originsu.manager.BuildConfig
 import com.originsu.manager.domain.model.LkmSelection
+import com.originsu.manager.domain.usecase.PatchAnyKernelWithKpmUseCase
+import com.originsu.manager.domain.usecase.PatchBootImageWithKpmUseCase
+import com.originsu.manager.domain.usecase.SaveKpmPatchedFileUseCase
 import com.originsu.manager.ui.component.DialogHandle
 import com.originsu.manager.ui.component.rememberConfirmDialog
 import com.originsu.manager.ui.component.rememberCustomDialog
+import com.originsu.manager.ui.component.rememberLoadingDialog
 import com.originsu.manager.ui.component.settings.AppBackButton
 import com.originsu.manager.ui.component.settings.SegmentedColumn
 import com.originsu.manager.ui.component.settings.SettingsChooseDialog
@@ -85,8 +91,11 @@ import com.originsu.manager.ui.theme.renderBackgroundBlur
 import com.originsu.manager.ui.util.adaptiveScaffoldWindowInsets
 import com.originsu.manager.ui.viewmodel.InstallUiEvent
 import com.originsu.manager.ui.viewmodel.InstallViewModel
+import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
+import androidx.core.content.FileProvider
+import java.io.File
 import top.yukonga.miuix.kmp.utils.overScrollVertical
 import top.yukonga.miuix.kmp.utils.scrollEndHaptic
 
@@ -128,8 +137,17 @@ fun InstallScreen(
     var hookFlavor by remember { mutableStateOf(HookFlavor.TRACEPOINT) }
     var showSlotSelectionDialog by remember { mutableStateOf(false) }
     var tempKernelUri by remember { mutableStateOf<Uri?>(null) }
-    // 0 = LKM tab, 1 = GKI tab.
+    // 0 = LKM tab, 1 = GKI tab, 2 = KPM tab.
     var selectedTabIndex by remember { mutableIntStateOf(0) }
+    // Standalone KPM injection source (KPM tab only).
+    var kpmSource by remember { mutableStateOf<KpmInstallSource?>(null) }
+    var kpmSlot by remember { mutableStateOf<String?>(null) }
+    var showKpmSlotDialog by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    val kpmLoading = rememberLoadingDialog()
+    val patchAnyKernelWithKpm = koinInject<PatchAnyKernelWithKpmUseCase>()
+    val patchBootImageWithKpm = koinInject<PatchBootImageWithKpmUseCase>()
+    val saveKpmPatchedFile = koinInject<SaveKpmPatchedFileUseCase>()
 
     val isGKI = environment.isGki
     val isAbDevice = environment.isAbDevice
@@ -188,8 +206,8 @@ fun InstallScreen(
                             Route.KernelFlash(
                                 kernelUri = uri.toString(),
                                 selectedSlot = method.slot,
-                                kpmPatchEnabled = kpmPatchOption == KpmPatchOption.PATCH_KPM,
-                                kpmUndoPatch = kpmPatchOption == KpmPatchOption.UNDO_PATCH_KPM
+                                kpmPatchEnabled = false,
+                                kpmUndoPatch = false
                             )
                         )
                     }
@@ -252,6 +270,132 @@ fun InstallScreen(
         }
     )
 
+    // KPM-tab kernel zips need their own slot pick (kept off installMethod).
+    SlotSelectionDialog(
+        show = showKpmSlotDialog && isAbDevice,
+        currentSlot = environment.activeSlotSuffix.removePrefix("_")
+            .takeIf { it == "a" || it == "b" },
+        onDismiss = { showKpmSlotDialog = false },
+        onSlotSelected = { slot ->
+            showKpmSlotDialog = false
+            kpmSlot = slot
+        }
+    )
+
+    fun onKpmKernelZipPicked(uri: Uri) {
+        kpmSource = KpmInstallSource.KernelZip(uri)
+        if (isAbDevice) {
+            showKpmSlotDialog = true
+        }
+    }
+
+    fun onKpmNext() {
+        val source = kpmSource ?: return
+        val uri = source.uri ?: return
+        val patch = kpmPatchOption == KpmPatchOption.PATCH_KPM
+        val undo = kpmPatchOption == KpmPatchOption.UNDO_PATCH_KPM
+        val partition = partitions.getOrNull(partitionSelectionIndex)
+        when (source) {
+            is KpmInstallSource.KernelZip -> {
+                navigator.push(
+                    Route.KernelFlash(
+                        kernelUri = uri.toString(),
+                        selectedSlot = kpmSlot,
+                        kpmPatchEnabled = patch,
+                        kpmUndoPatch = undo
+                    )
+                )
+            }
+
+            is KpmInstallSource.AnyKernelZip -> {
+                if (!patch && !undo) {
+                    navigator.push(Route.Flash.anyKernelZip(uri.toString()))
+                    return
+                }
+                scope.launch {
+                    val patched = kpmLoading.withLoading {
+                        runCatching {
+                            val cacheFile =
+                                File(context.cacheDir, "kpm-anykernel-${System.currentTimeMillis()}.zip")
+                            context.contentResolver.openInputStream(uri)?.use { input ->
+                                cacheFile.outputStream().use { input.copyTo(it) }
+                            } ?: error(context.getString(R.string.horizon_copy_failed))
+                            patchAnyKernelWithKpm(context, cacheFile, undo) {}.getOrThrow()
+                        }
+                    }
+                    patched
+                        .onSuccess { file ->
+                            val contentUri = FileProvider.getUriForFile(
+                                context,
+                                "${BuildConfig.APPLICATION_ID}.fileprovider",
+                                file
+                            )
+                            navigator.push(Route.Flash.anyKernelZip(contentUri.toString()))
+                        }
+                        .onFailure { error ->
+                            Toast.makeText(
+                                context,
+                                error.message ?: failedReboot,
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        }
+                }
+            }
+
+            is KpmInstallSource.BootImage -> {
+                if (!patch && !undo) {
+                    navigator.push(
+                        Route.Flash.boot(
+                            bootUri = uri.toString(),
+                            lkmUri = null,
+                            kmi = null,
+                            ota = false,
+                            partition = partition,
+                            hook = null
+                        )
+                    )
+                    return
+                }
+                scope.launch {
+                    val saved = kpmLoading.withLoading {
+                        runCatching {
+                            val patched = patchBootImageWithKpm(context, uri, undo) {}.getOrThrow()
+                            val name = "originsu-kpm-boot-${System.currentTimeMillis()}.img"
+                            val savedUri = saveKpmPatchedFile(context, patched, name)
+                            runCatching { patched.delete() }
+                            savedUri
+                        }
+                    }
+                    saved
+                        .onSuccess { savedUri ->
+                            Toast.makeText(
+                                context,
+                                context.getString(R.string.kpm_boot_saved),
+                                Toast.LENGTH_SHORT
+                            ).show()
+                            navigator.push(
+                                Route.Flash.boot(
+                                    bootUri = savedUri.toString(),
+                                    lkmUri = null,
+                                    kmi = null,
+                                    ota = false,
+                                    partition = partition,
+                                    hook = null
+                                )
+                            )
+                        }
+                        .onFailure { error ->
+                            Toast.makeText(
+                                context,
+                                error.message ?: failedReboot,
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        }
+                }
+            }
+        }
+    }
+
     val currentKmi = environment.currentKmi
 
     val selectKmiDialog = rememberSelectKmiDialog(environment.supportedKmis) { kmi ->
@@ -262,6 +406,9 @@ fun InstallScreen(
     }
 
     val onClickNext = {
+        if (selectedTabIndex == 2) {
+            onKpmNext()
+        } else
         // SettingsChooseDialog renders nothing for an empty list, so only
         // gate on the dialog when there is actually something to pick.
         // Otherwise fall through and let ksud attempt auto-detection.
@@ -359,6 +506,11 @@ fun InstallScreen(
                 lkmSelection = lkmSelection,
                 onLkmUpload = onLkmUpload,
                 onClickNext = onClickNext,
+                isNextEnabled = if (selectedTabIndex == 2) kpmSource?.uri != null else installMethod != null,
+                kpmSource = kpmSource,
+                onKpmSourceSelected = { kpmSource = it },
+                onKpmKernelZipPicked = { onKpmKernelZipPicked(it) },
+                kpmSlot = kpmSlot,
                 kpmPatchOption = kpmPatchOption,
                 onKpmPatchOptionChanged = { kpmPatchOption = it },
                 hookFlavor = hookFlavor,
@@ -393,6 +545,11 @@ private fun InstallBody(
     lkmSelection: LkmSelection,
     onLkmUpload: () -> Unit,
     onClickNext: () -> Unit,
+    isNextEnabled: Boolean,
+    kpmSource: KpmInstallSource?,
+    onKpmSourceSelected: (KpmInstallSource) -> Unit,
+    onKpmKernelZipPicked: (Uri) -> Unit,
+    kpmSlot: String?,
     kpmPatchOption: KpmPatchOption = KpmPatchOption.FOLLOW_KERNEL,
     onKpmPatchOptionChanged: (KpmPatchOption) -> Unit = {},
     hookFlavor: HookFlavor = HookFlavor.TRACEPOINT,
@@ -485,6 +642,36 @@ private fun InstallBody(
                     else -> null
                 }
                 option?.let { onMethodSelected(it) }
+            }
+        }
+    }
+
+    val kpmBootPicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) {
+        if (it.resultCode == Activity.RESULT_OK) {
+            it.data?.data?.let { uri ->
+                onKpmSourceSelected(KpmInstallSource.BootImage(uri))
+            }
+        }
+    }
+
+    val kpmAnyKernelPicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) {
+        if (it.resultCode == Activity.RESULT_OK) {
+            it.data?.data?.let { uri ->
+                onKpmSourceSelected(KpmInstallSource.AnyKernelZip(uri))
+            }
+        }
+    }
+
+    val kpmKernelPicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) {
+        if (it.resultCode == Activity.RESULT_OK) {
+            it.data?.data?.let { uri ->
+                onKpmKernelZipPicked(uri)
             }
         }
     }
@@ -590,6 +777,12 @@ private fun InstallBody(
                 text = { Text(stringResource(R.string.install_tab_gki)) },
                 unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            Tab(
+                selected = selectedTabIndex == 2,
+                onClick = { onTabSelected(2) },
+                text = { Text(stringResource(R.string.install_tab_kpm)) },
+                unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
 
         when (selectedTabIndex) {
@@ -632,7 +825,7 @@ private fun InstallBody(
                 }
             }
 
-            else -> {
+            1 -> {
                 if (rootAvailable) {
                     gkiMethods.forEach { method ->
                         InstallMethodRow(
@@ -655,13 +848,80 @@ private fun InstallBody(
                             modifier = Modifier.padding(vertical = 8.dp)
                         )
                     }
+                } else {
+                    Text(
+                        text = stringResource(R.string.root_required),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(vertical = 12.dp)
+                    )
+                }
+            }
 
-                    if ((installMethod as? InstallMethod.HorizonKernel)?.uri != null) {
-                        KpmPatchOptionSelector(
-                            selectedOption = kpmPatchOption,
-                            onOptionChanged = onKpmPatchOptionChanged
-                        )
+            2 -> {
+                if (rootAvailable) {
+                    Text(
+                        text = stringResource(R.string.kpm_standalone_summary),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(vertical = 8.dp)
+                    )
+                    InstallMethodRow(
+                        title = stringResource(id = R.string.select_file),
+                        summary = selectFileTip,
+                        selected = kpmSource is KpmInstallSource.BootImage,
+                        onClick = {
+                            kpmBootPicker.launch(Intent(Intent.ACTION_GET_CONTENT).apply {
+                                type = "application/*"
+                                putExtra(
+                                    Intent.EXTRA_MIME_TYPES,
+                                    arrayOf("application/octet-stream", "application/x-boot-image")
+                                )
+                            })
+                        },
+                    )
+                    InstallMethodRow(
+                        title = stringResource(id = R.string.flash_anykernel_zip),
+                        summary = anyKernelZipSummary,
+                        selected = kpmSource is KpmInstallSource.AnyKernelZip,
+                        onClick = {
+                            kpmAnyKernelPicker.launch(Intent(Intent.ACTION_GET_CONTENT).apply {
+                                type = "application/zip"
+                                addCategory(Intent.CATEGORY_OPENABLE)
+                            })
+                        },
+                    )
+                    InstallMethodRow(
+                        title = stringResource(id = R.string.horizon_kernel),
+                        summary = horizonKernelSummary,
+                        selected = kpmSource is KpmInstallSource.KernelZip,
+                        onClick = {
+                            kpmKernelPicker.launch(Intent(Intent.ACTION_GET_CONTENT).apply {
+                                type = "application/zip"
+                                addCategory(Intent.CATEGORY_OPENABLE)
+                            })
+                        },
+                    )
+
+                    if (kpmSource is KpmInstallSource.KernelZip) {
+                        kpmSlot?.let { slot ->
+                            Text(
+                                text = stringResource(
+                                    id = R.string.selected_slot,
+                                    if (slot == "a") stringResource(id = R.string.slot_a)
+                                    else stringResource(id = R.string.slot_b)
+                                ),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(vertical = 8.dp)
+                            )
+                        }
                     }
+
+                    KpmPatchOptionSelector(
+                        selectedOption = kpmPatchOption,
+                        onOptionChanged = onKpmPatchOptionChanged
+                    )
                 } else {
                     Text(
                         text = stringResource(R.string.root_required),
@@ -679,8 +939,8 @@ private fun InstallBody(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(MaterialTheme.shapes.medium)
-                .renderBackgroundBlur(if (installMethod != null) containerColor else disabledContainerColor),
-            enabled = installMethod != null,
+                .renderBackgroundBlur(if (isNextEnabled) containerColor else disabledContainerColor),
+            enabled = isNextEnabled,
             onClick = onClickNext,
             shape = MaterialTheme.shapes.medium,
             colors = ButtonDefaults.buttonColors(
@@ -859,6 +1119,16 @@ private fun InstallActionRow(
             }
         }
     }
+}
+
+sealed class KpmInstallSource {
+    abstract val uri: Uri?
+
+    data class BootImage(override val uri: Uri? = null) : KpmInstallSource()
+
+    data class AnyKernelZip(override val uri: Uri? = null) : KpmInstallSource()
+
+    data class KernelZip(override val uri: Uri? = null) : KpmInstallSource()
 }
 
 sealed class InstallMethod {

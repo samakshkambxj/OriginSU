@@ -445,6 +445,11 @@ pub struct BootPatchArgs {
     #[arg(short, long)]
     pub kernel: Option<PathBuf>,
 
+    /// Dump the kernel image embedded in --boot to a file and exit.
+    /// Used for standalone KPM injection (patch externally, reinsert with --kernel).
+    #[arg(long, value_name = "PATH", default_value = None)]
+    pub dump_kernel: Option<PathBuf>,
+
     /// LKM module path to replace, if not specified, will use the builtin one
     #[arg(short, long)]
     pub module: Option<PathBuf>,
@@ -562,6 +567,7 @@ pub fn patch(args: BootPatchArgs) -> Result<()> {
             boot: image,
             init,
             kernel,
+            dump_kernel,
             module: kmod,
             out,
             kmi,
@@ -595,6 +601,24 @@ pub fn patch(args: BootPatchArgs) -> Result<()> {
         }
 
         println!("{}", banner::print_banner());
+
+        // Standalone kernel extraction for external patching (e.g. KPM).
+        if let Some(dump_path) = &dump_kernel {
+            let image = image
+                .as_ref()
+                .context("--dump-kernel requires --boot <image>")?;
+            ensure!(image.exists(), "boot image not found");
+            let data = map_file(&std::fs::canonicalize(image)?)?;
+            let boot_image = BootImage::parse(&data)?;
+            let kernel = boot_image
+                .get_blocks()
+                .get_kernel()
+                .context("no kernel found in boot image")?;
+            let mut out = std::fs::File::create(dump_path)?;
+            kernel.dump(&mut out, false)?;
+            println!("- Kernel dumped to {}", dump_path.display());
+            return Ok(());
+        }
 
         ensure_valid_hook(hook.as_deref())?;
 

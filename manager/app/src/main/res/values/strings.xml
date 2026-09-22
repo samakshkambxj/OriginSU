@@ -471,6 +471,11 @@
     <string name="install_next">Next</string>
     <string name="install_tab_lkm">LKM</string>
     <string name="install_tab_gki">GKI</string>
+    <string name="install_tab_kpm">KPM</string>
+    <string name="kpm_dumping_kernel">Extracting kernel from boot image…</string>
+    <string name="kpm_repacking_boot">Repacking boot image…</string>
+    <string name="kpm_boot_saved">Patched boot image saved to Downloads/OriginSU</string>
+    <string name="kpm_standalone_summary">Patch or unpatch KPM support into a boot image or AnyKernel zip, then flash the result.</string>
     <string name="install_select_partition">Select partition</string>
     <string name="install_upload_lkm_file">Use local LKM file</string>
     <string name="install_only_support_ko_file">Only .ko files are supported</string>
@@ -989,6 +994,8 @@
     <string name="enable_floating_bottom_bar_summary">Use Apple style floating bottom bar.</string>
     <string name="kpm_title">KPM</string>
     <string name="kpm_empty">No KPM modules loaded</string>
+    <string name="kpm_unpatched_title">KPM engine not patched</string>
+    <string name="kpm_unpatched_summary">CONFIG_KPM alone only enables the interface — patch your boot image, AnyKernel zip or kernel zip from Install &gt; KPM, then reboot.</string>
     <string name="kpm_version">KPM version: %1$s</string>
     <string name="kpm_author">Author: %1$s</string>
     <string name="kpm_args">Arguments</string>

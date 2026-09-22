@@ -25,6 +25,7 @@ import androidx.compose.material.icons.twotone.Refresh
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -55,6 +56,8 @@ import com.originsu.manager.R
 import com.originsu.manager.ui.component.SearchAppBar
 import com.originsu.manager.ui.component.rememberConfirmDialog
 import com.originsu.manager.ui.component.rememberSearchAppBarScrollBehavior
+import com.originsu.manager.ui.navigation.LocalNavigator
+import com.originsu.manager.ui.navigation.Route
 import com.originsu.manager.ui.util.LocalSnackbarHost
 import com.originsu.manager.ui.util.adaptiveScaffoldWindowInsets
 import com.originsu.manager.ui.viewmodel.KpmViewModel
@@ -93,6 +96,11 @@ fun KpmPage(bottomPadding: Dp) {
     val loadSuccess = stringResource(R.string.kpm_install_success)
     val unloadSuccess = stringResource(R.string.kpm_uninstall_success)
     val controlSuccess = stringResource(R.string.kpm_control_success)
+    val navigator = LocalNavigator.current
+    // The stubs behind CONFIG_KPM report no engine version; a blank version
+    // means patching (Install > KPM) still has to happen before anything here
+    // can work.
+    val isEngineMissing = uiState.version.isBlank() && !uiState.isRefreshing
 
     LaunchedEffect(Unit) {
         viewModel.refresh()
@@ -149,6 +157,7 @@ fun KpmPage(bottomPadding: Dp) {
             )
         },
         floatingActionButton = {
+            if (isEngineMissing) return@Scaffold
             FloatingActionButton(
                 modifier = Modifier.padding(bottom = bottomPadding + 5.dp),
                 contentColor = MaterialTheme.colorScheme.onPrimary,
@@ -181,6 +190,40 @@ fun KpmPage(bottomPadding: Dp) {
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(vertical = 4.dp)
                 )
+            }
+            if (isEngineMissing) {
+                ElevatedCard(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp)
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text(
+                            text = stringResource(R.string.kpm_unpatched_title),
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                        Text(
+                            text = stringResource(R.string.kpm_unpatched_summary),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(top = 4.dp)
+                        )
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 12.dp),
+                            horizontalArrangement = Arrangement.End
+                        ) {
+                            FilledTonalButton(
+                                onClick = {
+                                    navigator.push(Route.Install(preselectedKernelUri = null))
+                                }
+                            ) {
+                                Text(stringResource(R.string.install))
+                            }
+                        }
+                    }
+                }
             }
             if (!uiState.isRefreshing && uiState.modules.isEmpty()) {
                 Text(

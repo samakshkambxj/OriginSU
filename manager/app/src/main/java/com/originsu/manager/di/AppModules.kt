@@ -8,6 +8,7 @@ import com.originsu.manager.data.application.DynamicManagerRepository
 import com.originsu.manager.data.download.DownloadRepository
 import com.originsu.manager.data.file.ModuleFileRepository
 import com.originsu.manager.data.flash.FlashRepository
+import com.originsu.manager.data.flash.KpmPatchRepository
 import com.originsu.manager.data.kernel.KernelRepository
 import com.originsu.manager.data.kernel.UmountRepository
 import com.originsu.manager.data.grant.GrantToastRepository
@@ -121,6 +122,9 @@ import com.originsu.manager.domain.usecase.ObserveDownloadUseCase
 import com.originsu.manager.domain.usecase.ObserveDynamicManagerStateUseCase
 import com.originsu.manager.domain.usecase.ObserveInstalledModulesUseCase
 import com.originsu.manager.domain.usecase.ObserveKernelFlashUseCase
+import com.originsu.manager.domain.usecase.PatchAnyKernelWithKpmUseCase
+import com.originsu.manager.domain.usecase.PatchBootImageWithKpmUseCase
+import com.originsu.manager.domain.usecase.SaveKpmPatchedFileUseCase
 import com.originsu.manager.domain.usecase.ObserveModuleCatalogOfflineUseCase
 import com.originsu.manager.domain.usecase.ObserveModuleCatalogRefreshingUseCase
 import com.originsu.manager.domain.usecase.ObserveProfileTemplateOfflineUseCase
@@ -307,6 +311,7 @@ val repositoryModule = module {
     singleOf(::ApplicationControlRepository)
     singleOf(::DownloadRepository)
     single { FlashRepository(get(), get(applicationScopeQualifier), get(), get(), get()) }
+    singleOf(::KpmPatchRepository)
     singleOf(::KernelRepository)
     singleOf(::HomeRuntimeRepository)
     singleOf(::HomeStateRepository)
@@ -459,6 +464,9 @@ val useCaseModule = module {
     factoryOf(::ClearBootloopNoticeUseCase)
     factoryOf(::ObserveKernelFlashUseCase)
     factoryOf(::StartKernelFlashUseCase)
+    factoryOf(::PatchAnyKernelWithKpmUseCase)
+    factoryOf(::PatchBootImageWithKpmUseCase)
+    factoryOf(::SaveKpmPatchedFileUseCase)
     factoryOf(::RemovePreferenceUseCase)
     factoryOf(::GetLongPreferenceUseCase)
     factoryOf(::SetLongPreferenceUseCase)

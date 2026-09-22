@@ -87,6 +87,7 @@ class HorizonKernelWorker(
     private val kpmUndoPatch: Boolean = false,
 ) : Thread() {
     var uri: Uri? = null
+    private val kpmPatcher = KpmPatchRepository(ksuCliRepository)
 
     override fun run() {
         state.startFlashing()
@@ -154,140 +155,19 @@ class HorizonKernelWorker(
         }
     }
 
-    private fun shellCmd(cmd: String): Boolean {
-        return try {
-            ksuCliRepository.getRootShell().newJob().add(cmd).exec().isSuccess
-        } catch (_: Exception) {
-            false
-        }
-    }
-
-    private fun shellOutput(cmd: String): String {
-        return try {
-            ksuCliRepository.getRootShell().newJob().add(cmd)
-                .to(ArrayList<String>(), null).exec().out.joinToString("\n")
-        } catch (_: Exception) {
-            ""
-        }
-    }
-
-    private fun exportAsset(name: String, dest: File) {
-        context.assets.open(name).use { input ->
-            dest.outputStream().use { output ->
-                input.copyTo(output)
-            }
-        }
-        if (!dest.isFile) {
-            throw IOException(context.getString(R.string.kpm_patch_operation_failed, name))
-        }
-    }
-
     private fun performKpmPatch(zipFile: File) {
-        val workDir = File(context.cacheDir, "kpm_patch_${System.currentTimeMillis()}")
-        try {
-            if (!workDir.mkdirs()) {
-                throw IOException(context.getString(R.string.kpm_patch_operation_failed, workDir.absolutePath))
-            }
-            exportAsset("kptools", File(workDir, "kptools"))
-            exportAsset("kpimg", File(workDir, "kpimg"))
-            shellCmd("chmod a+rx ${workDir.absolutePath}/kptools")
-
-            val extractDir = File(workDir, "extracted")
-            if (!extractDir.mkdirs()) {
-                throw IOException(context.getString(R.string.kpm_patch_operation_failed, extractDir.absolutePath))
-            }
-            state.updateStep(
-                if (kpmUndoPatch) {
-                    context.getString(R.string.kpm_undoing_patch)
-                } else {
-                    context.getString(R.string.kpm_applying_patch)
-                }
-            )
-            state.updateProgress(0.5f)
-
-            if (!shellCmd("cd ${extractDir.absolutePath} && unzip -o \"${zipFile.absolutePath}\"")) {
-                throw IOException(context.getString(R.string.kpm_extract_zip_failed))
-            }
-            val imageFile = shellOutput(
-                "find ${extractDir.absolutePath} -name '*Image*' -type f"
-            ).lines().map { it.trim() }.firstOrNull { it.isNotBlank() }
-                ?: throw IOException(context.getString(R.string.kpm_image_file_not_found))
-            state.addLog(context.getString(R.string.kpm_found_image_file, imageFile))
-
-            val imageDir = File(imageFile).parent ?: extractDir.absolutePath
-            val imageName = File(imageFile).name
-            shellCmd("cp ${workDir.absolutePath}/kptools $imageDir/")
-            shellCmd("cp ${workDir.absolutePath}/kpimg $imageDir/")
-            val patchCommand = if (kpmUndoPatch) {
-                "cd $imageDir && chmod a+rx kptools && ./kptools -u -s 123 -i $imageName -k kpimg -o oImage && mv oImage $imageName"
+        state.updateStep(
+            if (kpmUndoPatch) {
+                context.getString(R.string.kpm_undoing_patch)
             } else {
-                "cd $imageDir && chmod a+rx kptools && ./kptools -p -s 123 -i $imageName -k kpimg -o oImage && mv oImage $imageName"
+                context.getString(R.string.kpm_applying_patch)
             }
-            if (!shellCmd(patchCommand)) {
-                throw IOException(
-                    if (kpmUndoPatch) {
-                        context.getString(R.string.kpm_undo_patch_failed)
-                    } else {
-                        context.getString(R.string.kpm_patch_failed)
-                    }
-                )
-            }
-            state.addLog(
-                if (kpmUndoPatch) {
-                    context.getString(R.string.kpm_undo_patch_success)
-                } else {
-                    context.getString(R.string.kpm_patch_success)
-                }
-            )
-            shellCmd("rm -f $imageDir/kptools $imageDir/kpimg $imageDir/oImage")
-
-            val patchedFile = File(context.cacheDir, "anykernel3-kpm-patched.zip")
-            if (patchedFile.exists()) patchedFile.delete()
-            repackZipFolder(extractDir, patchedFile)
-            if (!patchedFile.isFile) {
-                throw IOException(context.getString(R.string.kpm_patch_operation_failed, patchedFile.absolutePath))
-            }
-            if (!patchedFile.renameTo(zipFile)) {
-                shellCmd("mv \"${patchedFile.absolutePath}\" \"${zipFile.absolutePath}\"")
-            }
-            state.addLog(context.getString(R.string.kpm_file_repacked))
-        } catch (e: Exception) {
-            if (e is IOException) {
-                state.addLog(context.getString(R.string.kpm_patch_operation_failed, e.message.orEmpty()))
-                throw e
-            }
-            state.addLog(context.getString(R.string.kpm_patch_operation_failed, e.message.orEmpty()))
-            throw IOException(context.getString(R.string.kpm_patch_operation_failed, e.message.orEmpty()), e)
-        } finally {
-            runCatching { workDir.deleteRecursively() }
-        }
-    }
-
-    private fun repackZipFolder(sourceDir: File, zipFile: File) {
-        try {
-            val buffer = ByteArray(8192)
-            java.io.FileOutputStream(zipFile).use { fos ->
-                java.util.zip.ZipOutputStream(fos).use { zos ->
-                    sourceDir.walkTopDown().forEach { file ->
-                        if (file.isFile) {
-                            val relativePath = file.relativeTo(sourceDir).path
-                            zos.putNextEntry(java.util.zip.ZipEntry(relativePath))
-                            file.inputStream().use { fis ->
-                                var length: Int
-                                while (fis.read(buffer).also { length = it } > 0) {
-                                    zos.write(buffer, 0, length)
-                                }
-                            }
-                            zos.closeEntry()
-                        }
-                    }
-                }
-            }
-        } catch (e: Exception) {
-            throw IOException(
-                context.getString(R.string.kpm_patch_operation_failed, e.message.orEmpty()),
-                e
-            )
+        )
+        state.updateProgress(0.5f)
+        kotlinx.coroutines.runBlocking {
+            kpmPatcher.patchAnyKernelZip(context, zipFile, kpmUndoPatch) {
+                state.addLog(it)
+            }.getOrThrow()
         }
     }
 

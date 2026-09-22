@@ -88,7 +88,7 @@ Pre-release tags containing `-rc` are published as GitHub pre-releases.
 | **OriginZygisk** | BreZygisk-based engine bundled in the manager (`Settings > Origin Lab`): deploy, status, kill-switch. Conflicting provider modules are blocked at install; `ZYGISK_ENABLED=true` is exported to module installers when on. |
 | **SuSFS manager** | Built-in manager with a one-tap strong-hiding preset (kernel 4.3+ backport). |
 | **OriginGuard** | Static pre-install audit of module zips — critical findings block the install, high-severity findings ask first. Toggle in `Settings > Origin Lab`. |
-| **KPM** | Kernel `CONFIG_KPM` (64-bit only) plus a manager KPM tab gated on KPM status: load now or embed to `/data/adb/kpm`, with patch / undo-patch options at flash time. |
+| **KPM** | Kernel `CONFIG_KPM` (64-bit only) plus a manager KPM tab gated on KPM status: load now or embed to `/data/adb/kpm`. Standalone KPM injection lives in its own `Install > KPM` tab: patch / undo-patch a boot image, AnyKernel zip or kernel zip, then flash the result. |
 | **Bootloop protection** | Disables all modules after consecutive failed boots and tells you about the rescue. |
 | **Magic Mount** | Magisk-style module mounting with a backend selector (Auto / Overlayfs / Bind); temporarily unavailable — the `Settings` toggle is disabled until the feature stabilizes (takes effect on next boot). |
 | **Kernel flasher** | Direct install, AnyKernel3 zips (legacy busybox runner), offline `boot.img` patching to `Downloads/OriginSU/` without root, Horizon kernels; LKM (per-KMI module plus tracepoint/tamper hook-flavor picker) and GKI flows. |
