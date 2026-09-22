@@ -123,10 +123,20 @@ fun MainScreen() {
         }
     }
 
-    // Hiding tabs shrinks the page list; keep the selected page inside the new range.
-    LaunchedEffect(pages.size) {
+    // Hiding a tab shifts the indices after it, so the visible destination is
+    // tracked by identity across page-list changes: keeping a stale index would
+    // land the pager and the navbar highlight on a different tab.
+    var lastPages by remember { mutableStateOf(pages) }
+    LaunchedEffect(pages) {
+        val previous = lastPages
+        lastPages = pages
         if (pages.isEmpty()) return@LaunchedEffect
-        val target = uiSelectedPage.coerceIn(0, pages.size - 1)
+        val currentDestination = previous.getOrNull(uiSelectedPage)
+        val target = if (currentDestination != null && currentDestination in pages) {
+            pages.indexOf(currentDestination)
+        } else {
+            uiSelectedPage.coerceIn(0, pages.size - 1)
+        }
         if (target != uiSelectedPage || pagerState.currentPage >= pages.size) {
             handlePageChange(target)
         }
