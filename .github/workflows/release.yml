@@ -16,6 +16,31 @@ jobs:
     permissions:
       contents: write
     steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Build changelog
+        id: changelog
+        run: |
+          CUR_TAG="${{ github.ref_name }}"
+          # Previous reachable tag; fall back to second-newest v* tag.
+          PREV_TAG=$(git describe --tags --abbrev=0 HEAD~1 2>/dev/null || git tag --list 'v*' --sort=-v:refname | sed -n '2p')
+          if [ -z "$PREV_TAG" ]; then
+            RANGE="HEAD"
+          else
+            RANGE="$PREV_TAG..HEAD"
+          fi
+          {
+            echo "## What's changed in $CUR_TAG ($RANGE)"
+            echo ""
+            git log "$RANGE" --no-merges --pretty=format:'- %s (%h)' --reverse
+            echo ""
+          } > CHANGELOG.md
+          cat CHANGELOG.md
+
       - name: Download Manager artifacts
         uses: actions/download-artifact@v8
         with:
@@ -81,6 +106,7 @@ jobs:
         with:
           prerelease: ${{ steps.is_rc_tag.outputs.IS_RC_TAG == 'true' }}
           generate_release_notes: true
+          body_path: CHANGELOG.md
           files: |
             manager/*.apk
             release-lkm/*.ko
