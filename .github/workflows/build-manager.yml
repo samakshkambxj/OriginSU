@@ -365,7 +365,9 @@ jobs:
 
   upload-telegram:
     needs: repack-manager
-    if: github.event_name != 'pull_request' && github.event_name != 'workflow_call'
+    # Skip Telegram posts for the upstream mirror branch (synced from ReSukiSU);
+    # only our own branches/tags announce builds.
+    if: github.event_name != 'pull_request' && github.event_name != 'workflow_call' && github.ref_name != 'UPSTREAM'
     runs-on: ubuntu-latest
     strategy:
       matrix:
