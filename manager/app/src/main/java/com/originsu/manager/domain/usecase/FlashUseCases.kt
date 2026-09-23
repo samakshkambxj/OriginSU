@@ -12,5 +12,6 @@ class StartKernelFlashUseCase(private val repository: FlashRepository) {
         selectedSlot: String?,
         kpmPatchEnabled: Boolean = false,
         kpmUndoPatch: Boolean = false,
-    ) = repository.startKernelFlash(uri, selectedSlot, kpmPatchEnabled, kpmUndoPatch)
+        skipKsud: Boolean = false,
+    ) = repository.startKernelFlash(uri, selectedSlot, kpmPatchEnabled, kpmUndoPatch, skipKsud)
 }

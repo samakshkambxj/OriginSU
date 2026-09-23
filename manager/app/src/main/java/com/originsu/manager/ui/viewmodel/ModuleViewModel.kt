@@ -7,6 +7,7 @@ import com.originsu.manager.domain.model.InstalledModule
 import com.originsu.manager.domain.model.MetaModuleStatus
 import com.originsu.manager.domain.usecase.CalculateInstalledModuleSizeUseCase
 import com.originsu.manager.domain.usecase.GetBooleanPreferenceUseCase
+import com.originsu.manager.domain.usecase.IsSoftRebootPreferredUseCase
 import com.originsu.manager.domain.usecase.ObserveInstalledModulesUseCase
 import com.originsu.manager.domain.usecase.RebootUseCase
 import com.originsu.manager.domain.usecase.RefreshInstalledModulesUseCase
@@ -102,6 +103,7 @@ class ModuleViewModel(
     private val setModuleEnabled: SetModuleEnabledUseCase,
     private val setModuleRemoved: SetModuleRemovedUseCase,
     private val reboot: RebootUseCase,
+    private val isSoftRebootPreferred: IsSoftRebootPreferredUseCase,
 ) : ViewModel() {
     private val controls = MutableStateFlow(ModuleControls())
     private val mutableEvents = MutableSharedFlow<ModuleUiEvent>(extraBufferCapacity = 1)
@@ -221,7 +223,8 @@ class ModuleViewModel(
             }
 
             ModuleUiAction.Reboot -> viewModelScope.launch {
-                reboot().onFailure { mutableEvents.tryEmit(ModuleUiEvent.Error(it.message.orEmpty())) }
+                val reason = if (isSoftRebootPreferred()) "soft_reboot" else ""
+                reboot(reason).onFailure { mutableEvents.tryEmit(ModuleUiEvent.Error(it.message.orEmpty())) }
             }
         }
     }

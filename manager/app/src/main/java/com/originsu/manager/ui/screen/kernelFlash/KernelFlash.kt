@@ -91,6 +91,7 @@ fun KernelFlashScreen(
     selectedSlot: String? = null,
     kpmPatchEnabled: Boolean = false,
     kpmUndoPatch: Boolean = false,
+    skipKsud: Boolean = false,
 ) {
     val context = LocalContext.current
 
@@ -120,13 +121,14 @@ fun KernelFlashScreen(
     }
 
     // 开始刷写
-    LaunchedEffect(kernelUri, selectedSlot, kpmPatchEnabled, kpmUndoPatch) {
+    LaunchedEffect(kernelUri, selectedSlot, kpmPatchEnabled, kpmUndoPatch, skipKsud) {
         viewModel.dispatch(
             KernelFlashUiAction.Start(
                 kernelUri,
                 selectedSlot,
                 kpmPatchEnabled,
-                kpmUndoPatch
+                kpmUndoPatch,
+                skipKsud,
             )
         )
     }

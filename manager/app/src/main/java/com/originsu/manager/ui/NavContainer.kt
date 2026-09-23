@@ -714,7 +714,8 @@ fun NavContainer(
                         key.kernelUri,
                         key.selectedSlot,
                         key.kpmPatchEnabled,
-                        key.kpmUndoPatch
+                        key.kpmUndoPatch,
+                        key.skipKsud,
                     )
                 }
             }
@@ -808,7 +809,7 @@ private fun ManagerNavEntry(
     }
 }
 
-private fun Route.Flash.toFlashIt(): FlashIt = when (type) {
+private fun Route.Flash.toFlashIt(): FlashIt = when (flashType) {
     Route.Flash.TYPE_BOOT -> FlashIt.FlashBoot(
         boot = bootUri,
         lkmUri = lkmUri,
@@ -816,6 +817,9 @@ private fun Route.Flash.toFlashIt(): FlashIt = when (type) {
         hook = hook,
         ota = ota,
         partition = partition,
+        allowShell = allowShell,
+        enableAdb = enableAdb,
+        forceBackup = forceBackup,
     )
 
     Route.Flash.TYPE_MODULE -> FlashIt.FlashModule(uris.firstOrNull().orEmpty())

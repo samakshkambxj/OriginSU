@@ -138,6 +138,7 @@ data class SettingsUiState(
     val bootloopFailedCount: Int = 0,
     val bootloopRescued: Boolean = false,
     val bootloopRescuedBoots: Int? = null,
+    val useSoftReboot: Boolean = false,
 )
 
 sealed interface SettingsUiAction {
@@ -182,7 +183,8 @@ sealed interface SettingsUiAction {
     data object RefreshOverlayPermission : SettingsUiAction
     data class SetDefaultUmountModules(val enabled: Boolean) : SettingsUiAction
     data class SetSecureRootEnabled(val enabled: Boolean) : SettingsUiAction
-    data class SetOriginGuardEnabled(val enabled: Boolean) : SettingsUiAction    data class SetMagicMountEnabled(val enabled: Boolean) : SettingsUiAction
+    data class SetOriginGuardEnabled(val enabled: Boolean) : SettingsUiAction
+    data class SetMagicMountEnabled(val enabled: Boolean) : SettingsUiAction
     data class SetMagicMountBackend(val backend: String) : SettingsUiAction
     data class SetThemedShortcutsEnabled(val enabled: Boolean) : SettingsUiAction
     data class SetOriginZygiskEnabled(val enabled: Boolean) : SettingsUiAction
@@ -197,6 +199,7 @@ sealed interface SettingsUiAction {
     data class SetUiMode(val mode: UiMode) : SettingsUiAction
     data object RefreshMiuixHomeStyle : SettingsUiAction
     data class SetMiuixHomeStyle(val style: MiuixHomeStyle) : SettingsUiAction
+    data class SetUseSoftReboot(val enabled: Boolean) : SettingsUiAction
 }
 
 sealed interface SettingsUiEvent {
@@ -679,6 +682,11 @@ class SettingsViewModel(
         }
     }
 
+    fun handleUseSoftRebootChange(enabled: Boolean) {
+        mutableState.update { it.copy(useSoftReboot = enabled) }
+        updatePlatformAsync(PlatformSetting.UseSoftReboot(enabled))
+    }
+
 fun dispatch(action: SettingsUiAction) {
         when (action) {
             SettingsUiAction.Initialize -> initialize()
@@ -752,6 +760,9 @@ fun dispatch(action: SettingsUiAction) {
             SettingsUiAction.RefreshMiuixHomeStyle -> refreshMiuixHomeStyle()
             is SettingsUiAction.SetMiuixHomeStyle ->
                 handleMiuixHomeStyleChange(action.style)
+
+            is SettingsUiAction.SetUseSoftReboot ->
+                handleUseSoftRebootChange(action.enabled)
         }
     }
 
@@ -802,6 +813,7 @@ fun dispatch(action: SettingsUiAction) {
                 checkModuleUpdate = snapshot.checkModuleUpdate,
                 autoJailbreakEnabled = snapshot.autoJailbreakEnabled,
                 useBuiltinMonoFont = snapshot.useBuiltinMonoFont,
+                useSoftReboot = snapshot.useSoftReboot,
             )
         }
     }

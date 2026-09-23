@@ -13,6 +13,7 @@ mod profile;
 pub(crate) mod resetprop;
 mod restorecon;
 mod sepolicy;
+mod soft_reboot;
 mod su;
 mod su_notify;
 mod sulog;

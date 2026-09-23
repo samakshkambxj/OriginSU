@@ -3,6 +3,7 @@ package com.originsu.manager.ui.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.originsu.manager.data.AppSettingsRepository
+import com.originsu.manager.data.count.CountRepository
 import com.originsu.manager.data.module.ModuleRepository
 import com.originsu.manager.data.packageinfo.SuperUserRepository
 import com.originsu.manager.data.shell.KsuCliRepository
@@ -58,6 +59,7 @@ class HomeViewModel(
     appSettingsRepository: AppSettingsRepository,
     superUserRepository: SuperUserRepository,
     moduleRepository: ModuleRepository,
+    private val countRepository: CountRepository,
     private val ksuCliRepository: KsuCliRepository,
     private val checkManagerUpdate: CheckManagerUpdateUseCase,
     private val getKernelStatus: GetKernelStatusUseCase,
@@ -76,11 +78,22 @@ class HomeViewModel(
         homeStateRepository.state,
         superUserRepository.state,
         moduleRepository.installedModules,
-    ) { homeState, superUserState, moduleState ->
+        countRepository.state,
+    ) { homeState, superUserState, moduleState, countState ->
+        val superuserCount = if (superUserState.groups.isNotEmpty()) {
+            superUserState.groups.filter { it.allowSu }.size
+        } else {
+            countState.superuserCount
+        }
+        val moduleCount = if (moduleState.modules.isNotEmpty()) {
+            moduleState.modules.size
+        } else {
+            countState.moduleCount
+        }
         homeState.copy(
             systemInfo = homeState.systemInfo.copy(
-                moduleCount = moduleState.modules.size,
-                superuserCount = superUserState.groups.filter { it.allowSu }.size,
+                moduleCount = moduleCount,
+                superuserCount = superuserCount,
                 zygiskImplement = ksuCliRepository.getZygiskImplement(),
                 metaModuleImplement = ksuCliRepository.getMetaModuleImplement(),
             )
@@ -99,7 +112,6 @@ class HomeViewModel(
     private var updateJob: Job? = null
 
     init {
-        // Every navigation-scoped instance publishes persisted toggles to the shared state source.
         applyUserSettings()
         // Themed navbar icons must flip the moment the toggle changes.
         viewModelScope.launch {
@@ -108,6 +120,7 @@ class HomeViewModel(
                     homeStateRepository.update { it.copy(isThemedShortcutsEnabled = enabled) }
                 }
         }
+        viewModelScope.launch { countRepository.refresh() }
     }
 
     suspend fun awaitInitialData() {

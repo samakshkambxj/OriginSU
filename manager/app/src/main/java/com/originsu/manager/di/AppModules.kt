@@ -30,6 +30,7 @@ import com.originsu.manager.data.module.ModuleBackupRepository
 import com.originsu.manager.data.module.ModuleCatalogRepository
 import com.originsu.manager.data.module.ModuleRepoSourceRepository
 import com.originsu.manager.data.module.KpmRepository
+import com.originsu.manager.data.count.CountRepository
 import com.originsu.manager.data.module.ModuleAuditRepository
 import com.originsu.manager.data.module.ModulePreferencesRepository
 import com.originsu.manager.data.module.ModuleRepository
@@ -121,6 +122,7 @@ import com.originsu.manager.domain.usecase.InitializeApplicationUseCase
 import com.originsu.manager.domain.usecase.IsLateLoadModeUseCase
 import com.originsu.manager.domain.usecase.IsModuleUriAccessibleUseCase
 import com.originsu.manager.domain.usecase.IsNetworkAvailableUseCase
+import com.originsu.manager.domain.usecase.IsSoftRebootPreferredUseCase
 import com.originsu.manager.domain.usecase.IsSystemLanguageSettingsUseCase
 import com.originsu.manager.domain.usecase.LaunchSystemLanguageSettingsUseCase
 import com.originsu.manager.domain.usecase.LoadSettingsPlatformUseCase
@@ -349,6 +351,7 @@ val repositoryModule = module {
     singleOf(::ModuleCatalogRepository)
     singleOf(::ModuleRepoSourceRepository)
     singleOf(::ModuleRepository)
+    singleOf(::CountRepository)
     singleOf(::ModuleBackupRepository)
     singleOf(::KpmRepository)
     singleOf(::ModulePreferencesRepository)
@@ -399,6 +402,7 @@ val useCaseModule = module {
     factoryOf(::GetInstallEnvironmentUseCase)
     factoryOf(::ExecuteFlashOperationUseCase)
     factoryOf(::CheckFlashModuleMountUseCase)
+    factoryOf(::IsSoftRebootPreferredUseCase)
     factoryOf(::GetManagerRuntimeInfoUseCase)
     factoryOf(::GetKernelFeatureSettingsUseCase)
     factoryOf(::SetSuEnabledUseCase)

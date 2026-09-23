@@ -34,6 +34,7 @@ sealed interface KernelFlashUiAction {
         val selectedSlot: String?,
         val kpmPatchEnabled: Boolean = false,
         val kpmUndoPatch: Boolean = false,
+        val skipKsud: Boolean = false,
     ) : KernelFlashUiAction
     data object ConsumeAutoExit : KernelFlashUiAction
     data object Reboot : KernelFlashUiAction
@@ -75,7 +76,8 @@ class KernelFlashViewModel(
                 action.uri,
                 action.selectedSlot,
                 action.kpmPatchEnabled,
-                action.kpmUndoPatch
+                action.kpmUndoPatch,
+                action.skipKsud,
             )
             KernelFlashUiAction.ConsumeAutoExit -> {
                 removePreference(AUTO_EXIT_KEY)

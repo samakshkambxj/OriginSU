@@ -53,6 +53,7 @@ class FlashRepository(
         selectedSlot: String?,
         kpmPatchEnabled: Boolean = false,
         kpmUndoPatch: Boolean = false,
+        skipKsud: Boolean = false,
     ) {
         val current = mutableSession.value
         if (current.requestUri == uri && current.selectedSlot == selectedSlot &&
@@ -84,6 +85,7 @@ class FlashRepository(
             slot = selectedSlot,
             kpmPatchEnabled = kpmPatchEnabled,
             kpmUndoPatch = kpmUndoPatch,
+            skipKsud = skipKsud,
         ).also {
             it.uri = uri.toUri()
             it.start()
@@ -146,6 +148,9 @@ class FlashRepository(
                         operation.lkm,
                         operation.ota,
                         operation.partition,
+                        operation.allowShell,
+                        operation.enableAdb,
+                        operation.forceBackup,
                         onFinish,
                         onStdout,
                         onStderr,

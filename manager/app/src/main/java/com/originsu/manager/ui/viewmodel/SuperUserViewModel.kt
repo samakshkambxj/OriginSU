@@ -126,6 +126,7 @@ class SuperUserViewModel(
                 showSystemApps = local.showSystemApps,
                 currentSortType = local.sortType,
                 reverseOrder = local.reverseOrder,
+                managerUids = uids,
             ),
             search = local.search,
             showSystemApps = local.showSystemApps,
@@ -209,6 +210,7 @@ class SuperUserViewModel(
         showSystemApps: Boolean,
         currentSortType: SortType,
         reverseOrder: Boolean,
+        managerUids: Set<Int>,
     ): List<InstalledAppGroup> = groups
         .filter { group ->
             group.apps.any { app ->
@@ -221,7 +223,8 @@ class SuperUserViewModel(
             group.isWebViewZygote || group.uid == 2000 || showSystemApps || group.apps.any { !it.isSystem }
         }
         .sortedWith { first, second ->
-            val priority = groupPriority(first).compareTo(groupPriority(second))
+            val priority = groupPriority(first, managerUids)
+                .compareTo(groupPriority(second, managerUids))
             if (priority != 0) {
                 priority
             } else {
@@ -245,11 +248,12 @@ class SuperUserViewModel(
             }
         }
 
-    private fun groupPriority(group: InstalledAppGroup): Int = when {
+    private fun groupPriority(group: InstalledAppGroup, managerUids: Set<Int>): Int = when {
         group.allowSu -> 0
         group.isRecentlyInstalled -> 1
         group.hasCustomProfile -> 2
-        else -> 3
+        group.uid in managerUids -> 3
+        else -> 4
     }
 
     private companion object {

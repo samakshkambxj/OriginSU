@@ -85,6 +85,7 @@ class HorizonKernelWorker(
     private val slot: String? = null,
     private val kpmPatchEnabled: Boolean = false,
     private val kpmUndoPatch: Boolean = false,
+    private val skipKsud: Boolean = false,
 ) : Thread() {
     var uri: Uri? = null
     private val kpmPatcher = KpmPatchRepository(ksuCliRepository)
@@ -123,8 +124,10 @@ class HorizonKernelWorker(
                 return
             }
 
-            runCatching { ksuCliRepository.install() }.onFailure { error ->
-                Log.w(TAG, "Failed to refresh ksud after a successful kernel flash", error)
+            if (!skipKsud) {
+                runCatching { ksuCliRepository.install() }.onFailure { error ->
+                    Log.w(TAG, "Failed to refresh ksud after a successful kernel flash", error)
+                }
             }
             state.updateStep(context.getString(R.string.horizon_flash_complete_status))
             state.completeFlashing()
