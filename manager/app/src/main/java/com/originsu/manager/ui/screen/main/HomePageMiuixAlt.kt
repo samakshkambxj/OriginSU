@@ -113,6 +113,7 @@ import kotlin.time.Duration.Companion.milliseconds
 
 private data class HomeMiuixAltActions(
     val onInstallClick: () -> Unit,
+    val onRefreshClick: () -> Unit,
     val onOpenUrl: (String) -> Unit,
     val onJailbreakClick: () -> Unit,
     val onRebootClick: (String) -> Unit,
@@ -150,6 +151,7 @@ fun HomePageMiuixAlt(
 
     val actions = HomeMiuixAltActions(
         onInstallClick = { navigator.push(Route.Install(preselectedKernelUri = null)) },
+        onRefreshClick = { viewModel.dispatch(HomeUiAction.Refresh(showIndicator = true)) },
         onOpenUrl = uriHandler::openUri,
         onJailbreakClick = {
             loadingDialog.showLoading()
@@ -253,6 +255,7 @@ private fun HomePagerMiuixAlt(
                         if (status.ksuVersion != null && !status.isRootAvailable) {
                             WarningCard(
                                 stringResource(id = R.string.grant_root_failed),
+                                onClick = actions.onRefreshClick,
                             )
                         }
                         StatusCardAlt(

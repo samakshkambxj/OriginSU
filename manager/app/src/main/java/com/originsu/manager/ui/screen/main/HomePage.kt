@@ -184,6 +184,7 @@ fun HomePage(
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(topAppBarState)
     val scrollState = rememberScrollState()
     val navigator = LocalNavigator.current
+    val uriHandler = LocalUriHandler.current
     val loadingDialog = rememberLoadingDialog()
     val scope = rememberCoroutineScope()
 
@@ -291,6 +292,9 @@ fun HomePage(
                                     tint = MaterialTheme.colorScheme.onErrorContainer,
                                     modifier = Modifier.size(18.dp)
                                 )
+                            },
+                            onClick = {
+                                uriHandler.openUri(OFFICIAL_RELEASES_URL)
                             }
                         )
                         Spacer(modifier = Modifier.height(10.dp))
@@ -340,6 +344,9 @@ fun HomePage(
                                     tint = MaterialTheme.colorScheme.onErrorContainer,
                                     modifier = Modifier.size(18.dp)
                                 )
+                            },
+                            onClick = {
+                                viewModel.dispatch(HomeUiAction.Refresh(showIndicator = true))
                             }
                         )
                         Spacer(modifier = Modifier.height(10.dp))
@@ -1035,3 +1042,5 @@ private fun InfoCard(
         }
     }
 }
+
+private const val OFFICIAL_RELEASES_URL = "https://github.com/samakshkambxj/OriginSU/releases/latest"

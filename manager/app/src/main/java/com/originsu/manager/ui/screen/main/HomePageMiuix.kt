@@ -104,6 +104,7 @@ import kotlin.time.Duration.Companion.milliseconds
 
 private data class HomeMiuixActions(
     val onInstallClick: () -> Unit,
+    val onRefreshClick: () -> Unit,
     val onSuperuserClick: () -> Unit,
     val onModuleClick: () -> Unit,
     val onOpenUrl: (String) -> Unit,
@@ -144,6 +145,7 @@ fun HomePageMiuix(
 
     val actions = HomeMiuixActions(
         onInstallClick = { navigator.push(Route.Install(preselectedKernelUri = null)) },
+        onRefreshClick = { viewModel.dispatch(HomeUiAction.Refresh(showIndicator = true)) },
         onSuperuserClick = { handlePageChange(1) },
         onModuleClick = { handlePageChange(2) },
         onOpenUrl = uriHandler::openUri,
@@ -241,7 +243,10 @@ private fun HomePagerMiuix(
                             )
                         }
                         if (status.ksuVersion != null && !status.isRootAvailable) {
-                            WarningCard(stringResource(id = R.string.grant_root_failed))
+                            WarningCard(
+                                stringResource(id = R.string.grant_root_failed),
+                                onClick = actions.onRefreshClick,
+                            )
                         }
                         StatusCard(
                             state = state,
