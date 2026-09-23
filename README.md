@@ -1,16 +1,15 @@
+# OriginSU
+<img align='right' src='docs/OriginSU-default.png' width='220px' alt="OriginSU Logo">
+
+**A kernel-based root solution for Android — with its own identity.**
+
+Built on [ReSukiSU](https://github.com/ReSukiSU/ReSukiSU) (SukiSU-Ultra → KernelSU lineage)
+with its own kernel + manager signing identity, UAPI baseline and release pipeline.
+
 <div align="center">
 
-  <img src="docs/OriginSU-default.png" width="160" alt="OriginSU Logo">
-
-  # OriginSU
-
-  **A kernel-based root solution for Android — with its own identity.**
-
-  Built on [ReSukiSU](https://github.com/ReSukiSU/ReSukiSU) (SukiSU-Ultra → KernelSU lineage)
-  with its own kernel + manager signing identity, UAPI baseline and release pipeline.
-
   [![Latest release](https://img.shields.io/github/v/release/samakshkambxj/OriginSU?label=Release&logo=github)](https://github.com/samakshkambxj/OriginSU/releases/latest)
-  [![Release workflow](https://img.shields.io/github/actions/workflow/status/samakshkambxj/OriginSU/release.yml?label=Release&logo=github)](https://github.com/samakshkambxj/OriginSU/actions/workflows/release.yml)
+  [![Build](https://img.shields.io/github/actions/workflow/status/samakshkambxj/OriginSU/build-manager.yml?branch=main&label=Build&logo=github)](https://github.com/samakshkambxj/OriginSU/actions/workflows/build-manager.yml)
   [![Kernel License: GPL v2](https://img.shields.io/badge/Kernel-GPL%20v2-orange.svg?logo=gnu)](https://www.gnu.org/licenses/old-licenses/gpl-2.0.en.html)
   [![Manager License: GPL v3](https://img.shields.io/github/license/samakshkambxj/OriginSU?label=Manager&logo=gnu)](/LICENSE)
 
@@ -40,12 +39,10 @@
 
 ## Why OriginSU
 
-- **Kernel-first root**: `su` access control lives in the kernel, managed per-app with profiles — including time-limited grants that auto-revoke.
-- **Hiding built in, not bolted on**: Origin Veil cloaks root traces per app, SuSFS manager ships with a one-tap strong-hiding preset, and every module zip passes through the OriginGuard pre-install audit.
-- **No Zygisk module hunt**: OriginZygisk (BreZygisk-based) ships inside the manager — deploy and toggle it from Settings, no provider module required.
-- **Kernel tuning with guardrails**: OriginTune exposes only the knobs your running kernel actually supports — CPU governor/frequencies, GPU clocks, I/O scheduler, memory presets, scheduler extras, LMK levels, TCP congestion, BORE presets, ZRAM, sysctls — applied live, optionally persisted, shareable as JSON profiles with live diagnostics.
-- **Installer-grade flashing**: direct install, AnyKernel3 zips, offline `boot.img` patching without root, Horizon kernels, plus LKM and GKI flows with KPM patch / undo-patch options.
-- **Safety nets**: automatic bootloop rescue (disables all modules after consecutive failed boots), biometric root gate, first-run setup wizard.
+- **Hiding built in, not bolted on**: Origin Veil per-app cloaking, a SuSFS manager with a one-tap strong preset, and an OriginGuard audit on every module zip.
+- **No module hunt**: OriginZygisk ships inside the manager; kernel tuning (OriginTune) shows only knobs your kernel supports.
+- **Installer-grade flashing**: direct install, AnyKernel3, offline `boot.img` patching, Horizon kernels, LKM/GKI flows with KPM options.
+- **Safety nets**: bootloop rescue, biometric root gate, first-run wizard.
 
 ## Quick start
 
@@ -88,7 +85,7 @@ Pre-release tags containing `-rc` are published as GitHub pre-releases.
 | **OriginZygisk** | BreZygisk-based engine bundled in the manager (`Settings > Origin Lab`): deploy, status, kill-switch. Conflicting provider modules are blocked at install; `ZYGISK_ENABLED=true` is exported to module installers when on. |
 | **SuSFS manager** | Built-in manager with a one-tap strong-hiding preset (kernel 4.3+ backport). |
 | **OriginGuard** | Static pre-install audit of module zips — critical findings block the install, high-severity findings ask first. Toggle in `Settings > Origin Lab`. |
-| **KPM** | Kernel `CONFIG_KPM` (64-bit only) plus a manager KPM tab gated on KPM status: load now or embed to `/data/adb/kpm`. Standalone KPM injection lives in its own `Install > KPM` tab: patch / undo-patch a boot image, AnyKernel zip or kernel zip, then flash the result. |
+| **KPM** | Kernel `CONFIG_KPM` (64-bit only) with a manager KPM tab: load now or embed to `/data/adb/kpm`. The `Install > KPM` tab patches / un-patches boot images, AnyKernel zips or kernel zips before flashing. |
 | **Bootloop protection** | Disables all modules after consecutive failed boots and tells you about the rescue. |
 | **Magic Mount** | Magisk-style module mounting with a backend selector (Auto / Overlayfs / Bind); temporarily unavailable — the `Settings` toggle is disabled until the feature stabilizes (takes effect on next boot). |
 | **Kernel flasher** | Direct install, AnyKernel3 zips (legacy busybox runner), offline `boot.img` patching to `Downloads/OriginSU/` without root, Horizon kernels; LKM (per-KMI module plus tracepoint/tamper hook-flavor picker) and GKI flows. |
@@ -112,14 +109,11 @@ Kernel tuning from a home hero card — every knob applies immediately and can p
 - ZRAM size / algorithm / streams / swappiness with live compression stats
 - Generic sysctl editor
 
-See [Roadmap](#roadmap) for the CPU / GPU / I/O / LMK / profile-sharing work queued next.
-
 ### Manager tour
 
-- **Home your way**: Material and MIUIX styles, MIUIX Standard / Compact layouts, compact working hero card, OriginTune hero card, last-flash timeline chip, copy-device-info.
-- **Live status cards**: KPM, BasebandGuard (kernel LSM, version read from `dmesg` and cached per kernel release) and ZeroMount (VFS driver at `/dev/zeromount` + module version) versions right on Home.
+- **Home your way**: Material and MIUIX styles, Standard / Compact layouts, compact working hero card, last-flash timeline chip, copy-device-info.
+- **Live status cards**: KPM, BasebandGuard and ZeroMount versions right on Home.
 - **Make it yours**: Origin Dynamic / Monet / Default launcher icons (plus upstream marks), Yin Yang top-bar logo options, themed shortcuts toggle, floating Apple-style bottom bar, blurred popups, module banners, MIUI elastic overscroll with scroll haptics.
-- **Module safety**: OriginGuard audit runs before every module install; batch enable / disable / uninstall for cleanup.
 
 ## Compatibility
 
@@ -137,7 +131,6 @@ See [Roadmap](#roadmap) for the CPU / GPU / I/O / LMK / profile-sharing work que
 | Mode | Description |
 | --- | --- |
 | `Tracepoint Syscall Redirect hook` | Default mode, from [upstream](https://github.com/tiann/KernelSU); GKI2 kernels with `arm64-v8a` or `x86_64` ABI only |
-| `Syscall Table Tampering` (`CONFIG_KSU_TAMPER_SYSCALL_TABLE`) | Stealth mode: patches the hooked entries directly in `sys_call_table`, registers no `sys_enter` tracepoint; GKI2 `arm64-v8a`/`x86_64` only. CI builds both LKM flavors per KMI and releases ship them side by side; pick one in the Install screen's hook-flavor selector |
 | `Syscall Table Tampering` (`CONFIG_KSU_TAMPER_SYSCALL_TABLE`) | Stealth mode: patches the hooked entries directly in `sys_call_table`, registers no `sys_enter` tracepoint; GKI2 `arm64-v8a`/`x86_64` only. CI builds both LKM flavors per KMI and releases ship them side by side; pick one in the Install screen's hook-flavor selector |
 | `Manual Hook` | Most compatible; supports Linux kernels 3.4 – 6.18 |
 | `SuSFS Inline Hook` | From [SuSFS](https://github.com/simonpunk/susfs4ksu), like `Manual Hook` but provided by the SuSFS project |
@@ -177,19 +170,6 @@ just build_ksud      # ksud only
 
 - Extensive manager customization support
 - GKI OTA survival polish
-
-### OriginTune roadmap
-
-- CPU ✅ (shipped): per-cluster governor and min/max frequency, plus schedutil rate-limit tunables
-- GPU ✅ (shipped): governor and min/max clocks across Adreno/kGSL and Mali paths
-- I/O ✅ (shipped): per-device scheduler selection and read-ahead size
-- Memory preset profiles ✅ (shipped): curated VM presets (swappiness, dirty ratios, cache pressure) in the style of the BORE profiles
-- Scheduler extras ✅ (shipped): uclamp and energy-aware scheduling tunables where the kernel exposes them
-- LMK tuning ✅ (shipped): `lmkd`/PSI knobs with per-level presets
-- Profile sharing ✅ (shipped): export/import tuning setups as JSON, with automatic backup before applying
-- Diagnostics ✅ (shipped): visible effect per tuning (live clocks, load average, ZRAM ratio and PSI stalls)
-
-See `docs/feature-porting-plan.md` for the full porting status.
 
 ## Contributing
 
