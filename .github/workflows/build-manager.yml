@@ -348,7 +348,8 @@ jobs:
 
   upload-telegram:
     needs: repack-manager
-    if: github.event_name != 'pull_request' && github.event_name != 'workflow_call'
+    # Mirror branch: never announce upstream builds to Telegram.
+    if: github.event_name != 'pull_request' && github.event_name != 'workflow_call' && github.ref_name != 'UPSTREAM'
     runs-on: ubuntu-latest
     strategy:
       matrix:
