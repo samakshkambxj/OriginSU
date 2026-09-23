@@ -289,6 +289,8 @@
     <string name="settings_originguard_summary">Scan modules for risky behavior before installing</string>
     <string name="kernel_tuning">OriginTune</string>
     <string name="kernel_tuning_tagline">Tune the kernel to your will</string>
+    <string name="kernel_tuning_locked_title">Locked</string>
+    <string name="kernel_tuning_locked_summary">Install the OriginSU driver to unlock kernel tuning</string>
     <string name="kernel_tuning_summary">CPU frequency, GPU clocks, I/O scheduler, memory presets, scheduler extras, LMK levels, profiles, diagnostics, TCP congestion control, BORE scheduler, ZRAM and sysctl tunables</string>
     <string name="kernel_tuning_tcp">TCP congestion control</string>
     <string name="kernel_tuning_tcp_empty">No TCP algorithms reported by the kernel</string>
@@ -991,6 +993,7 @@
     <string name="updater_install">Install</string>
     <string name="updater_check_failed">Update check failed. Check your connection and try again.</string>
     <string name="origin_section_title">Origin Lab</string>
+    <string name="origin_lab_locked_summary">Install the OriginSU driver to unlock Origin Lab features</string>
     <string name="feature_temporarily_unavailable">Temporarily unavailable</string>
     <string name="app_icon_title">App icon</string>
     <string name="app_icon_summary">Choose the launcher icon</string>

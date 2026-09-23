@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
@@ -38,6 +39,7 @@ import androidx.compose.material.icons.twotone.FolderDelete
 import androidx.compose.material.icons.twotone.FolderOff
 import androidx.compose.material.icons.twotone.Fingerprint
 import androidx.compose.material.icons.twotone.Info
+import androidx.compose.material.icons.twotone.Lock
 import androidx.compose.material.icons.twotone.Notifications
 import androidx.compose.material.icons.twotone.Policy
 import androidx.compose.material.icons.twotone.Psychology
@@ -75,14 +77,18 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.content.FileProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.originsu.manager.BuildConfig
@@ -395,9 +401,19 @@ fun SettingsPage(bottomPadding: Dp) {
             }
 
             item {
-                // Origin features
-                SegmentedColumn(
-                    title = stringResource(R.string.origin_section_title),
+                // Origin features. Without root/driver the whole group becomes
+                // a blurred teaser that routes to the installer.
+                val labLocked = !homeState.systemStatus.isRootAvailable
+                Box(modifier = Modifier.fillMaxWidth()) {
+                    SegmentedColumn(
+                        modifier = if (!labLocked) {
+                            Modifier
+                        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                            Modifier.blur(14.dp)
+                        } else {
+                            Modifier.alpha(0.35f)
+                        },
+                        title = stringResource(R.string.origin_section_title),
                     content = {
                         item {
                             val zygiskSummary = when {
@@ -650,7 +666,44 @@ fun SettingsPage(bottomPadding: Dp) {
                             )
                         }
                     }
-                )
+                    )
+                    if (labLocked) {
+                        Box(
+                            modifier = Modifier
+                                .matchParentSize()
+                                .clickable {
+                                    navigator.push(Route.Install(preselectedKernelUri = null))
+                                },
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(
+                                    horizontal = 24.dp,
+                                    vertical = 12.dp
+                                ),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Icon(
+                                    imageVector = Icons.TwoTone.Lock,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(28.dp),
+                                )
+                                Spacer(Modifier.width(10.dp))
+                                Column {
+                                    Text(
+                                        text = stringResource(R.string.origin_section_title),
+                                        fontSize = 17.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                    )
+                                    Text(
+                                        text = stringResource(R.string.origin_lab_locked_summary),
+                                        fontSize = 13.sp,
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
             }
 
             item {

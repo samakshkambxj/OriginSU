@@ -249,6 +249,11 @@ private fun HomePagerMiuix(
                         )
                         if (status.isRootAvailable) {
                             OriginTuneCard(onClick = actions.onOriginTuneClick)
+                        } else {
+                            OriginTuneCard(
+                                locked = true,
+                                onClick = actions.onInstallClick,
+                            )
                         }
                         UpdateCard(
                             stableUpdate = state.stableManagerUpdate,

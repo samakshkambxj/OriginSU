@@ -375,6 +375,14 @@ fun HomePage(
                         OriginTuneCard(
                             onClick = { navigator.push(Route.KernelTuning) },
                         )
+                    } else {
+                        Spacer(modifier = Modifier.height(10.dp))
+                        OriginTuneCard(
+                            locked = true,
+                            onClick = {
+                                navigator.push(Route.Install(preselectedKernelUri = null))
+                            },
+                        )
                     }
                 }
                 Spacer(modifier = Modifier.height(10.dp))

@@ -261,6 +261,11 @@ private fun HomePagerMiuixAlt(
                         )
                         if (status.isRootAvailable) {
                             OriginTuneCard(onClick = actions.onOriginTuneClick)
+                        } else {
+                            OriginTuneCard(
+                                locked = true,
+                                onClick = actions.onInstallClick,
+                            )
                         }
                         if (state.isExtendedDataLoaded) {
                             InfoCardAlt(
