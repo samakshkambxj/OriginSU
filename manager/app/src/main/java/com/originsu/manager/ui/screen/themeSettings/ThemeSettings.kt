@@ -58,6 +58,7 @@ import androidx.compose.material.icons.twotone.Style
 import androidx.compose.material.icons.twotone.SwapHoriz
 import androidx.compose.material.icons.twotone.Tab
 import androidx.compose.material.icons.twotone.Translate
+import androidx.compose.material.icons.twotone.Update
 import androidx.compose.material.icons.twotone.Wallpaper
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -871,6 +872,18 @@ private fun CustomizationSettings(
                 checked = homeUiState.showHomeCardIcons,
                 onCheckedChange = { enabled ->
                     homeViewModel.dispatch(HomeUiAction.SetHomeCardIcons(enabled))
+                }
+            )
+        }
+
+        item {
+            SettingsSwitchWidget(
+                icon = Icons.TwoTone.Update,
+                title = stringResource(R.string.show_update_manager_card),
+                description = stringResource(R.string.show_update_manager_card_summary),
+                checked = homeUiState.showUpdateManagerCard,
+                onCheckedChange = { enabled ->
+                    homeViewModel.dispatch(HomeUiAction.SetUpdateManagerCard(enabled))
                 }
             )
         }

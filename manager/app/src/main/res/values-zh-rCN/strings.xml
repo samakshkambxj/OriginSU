@@ -243,6 +243,8 @@
     <string name="navigation_bar_tabs_summary">已显示 %1$d / %2$d 个标签页</string>
     <string name="home_card_icons">主页卡片显示图标</string>
     <string name="home_card_icons_summary">主页信息卡片添加图标展示</string>
+    <string name="show_update_manager_card">主页显示更新卡片</string>
+    <string name="show_update_manager_card_summary">在主页显示管理器更新通知</string>
     <string name="theme_mode">主题模式</string>
     <string name="theme_follow_system">跟随系统</string>
     <string name="theme_light">浅色</string>

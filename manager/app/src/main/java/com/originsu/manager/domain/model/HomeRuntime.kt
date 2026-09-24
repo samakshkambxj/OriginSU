@@ -56,6 +56,7 @@ data class HomeDashboardState(
     /** Names of [com.originsu.manager.ui.screen.BottomBarDestination] entries hidden from the navbar. */
     val hiddenNavigationBarTabs: Set<String> = emptySet(),
     val showHomeCardIcons: Boolean = false,
+    val showUpdateManagerCard: Boolean = true,
     val isInitialDataLoaded: Boolean = false,
     val isCoreDataLoaded: Boolean = false,
     val isExtendedDataLoaded: Boolean = false,

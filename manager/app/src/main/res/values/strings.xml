@@ -566,6 +566,8 @@
     <string name="navigation_bar_tabs_summary">%1$d of %2$d tabs shown</string>
     <string name="home_card_icons">Show icons on home cards</string>
     <string name="home_card_icons_summary">Add icons to the home information cards</string>
+    <string name="show_update_manager_card">Show update card on home</string>
+    <string name="show_update_manager_card_summary">Display manager update notifications on the home screen</string>
     <string name="theme_mode">Theme</string>
     <string name="theme_follow_system">Follow system</string>
     <string name="theme_light">Light</string>

@@ -47,6 +47,7 @@ sealed interface HomeUiAction {
     data class SetNavigationBarBadge(val enabled: Boolean) : HomeUiAction
     data class SetNavigationBarTabs(val hiddenTabs: Set<String>) : HomeUiAction
     data class SetHomeCardIcons(val enabled: Boolean) : HomeUiAction
+    data class SetUpdateManagerCard(val enabled: Boolean) : HomeUiAction
     data class Reboot(val reason: String) : HomeUiAction
 }
 
@@ -260,6 +261,11 @@ class HomeViewModel(
             it.copy(showHomeCardIcons = enabled)
         }
 
+    fun handleUpdateManagerCardChange(enabled: Boolean) =
+        updatePreference(PREF_SHOW_UPDATE_MANAGER_CARD, enabled) {
+            it.copy(showUpdateManagerCard = enabled)
+        }
+
     fun dispatch(action: HomeUiAction) {
         when (action) {
             HomeUiAction.AwaitInitialData -> viewModelScope.launch { awaitInitialData() }
@@ -268,6 +274,7 @@ class HomeViewModel(
             is HomeUiAction.SetNavigationBarBadge -> handleNavigationBarBadgeChange(action.enabled)
             is HomeUiAction.SetNavigationBarTabs -> handleNavigationBarTabsChange(action.hiddenTabs)
             is HomeUiAction.SetHomeCardIcons -> handleHomeCardIconsChange(action.enabled)
+            is HomeUiAction.SetUpdateManagerCard -> handleUpdateManagerCardChange(action.enabled)
             is HomeUiAction.Reboot -> viewModelScope.launch {
                 reboot(action.reason).onFailure {
                     mutableEvents.tryEmit(HomeUiEvent.Error(it.message.orEmpty()))
@@ -322,6 +329,10 @@ class HomeViewModel(
                     PREF_HIDDEN_NAVIGATION_BAR_TABS,
                 ),
                 showHomeCardIcons = getBooleanPreference(PREF_SHOW_HOME_CARD_ICONS),
+                showUpdateManagerCard = getBooleanPreference(
+                    PREF_SHOW_UPDATE_MANAGER_CARD,
+                    true,
+                ),
             )
         }
     }
@@ -353,5 +364,6 @@ class HomeViewModel(
         const val PREF_SHOW_NAVIGATION_BAR_BADGE = "show_navigation_bar_badge"
         const val PREF_HIDDEN_NAVIGATION_BAR_TABS = "hidden_navigation_bar_tabs"
         const val PREF_SHOW_HOME_CARD_ICONS = "show_home_card_icons"
+        const val PREF_SHOW_UPDATE_MANAGER_CARD = "show_update_manager_card"
     }
 }

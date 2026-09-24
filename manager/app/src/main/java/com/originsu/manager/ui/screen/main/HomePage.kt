@@ -393,8 +393,10 @@ fun HomePage(
                     }
                 }
                 Spacer(modifier = Modifier.height(10.dp))
-                ManagerUpdateCard(uiState.stableManagerUpdate)
-                ManagerUpdateCard(uiState.betaManagerUpdate)
+                if (uiState.showUpdateManagerCard) {
+                    ManagerUpdateCard(uiState.stableManagerUpdate)
+                    ManagerUpdateCard(uiState.betaManagerUpdate)
+                }
                 if (uiState.isBetaManagerUpdateCheckFailed) {
                     WarningCard(
                         message = stringResource(R.string.beta_update_check_failed),

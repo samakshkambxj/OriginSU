@@ -260,11 +260,13 @@ private fun HomePagerMiuix(
                                 onClick = actions.onInstallClick,
                             )
                         }
-                        UpdateCard(
-                            stableUpdate = state.stableManagerUpdate,
-                            betaUpdate = state.betaManagerUpdate,
-                            onUpdateClick = actions.onUpdateClick,
-                        )
+                        if (state.showUpdateManagerCard) {
+                            UpdateCard(
+                                stableUpdate = state.stableManagerUpdate,
+                                betaUpdate = state.betaManagerUpdate,
+                                onUpdateClick = actions.onUpdateClick,
+                            )
+                        }
                         if (state.isExtendedDataLoaded) {
                             InfoCard(systemInfo = state.systemInfo)
                         }

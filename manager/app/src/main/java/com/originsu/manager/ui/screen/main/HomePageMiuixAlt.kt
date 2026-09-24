@@ -276,11 +276,13 @@ private fun HomePagerMiuixAlt(
                                 modifier = Modifier.fillMaxWidth(),
                             )
                         }
-                        UpdateCardAlt(
-                            stableUpdate = state.stableManagerUpdate,
-                            betaUpdate = state.betaManagerUpdate,
-                            onUpdateClick = actions.onUpdateClick,
-                        )
+                        if (state.showUpdateManagerCard) {
+                            UpdateCardAlt(
+                                stableUpdate = state.stableManagerUpdate,
+                                betaUpdate = state.betaManagerUpdate,
+                                onUpdateClick = actions.onUpdateClick,
+                            )
+                        }
                         SupportLinks(
                             onOpenUrl = actions.onOpenUrl,
                             modifier = Modifier.fillMaxWidth(),
