@@ -177,6 +177,7 @@ class SettingsPlatformRepository(
             is PlatformSetting.Locale -> settings.putString("app_locale", setting.tag)
             is PlatformSetting.AutoJailbreak -> setAutoJailbreak(setting.enabled)
             is PlatformSetting.AdbRoot -> setAdbRoot(setting.enabled)
+            is PlatformSetting.SelinuxPermissive -> setSelinuxPermissive(setting.enabled)
             is PlatformSetting.SuCompatMode -> settings.putInt("su_compat_mode", setting.value)
             is PlatformSetting.BuiltinMonospaceFont -> {
                 settings.putBoolean("use_builtin_monospace_font", setting.enabled)
@@ -223,6 +224,12 @@ class SettingsPlatformRepository(
             selinuxHideStatus = runCatching {
                 ksuCliRepository.getFeatureStatus("selinux_hide")
             }.getOrDefault(""),
+            selinuxStatus = runCatching {
+                ksuCliRepository.getFeatureStatus("selinux")
+            }.getOrDefault(""),
+            selinuxPermissive = runCatching {
+                ksuCliRepository.getFeaturePersistValue("selinux") == 1L
+            }.getOrDefault(false),
         )
     }
 
@@ -288,6 +295,12 @@ class SettingsPlatformRepository(
     private fun setAdbRoot(enabled: Boolean) {
         if (ksuCliRepository.execKsud("feature set adb_root ${if (enabled) 1 else 0}", true)) {
             ShellUtils.fastCmd("setprop ctl.restart adbd")
+            ksuCliRepository.execKsud("feature save", true)
+        }
+    }
+
+    private fun setSelinuxPermissive(enabled: Boolean) {
+        if (ksuCliRepository.execKsud("feature set selinux ${if (enabled) 1 else 0}", true)) {
             ksuCliRepository.execKsud("feature save", true)
         }
     }

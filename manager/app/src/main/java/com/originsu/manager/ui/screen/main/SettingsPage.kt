@@ -322,6 +322,29 @@ fun SettingsPage(bottomPadding: Dp) {
                             }
 
                             item {
+                                val selinuxSummary = when (uiState.selinuxStatus) {
+                                    "unsupported" -> stringResource(id = R.string.feature_status_unsupported_summary)
+                                    "managed" -> stringResource(id = R.string.feature_status_managed_summary)
+                                    else -> stringResource(id = R.string.settings_selinux_permissive_summary)
+                                }
+
+                                SettingsSwitchWidget(
+                                    icon = Icons.TwoTone.Policy,
+                                    title = stringResource(id = R.string.settings_selinux_permissive),
+                                    description = selinuxSummary,
+                                    checked = uiState.isSelinuxPermissive,
+                                    enabled = uiState.selinuxStatus == "supported",
+                                    onCheckedChange = { enabled ->
+                                        settingsViewModel.dispatch(
+                                            SettingsUiAction.SetSelinuxPermissive(
+                                                enabled
+                                            )
+                                        )
+                                    },
+                                )
+                            }
+
+                            item {
                                 SettingsSwitchWidget(
                                     icon = Icons.TwoTone.RestartAlt,
                                     title = stringResource(id = R.string.settings_soft_reboot),

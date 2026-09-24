@@ -37,6 +37,7 @@
 #include "feature/module_load_filter.h"
 #include "feature/sucompat.h"
 #include "feature/selinux_hide.h"
+#include "feature/selinux_mode.h"
 #include "infra/symbol_resolver.h"
 
 #ifdef CONFIG_ARM64
@@ -249,6 +250,7 @@ int __init kernelsu_init(void)
     ksu_veil_init();
     ksu_adb_root_init();
     ksu_selinux_hide_init();
+    ksu_selinux_mode_init();
 
     ksu_supercalls_init();
     ksu_app_profile_init();
@@ -329,6 +331,7 @@ void __exit kernelsu_exit(void)
 
     ksu_selinux_hide_exit();
     ksu_adb_root_exit();
+    ksu_selinux_mode_exit();
     ksu_veil_exit();
     ksu_su_request_exit();
     ksu_sulog_exit();

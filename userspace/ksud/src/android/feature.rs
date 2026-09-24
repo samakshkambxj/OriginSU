@@ -30,6 +30,7 @@ pub enum FeatureId {
     SuPrompt = 6,
     SuPromptTimeout = 7,
     SuPromptDefaultAllow = 8,
+    SelinuxMode = 9,
 }
 
 impl FeatureId {
@@ -44,6 +45,7 @@ impl FeatureId {
             6 => Some(Self::SuPrompt),
             7 => Some(Self::SuPromptTimeout),
             8 => Some(Self::SuPromptDefaultAllow),
+            9 => Some(Self::SelinuxMode),
             _ => None,
         }
     }
@@ -59,6 +61,7 @@ impl FeatureId {
             Self::SuPrompt => "su_prompt",
             Self::SuPromptTimeout => "su_prompt_timeout",
             Self::SuPromptDefaultAllow => "su_prompt_default_allow",
+            Self::SelinuxMode => "selinux",
         }
     }
 
@@ -85,6 +88,9 @@ impl FeatureId {
             Self::SuPromptDefaultAllow => {
                 "SU Prompt Default - allow root when the prompt times out"
             }
+            Self::SelinuxMode => {
+                "SELinux Mode - switch SELinux between enforcing (0) and permissive (1)"
+            }
         }
     }
 }
@@ -100,6 +106,7 @@ fn parse_feature_id(name: &str) -> Result<FeatureId> {
         "su_prompt" | "6" => Ok(FeatureId::SuPrompt),
         "su_prompt_timeout" | "7" => Ok(FeatureId::SuPromptTimeout),
         "su_prompt_default_allow" | "8" => Ok(FeatureId::SuPromptDefaultAllow),
+        "selinux" | "9" => Ok(FeatureId::SelinuxMode),
         _ => bail!("Unknown feature: {name}"),
     }
 }
@@ -350,6 +357,7 @@ pub fn list_features() {
         FeatureId::SuPrompt,
         FeatureId::SuPromptTimeout,
         FeatureId::SuPromptDefaultAllow,
+        FeatureId::SelinuxMode,
     ];
 
     for feature_id in &all_features {
@@ -417,6 +425,7 @@ pub fn save_config() -> Result<()> {
         FeatureId::SuPrompt,
         FeatureId::SuPromptTimeout,
         FeatureId::SuPromptDefaultAllow,
+        FeatureId::SelinuxMode,
     ];
 
     for feature_id in &all_features {

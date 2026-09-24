@@ -11,6 +11,7 @@ kernelsu-objs += feature/veil.o
 endif
 kernelsu-objs += feature/adb_root.o
 kernelsu-objs += feature/selinux_hide.o
+kernelsu-objs += feature/selinux_mode.o
 kernelsu-objs += feature/module_load_filter.o
 kernelsu-objs += hook/setuid_hook.o
 

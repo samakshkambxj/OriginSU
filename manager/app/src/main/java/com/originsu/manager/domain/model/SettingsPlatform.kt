@@ -34,6 +34,8 @@ data class PlatformFeatureStatus(
     val sulogStatus: String = "",
     val veilStatus: String = "",
     val selinuxHideStatus: String = "",
+    val selinuxStatus: String = "",
+    val selinuxPermissive: Boolean = false,
 )
 
 sealed interface AppearanceSetting {
@@ -77,6 +79,7 @@ sealed interface PlatformSetting {
     data class Locale(val tag: String) : PlatformSetting
     data class AutoJailbreak(val enabled: Boolean) : PlatformSetting
     data class AdbRoot(val enabled: Boolean) : PlatformSetting
+    data class SelinuxPermissive(val enabled: Boolean) : PlatformSetting
     data class SuCompatMode(val value: Int) : PlatformSetting
     data class BuiltinMonospaceFont(val enabled: Boolean) : PlatformSetting
     data class UseSoftReboot(val enabled: Boolean) : PlatformSetting

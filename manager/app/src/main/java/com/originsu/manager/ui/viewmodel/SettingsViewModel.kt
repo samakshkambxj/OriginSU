@@ -110,6 +110,8 @@ data class SettingsUiState(
     val autoJailbreakEnabled: Boolean = false,
     val adbRootStatus: String = "",
     val isAdbRootEnabled: Boolean = false,
+    val selinuxStatus: String = "",
+    val isSelinuxPermissive: Boolean = false,
     val sulogStatus: String = "",
     val isSuLogEnabled: Boolean = false,
     val veilStatus: String = "",
@@ -175,6 +177,7 @@ sealed interface SettingsUiAction {
     data class SetAutoJailbreak(val enabled: Boolean) : SettingsUiAction
     data class SetSelinuxHide(val enabled: Boolean) : SettingsUiAction
     data class SetAdbRoot(val enabled: Boolean) : SettingsUiAction
+    data class SetSelinuxPermissive(val enabled: Boolean) : SettingsUiAction
     data class SetSuLog(val enabled: Boolean) : SettingsUiAction
     data class SetVeil(val enabled: Boolean) : SettingsUiAction
     data class SetGrantToast(val enabled: Boolean) : SettingsUiAction
@@ -280,6 +283,8 @@ class SettingsViewModel(
                     isKernelUmountEnabled = features.kernelUmountEnabled,
                     adbRootStatus = platform.adbRootStatus,
                     isAdbRootEnabled = platform.adbRootEnabled,
+                    selinuxStatus = platform.selinuxStatus,
+                    isSelinuxPermissive = platform.selinuxPermissive,
                     sulogStatus = platform.sulogStatus,
                     isSuLogEnabled = features.suLogEnabled,
                     veilStatus = platform.veilStatus,
@@ -531,6 +536,11 @@ class SettingsViewModel(
         updatePlatformAsync(PlatformSetting.AdbRoot(checked))
     }
 
+    fun handleSelinuxPermissiveChange(checked: Boolean) {
+        mutableState.update { it.copy(isSelinuxPermissive = checked) }
+        updatePlatformAsync(PlatformSetting.SelinuxPermissive(checked))
+    }
+
     fun handleSuLogChange(checked: Boolean) {
         viewModelScope.launch {
             if (setSuLogEnabled(checked)) mutableState.update { it.copy(isSuLogEnabled = checked) }
@@ -724,6 +734,7 @@ fun dispatch(action: SettingsUiAction) {
             is SettingsUiAction.SetAutoJailbreak -> handleAutoJailbreakChange(action.enabled)
             is SettingsUiAction.SetSelinuxHide -> handleSelinuxHideChange(action.enabled)
             is SettingsUiAction.SetAdbRoot -> handleAdbRootChange(action.enabled)
+            is SettingsUiAction.SetSelinuxPermissive -> handleSelinuxPermissiveChange(action.enabled)
             is SettingsUiAction.SetSuLog -> handleSuLogChange(action.enabled)
             is SettingsUiAction.SetVeil -> handleVeilChange(action.enabled)
             is SettingsUiAction.SetGrantToast -> handleGrantToastChange(action.enabled)
