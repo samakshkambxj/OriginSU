@@ -652,6 +652,8 @@ fun SettingsPage(bottomPadding: Dp) {
                                 icon = Icons.TwoTone.Dashboard,
                                 title = stringResource(R.string.settings_magic_mount_backend),
                                 description = stringResource(R.string.settings_magic_mount_backend_summary),
+                                // Backend selector is WIP alongside Magic Mount: keep visible but disabled.
+                                enabled = false,
                                 items = backendItems,
                                 selectedIndex = selectedBackend,
                                 onSelectedIndexChange = { index ->
