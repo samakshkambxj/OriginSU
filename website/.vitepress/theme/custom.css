@@ -1,0 +1,219 @@
+/* ReSukiSU-style touches: MiSans + JetBrains Mono from jsDelivr (see config head). */
+:root {
+  --vp-font-family-base: 'MiSans VF', 'MiSans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --vp-font-family-mono: 'JetBrains Mono', ui-monospace, 'Cascadia Code', Menlo, monospace;
+
+  /* Brand accent: ember orange. */
+  --vp-c-brand-1: #ea580c;
+  --vp-c-brand-2: #f97316;
+  --vp-c-brand-3: #fb923c;
+  --vp-c-brand-soft: rgba(234, 88, 12, 0.1);
+
+  /* Solid readable brand buttons (white text on orange). */
+  --vp-button-brand-bg: var(--vp-c-brand-1);
+  --vp-button-brand-hover-bg: var(--vp-c-brand-2);
+  --vp-button-brand-active-bg: var(--vp-c-brand-1);
+  --vp-button-brand-text: #fff;
+  --vp-button-brand-hover-text: #fff;
+  --vp-button-brand-active-text: #fff;
+
+  /* Hero logo glow: monochrome to match the leaf. */
+  --vp-home-hero-image-background-image: linear-gradient(-45deg, #f5f5f7 20%, #aeaeb2 55%, #636366 100%);
+  --vp-home-hero-image-filter: blur(72px);
+}
+
+.dark {
+  --vp-c-brand-1: #fb923c;
+  --vp-c-brand-2: #fdba74;
+  --vp-c-brand-3: #fed7aa;
+  --vp-c-brand-soft: rgba(251, 146, 60, 0.14);
+
+  /* Dark readable brand buttons (dark text on bright orange). */
+  --vp-button-brand-text: #431407;
+  --vp-button-brand-hover-text: #431407;
+  --vp-button-brand-active-text: #431407;
+}
+
+/* Ember-tinted text selection. */
+::selection {
+  background: var(--vp-c-brand-soft);
+  color: var(--vp-c-brand-1);
+}
+
+/* Feature card hover, ReSukiSU-style: accent top bar, glowing icon tile, lift. */
+.VPFeatures .VPFeature {
+  position: relative;
+  overflow: hidden;
+  transition:
+    transform 0.3s ease,
+    border-color 0.3s ease,
+    box-shadow 0.3s ease;
+}
+
+.VPFeatures .VPFeature::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--vp-c-brand-1), var(--vp-c-brand-3));
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.VPFeatures .VPFeature:hover::before {
+  opacity: 1;
+}
+
+.VPFeatures .VPFeature:hover {
+  transform: translateY(-4px);
+  border-color: var(--vp-c-brand-1);
+  box-shadow: 0 12px 32px rgba(234, 88, 12, 0.18);
+}
+
+.VPFeatures .VPFeature .icon {
+  transition:
+    background-color 0.3s ease,
+    color 0.3s ease;
+}
+
+.VPFeatures .VPFeature:hover .icon {
+  background-color: var(--vp-c-brand-1);
+  color: #fff;
+}
+
+/* Large static ambient wash behind the logo, ReSukiSU-style. Static
+   positioning only — it can't detach. */
+.VPHero .image-container {
+  position: relative;
+}
+
+@media (min-width: 960px) {
+  /* Let the wash wrap the image, not the full column height. */
+  .VPHero .image {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .VPHero .image-container {
+    height: auto;
+  }
+  /* Lift toward title height; `translate` composes with the float animation. */
+  .VPHero .VPImage.image-src {
+    translate: 0 -32px;
+  }
+}
+
+@media (max-width: 959px) {
+  /* Stacked layout: no lift, smaller mark so it can't collide with the nav. */
+  .VPHero .VPImage.image-src {
+    translate: none;
+    max-width: 168px;
+  }
+}
+
+.VPHero .image-container::before {
+  content: "";
+  position: absolute;
+  inset: -45%;
+  z-index: 0;
+  background: radial-gradient(
+    closest-side,
+    rgba(249, 115, 22, 0.75),
+    rgba(194, 65, 12, 0.3) 50%,
+    transparent 72%
+  );
+  filter: blur(80px);
+  pointer-events: none;
+}
+
+html:not(.dark) .VPHero .image-container::before {
+  background: radial-gradient(
+    closest-side,
+    rgba(234, 88, 12, 0.55),
+    rgba(194, 65, 12, 0.25) 50%,
+    transparent 72%
+  );
+}
+
+.VPHero .image-container .VPImage.image-src {
+  position: relative;
+  top: auto;
+  left: auto;
+  z-index: 1;
+}
+
+/* Ember gradient on the hero name, ReSukiSU-style. */
+.VPHero .heading .name.clip {
+  background: linear-gradient(120deg, #fb923c, #f97316);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+}
+
+html:not(.dark) .VPHero .heading .name.clip {
+  background: linear-gradient(120deg, #ea580c, #c2410c);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Black leaf in light mode (glow shadow included — keyframes override filter). */
+html:not(.dark) .VPHero .VPImage.image-src {
+  animation-name: originsu-hero-float-light;
+}
+
+html:not(.dark) .VPNavBarTitle .VPImage.logo {
+  filter: invert(1);
+}
+
+/* Glow hugs the leaf via drop-shadow on the image itself — no separate
+   positioned element, so it can never detach. */
+.VPHero .image-bg {
+  display: none;
+}
+
+.VPHero .VPImage.image-src {
+  animation: originsu-hero-float 6s ease-in-out infinite;
+}
+
+@keyframes originsu-hero-float {
+  0%,
+  100% {
+    transform: translateY(8px) scale(1);
+    filter: drop-shadow(0 0 140px rgba(249, 115, 22, 0.8));
+  }
+  50% {
+    transform: translateY(-8px) scale(1.03);
+    filter: drop-shadow(0 0 140px rgba(249, 115, 22, 0.8));
+  }
+}
+
+@keyframes originsu-hero-float-light {
+  0%,
+  100% {
+    transform: translateY(8px) scale(1);
+    filter: invert(1) drop-shadow(0 0 140px rgba(234, 88, 12, 0.7));
+  }
+  50% {
+    transform: translateY(-8px) scale(1.03);
+    filter: invert(1) drop-shadow(0 0 140px rgba(234, 88, 12, 0.7));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .VPHero .VPImage.image-src {
+    animation: none;
+  }
+  .VPFeatures .VPFeature,
+  .VPFeatures .VPFeature::before,
+  .VPFeatures .VPFeature .icon {
+    transition: none;
+  }
+  .VPFeatures .VPFeature:hover {
+    transform: none;
+  }
+}

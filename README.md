@@ -15,6 +15,8 @@ with its own kernel + manager signing identity, UAPI baseline and release pipeli
 
 </div>
 
+📖 **Documentation: <https://samakshkambxj.github.io/OriginSU/>**
+
 > [!IMPORTANT]
 > Install only the official `Manager-release` APK from the
 > [Releases](https://github.com/samakshkambxj/OriginSU/releases) page.
