@@ -25,6 +25,7 @@ with its own kernel + manager signing identity, UAPI baseline and release pipeli
 
 - [Why OriginSU](#why-originsu)
 - [Quick start](#quick-start)
+- [Installation](#installation)
 - [Release assets](#release-assets)
 - [Features](#features)
 - [Manager tour](#manager-tour)
@@ -46,13 +47,70 @@ with its own kernel + manager signing identity, UAPI baseline and release pipeli
 
 ## Quick start
 
-1. Flash an OriginSU-patched kernel (GKI `boot.img`, LKM module, or a manually built kernel for older devices — see [Release assets](#release-assets)).
+1. Flash an OriginSU-patched kernel (GKI `boot.img`, LKM module, or a manually built kernel for older devices — see [Installation](#installation) and [Release assets](#release-assets)).
 2. Install the official `Manager-release` APK from the
    [Releases](https://github.com/samakshkambxj/OriginSU/releases) page.
 3. Open the manager and follow the first-run setup wizard (status check, LKM / built-in detection, kernel check).
 
 > [!TIP]
 > Coming from KernelSU / RKSU / MKSU / SukiSU? OriginSU's manager also works with those kernels, and its kernel accepts those official managers.
+
+## Installation
+
+### On your phone
+
+1. **Check compatibility**: GKI 2.0 devices (kernel 5.10+) are officially
+   supported. Older kernels (3.4+) need a manually built kernel (see below).
+2. **Get the manager**: download the official `Manager-release` APK matching
+   your ABI from the [Releases](https://github.com/samakshkambxj/OriginSU/releases)
+   page (`arm64-v8a` for most modern phones). Optional: the `Spoofed-Manager`
+   build installs side-by-side under a randomized package name when the stock
+   one is detected.
+3. **Get root, pick one**:
+   - **LKM mode (recommended for phones)**: `fastboot boot` a matching GKI
+     kernel for temporary root, open the manager and use **Install → Direct
+     install / Select a file**. The manager patches your stock firmware and
+     flashes it for you.
+   - **GKI mode**: flash the provided `boot.img` with
+     `fastboot flash boot boot.img && fastboot reboot`, with a kernel-flasher
+     app (e.g. Kernel Flasher), or via custom recovery (TWRP).
+   - **Offline patching**: no root at all — the manager can patch a `boot.img`
+     into `Downloads/OriginSU/` for you to flash manually.
+4. **Verify**: reopen the manager — Home should report the kernel / LKM
+   status, then finish the setup wizard.
+
+### In your kernel source
+
+Run this in the **root of your kernel source**, just like the other
+KernelSU-family forks:
+
+```bash
+# Latest stable tag (recommended)
+curl -LSs "https://raw.githubusercontent.com/samakshkambxj/OriginSU/main/kernel/setup.sh" | bash -
+
+# Development branch
+curl -LSs "https://raw.githubusercontent.com/samakshkambxj/OriginSU/main/kernel/setup.sh" | bash -s main
+
+# A specific tag / commit
+curl -LSs "https://raw.githubusercontent.com/samakshkambxj/OriginSU/main/kernel/setup.sh" | bash -s v4.2.5
+```
+
+Then enable `CONFIG_KSU` (plus `CONFIG_KPM` on 64-bit kernels if you want KPM
+support), rebuild, and flash. Extras:
+
+```bash
+# Remove a previous integration
+curl -LSs "https://raw.githubusercontent.com/samakshkambxj/OriginSU/main/kernel/setup.sh" | bash -s --cleanup
+
+# Register the downloaded copy as a git submodule of your kernel tree
+# (run from your kernel source root after integrating)
+curl -LSs "https://raw.githubusercontent.com/samakshkambxj/OriginSU/main/kernel/setup.sh" | bash -s --submodule
+```
+
+Prefer manual integration? Clone the repo, symlink `kernel/` to
+`drivers/kernelsu`, add `obj-$(CONFIG_KSU) += kernelsu/` to
+`drivers/Makefile`, and source `drivers/kernelsu/Kconfig` from
+`drivers/Kconfig`.
 
 ## Release assets
 
@@ -146,6 +204,13 @@ Required Actions secrets: `KEYSTORE`, `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PAS
 # tag a release (maintainers)
 git tag -a vX.Y.Z -m "OriginSU vX.Y.Z"
 git push origin vX.Y.Z
+```
+
+Integrating OriginSU into a kernel tree uses the same one-liner as the other
+forks — see [In your kernel source](#in-your-kernel-source):
+
+```bash
+curl -LSs "https://raw.githubusercontent.com/samakshkambxj/OriginSU/main/kernel/setup.sh" | bash -
 ```
 
 Local iteration:
