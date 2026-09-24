@@ -30,6 +30,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.originsu.manager.domain.model.hasCoreAccess
 import com.originsu.manager.ui.activity.component.NavigationBar
 import com.originsu.manager.ui.component.springAnimateToPage
 import com.originsu.manager.ui.rememberMaterial3BlurBackdrop
@@ -56,12 +57,12 @@ fun MainScreen() {
     val homeViewModel = koinViewModel<HomeViewModel>()
     val homeState by homeViewModel.uiState.collectAsStateWithLifecycle()
     val pages = remember(
-        homeState.systemStatus.isFullFeatured,
+        homeState.systemStatus.hasCoreAccess,
         homeState.systemInfo.isKpmEnabled,
         homeState.hiddenNavigationBarTabs,
     ) {
         val available = BottomBarDestination.getPages(
-            homeState.systemStatus.isFullFeatured,
+            homeState.systemStatus.hasCoreAccess,
             homeState.systemInfo.isKpmEnabled
         )
         // Drop tabs the user hid in settings; never render an empty navbar.

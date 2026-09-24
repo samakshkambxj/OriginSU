@@ -872,7 +872,7 @@ private fun InstallBody(
                                 id = R.string.selected_lkm,
                                 it.uri.toUri().lastPathSegment ?: "(file)"
                             )
-                        },
+                        } ?: stringResource(id = R.string.install_lkm_fork_hint),
                         onClick = onLkmUpload,
                     )
 

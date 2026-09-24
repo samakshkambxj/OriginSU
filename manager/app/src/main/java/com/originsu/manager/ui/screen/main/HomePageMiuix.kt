@@ -52,6 +52,7 @@ import com.originsu.manager.R
 import com.originsu.manager.domain.model.HomeDashboardState
 import com.originsu.manager.domain.model.HomeSystemInfo
 import com.originsu.manager.domain.model.KernelStatus
+import com.originsu.manager.domain.model.isForeignKernel
 import com.originsu.manager.domain.model.ManagerUpdateChannel
 import com.originsu.manager.domain.model.ManagerUpdateInfo
 import com.originsu.manager.magica.MagicaService
@@ -233,6 +234,23 @@ private fun HomePagerMiuix(
                         verticalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
                         val status = state.systemStatus
+                        if (status.isForeignKernel) {
+                            WarningCard(
+                                message = if (status.isRootAvailable)
+                                    stringResource(
+                                        R.string.compat_kernel_notice,
+                                        status.ksuVersion ?: 0,
+                                        stringResource(R.string.app_name)
+                                    )
+                                else
+                                    stringResource(
+                                        R.string.compat_kernel_no_root_notice,
+                                        status.ksuVersion ?: 0,
+                                        stringResource(R.string.app_name)
+                                    ),
+                                onClick = actions.onInstallClick,
+                            )
+                        }
                         if (status.isManager && !status.isFullFeatured) {
                             WarningCard(
                                 message = if (status.lkmMode == true)

@@ -97,6 +97,7 @@ import com.originsu.manager.Natives.KernelPatchImplementation
 import com.originsu.manager.R
 import com.originsu.manager.domain.model.HomeSystemInfo
 import com.originsu.manager.domain.model.KernelStatus
+import com.originsu.manager.domain.model.isForeignKernel
 import com.originsu.manager.domain.model.ManagerUpdateChannel
 import com.originsu.manager.domain.model.ManagerUpdateInfo
 import com.originsu.manager.magica.MagicaService
@@ -408,8 +409,37 @@ fun HomePage(
                             )
                         }
                     )
-                    Spacer(modifier = Modifier.height(10.dp))
-                }
+                        Spacer(modifier = Modifier.height(10.dp))
+                    }
+
+                    if (uiState.systemStatus.isForeignKernel) {
+                        WarningCard(
+                            message = if (uiState.systemStatus.isRootAvailable)
+                                stringResource(
+                                    R.string.compat_kernel_notice,
+                                    uiState.systemStatus.ksuVersion ?: 0,
+                                    stringResource(R.string.app_name)
+                                )
+                            else
+                                stringResource(
+                                    R.string.compat_kernel_no_root_notice,
+                                    uiState.systemStatus.ksuVersion ?: 0,
+                                    stringResource(R.string.app_name)
+                                ),
+                            icon = {
+                                Icon(
+                                    imageVector = Icons.TwoTone.Info,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onErrorContainer,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            },
+                            onClick = {
+                                navigator.push(Route.Install(preselectedKernelUri = null))
+                            }
+                        )
+                        Spacer(modifier = Modifier.height(10.dp))
+                    }
 
                 if (uiState.isExtendedDataLoaded) {
                     InfoCard(

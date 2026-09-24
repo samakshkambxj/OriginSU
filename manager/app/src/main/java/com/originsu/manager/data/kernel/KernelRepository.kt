@@ -20,8 +20,12 @@ class KernelRepository(
     suspend fun getStatus(): KernelStatus = withContext(Dispatchers.IO) {
         val kernelVersion = getKernelVersion()
         val isManager = runCatching { Natives.isManager }.getOrDefault(false)
-        val ksuVersion = if (isManager) Natives.version else null
-        val kernelUapi = if (isManager) Natives.kernelUAPIVersion else null
+        // Report the driver version even when this manager is not recognized
+        // (e.g. a kernel or LKM built by another KernelSU fork): the version
+        // handshake needs no manager rights, and the UI uses it to offer a
+        // best-effort compat mode instead of "not installed".
+        val ksuVersion = runCatching { Natives.version }.getOrNull()?.takeIf { it > 0 }
+        val kernelUapi = runCatching { Natives.kernelUAPIVersion }.getOrNull()
         val managerUapi = runCatching { Natives.managerUAPIVersion }.getOrDefault(1)
         val fullVersion = runCatching { Natives.getFullVersion() }.getOrDefault("Unknown")
         val isRootAvailable = runCatching { ksuCliRepository.rootAvailable() }.getOrDefault(false)
@@ -30,8 +34,14 @@ class KernelRepository(
             ksuVersion = ksuVersion,
             managerUAPIVersion = managerUapi,
             kernelUAPIVersion = kernelUapi,
-            ksuFullVersion = "$fullVersion (${Natives.version}/$kernelUapi)",
-            lkmMode = ksuVersion?.let { if (kernelVersion.isGKI()) Natives.isLkmMode else null },
+            ksuFullVersion = "$fullVersion (${ksuVersion ?: "?"}/$kernelUapi)",
+            lkmMode = ksuVersion?.let {
+                if (kernelVersion.isGKI()) {
+                    runCatching { Natives.isLkmMode }.getOrNull()
+                } else {
+                    null
+                }
+            },
             kernelVersion = kernelVersion,
             isRootAvailable = isRootAvailable,
             isFullFeatured = isRootAvailable && runCatching { Natives.isFullFeatured() }

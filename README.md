@@ -56,6 +56,10 @@ with its own kernel + manager signing identity, UAPI baseline and release pipeli
 
 > [!TIP]
 > Coming from KernelSU / RKSU / MKSU / SukiSU? OriginSU's manager also works with those kernels, and its kernel accepts those official managers.
+> On a third-party kernel the manager runs in compat mode: grant it root in
+> your current manager and you keep modules, flashing (including another
+> fork's LKM `.ko` via **Install → Use local LKM file**) and reboot support,
+> while Origin-exclusive features wait for an OriginSU kernel.
 
 ## Installation
 
@@ -135,7 +139,7 @@ Pre-release tags containing `-rc` are published as GitHub pre-releases.
 - Module system based on [metamodules](https://kernelsu.org/guide/metamodule.html) for systemless modifications — with batch multi-select actions, update-all multi-flash, `banner=` artwork from `module.prop`, internal backups with restore, shareable bundle zips, and download-script (JSON) batch install
 - [App profiles](https://kernelsu.org/guide/app-profile.html): cage root power per app, with **time-limited grants** (10 min / 30 min / 1 h / 8 h / 24 h) revoked by a persistent waiter plus a sweep on every `ksud` start
 - GKI 2.0, GKI 1.0 and non-GKI (3.4+) kernel support
-- Manager interop: works with official [KernelSU](https://github.com/tiann/KernelSU), [RKSU](https://github.com/rsuntk/KernelSU), [MKSU](https://github.com/5ec1cff/KernelSU) and [SukiSU](https://github.com/SukiSU-Ultra/SukiSU-Ultra) kernels
+- Manager interop: works with official [KernelSU](https://github.com/tiann/KernelSU), [RKSU](https://github.com/rsuntk/KernelSU), [MKSU](https://github.com/5ec1cff/KernelSU) and [SukiSU](https://github.com/SukiSU-Ultra/SukiSU-Ultra) kernels (built-in or LKM) in compat mode once root is granted, and other forks' LKM `.ko` files can be flashed from the Install screen
 
 ### Origin Lab (Settings)
 

@@ -67,9 +67,9 @@ enum class BottomBarDestination(
     );
 
     companion object {
-        fun getPages(isKsuValid: Boolean, isKpmEnabled: Boolean): List<BottomBarDestination> {
+        fun getPages(hasCoreAccess: Boolean, isKpmEnabled: Boolean): List<BottomBarDestination> {
             return BottomBarDestination.entries.filter {
-                (!it.rootRequired || isKsuValid) && (!it.kpmRequired || isKpmEnabled)
+                (!it.rootRequired || hasCoreAccess) && (!it.kpmRequired || isKpmEnabled)
             }
         }
     }

@@ -98,6 +98,7 @@ import com.originsu.manager.data.appearance.MiuixHomeStyle
 import com.originsu.manager.data.appearance.TopBarLogo
 import com.originsu.manager.ui.UiMode
 import com.originsu.manager.domain.model.availablePaletteStyles
+import com.originsu.manager.domain.model.hasCoreAccess
 import com.originsu.manager.ui.component.ConfirmResult
 import com.originsu.manager.ui.component.KeyPointSlider
 import com.originsu.manager.ui.component.rememberConfirmDialog
@@ -826,11 +827,11 @@ private fun CustomizationSettings(
 
         item {
             val availableTabs = remember(
-                homeUiState.systemStatus.isFullFeatured,
+                homeUiState.systemStatus.hasCoreAccess,
                 homeUiState.systemInfo.isKpmEnabled,
             ) {
                 BottomBarDestination.getPages(
-                    isKsuValid = homeUiState.systemStatus.isFullFeatured,
+                    hasCoreAccess = homeUiState.systemStatus.hasCoreAccess,
                     isKpmEnabled = homeUiState.systemInfo.isKpmEnabled,
                 )
             }
