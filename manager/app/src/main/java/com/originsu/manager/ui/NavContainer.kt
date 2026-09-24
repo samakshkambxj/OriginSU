@@ -820,6 +820,7 @@ private fun Route.Flash.toFlashIt(): FlashIt = when (flashType) {
         allowShell = allowShell,
         enableAdb = enableAdb,
         forceBackup = forceBackup,
+        noInstall = noInstall,
     )
 
     Route.Flash.TYPE_MODULE -> FlashIt.FlashModule(uris.firstOrNull().orEmpty())

@@ -151,6 +151,7 @@ class FlashRepository(
                         operation.allowShell,
                         operation.enableAdb,
                         operation.forceBackup,
+                        operation.noInstall,
                         onFinish,
                         onStdout,
                         onStderr,

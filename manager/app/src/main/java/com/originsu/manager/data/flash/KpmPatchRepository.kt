@@ -227,12 +227,16 @@ class KpmPatchRepository(
         exportAsset(context, "kpimg", File(workDir, "kpimg"))
         val imageDir = kernelFile.parent ?: workDir.absolutePath
         val imageName = kernelFile.name
-        shellCmd("cp ${workDir.absolutePath}/kptools $imageDir/")
-        shellCmd("cp ${workDir.absolutePath}/kpimg $imageDir/")
+        shellCmd("cp ${q(workDir.absolutePath + "/kptools")} ${q(imageDir + "/")}")
+        shellCmd("cp ${q(workDir.absolutePath + "/kpimg")} ${q(imageDir + "/")}")
+        // kptools honors the inherited umask, and the root shell here is forked
+        // from the app (umask 077), so oImage comes out as a 600 root-owned
+        // file. The repack step runs rootless as the app UID and would then
+        // fail to open it, so restore world-readability after the move.
         val patchCommand = if (undo) {
-            "cd $imageDir && chmod a+rx kptools && ./kptools -u -s 123 -i $imageName -k kpimg -o oImage && mv oImage $imageName"
+            "cd ${q(imageDir)} && chmod a+rx kptools && ./kptools -u -s 123 -i ${q(imageName)} -k kpimg -o oImage && mv oImage ${q(imageName)} && chmod 644 ${q(imageName)}"
         } else {
-            "cd $imageDir && chmod a+rx kptools && ./kptools -p -s 123 -i $imageName -k kpimg -o oImage && mv oImage $imageName"
+            "cd ${q(imageDir)} && chmod a+rx kptools && ./kptools -p -s 123 -i ${q(imageName)} -k kpimg -o oImage && mv oImage ${q(imageName)} && chmod 644 ${q(imageName)}"
         }
         if (!shellCmd(patchCommand)) {
             throw IOException(
@@ -250,7 +254,7 @@ class KpmPatchRepository(
                 context.getString(R.string.kpm_patch_success)
             }
         )
-        shellCmd("rm -f $imageDir/kptools $imageDir/kpimg $imageDir/oImage")
+        shellCmd("rm -f ${q(imageDir + "/kptools")} ${q(imageDir + "/kpimg")} ${q(imageDir + "/oImage")}")
     }
 
     private fun exportAsset(context: Context, name: String, dest: File) {

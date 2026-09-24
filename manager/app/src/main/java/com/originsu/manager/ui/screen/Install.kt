@@ -298,6 +298,9 @@ fun InstallScreen(
         val patch = kpmPatchOption == KpmPatchOption.PATCH_KPM
         val undo = kpmPatchOption == KpmPatchOption.UNDO_PATCH_KPM
         val partition = partitions.getOrNull(partitionSelectionIndex)
+        // KPM injects into the kernel image, which lives in boot: never
+        // inherit the KSU default partition (e.g. init_boot, ramdisk-only).
+        val kpmBootPartition = partitions.firstOrNull { it == "boot" } ?: partition
         when (source) {
             is KpmInstallSource.KernelZip -> {
                 navigator.push(
@@ -408,10 +411,11 @@ fun InstallScreen(
                                 Route.Flash.boot(
                                     bootUri = targetUri,
                                     lkmUri = null,
-                                    kmi = kpmKmi,
+                                    kmi = null,
                                     ota = false,
-                                    partition = partition,
-                                    hook = null
+                                    partition = kpmBootPartition,
+                                    hook = null,
+                                    noInstall = true,
                                 )
                             )
                         }
@@ -612,6 +616,11 @@ private fun InstallBody(
     val patchBootPickedFmt = stringResource(R.string.patch_boot_picked)
     val selectFileTip = stringResource(
         id = R.string.select_file_tip, defaultPartitionName
+    )
+    // KPM injects into the kernel image, which lives in boot: point at boot
+    // here instead of the KSU default partition (e.g. ramdisk-only init_boot).
+    val kpmSelectBootTip = stringResource(
+        id = R.string.select_file_tip, "boot"
     )
 
     var akPatchBootUri by remember { mutableStateOf<Uri?>(null) }
@@ -917,7 +926,7 @@ private fun InstallBody(
                     )
                     InstallMethodRow(
                         title = stringResource(id = R.string.select_file),
-                        summary = selectFileTip,
+                        summary = kpmSelectBootTip,
                         selected = kpmSource is KpmInstallSource.BootImage,
                         onClick = {
                             kpmBootPicker.launch(Intent(Intent.ACTION_GET_CONTENT).apply {
@@ -967,7 +976,12 @@ private fun InstallBody(
                         }
                     }
 
-                    if (kpmSource is KpmInstallSource.BootImage && showKpmKmiRow) {
+                    // KMI only feeds the KernelSU install, which the KPM
+                    // patch/undo flash skips (--no-install): show it solely
+                    // for the follow-kernel (flash as-is) path.
+                    if (kpmSource is KpmInstallSource.BootImage && showKpmKmiRow &&
+                        kpmPatchOption == KpmPatchOption.FOLLOW_KERNEL
+                    ) {
                         InstallActionRow(
                             icon = Icons.TwoTone.Edit,
                             title = stringResource(id = R.string.select_kmi),

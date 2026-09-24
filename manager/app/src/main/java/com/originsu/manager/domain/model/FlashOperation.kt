@@ -9,6 +9,7 @@ sealed interface FlashOperation {
         val allowShell: Boolean = false,
         val enableAdb: Boolean = false,
         val forceBackup: Boolean = false,
+        val noInstall: Boolean = false,
     ) : FlashOperation
 
     data class Module(

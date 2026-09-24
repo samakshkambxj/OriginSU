@@ -97,6 +97,7 @@ sealed interface Route : NavKey, Parcelable {
         val allowShell: Boolean = false,
         val enableAdb: Boolean = false,
         val forceBackup: Boolean = false,
+        val noInstall: Boolean = false,
     ) : Route {
         companion object {
             const val TYPE_BOOT = "boot"
@@ -118,6 +119,7 @@ sealed interface Route : NavKey, Parcelable {
                 allowShell: Boolean = false,
                 enableAdb: Boolean = false,
                 forceBackup: Boolean = false,
+                noInstall: Boolean = false,
             ) = Flash(
                 flashType = TYPE_BOOT,
                 bootUri = bootUri,
@@ -129,6 +131,7 @@ sealed interface Route : NavKey, Parcelable {
                 allowShell = allowShell,
                 enableAdb = enableAdb,
                 forceBackup = forceBackup,
+                noInstall = noInstall,
             )
 
             fun module(uri: String) = Flash(TYPE_MODULE, uris = listOf(uri))

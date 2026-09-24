@@ -914,6 +914,7 @@ sealed class FlashIt : Parcelable {
         val allowShell: Boolean = false,
         val enableAdb: Boolean = false,
         val forceBackup: Boolean = false,
+        val noInstall: Boolean = false,
     ) : FlashIt()
 
     data class FlashModule(val uri: String) : FlashIt()
@@ -1038,6 +1039,7 @@ private suspend fun flashIt(
             allowShell = flashIt.allowShell,
             enableAdb = flashIt.enableAdb,
             forceBackup = flashIt.forceBackup,
+            noInstall = flashIt.noInstall,
         )
 
         is FlashIt.FlashModule -> FlashOperation.Module(flashIt.uri, auditConfirmed, noAudit)

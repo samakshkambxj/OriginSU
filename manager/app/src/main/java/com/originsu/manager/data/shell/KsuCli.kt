@@ -868,6 +868,7 @@ class KsuCliRepository(context: Context) {
         allowShell: Boolean = false,
         enableAdb: Boolean = false,
         forceBackup: Boolean = false,
+        noInstall: Boolean = false,
         onFinish: (Boolean, Int) -> Unit,
         onStdout: (String) -> Unit,
         onStderr: (String) -> Unit,
@@ -899,7 +900,11 @@ class KsuCliRepository(context: Context) {
         }
 
         var lkmFile: File? = null
-        when (lkm) {
+        if (noInstall) {
+            // Pure repack/flash (e.g. an already KPM-patched image): do not
+            // (re-)install KernelSU, so no KMI/hook handling and no LKM.
+            cmd += " --no-install"
+        } else when (lkm) {
             is LkmSelection.LkmUri -> {
                 lkmFile = with(resolver.openInputStream(lkm.uri.toUri())) {
                     val file = File(context.cacheDir, "kernelsu-tmp-lkm.ko")
