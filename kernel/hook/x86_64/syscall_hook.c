@@ -30,11 +30,30 @@ static ksu_syscall_hook_fn syscall_hooks[__NR_syscalls];
 struct syscall_hook_entry {
     int nr;
     sys_call_ptr_t orig;
+    // Our replacement currently expected in the slot. Restores only happen
+    // while the live slot still holds this, so we never clobber a hook
+    // installed by someone else after us.
+    sys_call_ptr_t hook;
 };
 
 static DEFINE_MUTEX(hooked_entries_lock);
 static struct syscall_hook_entry hooked_entries[16];
 static int hooked_count = 0;
+
+// The syscall table lives in .rodata, but the address we resolve
+// (especially from an LKM via kallsyms) is not guaranteed to be the real
+// table, and a slot may already hold a foreign hook. Refuse to patch a
+// slot whose current content is not core kernel text: writing blindly
+// there corrupts memory, and on execve that means a bootloop. Same idea
+// as backslashxx/KernelSU's "NOT pointing to kernel text" guard.
+extern char _stext[], _etext[];
+
+static bool ksu_slot_is_kernel_text(sys_call_ptr_t fn)
+{
+    unsigned long addr = (unsigned long)fn;
+
+    return fn && addr > (unsigned long)_stext && addr < (unsigned long)_etext;
+}
 
 static int patch_syscall_table(int nr, sys_call_ptr_t fn)
 {
@@ -56,46 +75,81 @@ static int patch_syscall_table(int nr, sys_call_ptr_t fn)
 
 // Direct syscall table patching: overwrite syscall_table[nr] with fn,
 // save original to *old, and record for restoration at module exit.
-void ksu_syscall_table_hook(int nr, sys_call_ptr_t fn, sys_call_ptr_t *old)
+// Refuses slots that do not point into core kernel text. Returns 0 on
+// success, negative errno otherwise.
+int ksu_syscall_table_hook(int nr, sys_call_ptr_t fn, sys_call_ptr_t *old)
 {
+    int i, ret = 0;
+    bool added = false;
+
     if (ksu_syscall_table == NULL)
-        return;
+        return -ENOENT;
     if (nr < 0 || nr >= __NR_syscalls) {
         pr_info("invalid nr: %d\n", nr);
-        return;
+        return -EINVAL;
     }
 
     mutex_lock(&hooked_entries_lock);
 
-    sys_call_ptr_t orig = READ_ONCE(ksu_syscall_table[nr]);
+    sys_call_ptr_t live = READ_ONCE(ksu_syscall_table[nr]);
     if (old)
-        *old = orig;
+        *old = live;
 
-    // Record for later restoration
-    int i;
-    bool found = false;
     for (i = 0; i < hooked_count; i++) {
-        if (hooked_entries[i].nr == nr) {
-            found = true;
+        if (hooked_entries[i].nr == nr)
             break;
-        }
     }
-    if (!found) {
-        if (hooked_count < ARRAY_SIZE(hooked_entries)) {
-            hooked_entries[hooked_count].nr = nr;
-            hooked_entries[hooked_count].orig = orig;
-            hooked_count++;
-        } else {
+
+    if (i < hooked_count) {
+        // We already track this slot.
+        if (live == hooked_entries[i].hook) {
+            // Still ours: idempotent, nothing to do.
+            goto out;
+        }
+        // Slot changed under us: re-validate before touching it.
+        if (!ksu_slot_is_kernel_text(live)) {
+            pr_err("refuse to re-patch syscall %d: slot 0x%lx is not kernel text\n", nr,
+                   (unsigned long)live);
+            ret = -EFAULT;
+            goto out;
+        }
+        hooked_entries[i].hook = fn;
+    } else {
+        if (!ksu_slot_is_kernel_text(live)) {
+            pr_err("refuse to patch syscall %d: slot 0x%lx is not kernel text\n", nr,
+                   (unsigned long)live);
+            ret = -EFAULT;
+            goto out;
+        }
+        if (hooked_count >= (int)ARRAY_SIZE(hooked_entries)) {
             pr_warn("hooked_entries full, cannot track syscall %d for restoration\n", nr);
+            ret = -ENOSPC;
+            goto out;
         }
+        // First hook wins: keep the original for restoration.
+        hooked_entries[hooked_count].nr = nr;
+        hooked_entries[hooked_count].orig = live;
+        hooked_entries[hooked_count].hook = fn;
+        hooked_count++;
+        added = true;
     }
 
-    patch_syscall_table(nr, fn);
+    ret = patch_syscall_table(nr, fn);
+    if (ret && added) {
+        // Patch failed: roll back the record so a hook that was never
+        // installed is neither restored nor used as a call-through target.
+        hooked_count--;
+    }
 
+out:
     mutex_unlock(&hooked_entries_lock);
+    return ret;
 }
 
 // Restore syscall_table[nr] to its original value and remove from tracking list.
+// The restore only happens while the live slot still holds our hook; if
+// someone else replaced the entry after us, the record is dropped without
+// writing so their hook is left intact.
 void ksu_syscall_table_unhook(int nr)
 {
     int i;
@@ -109,7 +163,15 @@ void ksu_syscall_table_unhook(int nr)
 
     for (i = 0; i < hooked_count; i++) {
         if (hooked_entries[i].nr == nr) {
-            patch_syscall_table(nr, hooked_entries[i].orig);
+            sys_call_ptr_t live = READ_ONCE(ksu_syscall_table[nr]);
+            if (live != hooked_entries[i].hook) {
+                pr_warn("syscall %d slot 0x%lx no longer ours, skip restore\n", nr,
+                        (unsigned long)live);
+            } else if (patch_syscall_table(nr, hooked_entries[i].orig)) {
+                pr_err("restore syscall %d failed, keeping record\n", nr);
+                mutex_unlock(&hooked_entries_lock);
+                return;
+            }
             // Remove entry by swapping with last
             hooked_entries[i] = hooked_entries[--hooked_count];
             mutex_unlock(&hooked_entries_lock);
@@ -368,11 +430,16 @@ void __exit ksu_syscall_hook_exit(void)
 
     // First, restore all patched syscall table entries while the dispatcher
     // and hook table are still intact, so in-flight syscalls see valid state.
+    // Slots that no longer hold our hook are left alone (foreign owner).
     mutex_lock(&hooked_entries_lock);
     for (i = 0; i < hooked_count; i++) {
         int nr = hooked_entries[i].nr;
         sys_call_ptr_t orig = hooked_entries[i].orig;
 
+        if (READ_ONCE(ksu_syscall_table[nr]) != hooked_entries[i].hook) {
+            pr_warn("restore: syscall %d no longer ours, skip\n", nr);
+            continue;
+        }
         pr_info("restore syscall %d to 0x%lx\n", nr, (unsigned long)orig);
         if (ksu_patch_text(&ksu_syscall_table[nr], &orig, sizeof(orig), KSU_PATCH_TEXT_FLUSH_DCACHE)) {
             pr_err("restore syscall %d failed\n", nr);
@@ -421,18 +488,29 @@ static long __nocfi ksu_tamper_faccessat(const struct pt_regs *regs)
     return ksu_hook_faccessat(__NR_faccessat, regs);
 }
 
-void ksu_tamper_install(void)
+// Install the tamper trampolines. Each entry is validated and hooked
+// individually: a slot that does not point into core kernel text is
+// skipped (with an error log) instead of being patched blindly, so one
+// bad slot can never take the device down with it. Returns the number of
+// entries that could not be hooked (0 = all good).
+int ksu_tamper_install(void)
 {
+    int failed = 0;
+
     if (!ksu_syscall_table) {
         pr_err("tamper: no syscall table, hooks not installed\n");
-        return;
+        return 5;
     }
-    ksu_syscall_table_hook(__NR_setresuid, (sys_call_ptr_t)ksu_tamper_setresuid, NULL);
-    ksu_syscall_table_hook(__NR_execve, (sys_call_ptr_t)ksu_tamper_execve, NULL);
-    ksu_syscall_table_hook(__NR_execveat, (sys_call_ptr_t)ksu_tamper_execveat, NULL);
-    ksu_syscall_table_hook(__NR_newfstatat, (sys_call_ptr_t)ksu_tamper_newfstatat, NULL);
-    ksu_syscall_table_hook(__NR_faccessat, (sys_call_ptr_t)ksu_tamper_faccessat, NULL);
-    pr_info("tamper: direct syscall table hooks installed, no tracepoint registered\n");
+    failed += ksu_syscall_table_hook(__NR_setresuid, (sys_call_ptr_t)ksu_tamper_setresuid, NULL) ? 1 : 0;
+    failed += ksu_syscall_table_hook(__NR_execve, (sys_call_ptr_t)ksu_tamper_execve, NULL) ? 1 : 0;
+    failed += ksu_syscall_table_hook(__NR_execveat, (sys_call_ptr_t)ksu_tamper_execveat, NULL) ? 1 : 0;
+    failed += ksu_syscall_table_hook(__NR_newfstatat, (sys_call_ptr_t)ksu_tamper_newfstatat, NULL) ? 1 : 0;
+    failed += ksu_syscall_table_hook(__NR_faccessat, (sys_call_ptr_t)ksu_tamper_faccessat, NULL) ? 1 : 0;
+    if (!failed)
+        pr_info("tamper: direct syscall table hooks installed, no tracepoint registered\n");
+    else
+        pr_err("tamper: %d/5 hooks skipped, root functionality will be degraded\n", failed);
+    return failed;
 }
 
 sys_call_ptr_t ksu_tamper_saved_orig(int nr)

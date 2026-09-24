@@ -37,19 +37,29 @@ bool ksu_has_syscall_hook(int nr);
 // Saves the original handler to *@old (if non-NULL) and records the entry
 // for restoration at module exit. Use this for boot-time hooks that replace
 // a real syscall entry (e.g. ksud hooking __NR_execve/__NR_read/__NR_fstat).
-void ksu_syscall_table_hook(int nr, syscall_fn_t fn, syscall_fn_t *old);
+// The live slot must currently point into core kernel text, otherwise the
+// patch is refused and a negative errno is returned (a mis-resolved table
+// must never be written to: on execve that means a bootloop). Returns 0 on
+// success, negative errno otherwise.
+int ksu_syscall_table_hook(int nr, syscall_fn_t fn, syscall_fn_t *old);
 
 // Restore syscall_table[@nr] to its original value recorded by
 // ksu_syscall_table_hook(), and remove the entry from the tracking list.
-// Use this to cleanly undo a direct hook when it is no longer needed
+// The restore only happens while the live slot still holds our hook; if
+// someone else replaced the entry after us, our record is dropped without
+// writing so their hook is left intact. Use this to cleanly undo a direct
+// hook when it is no longer needed
 // (e.g. ksud unhooking __NR_read after init.rc injection is done).
 void ksu_syscall_table_unhook(int nr);
 
 #ifdef CONFIG_KSU_TAMPER_SYSCALL_TABLE
 // Directly patch the hooked syscall entries (setresuid, execve, execveat,
 // newfstatat, faccessat) with tamper trampolines. No tracepoint is
-// registered and no dispatcher slot is consumed.
-void ksu_tamper_install(void);
+// registered and no dispatcher slot is consumed. Entries whose live slot
+// does not point into core kernel text are skipped individually, so one
+// bad slot can never take the device down. Returns the number of entries
+// that could not be hooked (0 = all good).
+int ksu_tamper_install(void);
 
 // Saved original handler for a tampered entry, or NULL when @nr was not
 // tampered. Handlers use this (instead of the live table, which points at

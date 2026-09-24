@@ -142,8 +142,10 @@ void __init ksu_syscall_hook_manager_init(void)
 
 #ifdef CONFIG_KSU_TAMPER_SYSCALL_TABLE
     // Surgical table tampering: the hooked entries are patched directly,
-    // no sys_enter tracepoint is registered.
-    ksu_tamper_install();
+    // no sys_enter tracepoint is registered. Entries that fail validation
+    // are skipped, never patched blindly.
+    if (ksu_tamper_install())
+        pr_err("hook_manager: tamper install incomplete, some hooks skipped\n");
 #else
 #ifdef CONFIG_HAVE_SYSCALL_TRACEPOINTS
     ret = register_trace_prio_sys_enter(ksu_sys_enter_handler, NULL, INT_MIN);
