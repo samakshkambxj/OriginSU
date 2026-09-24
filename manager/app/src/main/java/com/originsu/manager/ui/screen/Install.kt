@@ -822,12 +822,16 @@ private fun InstallBody(
                 text = { Text(stringResource(R.string.install_tab_gki)) },
                 unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            Tab(
-                selected = selectedTabIndex == 2,
-                onClick = { onTabSelected(2) },
-                text = { Text(stringResource(R.string.install_tab_kpm)) },
-                unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            // KPM injection needs root: hide the tab entirely without root
+            // (its content, including the KPM patch options, is root-gated too).
+            if (rootAvailable) {
+                Tab(
+                    selected = selectedTabIndex == 2,
+                    onClick = { onTabSelected(2) },
+                    text = { Text(stringResource(R.string.install_tab_kpm)) },
+                    unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
 
         when (selectedTabIndex) {
