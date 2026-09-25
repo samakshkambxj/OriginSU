@@ -15,8 +15,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.add
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -49,6 +47,7 @@ import androidx.compose.material.icons.twotone.RemoveModerator
 import androidx.compose.material.icons.twotone.RestartAlt
 import androidx.compose.material.icons.twotone.Save
 import androidx.compose.material.icons.twotone.Science
+import androidx.compose.material.icons.twotone.SearchOff
 import androidx.compose.material.icons.twotone.Security
 import androidx.compose.material.icons.twotone.Settings
 import androidx.compose.material.icons.twotone.Share
@@ -58,15 +57,12 @@ import androidx.compose.material.icons.twotone.Tune
 import androidx.compose.material.icons.twotone.Update
 import androidx.compose.material.icons.twotone.Visibility
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LargeFlexibleTopAppBar
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -86,6 +82,7 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -95,8 +92,10 @@ import com.originsu.manager.BuildConfig
 import com.originsu.manager.R
 import com.originsu.manager.domain.usecase.GenerateBugreportUseCase
 import com.originsu.manager.ui.component.ConfirmResult
+import com.originsu.manager.ui.component.SearchAppBar
 import com.originsu.manager.ui.component.SwipeableSnackbarHost
 import com.originsu.manager.ui.component.popupBlur
+import com.originsu.manager.ui.component.rememberSearchAppBarScrollBehavior
 import com.originsu.manager.ui.component.popupContainerColor
 import com.originsu.manager.ui.component.rememberConfirmDialog
 import com.originsu.manager.ui.component.rememberLoadingDialog
@@ -107,9 +106,6 @@ import com.originsu.manager.ui.component.settings.SettingsJumpPageWidget
 import com.originsu.manager.ui.component.settings.SettingsSwitchWidget
 import com.originsu.manager.ui.navigation.LocalNavigator
 import com.originsu.manager.ui.navigation.Route
-import com.originsu.manager.ui.theme.CardConfig
-import com.originsu.manager.ui.theme.ThemeConfig
-import com.originsu.manager.ui.theme.blurEffect
 import com.originsu.manager.ui.theme.blurSource
 import com.originsu.manager.ui.util.LocalSnackbarHost
 import com.originsu.manager.ui.util.adaptiveScaffoldWindowInsets
@@ -141,13 +137,222 @@ private val SPACING_LARGE = 16.dp
 @Composable
 fun SettingsPage(bottomPadding: Dp) {
     val navigator = LocalNavigator.current
-    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
+    val scrollBehavior = rememberSearchAppBarScrollBehavior(
+        TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
+    )
+    var searchQuery by remember { mutableStateOf("") }
     val snackBarHost = LocalSnackbarHost.current
     val settingsViewModel = koinViewModel<SettingsViewModel>()
     val homeViewModel = koinViewModel<HomeViewModel>()
     val generateBugreport = koinInject<GenerateBugreportUseCase>()
     val uiState by settingsViewModel.uiState.collectAsStateWithLifecycle()
     val homeState by homeViewModel.uiState.collectAsStateWithLifecycle()
+
+    // Searchable titles/descriptions hoisted here so row visibility predicates
+    // (evaluated in the non-composable SegmentedColumn DSL) can filter on them.
+    val query = searchQuery.trim()
+    fun matches(vararg texts: String): Boolean {
+        if (query.isBlank()) return true
+        return texts.any { it.contains(query, ignoreCase = true) }
+    }
+    val sectionConfiguration = stringResource(R.string.configuration)
+    val sectionOrigin = stringResource(R.string.origin_section_title)
+    val sectionApp = stringResource(R.string.app_settings)
+    val sectionTools = stringResource(R.string.tools)
+    val sectionAbout = stringResource(R.string.about)
+
+    val titleProfileTemplate = stringResource(R.string.settings_profile_template)
+    val descProfileTemplate = stringResource(R.string.settings_profile_template_summary)
+    val titleSuCompat = stringResource(R.string.settings_sucompat)
+    val suSummaryUnsupported = stringResource(R.string.feature_status_unsupported_summary)
+    val suSummaryManaged = stringResource(R.string.feature_status_managed_summary)
+    val suSummaryDefault = stringResource(R.string.settings_sucompat_summary)
+    val titleUmount = stringResource(R.string.settings_kernel_umount)
+    val descUmountDefault = stringResource(R.string.settings_kernel_umount_summary)
+    val titleAutoJailbreak = stringResource(R.string.settings_auto_jailbreak)
+    val descAutoJailbreak = stringResource(R.string.settings_auto_jailbreak_summary)
+    val titleAdbRoot = stringResource(R.string.settings_adb_root)
+    val descAdbRootDefault = stringResource(R.string.settings_adb_root_summary)
+    val titleSelinux = stringResource(R.string.settings_selinux_permissive)
+    val descSelinuxDefault = stringResource(R.string.settings_selinux_permissive_summary)
+    val titleSoftReboot = stringResource(R.string.settings_soft_reboot)
+    val descSoftReboot = stringResource(R.string.settings_soft_reboot_summary)
+    val titleSulog = stringResource(R.string.settings_sulog)
+    val descSulogDefault = stringResource(R.string.settings_sulog_summary)
+    val titleSelinuxHide = stringResource(R.string.settings_selinux_hide)
+    val descSelinuxHideDefault = stringResource(R.string.settings_selinux_hide_summary)
+    val titleUmountDefault = stringResource(R.string.settings_umount_modules_default)
+    val descUmountDefaultSummary = stringResource(R.string.settings_umount_modules_default_summary)
+
+    val titleZygisk = stringResource(R.string.settings_origin_zygisk)
+    val zygiskRunning = stringResource(R.string.origin_zygisk_running)
+    val zygiskNeedsReboot = stringResource(R.string.origin_zygisk_needs_reboot)
+    val zygiskDefault = stringResource(R.string.settings_origin_zygisk_summary)
+    val titleVeilSwitch = stringResource(R.string.settings_veil)
+    val descVeilDefault = stringResource(R.string.settings_veil_summary)
+    val titleVeilManage = stringResource(R.string.veil)
+    val descVeilManage = stringResource(R.string.veil_manage_summary)
+    val titleGrantToast = stringResource(R.string.settings_grant_toast)
+    val descGrantToast = stringResource(R.string.settings_grant_toast_summary)
+    val titleSuPrompt = stringResource(R.string.settings_su_prompt)
+    val descSuPrompt = stringResource(R.string.settings_su_prompt_summary)
+    val descSuPromptUnsupported = stringResource(R.string.settings_su_prompt_unsupported)
+    val titleTempGrant = stringResource(R.string.settings_temp_grant)
+    val descTempGrant = stringResource(R.string.settings_temp_grant_summary)
+    val titleBootloopRescued = stringResource(R.string.settings_bootloop_rescued_title)
+    val titleBootloop = stringResource(R.string.settings_bootloop_protection)
+    val titleBootloopThreshold = stringResource(R.string.settings_bootloop_threshold)
+    val titleSecureRoot = stringResource(R.string.settings_secure_root)
+    val descSecureRoot = stringResource(R.string.settings_secure_root_summary)
+    val titleOriginGuard = stringResource(R.string.settings_originguard)
+    val descOriginGuard = stringResource(R.string.settings_originguard_summary)
+    val titleMagicMount = stringResource(R.string.settings_magic_mount)
+    val descMagicMount = stringResource(R.string.settings_magic_mount_summary)
+    val titleMagicBackend = stringResource(R.string.settings_magic_mount_backend)
+    val descMagicBackend = stringResource(R.string.settings_magic_mount_backend_summary)
+
+    val titleCheckManagerUpdate = stringResource(R.string.settings_check_manager_update)
+    val descCheckManagerUpdate = stringResource(R.string.settings_check_manager_update_summary)
+    val titleCheckBeta = stringResource(R.string.settings_check_beta_update)
+    val descCheckBeta = stringResource(R.string.settings_check_beta_update_summary)
+    val titleCheckModule = stringResource(R.string.settings_check_module_update)
+    val descCheckModule = stringResource(R.string.settings_check_module_update_summary)
+    val titleUpdater = stringResource(R.string.updater)
+    val descUpdater = stringResource(R.string.updater_summary)
+    val titleTheme = stringResource(R.string.theme_settings)
+
+    val titleSendLog = stringResource(R.string.send_log)
+    val titleDynamicManager = stringResource(R.string.dynamic_manager_title)
+    val descDynamicManager = stringResource(R.string.dynamic_manager_settings_summary)
+    val titleUmountManager = stringResource(R.string.umount_path_manager)
+    val descUmountManager = stringResource(R.string.umount_path_manager_summary)
+    val titleTuning = stringResource(R.string.kernel_tuning)
+    val descTuning = stringResource(R.string.kernel_tuning_summary)
+    val titleUninstall = stringResource(R.string.settings_uninstall)
+    val titleAboutRow = stringResource(R.string.about)
+
+    val suSummary = when (uiState.suStatus) {
+        "unsupported" -> suSummaryUnsupported
+        "managed" -> suSummaryManaged
+        else -> suSummaryDefault
+    }
+    val umountSummary = when (uiState.kernelUmountStatus) {
+        "unsupported" -> suSummaryUnsupported
+        "managed" -> suSummaryManaged
+        else -> descUmountDefault
+    }
+    val adbSummary = when (uiState.adbRootStatus) {
+        "unsupported" -> suSummaryUnsupported
+        "managed" -> suSummaryManaged
+        else -> descAdbRootDefault
+    }
+    val selinuxSummary = when (uiState.selinuxStatus) {
+        "unsupported" -> suSummaryUnsupported
+        "managed" -> suSummaryManaged
+        else -> descSelinuxDefault
+    }
+    val sulogSummary = when (uiState.sulogStatus) {
+        "unsupported" -> suSummaryUnsupported
+        "managed" -> suSummaryManaged
+        else -> descSulogDefault
+    }
+    val selinuxHideSummary = when (uiState.selinuxHideStatus) {
+        "unsupported" -> suSummaryUnsupported
+        "managed" -> suSummaryManaged
+        else -> descSelinuxHideDefault
+    }
+    val zygiskSummary = when {
+        uiState.isOriginZygiskRunning -> zygiskRunning
+        uiState.isOriginZygiskEnabled -> zygiskNeedsReboot
+        else -> zygiskDefault
+    }
+    val veilSummary = when (uiState.veilStatus) {
+        "unsupported" -> suSummaryUnsupported
+        "managed" -> suSummaryManaged
+        else -> descVeilDefault
+    }
+    val suPromptSummary =
+        if (uiState.isSuPromptSupported) descSuPrompt else descSuPromptUnsupported
+
+    // Per-row search matches (AND-ed with the existing availability flags below).
+    val matchProfileTemplate = matches(titleProfileTemplate, descProfileTemplate, sectionConfiguration)
+    val matchSuCompat = matches(titleSuCompat, suSummary, sectionConfiguration)
+    val matchUmount = matches(titleUmount, umountSummary, sectionConfiguration)
+    val matchAutoJailbreak = matches(titleAutoJailbreak, descAutoJailbreak, sectionConfiguration)
+    val matchAdbRoot = matches(titleAdbRoot, adbSummary, sectionConfiguration)
+    val matchSelinux = matches(titleSelinux, selinuxSummary, sectionConfiguration)
+    val matchSoftReboot = matches(titleSoftReboot, descSoftReboot, sectionConfiguration)
+    val matchSulog = matches(titleSulog, sulogSummary, sectionConfiguration)
+    val matchSelinuxHide = matches(titleSelinuxHide, selinuxHideSummary, sectionConfiguration)
+    val matchUmountDefault = matches(titleUmountDefault, descUmountDefaultSummary, sectionConfiguration)
+
+    val matchZygisk = matches(titleZygisk, zygiskSummary, sectionOrigin)
+    val matchVeilSwitch = matches(titleVeilSwitch, veilSummary, sectionOrigin)
+    val matchVeilManage = matches(titleVeilManage, descVeilManage, sectionOrigin)
+    val matchGrantToast = matches(titleGrantToast, descGrantToast, sectionOrigin)
+    val matchSuPrompt = matches(titleSuPrompt, suPromptSummary, sectionOrigin)
+    val matchTempGrant = matches(titleTempGrant, descTempGrant, sectionOrigin)
+    val matchBootloopRescued = matches(titleBootloopRescued, sectionOrigin)
+    val matchBootloop = matches(titleBootloop, sectionOrigin)
+    val matchBootloopThreshold = matches(titleBootloopThreshold, sectionOrigin)
+    val matchSecureRoot = matches(titleSecureRoot, descSecureRoot, sectionOrigin)
+    val matchOriginGuard = matches(titleOriginGuard, descOriginGuard, sectionOrigin)
+    val matchMagicMount = matches(titleMagicMount, descMagicMount, sectionOrigin)
+    val matchMagicBackend = matches(titleMagicBackend, descMagicBackend, sectionOrigin)
+
+    val matchCheckManager = matches(titleCheckManagerUpdate, descCheckManagerUpdate, sectionApp)
+    val matchCheckBeta = matches(titleCheckBeta, descCheckBeta, sectionApp)
+    val matchCheckModule = matches(titleCheckModule, descCheckModule, sectionApp)
+    val matchUpdater = matches(titleUpdater, descUpdater, sectionApp)
+    val matchTheme = matches(titleTheme, sectionApp)
+
+    val matchSendLog = matches(titleSendLog, sectionTools)
+    val matchDynamicManager = matches(titleDynamicManager, descDynamicManager, sectionTools)
+    val matchUmountManager = matches(titleUmountManager, descUmountManager, sectionTools)
+    val matchTuning = matches(titleTuning, descTuning, sectionTools)
+    val matchUninstall = matches(titleUninstall, sectionTools)
+    val matchAboutRow = matches(titleAboutRow, sectionAbout)
+
+    val isFullFeatured = homeState.systemStatus.isFullFeatured
+    val showConfigGroup = isFullFeatured && listOf(
+        matchProfileTemplate,
+        matchSuCompat,
+        matchUmount,
+        matchAutoJailbreak && homeState.systemStatus.isLateLoadMode,
+        matchAdbRoot,
+        matchSelinux,
+        matchSoftReboot,
+        matchSulog,
+        matchSelinuxHide,
+        matchUmountDefault,
+    ).any { it }
+    val showOriginGroup = listOf(
+        matchZygisk,
+        matchVeilSwitch,
+        matchVeilManage && uiState.veilStatus == "supported" && uiState.isVeilEnabled,
+        matchGrantToast,
+        matchSuPrompt,
+        matchTempGrant,
+        matchBootloopRescued && uiState.bootloopRescued,
+        matchBootloop && isFullFeatured,
+        matchBootloopThreshold && isFullFeatured && uiState.isBootloopEnabled,
+        matchSecureRoot,
+        matchOriginGuard,
+        matchMagicMount,
+        matchMagicBackend,
+    ).any { it }
+    val showAppGroup = listOf(
+        matchCheckManager, matchCheckBeta, matchCheckModule, matchUpdater, matchTheme,
+    ).any { it }
+    val showToolsGroup = isFullFeatured && listOf(
+        matchSendLog,
+        matchDynamicManager,
+        matchUmountManager && uiState.isKernelUmountEnabled,
+        matchTuning,
+        matchUninstall && homeState.systemStatus.lkmMode == true && !homeState.systemStatus.isLateLoadMode,
+    ).any { it } || (!isFullFeatured && matchSendLog)
+    val hasAnyMatch = showConfigGroup || showOriginGroup || showAppGroup || showToolsGroup ||
+        (query.isBlank() || matchAboutRow)
 
     LaunchedEffect(Unit) {
         settingsViewModel.dispatch(SettingsUiAction.LoadFeatureSettings)
@@ -161,7 +366,13 @@ fun SettingsPage(bottomPadding: Dp) {
 
     Scaffold(
         topBar = {
-            TopBar(scrollBehavior = scrollBehavior)
+            SearchAppBar(
+                title = stringResource(R.string.settings),
+                searchText = searchQuery,
+                onSearchTextChange = { searchQuery = it },
+                scrollBehavior = scrollBehavior,
+                searchBarPlaceHolderText = stringResource(R.string.search_settings),
+            )
         },
         snackbarHost = {
             SwipeableSnackbarHost(
@@ -210,7 +421,7 @@ fun SettingsPage(bottomPadding: Dp) {
             )
         ) {
             // 配置卡片
-            if (homeState.systemStatus.isFullFeatured) {
+            if (showConfigGroup) {
                 item {
                     val modeItems = listOf(
                         stringResource(id = R.string.settings_mode_default),
@@ -221,7 +432,7 @@ fun SettingsPage(bottomPadding: Dp) {
                     SegmentedColumn(
                         title = stringResource(R.string.configuration),
                         content = {
-                            item {
+                            item(visible = matchProfileTemplate) {
                                 // 配置文件模板入口
                                 SettingsJumpPageWidget(
                                     icon = Icons.TwoTone.Fence,
@@ -233,7 +444,7 @@ fun SettingsPage(bottomPadding: Dp) {
                                 )
                             }
 
-                            item {
+                            item(visible = matchSuCompat) {
                                 val suSummary = when (uiState.suStatus) {
                                     "unsupported" -> stringResource(id = R.string.feature_status_unsupported_summary)
                                     "managed" -> stringResource(id = R.string.feature_status_managed_summary)
@@ -256,7 +467,7 @@ fun SettingsPage(bottomPadding: Dp) {
                                 )
                             }
 
-                            item {
+                            item(visible = matchUmount) {
                                 val umountSummary = when (uiState.kernelUmountStatus) {
                                     "unsupported" -> stringResource(id = R.string.feature_status_unsupported_summary)
                                     "managed" -> stringResource(id = R.string.feature_status_managed_summary)
@@ -279,7 +490,7 @@ fun SettingsPage(bottomPadding: Dp) {
                             }
 
                             item(
-                                visible = homeState.systemStatus.isLateLoadMode
+                                visible = homeState.systemStatus.isLateLoadMode && matchAutoJailbreak
                             ) {
                                 SettingsSwitchWidget(
                                     icon = Icons.TwoTone.ElectricalServices,
@@ -297,7 +508,7 @@ fun SettingsPage(bottomPadding: Dp) {
                             }
 
                             item(
-                                visible = Build.VERSION.SDK_INT > Build.VERSION_CODES.Q
+                                visible = Build.VERSION.SDK_INT > Build.VERSION_CODES.Q && matchAdbRoot
                             ) {
                                 val adbRootSummary = when (uiState.adbRootStatus) {
                                     "unsupported" -> stringResource(id = R.string.feature_status_unsupported_summary)
@@ -321,7 +532,7 @@ fun SettingsPage(bottomPadding: Dp) {
                                 )
                             }
 
-                            item {
+                            item(visible = matchSelinux) {
                                 val selinuxSummary = when (uiState.selinuxStatus) {
                                     "unsupported" -> stringResource(id = R.string.feature_status_unsupported_summary)
                                     "managed" -> stringResource(id = R.string.feature_status_managed_summary)
@@ -344,7 +555,7 @@ fun SettingsPage(bottomPadding: Dp) {
                                 )
                             }
 
-                            item {
+                            item(visible = matchSoftReboot) {
                                 SettingsSwitchWidget(
                                     icon = Icons.TwoTone.RestartAlt,
                                     title = stringResource(id = R.string.settings_soft_reboot),
@@ -362,7 +573,7 @@ fun SettingsPage(bottomPadding: Dp) {
                                 )
                             }
 
-                            item {
+                            item(visible = matchSulog) {
                                 val sulogSummary = when (uiState.sulogStatus) {
                                     "unsupported" -> stringResource(id = R.string.feature_status_unsupported_summary)
                                     "managed" -> stringResource(id = R.string.feature_status_managed_summary)
@@ -380,7 +591,7 @@ fun SettingsPage(bottomPadding: Dp) {
                                 )
                             }
 
-                            item {
+                            item(visible = matchSelinuxHide) {
                                 val selinuxHideSummary = when (uiState.selinuxHideStatus) {
                                     "unsupported" -> stringResource(id = R.string.feature_status_unsupported_summary)
                                     "managed" -> stringResource(id = R.string.feature_status_managed_summary)
@@ -402,7 +613,7 @@ fun SettingsPage(bottomPadding: Dp) {
                                 )
                             }
 
-                            item {
+                            item(visible = matchUmountDefault) {
                                 // 卸载模块开关
                                 SettingsSwitchWidget(
                                     icon = Icons.TwoTone.FolderDelete,
@@ -423,10 +634,12 @@ fun SettingsPage(bottomPadding: Dp) {
                 }
             }
 
+            if (showOriginGroup) {
             item {
                 // Origin features. Without root/driver the whole group becomes
-                // a blurred teaser that routes to the installer.
-                val labLocked = !homeState.systemStatus.isRootAvailable
+                // a blurred teaser that routes to the installer. While searching
+                // the teaser is lifted so matches stay visible and tappable.
+                val labLocked = !homeState.systemStatus.isRootAvailable && query.isBlank()
                 Box(modifier = Modifier.fillMaxWidth()) {
                     SegmentedColumn(
                         modifier = if (!labLocked) {
@@ -438,7 +651,7 @@ fun SettingsPage(bottomPadding: Dp) {
                         },
                         title = stringResource(R.string.origin_section_title),
                     content = {
-                        item {
+                        item(visible = matchZygisk) {
                             val zygiskSummary = when {
                                 uiState.isOriginZygiskRunning -> stringResource(
                                     id = R.string.origin_zygisk_running
@@ -467,7 +680,7 @@ fun SettingsPage(bottomPadding: Dp) {
                             )
                         }
 
-                        item {
+                        item(visible = matchVeilSwitch) {
                             val veilSummary = when (uiState.veilStatus) {
                                 "unsupported" -> stringResource(id = R.string.feature_status_unsupported_summary)
                                 "managed" -> stringResource(id = R.string.feature_status_managed_summary)
@@ -486,7 +699,7 @@ fun SettingsPage(bottomPadding: Dp) {
                         }
 
                         item(
-                            visible = uiState.veilStatus == "supported" && uiState.isVeilEnabled
+                            visible = uiState.veilStatus == "supported" && uiState.isVeilEnabled && matchVeilManage
                         ) {
                             SettingsJumpPageWidget(
                                 icon = Icons.TwoTone.Visibility,
@@ -498,7 +711,7 @@ fun SettingsPage(bottomPadding: Dp) {
                             )
                         }
 
-                        item {
+                        item(visible = matchGrantToast) {
                             SettingsSwitchWidget(
                                 icon = Icons.TwoTone.Notifications,
                                 title = stringResource(id = R.string.settings_grant_toast),
@@ -513,7 +726,7 @@ fun SettingsPage(bottomPadding: Dp) {
                             )
                         }
 
-                        item {
+                        item(visible = matchSuPrompt) {
                             SettingsSwitchWidget(
                                 icon = Icons.TwoTone.Security,
                                 title = stringResource(id = R.string.settings_su_prompt),
@@ -533,7 +746,7 @@ fun SettingsPage(bottomPadding: Dp) {
                             )
                         }
 
-                        item {
+                        item(visible = matchTempGrant) {
                             SettingsSwitchWidget(
                                 icon = Icons.TwoTone.Timer,
                                 title = stringResource(id = R.string.settings_temp_grant),
@@ -547,7 +760,7 @@ fun SettingsPage(bottomPadding: Dp) {
                             )
                         }
 
-                        item(visible = uiState.bootloopRescued) {
+                        item(visible = uiState.bootloopRescued && matchBootloopRescued) {
                             SettingsBaseWidget(
                                 icon = Icons.TwoTone.RestartAlt,
                                 title = stringResource(R.string.settings_bootloop_rescued_title),
@@ -564,7 +777,7 @@ fun SettingsPage(bottomPadding: Dp) {
                             )
                         }
 
-                        item(visible = homeState.systemStatus.isFullFeatured) {
+                        item(visible = homeState.systemStatus.isFullFeatured && matchBootloop) {
                             // 自动 bootloop 保护
                             SettingsSwitchWidget(
                                 icon = Icons.TwoTone.RestartAlt,
@@ -586,7 +799,7 @@ fun SettingsPage(bottomPadding: Dp) {
 
                         item(
                             visible = homeState.systemStatus.isFullFeatured &&
-                                uiState.isBootloopEnabled
+                                uiState.isBootloopEnabled && matchBootloopThreshold
                         ) {
                             val thresholdItems = (2..10).map { it.toString() }
                             SettingsChooseWidget(
@@ -607,7 +820,7 @@ fun SettingsPage(bottomPadding: Dp) {
                             )
                         }
 
-                        item {
+                        item(visible = matchSecureRoot) {
                             val biometricsAvailable = remember {
                                 canAuthenticateSecureRoot(context)
                             }
@@ -627,7 +840,7 @@ fun SettingsPage(bottomPadding: Dp) {
                             )
                         }
 
-                        item {
+                        item(visible = matchOriginGuard) {
                             SettingsSwitchWidget(
                                 icon = Icons.TwoTone.Policy,
                                 title = stringResource(R.string.settings_originguard),
@@ -643,7 +856,7 @@ fun SettingsPage(bottomPadding: Dp) {
                             )
                         }
 
-                        item {
+                        item(visible = matchMagicMount) {
                             SettingsSwitchWidget(
                                 icon = Icons.TwoTone.Extension,
                                 title = stringResource(R.string.settings_magic_mount),
@@ -662,7 +875,7 @@ fun SettingsPage(bottomPadding: Dp) {
                             )
                         }
 
-                        item {
+                        item(visible = matchMagicBackend) {
                             val backendItems = listOf(
                                 stringResource(R.string.magic_mount_backend_auto),
                                 stringResource(R.string.magic_mount_backend_overlay),
@@ -730,14 +943,17 @@ fun SettingsPage(bottomPadding: Dp) {
                     }
                 }
             }
+            }
 
+            if (showAppGroup) {
             item {
                 // 应用设置卡片
                 SegmentedColumn(
                     title = stringResource(R.string.app_settings),
                     content = {
                         expandableItem(
-                            expanded = uiState.checkManagerUpdate,
+                            animatedVisibility = matchCheckManager || matchCheckBeta,
+                            expanded = uiState.checkManagerUpdate || query.isNotBlank(),
                             topContent = {
                                 SettingsSwitchWidget(
                                     icon = Icons.TwoTone.Update,
@@ -755,7 +971,8 @@ fun SettingsPage(bottomPadding: Dp) {
                             }
                         ) {
                             item(
-                                topPadding = 1.dp
+                                topPadding = 1.dp,
+                                visible = matchCheckBeta
                             ) {
                                 SettingsSwitchWidget(
                                     icon = Icons.TwoTone.Science,
@@ -773,7 +990,7 @@ fun SettingsPage(bottomPadding: Dp) {
                             }
                         }
 
-                        item {
+                        item(visible = matchCheckModule) {
                             SettingsSwitchWidget(
                                 icon = Icons.TwoTone.Extension,
                                 title = stringResource(R.string.settings_check_module_update),
@@ -789,7 +1006,7 @@ fun SettingsPage(bottomPadding: Dp) {
                             )
                         }
 
-                        item {
+                        item(visible = matchUpdater) {
                             SettingsJumpPageWidget(
                                 icon = Icons.TwoTone.Update,
                                 title = stringResource(R.string.updater),
@@ -802,7 +1019,7 @@ fun SettingsPage(bottomPadding: Dp) {
 
 
 
-                        item {
+                        item(visible = matchTheme) {
                             // 更多设置
                             SettingsJumpPageWidget(
                                 icon = Icons.TwoTone.Settings,
@@ -816,13 +1033,15 @@ fun SettingsPage(bottomPadding: Dp) {
                     }
                 )
             }
+            }
 
+            if (showToolsGroup) {
             item {
                 // 工具卡片
                 SegmentedColumn(
                     title = stringResource(R.string.tools),
                     content = {
-                        item {
+                        item(visible = matchSendLog) {
                             SettingsBaseWidget(
                                 icon = Icons.TwoTone.BugReport,
                                 title = stringResource(R.string.send_log),
@@ -833,7 +1052,7 @@ fun SettingsPage(bottomPadding: Dp) {
                         }
 
                         if (homeState.systemStatus.isFullFeatured) {
-                            item {
+                            item(visible = matchDynamicManager) {
                                 SettingsJumpPageWidget(
                                     icon = Icons.TwoTone.Security,
                                     title = stringResource(R.string.dynamic_manager_title),
@@ -844,7 +1063,7 @@ fun SettingsPage(bottomPadding: Dp) {
                                 )
                             }
 
-                            item(visible = uiState.isKernelUmountEnabled) {
+                            item(visible = uiState.isKernelUmountEnabled && matchUmountManager) {
                                 SettingsJumpPageWidget(
                                     icon = Icons.TwoTone.FolderOff,
                                     title = stringResource(R.string.umount_path_manager),
@@ -855,7 +1074,7 @@ fun SettingsPage(bottomPadding: Dp) {
                                 )
                             }
 
-                            item {
+                            item(visible = matchTuning) {
                                 SettingsJumpPageWidget(
                                     icon = Icons.TwoTone.Tune,
                                     title = stringResource(R.string.kernel_tuning),
@@ -866,13 +1085,39 @@ fun SettingsPage(bottomPadding: Dp) {
                                 )
                             }
                         }
-                        item(visible = homeState.systemStatus.lkmMode == true && !homeState.systemStatus.isLateLoadMode) {
+                        item(visible = homeState.systemStatus.lkmMode == true && !homeState.systemStatus.isLateLoadMode && matchUninstall) {
                             UninstallItem {
                                 loadingDialog.withLoading(it)
                             }
                         }
                     }
                 )
+            }
+            }
+
+            if (query.isNotBlank() && !hasAnyMatch) {
+                item {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 48.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        Icon(
+                            imageVector = Icons.TwoTone.SearchOff,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier
+                                .size(96.dp)
+                                .padding(bottom = 16.dp)
+                        )
+                        Text(
+                            text = stringResource(R.string.search_no_any_match),
+                            textAlign = TextAlign.Center,
+                            style = MaterialTheme.typography.bodyLarge,
+                        )
+                    }
+                }
             }
 
             if (showBottomsheet) {
@@ -921,6 +1166,7 @@ fun SettingsPage(bottomPadding: Dp) {
             }
 
             // 关于卡片
+            if (query.isBlank() || matchAboutRow) {
             item {
                 SegmentedColumn(
                     title = stringResource(R.string.about),
@@ -936,6 +1182,7 @@ fun SettingsPage(bottomPadding: Dp) {
                         }
                     }
                 )
+            }
             }
         }
     }
@@ -1076,33 +1323,4 @@ enum class UninstallType(val title: Int, val message: Int, val icon: ImageVector
         Icons.AutoMirrored.TwoTone.Undo
     ),
     NONE(0, 0, Icons.TwoTone.Delete)
-}
-
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
-@Composable
-private fun TopBar(
-    scrollBehavior: TopAppBarScrollBehavior? = null,
-) {
-    val themeConfig: ThemeConfig = koinInject()
-    val cardConfig: CardConfig = koinInject()
-    LargeFlexibleTopAppBar(
-        modifier = Modifier.blurEffect(),
-        title = {
-            Text(text = stringResource(R.string.settings))
-        },
-        colors = TopAppBarDefaults.topAppBarColors(
-            containerColor =
-                if (themeConfig.isEnableBlur)
-                    Color.Transparent
-                else
-                    MaterialTheme.colorScheme.surfaceContainer.copy(cardConfig.cardAlpha),
-            scrolledContainerColor =
-                if (themeConfig.isEnableBlur)
-                    Color.Transparent
-                else
-                    MaterialTheme.colorScheme.surfaceContainer.copy(cardConfig.cardAlpha)
-        ),
-        windowInsets = TopAppBarDefaults.windowInsets.add(WindowInsets(left = 12.dp)),
-        scrollBehavior = scrollBehavior
-    )
 }
