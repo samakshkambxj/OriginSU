@@ -7,15 +7,9 @@ import android.content.Intent
 import android.os.Build
 import android.os.PowerManager
 import android.widget.Toast
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -98,10 +92,9 @@ import com.originsu.manager.R
 import com.originsu.manager.domain.model.HomeSystemInfo
 import com.originsu.manager.domain.model.KernelStatus
 import com.originsu.manager.domain.model.isForeignKernel
-import com.originsu.manager.domain.model.ManagerUpdateChannel
-import com.originsu.manager.domain.model.ManagerUpdateInfo
 import com.originsu.manager.magica.MagicaService
 import com.originsu.manager.ui.component.KsuIsValid
+import com.originsu.manager.ui.component.ManagerUpdateCard
 import com.originsu.manager.ui.component.SwipeableSnackbarHost
 import com.originsu.manager.ui.component.WarningCard
 import com.originsu.manager.ui.component.WorkingStatusCard
@@ -395,8 +388,28 @@ fun HomePage(
                 }
                 Spacer(modifier = Modifier.height(10.dp))
                 if (uiState.showUpdateManagerCard) {
-                    ManagerUpdateCard(uiState.stableManagerUpdate)
-                    ManagerUpdateCard(uiState.betaManagerUpdate)
+                    ManagerUpdateCard(
+                        update = uiState.stableManagerUpdate,
+                        onUpdateClick = { update ->
+                            navigator.push(
+                                Route.Updater(
+                                    channel = update.channel.name,
+                                    variant = update.variant.name,
+                                )
+                            )
+                        }
+                    )
+                    ManagerUpdateCard(
+                        update = uiState.betaManagerUpdate,
+                        onUpdateClick = { update ->
+                            navigator.push(
+                                Route.Updater(
+                                    channel = update.channel.name,
+                                    variant = update.variant.name,
+                                )
+                            )
+                        }
+                    )
                 }
                 if (uiState.isBetaManagerUpdateCheckFailed) {
                     WarningCard(
@@ -459,59 +472,6 @@ fun HomePage(
                 Spacer(Modifier.height(bottomPadding))
         }
     }
-}
-
-@Composable
-private fun ManagerUpdateCard(update: ManagerUpdateInfo?) {
-    val visibilityState = remember { MutableTransitionState(false) }
-    var displayedUpdate by remember { mutableStateOf<ManagerUpdateInfo?>(null) }
-
-    LaunchedEffect(update) {
-        if (update != null) displayedUpdate = update
-        visibilityState.targetState = update != null
-    }
-
-    AnimatedVisibility(
-        visibleState = visibilityState,
-        enter = fadeIn() + expandVertically(),
-        exit = fadeOut() + shrinkVertically(),
-    ) {
-        displayedUpdate?.let { updateInfo ->
-            ManagerUpdateCardContent(updateInfo)
-        }
-    }
-}
-
-@Composable
-private fun ManagerUpdateCardContent(updateInfo: ManagerUpdateInfo) {
-    val navigator = LocalNavigator.current
-    val message = if (updateInfo.channel == ManagerUpdateChannel.STABLE) {
-        stringResource(R.string.new_version_available, updateInfo.versionCode)
-    } else {
-        stringResource(R.string.beta_version_available, updateInfo.versionCode)
-    }
-
-    WarningCard(
-        message = message,
-        color = MaterialTheme.colorScheme.outlineVariant,
-        icon = {
-            Icon(
-                imageVector = Icons.TwoTone.Info,
-                contentDescription = null,
-                modifier = Modifier.size(18.dp)
-            )
-        },
-        onClick = {
-            navigator.push(
-                Route.Updater(
-                    channel = updateInfo.channel.name,
-                    variant = updateInfo.variant.name,
-                )
-            )
-        }
-    )
-
-    Spacer(modifier = Modifier.height(10.dp))
 }
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)

@@ -3,11 +3,6 @@ package com.originsu.manager.ui.screen.main
 import android.content.Intent
 import android.os.Build
 import android.widget.Toast
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -64,11 +59,10 @@ import com.originsu.manager.domain.model.HomeDashboardState
 import com.originsu.manager.domain.model.HomeSystemInfo
 import com.originsu.manager.domain.model.KernelStatus
 import com.originsu.manager.domain.model.isForeignKernel
-import com.originsu.manager.domain.model.ManagerUpdateChannel
 import com.originsu.manager.domain.model.ManagerUpdateInfo
 import com.originsu.manager.magica.MagicaService
-import com.originsu.manager.ui.component.rememberConfirmDialog
 import com.originsu.manager.ui.component.OriginTuneCard
+import com.originsu.manager.ui.component.miuix.ManagerUpdateCardMiuix
 import com.originsu.manager.ui.component.rememberLoadingDialog
 import com.originsu.manager.ui.component.miuix.WarningCard
 import com.originsu.manager.ui.component.rebootlistpopup.RebootListPopupMiuix
@@ -295,7 +289,7 @@ private fun HomePagerMiuixAlt(
                             )
                         }
                         if (state.showUpdateManagerCard) {
-                            UpdateCardAlt(
+                            ManagerUpdateCardMiuix(
                                 stableUpdate = state.stableManagerUpdate,
                                 betaUpdate = state.betaManagerUpdate,
                                 onUpdateClick = actions.onUpdateClick,
@@ -315,46 +309,6 @@ private fun HomePagerMiuixAlt(
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun UpdateCardAlt(
-    stableUpdate: ManagerUpdateInfo?,
-    betaUpdate: ManagerUpdateInfo?,
-    onUpdateClick: (ManagerUpdateInfo) -> Unit,
-) {
-    val update = stableUpdate ?: betaUpdate ?: return
-    val title = stringResource(id = R.string.module_changelog)
-    val updateText = stringResource(id = R.string.module_update)
-    val message = if (update.channel == ManagerUpdateChannel.STABLE) {
-        stringResource(id = R.string.new_version_available, update.versionCode)
-    } else {
-        stringResource(id = R.string.beta_version_available, update.versionCode)
-    }
-    val updateDialog = rememberConfirmDialog(onConfirm = { onUpdateClick(update) })
-
-    AnimatedVisibility(
-        visible = true,
-        enter = fadeIn() + expandVertically(),
-        exit = shrinkVertically() + fadeOut()
-    ) {
-        WarningCard(
-            message = message,
-            color = colorScheme.outline,
-            onClick = {
-                if (update.changelog.isEmpty()) {
-                    onUpdateClick(update)
-                } else {
-                    updateDialog.showConfirm(
-                        title = title,
-                        content = update.changelog,
-                        markdown = true,
-                        confirm = updateText
-                    )
-                }
-            }
-        )
     }
 }
 
