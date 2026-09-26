@@ -71,9 +71,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -115,6 +117,7 @@ import com.originsu.manager.ui.theme.ThemeConfig
 import com.originsu.manager.ui.theme.blurSource
 import com.originsu.manager.ui.theme.renderBackgroundBlur
 import com.originsu.manager.ui.util.ActivityResumeEffect
+import com.originsu.manager.ui.util.LocalHapticsEnabled
 import com.originsu.manager.ui.util.LocalPermissionRequestInterface
 import com.originsu.manager.ui.util.LocalSnackbarHost
 import com.originsu.manager.ui.util.adaptiveScaffoldWindowInsets
@@ -175,6 +178,8 @@ fun ModuleRepoScreen() {
     val scope = rememberCoroutineScope()
     var showDropdown by remember { mutableStateOf(false) }
     val pullRefreshState = rememberPullToRefreshState()
+    val haptic = LocalHapticFeedback.current
+    val hapticsEnabled = LocalHapticsEnabled.current
     var loadError by remember { mutableStateOf<String?>(null) }
     val refreshModules = {
         loadError = null
@@ -361,6 +366,9 @@ fun ModuleRepoScreen() {
                 state = pullRefreshState,
                 isRefreshing = uiState.isRefreshing,
                 onRefresh = {
+                    if (hapticsEnabled) {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    }
                     viewModel.dispatch(ModuleRepoUiAction.Refresh)
                 },
                 indicator = {

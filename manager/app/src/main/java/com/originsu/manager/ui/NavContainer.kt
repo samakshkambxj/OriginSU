@@ -95,6 +95,7 @@ import com.originsu.manager.ui.theme.LocalBackgroundRenderState
 import com.originsu.manager.ui.theme.ThemeConfig
 import com.originsu.manager.ui.util.LocalBackgroundBlurAnchor
 import com.originsu.manager.ui.util.LocalBlurState
+import com.originsu.manager.ui.util.LocalHapticsEnabled
 import com.originsu.manager.ui.util.LocalPermissionRequestInterface
 import com.originsu.manager.ui.util.LocalPortraitState
 import com.originsu.manager.ui.util.LocalSnackbarHost
@@ -305,6 +306,7 @@ fun NavContainer(
         LocalStretchOverscrollCompensationState provides stretchOverscrollCompensationState,
         LocalPermissionRequestInterface provides permissionRequestInterface,
         LocalNavigator provides navigator,
+        LocalHapticsEnabled provides settings.isHapticsEnabled,
         LocalDensity provides density
     ) {
         HandleDeepLink(

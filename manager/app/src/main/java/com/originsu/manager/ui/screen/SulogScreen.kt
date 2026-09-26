@@ -86,6 +86,7 @@ import com.originsu.manager.ui.theme.CardConfig
 import com.originsu.manager.ui.theme.blurSource
 import com.originsu.manager.ui.util.ActivityResumeEffect
 import com.originsu.manager.ui.util.LocalBlurState
+import com.originsu.manager.ui.util.LocalHapticsEnabled
 import com.originsu.manager.ui.util.adaptiveScaffoldWindowInsets
 import com.originsu.manager.ui.viewmodel.SulogActions
 import com.originsu.manager.ui.viewmodel.SulogFileSelector
@@ -157,6 +158,7 @@ private fun SulogScreenContent(
     val searchListState = rememberLazyListState()
     val scope = rememberCoroutineScope()
     val haptic = LocalHapticFeedback.current
+    val hapticsEnabled = LocalHapticsEnabled.current
     val fileSelector = buildSulogFileSelector(state.files, state.selectedFilePath)
     var selectedEntry by remember { mutableStateOf<SulogEntry?>(null) }
     var showFilterMenu by remember { mutableStateOf(false) }
@@ -239,6 +241,9 @@ private fun SulogScreenContent(
                 .blurSource(),
             isRefreshing = state.isRefreshing,
             onRefresh = {
+                if (hapticsEnabled) {
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                }
                 actions.onRefresh()
             },
             indicator = {

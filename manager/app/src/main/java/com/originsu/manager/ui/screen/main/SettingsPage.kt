@@ -25,6 +25,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.twotone.Article
 import androidx.compose.material.icons.automirrored.twotone.Undo
+import androidx.compose.material.icons.filled.Vibration
 import androidx.compose.material.icons.twotone.Adb
 import androidx.compose.material.icons.twotone.BugReport
 import androidx.compose.material.icons.twotone.Dashboard
@@ -204,6 +205,9 @@ fun SettingsPage(bottomPadding: Dp) {
     val titleBootloopThreshold = stringResource(R.string.settings_bootloop_threshold)
     val titleSecureRoot = stringResource(R.string.settings_secure_root)
     val descSecureRoot = stringResource(R.string.settings_secure_root_summary)
+    val titleAppLock = stringResource(R.string.settings_app_lock)
+    val descAppLock = stringResource(R.string.settings_app_lock_summary)
+    val titleAppLockTimeout = stringResource(R.string.settings_app_lock_timeout)
     val titleOriginGuard = stringResource(R.string.settings_originguard)
     val descOriginGuard = stringResource(R.string.settings_originguard_summary)
     val titleMagicMount = stringResource(R.string.settings_magic_mount)
@@ -219,6 +223,8 @@ fun SettingsPage(bottomPadding: Dp) {
     val descCheckModule = stringResource(R.string.settings_check_module_update_summary)
     val titleUpdater = stringResource(R.string.updater)
     val descUpdater = stringResource(R.string.updater_summary)
+    val titleHaptics = stringResource(R.string.settings_haptics)
+    val descHaptics = stringResource(R.string.settings_haptics_summary)
     val titleTheme = stringResource(R.string.theme_settings)
 
     val titleSendLog = stringResource(R.string.send_log)
@@ -296,6 +302,9 @@ fun SettingsPage(bottomPadding: Dp) {
     val matchBootloop = matches(titleBootloop, sectionOrigin)
     val matchBootloopThreshold = matches(titleBootloopThreshold, sectionOrigin)
     val matchSecureRoot = matches(titleSecureRoot, descSecureRoot, sectionOrigin)
+    val matchAppLock = matches(
+        titleAppLock, descAppLock, titleAppLockTimeout, sectionOrigin
+    )
     val matchOriginGuard = matches(titleOriginGuard, descOriginGuard, sectionOrigin)
     val matchMagicMount = matches(titleMagicMount, descMagicMount, sectionOrigin)
     val matchMagicBackend = matches(titleMagicBackend, descMagicBackend, sectionOrigin)
@@ -304,6 +313,7 @@ fun SettingsPage(bottomPadding: Dp) {
     val matchCheckBeta = matches(titleCheckBeta, descCheckBeta, sectionApp)
     val matchCheckModule = matches(titleCheckModule, descCheckModule, sectionApp)
     val matchUpdater = matches(titleUpdater, descUpdater, sectionApp)
+    val matchHaptics = matches(titleHaptics, descHaptics, sectionApp)
     val matchTheme = matches(titleTheme, sectionApp)
 
     val matchSendLog = matches(titleSendLog, sectionTools)
@@ -337,12 +347,14 @@ fun SettingsPage(bottomPadding: Dp) {
         matchBootloop && isFullFeatured,
         matchBootloopThreshold && isFullFeatured && uiState.isBootloopEnabled,
         matchSecureRoot,
+        matchAppLock,
         matchOriginGuard,
         matchMagicMount,
         matchMagicBackend,
     ).any { it }
     val showAppGroup = listOf(
         matchCheckManager, matchCheckBeta, matchCheckModule, matchUpdater, matchTheme,
+        matchHaptics,
     ).any { it }
     val showToolsGroup = isFullFeatured && listOf(
         matchSendLog,
@@ -840,6 +852,51 @@ fun SettingsPage(bottomPadding: Dp) {
                             )
                         }
 
+                        item(visible = matchAppLock) {
+                            val biometricsAvailable = remember {
+                                canAuthenticateSecureRoot(context)
+                            }
+                            SettingsSwitchWidget(
+                                icon = Icons.TwoTone.Lock,
+                                title = stringResource(id = R.string.settings_app_lock),
+                                description = stringResource(id = R.string.settings_app_lock_summary),
+                                enabled = biometricsAvailable,
+                                checked = uiState.isAppLockEnabled && biometricsAvailable,
+                                onCheckedChange = { enabled ->
+                                    settingsViewModel.dispatch(
+                                        SettingsUiAction.SetAppLockEnabled(
+                                            enabled
+                                        )
+                                    )
+                                },
+                            )
+                        }
+
+                        item(visible = matchAppLock && uiState.isAppLockEnabled) {
+                            val timeoutValues = listOf(0L, 60000L, 300000L)
+                            val timeoutItems = listOf(
+                                stringResource(R.string.settings_app_lock_timeout_immediate),
+                                stringResource(R.string.settings_app_lock_timeout_1m),
+                                stringResource(R.string.settings_app_lock_timeout_5m),
+                            )
+                            SettingsChooseWidget(
+                                icon = Icons.TwoTone.Timer,
+                                title = stringResource(id = R.string.settings_app_lock_timeout),
+                                description = timeoutItems[
+                                    timeoutValues.indexOf(uiState.appLockTimeout)
+                                        .takeIf { it >= 0 } ?: 1
+                                ],
+                                items = timeoutItems,
+                                selectedIndex = timeoutValues.indexOf(uiState.appLockTimeout)
+                                    .takeIf { it >= 0 } ?: 1,
+                                onSelectedIndexChange = { index ->
+                                    settingsViewModel.dispatch(
+                                        SettingsUiAction.SetAppLockTimeout(timeoutValues[index])
+                                    )
+                                },
+                            )
+                        }
+
                         item(visible = matchOriginGuard) {
                             SettingsSwitchWidget(
                                 icon = Icons.TwoTone.Policy,
@@ -1027,6 +1084,22 @@ fun SettingsPage(bottomPadding: Dp) {
                                 description = stringResource(R.string.theme_settings),
                                 onClick = {
                                     navigator.push(Route.ThemeSettings)
+                                }
+                            )
+                        }
+
+                        item(visible = matchHaptics) {
+                            SettingsSwitchWidget(
+                                icon = Icons.Filled.Vibration,
+                                title = stringResource(R.string.settings_haptics),
+                                description = stringResource(R.string.settings_haptics_summary),
+                                checked = uiState.isHapticsEnabled,
+                                onCheckedChange = { enabled ->
+                                    settingsViewModel.dispatch(
+                                        SettingsUiAction.SetHapticsEnabled(
+                                            enabled
+                                        )
+                                    )
                                 }
                             )
                         }

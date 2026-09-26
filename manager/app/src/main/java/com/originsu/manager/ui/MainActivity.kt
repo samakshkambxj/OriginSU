@@ -10,6 +10,7 @@ import android.widget.Toast
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
@@ -18,19 +19,25 @@ import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.Modifier
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
+import com.originsu.manager.data.AppSettingsRepository
 import com.originsu.manager.data.appearance.UiModeRepository
 import com.originsu.manager.domain.model.StartupState
+import com.originsu.manager.domain.usecase.APP_LOCK_PREF_KEY
+import com.originsu.manager.domain.usecase.APP_LOCK_TIMEOUT_PREF_KEY
 import com.originsu.manager.domain.usecase.ApplyLanguageUseCase
 import com.originsu.manager.domain.usecase.EnsureManagerInstalledUseCase
 import com.originsu.manager.domain.usecase.ObserveStartupStateUseCase
 import com.originsu.manager.ui.activity.util.ThemeChangeContentObserver
 import com.originsu.manager.ui.activity.util.ThemeUtils
+import com.originsu.manager.ui.component.AppLockOverlay
 import com.originsu.manager.ui.component.ZipFileInfo
 import com.originsu.manager.ui.theme.KernelSUTheme
+import com.originsu.manager.ui.util.AppLockManager
 import com.originsu.manager.ui.viewmodel.HomeUiAction
 import com.originsu.manager.ui.viewmodel.HomeViewModel
 import com.originsu.manager.ui.viewmodel.ModuleUiAction
@@ -53,12 +60,15 @@ class MainActivity : FragmentActivity() {
     private val settingsViewModel: SettingsViewModel by viewModel()
     private val observeStartupState: ObserveStartupStateUseCase by inject()
     private val ensureManagerInstalled: EnsureManagerInstalledUseCase by inject()
+    private val appSettingsRepository: AppSettingsRepository by inject()
     private val themeUtils: ThemeUtils by inject()
     private val applyLanguage: ApplyLanguageUseCase by inject()
     private val startupState by lazy { observeStartupState() }
 
     private var showConfirmationDialog: MutableState<Boolean> = mutableStateOf(false)
     private var pendingZipFiles = mutableStateOf<List<ZipFileInfo>>(emptyList())
+    private var appLockState = mutableStateOf(false)
+    private var pendingIntent: Intent? = null
 
     private lateinit var themeChangeObserver: ThemeChangeContentObserver
     private var isInitialized = false
@@ -81,6 +91,14 @@ class MainActivity : FragmentActivity() {
             }
 
             super.onCreate(savedInstanceState)
+
+            val lockEnabled =
+                appSettingsRepository.getBoolean(APP_LOCK_PREF_KEY, false)
+            appLockState.value = if (savedInstanceState != null) {
+                savedInstanceState.getBoolean("appLockState", lockEnabled)
+            } else {
+                lockEnabled
+            }
 
             splashScreen.setKeepOnScreenCondition {
                 shouldKeepStartupSplash(
@@ -162,13 +180,26 @@ class MainActivity : FragmentActivity() {
                     CompositionLocalProvider(LocalUiMode provides uiMode) {
                     when (val state = startupState.collectAsStateWithLifecycle().value) {
                         is StartupState.Failed -> StartupFailureContent(state.message)
-                        else -> NavContainer(
-                            zipUri = zipUri,
-                            intentState = intentState,
-                            settingsViewModel = settingsViewModel,
-                            showConfirmationDialog = showConfirmationDialog,
-                            pendingZipFiles = pendingZipFiles,
-                        )
+                        else -> Box(modifier = Modifier.fillMaxSize()) {
+                            NavContainer(
+                                zipUri = zipUri,
+                                intentState = intentState,
+                                settingsViewModel = settingsViewModel,
+                                showConfirmationDialog = showConfirmationDialog,
+                                pendingZipFiles = pendingZipFiles,
+                            )
+                            if (appLockState.value) {
+                                AppLockOverlay(
+                                    activity = this@MainActivity,
+                                    timeoutMillis = appSettingsRepository.getLong(
+                                        APP_LOCK_TIMEOUT_PREF_KEY,
+                                        60000L,
+                                    ),
+                                    onUnlocked = ::onAppUnlocked,
+                                    onAuthFailed = { finish() },
+                                )
+                            }
+                        }
                     }
                     }
                 }
@@ -178,11 +209,45 @@ class MainActivity : FragmentActivity() {
         }
     }
 
+    override fun onStart() {
+        super.onStart()
+        AppLockManager.onActivityStart()
+    }
+
+    override fun onStop() {
+        super.onStop()
+        AppLockManager.onActivityStop(
+            appSettingsRepository.getLong(APP_LOCK_TIMEOUT_PREF_KEY, 60000L)
+        )
+        if (appSettingsRepository.getBoolean(APP_LOCK_PREF_KEY, false)) {
+            appLockState.value = true
+        }
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        outState.putBoolean("appLockState", appLockState.value)
+    }
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
+        if (appLockState.value) {
+            pendingIntent = intent
+            return
+        }
         setIntent(intent)
         // Increment intentState to trigger LaunchedEffect re-execution
         intentState.value += 1
+    }
+
+    private fun onAppUnlocked() {
+        appLockState.value = false
+        pendingIntent?.let {
+            pendingIntent = null
+            setIntent(it)
+            // Process the stashed intent now that the app is unlocked.
+            intentState.value += 1
+        }
     }
 
     private fun initializeViewModels() {

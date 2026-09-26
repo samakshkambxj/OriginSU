@@ -5,7 +5,6 @@ import android.os.Build
 import android.os.Bundle
 import android.view.WindowManager
 import android.widget.Toast
-import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.Crossfade
@@ -17,22 +16,35 @@ import androidx.compose.material3.LoadingIndicator
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.fragment.app.FragmentActivity
 import com.originsu.manager.data.AppSettingsRepository
 import com.originsu.manager.data.packageinfo.AppIconDataSource
 import com.originsu.manager.data.packageinfo.InstalledPackageRepository
 import com.originsu.manager.data.webui.WebUiRepository
+import com.originsu.manager.domain.usecase.APP_LOCK_PREF_KEY
+import com.originsu.manager.domain.usecase.APP_LOCK_TIMEOUT_PREF_KEY
+import com.originsu.manager.ui.component.AppLockOverlay
 import com.originsu.manager.ui.theme.KernelSUTheme
+import com.originsu.manager.ui.util.AppLockManager
 import com.originsu.manager.ui.viewmodel.ModuleViewModel
 import com.originsu.manager.ui.viewmodel.SuperUserViewModel
+import org.koin.android.ext.android.inject
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 
 @SuppressLint("SetJavaScriptEnabled")
-class WebUIActivity : ComponentActivity() {
+class WebUIActivity : FragmentActivity() {
+
+    private val appSettingsRepository: AppSettingsRepository by inject()
+    private var appLockState = mutableStateOf(false)
+
+    private fun appLockTimeout(): Long =
+        appSettingsRepository.getLong(APP_LOCK_TIMEOUT_PREF_KEY, 60000L)
 
     override fun onCreate(savedInstanceState: Bundle?) {
 
@@ -45,17 +57,52 @@ class WebUIActivity : ComponentActivity() {
 
         super.onCreate(savedInstanceState)
 
+        val lockEnabled = appSettingsRepository.getBoolean(APP_LOCK_PREF_KEY, false)
+        appLockState.value = if (savedInstanceState != null) {
+            savedInstanceState.getBoolean("appLockState", lockEnabled)
+        } else {
+            lockEnabled
+        }
+
         setContent {
             KernelSUTheme {
-                MainContent(activity = this, onFinish = { finish() })
+                Box(modifier = Modifier.fillMaxSize()) {
+                    MainContent(activity = this@WebUIActivity, onFinish = { finish() })
+                    if (appLockState.value) {
+                        AppLockOverlay(
+                            activity = this@WebUIActivity,
+                            timeoutMillis = appLockTimeout(),
+                            onUnlocked = { appLockState.value = false },
+                            onAuthFailed = { finish() },
+                        )
+                    }
+                }
             }
         }
+    }
+
+    override fun onStart() {
+        super.onStart()
+        AppLockManager.onActivityStart()
+    }
+
+    override fun onStop() {
+        super.onStop()
+        AppLockManager.onActivityStop(appLockTimeout())
+        if (appSettingsRepository.getBoolean(APP_LOCK_PREF_KEY, false)) {
+            appLockState.value = true
+        }
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        outState.putBoolean("appLockState", appLockState.value)
     }
 }
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-private fun MainContent(activity: ComponentActivity, onFinish: () -> Unit) {
+private fun MainContent(activity: FragmentActivity, onFinish: () -> Unit) {
     val moduleId = remember { activity.intent.getStringExtra("id") }
     val webUIState = remember { WebUIState() }
     val moduleViewModel = koinViewModel<ModuleViewModel>()

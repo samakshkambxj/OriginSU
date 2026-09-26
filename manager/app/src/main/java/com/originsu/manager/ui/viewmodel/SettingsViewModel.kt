@@ -23,6 +23,11 @@ import com.originsu.manager.data.grant.GrantToastRepository
 import com.originsu.manager.data.shortcuts.AppShortcutsRepository
 import com.originsu.manager.data.su.SuRequestRepository
 import com.originsu.manager.domain.usecase.GetBooleanPreferenceUseCase
+import com.originsu.manager.domain.usecase.GetLongPreferenceUseCase
+import com.originsu.manager.domain.usecase.SetLongPreferenceUseCase
+import com.originsu.manager.domain.usecase.APP_LOCK_PREF_KEY
+import com.originsu.manager.domain.usecase.APP_LOCK_TIMEOUT_PREF_KEY
+import com.originsu.manager.domain.usecase.HAPTICS_PREF_KEY
 import com.originsu.manager.domain.usecase.ORIGINGUARD_PREF_KEY
 import com.originsu.manager.domain.usecase.GetBootloopStatusUseCase
 import com.originsu.manager.domain.usecase.GetKernelFeatureSettingsUseCase
@@ -126,6 +131,9 @@ data class SettingsUiState(
     val defaultUmountModules: Boolean = false,
     val useBuiltinMonoFont: Boolean = false,
     val isSecureRootEnabled: Boolean = false,
+    val isAppLockEnabled: Boolean = false,
+    val appLockTimeout: Long = 60000L,
+    val isHapticsEnabled: Boolean = false,
     val isOriginGuardEnabled: Boolean = true,
     val isMagicMountEnabled: Boolean = false,
     val magicMountBackend: String = "auto",
@@ -186,6 +194,9 @@ sealed interface SettingsUiAction {
     data object RefreshOverlayPermission : SettingsUiAction
     data class SetDefaultUmountModules(val enabled: Boolean) : SettingsUiAction
     data class SetSecureRootEnabled(val enabled: Boolean) : SettingsUiAction
+    data class SetAppLockEnabled(val enabled: Boolean) : SettingsUiAction
+    data class SetAppLockTimeout(val timeoutMillis: Long) : SettingsUiAction
+    data class SetHapticsEnabled(val enabled: Boolean) : SettingsUiAction
     data class SetOriginGuardEnabled(val enabled: Boolean) : SettingsUiAction
     data class SetMagicMountEnabled(val enabled: Boolean) : SettingsUiAction
     data class SetMagicMountBackend(val backend: String) : SettingsUiAction
@@ -229,6 +240,8 @@ class SettingsViewModel(
     private val setDefaultUmountModules: SetDefaultUmountModulesUseCase,
     private val getBooleanPreference: GetBooleanPreferenceUseCase,
     private val setBooleanPreference: SetBooleanPreferenceUseCase,
+    private val getLongPreference: GetLongPreferenceUseCase,
+    private val setLongPreference: SetLongPreferenceUseCase,
     private val ksuCliRepository: KsuCliRepository,
     private val getBootloopStatus: GetBootloopStatusUseCase,
     private val setBootloopEnabled: SetBootloopEnabledUseCase,
@@ -253,6 +266,9 @@ class SettingsViewModel(
         mutableState.update {
             it.copy(
                 isSecureRootEnabled = getBooleanPreference(SECURE_ROOT_PREF_KEY, false),
+                isAppLockEnabled = getBooleanPreference(APP_LOCK_PREF_KEY, false),
+                appLockTimeout = getLongPreference(APP_LOCK_TIMEOUT_PREF_KEY, 60000L),
+                isHapticsEnabled = getBooleanPreference(HAPTICS_PREF_KEY, false),
                 isOriginGuardEnabled = getBooleanPreference(ORIGINGUARD_PREF_KEY, true),
                 isThemedShortcutsEnabled = appShortcutsRepository.isThemed(),
                 topBarLogo = topBarLogoRepository.state.value,
@@ -458,6 +474,21 @@ class SettingsViewModel(
     fun handleSecureRootChange(enabled: Boolean) {
         setBooleanPreference(SECURE_ROOT_PREF_KEY, enabled)
         mutableState.update { it.copy(isSecureRootEnabled = enabled) }
+    }
+
+    fun handleAppLockChange(enabled: Boolean) {
+        setBooleanPreference(APP_LOCK_PREF_KEY, enabled)
+        mutableState.update { it.copy(isAppLockEnabled = enabled) }
+    }
+
+    fun handleAppLockTimeoutChange(timeoutMillis: Long) {
+        setLongPreference(APP_LOCK_TIMEOUT_PREF_KEY, timeoutMillis)
+        mutableState.update { it.copy(appLockTimeout = timeoutMillis) }
+    }
+
+    fun handleHapticsChange(enabled: Boolean) {
+        setBooleanPreference(HAPTICS_PREF_KEY, enabled)
+        mutableState.update { it.copy(isHapticsEnabled = enabled) }
     }
 
     fun handleOriginGuardChange(enabled: Boolean) {
@@ -745,6 +776,12 @@ fun dispatch(action: SettingsUiAction) {
                 handleDefaultUmountModulesChange(action.enabled)
             is SettingsUiAction.SetSecureRootEnabled ->
                 handleSecureRootChange(action.enabled)
+            is SettingsUiAction.SetAppLockEnabled ->
+                handleAppLockChange(action.enabled)
+            is SettingsUiAction.SetAppLockTimeout ->
+                handleAppLockTimeoutChange(action.timeoutMillis)
+            is SettingsUiAction.SetHapticsEnabled ->
+                handleHapticsChange(action.enabled)
             is SettingsUiAction.SetOriginGuardEnabled ->
                 handleOriginGuardChange(action.enabled)
             is SettingsUiAction.SetMagicMountEnabled ->

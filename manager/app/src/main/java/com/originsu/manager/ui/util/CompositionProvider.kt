@@ -30,3 +30,5 @@ val LocalStretchOverscrollCompensationState =
 val LocalPermissionRequestInterface = compositionLocalOf<PermissionRequestInterface> {
     error("CompositionLocal LocalPermissionRequestInterface not present")
 }
+
+val LocalHapticsEnabled = staticCompositionLocalOf { false }

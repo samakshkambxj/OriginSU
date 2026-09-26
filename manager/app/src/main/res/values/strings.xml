@@ -644,6 +644,16 @@
     <string name="last_flashed">Flashed: %1$s</string>
     <string name="settings_secure_root">Secure root</string>
     <string name="settings_secure_root_summary">Require biometrics before granting root to apps</string>
+    <string name="settings_app_lock">App lock</string>
+    <string name="settings_app_lock_summary">Require biometrics or device credentials to open the manager</string>
+    <string name="settings_app_lock_timeout">Re-lock after</string>
+    <string name="settings_app_lock_timeout_immediate">Immediately</string>
+    <string name="settings_app_lock_timeout_1m">1 minute</string>
+    <string name="settings_app_lock_timeout_5m">5 minutes</string>
+    <string name="app_lock_prompt_title">Unlock OriginSU</string>
+    <string name="app_lock_prompt_subtitle">Authenticate to continue</string>
+    <string name="settings_haptics">Haptic feedback</string>
+    <string name="settings_haptics_summary">Vibrate on tab swipes and pull-to-refresh gestures</string>
     <string name="secure_root_prompt_title">Allow root access?</string>
     <string name="secure_root_prompt_subtitle">Authenticate to grant root to %1$s</string>
     <string name="secure_root_denied">Authentication failed, root not granted</string>

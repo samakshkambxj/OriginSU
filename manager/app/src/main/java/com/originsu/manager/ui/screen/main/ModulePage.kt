@@ -176,6 +176,7 @@ import com.originsu.manager.ui.theme.CardConfig
 import com.originsu.manager.ui.theme.ThemeConfig
 import com.originsu.manager.ui.theme.blurSource
 import com.originsu.manager.ui.theme.renderBackgroundBlur
+import com.originsu.manager.ui.util.LocalHapticsEnabled
 import com.originsu.manager.ui.util.LocalPermissionRequestInterface
 import com.originsu.manager.ui.util.LocalSnackbarHost
 import com.originsu.manager.ui.util.adaptiveScaffoldWindowInsets
@@ -1237,6 +1238,8 @@ private fun ModuleList(
     val permissionRequestInterface = LocalPermissionRequestInterface.current
     val scope = rememberCoroutineScope()
     val pullRefreshState = rememberPullToRefreshState()
+    val haptic = LocalHapticFeedback.current
+    val hapticsEnabled = LocalHapticsEnabled.current
     val failedEnable = stringResource(R.string.module_failed_to_enable)
     val failedDisable = stringResource(R.string.module_failed_to_disable)
     val failedUninstall = stringResource(R.string.module_uninstall_failed)
@@ -1540,6 +1543,9 @@ private fun ModuleList(
     PullToRefreshBox(
         state = pullRefreshState,
         onRefresh = {
+            if (hapticsEnabled) {
+                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+            }
             viewModel.dispatch(ModuleUiAction.Refresh(manual = true))
         },
         modifier = boxModifier

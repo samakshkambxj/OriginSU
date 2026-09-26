@@ -3,6 +3,9 @@ package com.originsu.manager.domain.usecase
 import com.originsu.manager.data.AppSettingsRepository
 
 const val SECURE_ROOT_PREF_KEY = "secure_root"
+const val APP_LOCK_PREF_KEY = "enable_app_lock"
+const val APP_LOCK_TIMEOUT_PREF_KEY = "app_lock_timeout"
+const val HAPTICS_PREF_KEY = "enable_haptics"
 const val THEMED_SHORTCUTS_PREF_KEY = "themed_shortcuts"
 const val ORIGINGUARD_PREF_KEY = "originguard_enabled"
 

@@ -25,8 +25,10 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -39,6 +41,7 @@ import com.originsu.manager.ui.theme.ThemeConfig
 import com.originsu.manager.ui.theme.blurSource
 import com.originsu.manager.ui.util.LocalBlurState
 import com.originsu.manager.ui.util.LocalHandlePageChange
+import com.originsu.manager.ui.util.LocalHapticsEnabled
 import com.originsu.manager.ui.util.LocalPagerPage
 import com.originsu.manager.ui.util.LocalPagerState
 import com.originsu.manager.ui.util.LocalPortraitState
@@ -118,9 +121,19 @@ fun MainScreen() {
         }
     }
 
-    LaunchedEffect(pagerState) {
+    val haptic = LocalHapticFeedback.current
+    val hapticsEnabled = LocalHapticsEnabled.current
+
+    LaunchedEffect(pagerState, hapticsEnabled) {
         snapshotFlow { pagerState.currentPage }.collect { page ->
-            if (!animating) uiSelectedPage = page
+            if (!animating) {
+                // Programmatic navigations go through handlePageChange, which keeps
+                // lastRequestedPage in sync; anything else is a user swipe.
+                if (page != lastRequestedPage && hapticsEnabled) {
+                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                }
+                uiSelectedPage = page
+            }
         }
     }
 

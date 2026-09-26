@@ -53,8 +53,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
@@ -75,6 +77,7 @@ import com.originsu.manager.ui.navigation.LocalNavigator
 import com.originsu.manager.ui.navigation.Route
 import com.originsu.manager.ui.screen.LabelText
 import com.originsu.manager.ui.theme.blurSource
+import com.originsu.manager.ui.util.LocalHapticsEnabled
 import com.originsu.manager.ui.util.LocalSnackbarHost
 import com.originsu.manager.ui.util.adaptiveScaffoldWindowInsets
 import com.originsu.manager.ui.util.showReplacingSnackbar
@@ -300,6 +303,8 @@ private fun SuperUserContent(
 ) {
     val navigator = LocalNavigator.current
     val pullRefreshState = rememberPullToRefreshState()
+    val haptic = LocalHapticFeedback.current
+    val hapticsEnabled = LocalHapticsEnabled.current
 
     if (uiState.appGroupList.isEmpty()) {
         Box(
@@ -341,7 +346,12 @@ private fun SuperUserContent(
 
     PullToRefreshBox(
         state = pullRefreshState,
-        onRefresh = { viewModel.dispatch(SuperUserUiAction.Refresh) },
+        onRefresh = {
+            if (hapticsEnabled) {
+                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+            }
+            viewModel.dispatch(SuperUserUiAction.Refresh)
+        },
         isRefreshing = uiState.isRefreshing,
         modifier = Modifier
             .fillMaxSize()
