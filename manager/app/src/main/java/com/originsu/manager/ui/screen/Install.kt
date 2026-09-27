@@ -82,6 +82,7 @@ import com.originsu.manager.ui.component.settings.SegmentedColumn
 import com.originsu.manager.ui.component.settings.SettingsChooseDialog
 import com.originsu.manager.ui.component.settings.SettingsChooseWidget
 import com.originsu.manager.ui.component.settings.SettingsSwitchWidget
+import com.originsu.manager.ui.component.ZipFileDetector
 import com.originsu.manager.ui.navigation.LocalNavigator
 import com.originsu.manager.ui.navigation.Route
 import com.originsu.manager.ui.screen.kernelFlash.component.SlotSelectionDialog
@@ -92,7 +93,9 @@ import com.originsu.manager.ui.theme.renderBackgroundBlur
 import com.originsu.manager.ui.util.adaptiveScaffoldWindowInsets
 import com.originsu.manager.ui.viewmodel.InstallUiEvent
 import com.originsu.manager.ui.viewmodel.InstallViewModel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 import androidx.core.content.FileProvider
@@ -542,6 +545,9 @@ fun InstallScreen(
                         installMethod = method
                     }
                 },
+                onFlashModulesRequested = { uri ->
+                    navigator.push(Route.Flash.modules(listOf(uri.toString())))
+                },
                 lkmSelection = lkmSelection,
                 onLkmUpload = onLkmUpload,
                 onClickNext = onClickNext,
@@ -586,6 +592,7 @@ private fun InstallBody(
     selectedTabIndex: Int,
     onTabSelected: (Int) -> Unit,
     onMethodSelected: (InstallMethod) -> Unit,
+    onFlashModulesRequested: (Uri) -> Unit = {},
     lkmSelection: LkmSelection,
     onLkmUpload: () -> Unit,
     onClickNext: () -> Unit,
@@ -608,6 +615,8 @@ private fun InstallBody(
     blurEnabled: Boolean,
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val zipFileDetector = koinInject<ZipFileDetector>()
     val horizonKernelSummary = stringResource(R.string.horizon_kernel_summary)
     val anyKernelZipSummary = stringResource(R.string.flash_anykernel_zip_summary)
     val patchBootImageSummary = stringResource(R.string.patch_boot_anykernel_summary)
@@ -677,6 +686,25 @@ private fun InstallBody(
         if (it.resultCode == Activity.RESULT_OK) {
             it.data?.data?.let { uri ->
                 val pending = pendingFileMethod
+                if (pending is InstallMethod.AnyKernelZip) {
+                    // auto-detect: a module zip picked here flashes as module(s)
+                    scope.launch {
+                        val isAnyKernel = withContext(Dispatchers.IO) {
+                            zipFileDetector.isAnyKernel3Zip(context, uri)
+                        }
+                        if (isAnyKernel) {
+                            onMethodSelected(
+                                InstallMethod.AnyKernelZip(
+                                    uri,
+                                    summary = anyKernelZipSummary
+                                )
+                            )
+                        } else {
+                            onFlashModulesRequested(uri)
+                        }
+                    }
+                    return@rememberLauncherForActivityResult
+                }
                 val option = when (pending) {
                     is InstallMethod.SelectFile -> InstallMethod.SelectFile(
                         uri,

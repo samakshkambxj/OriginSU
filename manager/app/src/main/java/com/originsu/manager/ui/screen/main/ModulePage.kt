@@ -613,6 +613,15 @@ fun ModulePage(bottomPadding: Dp) {
 
                     takeModuleUriPermission(uriString)
 
+                    // auto-detect: an AnyKernel3 zip picked here flashes as a kernel
+                    val isAnyKernel = withContext(Dispatchers.IO) {
+                        zipFileDetector.isAnyKernel3Zip(context, uri)
+                    }
+                    if (isAnyKernel) {
+                        navigator.push(Route.Install(preselectedKernelUri = uriString))
+                        return@launch
+                    }
+
                     zipFiles.add(zipFileDetector.parseModuleInfo(context, uri))
                     pendingZipFiles = zipFiles
 

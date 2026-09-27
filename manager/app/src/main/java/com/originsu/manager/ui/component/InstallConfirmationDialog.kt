@@ -68,6 +68,40 @@ data class ZipFileInfo(
 )
 
 class ZipFileDetector {
+    companion object {
+        private const val MAX_SCAN_ENTRIES = 300
+        private const val ANYKERNEL_MARKER = "anykernel.sh"
+    }
+
+    /**
+     * Detects whether the given zip is an AnyKernel3 package by looking for a
+     * root-level "anykernel.sh" entry. Anything unreadable or non-zip is
+     * treated as not-AnyKernel (i.e. a regular module).
+     */
+    fun isAnyKernel3Zip(context: Context, uri: Uri): Boolean {
+        return try {
+            context.contentResolver.openInputStream(uri)?.use { inputStream ->
+                ZipInputStream(java.io.BufferedInputStream(inputStream)).use { zip ->
+                    var found = false
+                    var scanned = 0
+                    while (!found && scanned < MAX_SCAN_ENTRIES) {
+                        val entry = zip.nextEntry ?: break
+                        if (!entry.isDirectory &&
+                            entry.name.trimStart('.', '/')
+                                .equals(ANYKERNEL_MARKER, ignoreCase = true)
+                        ) {
+                            found = true
+                        }
+                        scanned++
+                    }
+                    found
+                }
+            } ?: false
+        } catch (_: Exception) {
+            false
+        }
+    }
+
     fun parseModuleInfo(context: Context, uri: Uri): ZipFileInfo {
         var zipInfo = ZipFileInfo(uri = uri, type = ZipType.MODULE)
 
