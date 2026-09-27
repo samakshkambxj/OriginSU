@@ -40,6 +40,22 @@ class VeilManageRepository(
 
     fun forceStop(packageName: String) = ksuCliRepository.forceStopApp(packageName)
 
+    /**
+     * UIDs excluded from Veil cloaking. Exclusion wins over cloaking: the
+     * repository uncloaks excluded uids whenever they are seen cloaked, so
+     * auto-cloak can never keep them hidden.
+     */
+    fun getExcludedUids(): Set<Int> =
+        managedPrefs().getStringSet(KEY_EXCLUDED, emptySet())!!
+            .mapNotNull { it.toIntOrNull() }.toSet()
+
+    fun setExcluded(uid: Int, excluded: Boolean) {
+        val prefs = managedPrefs()
+        val set = prefs.getStringSet(KEY_EXCLUDED, emptySet())!!.toMutableSet()
+        if (excluded) set.add(uid.toString()) else set.remove(uid.toString())
+        prefs.edit().putStringSet(KEY_EXCLUDED, set).apply()
+    }
+
     suspend fun dumpAppLog(uid: Int, lines: Int = 400): List<String> =
         ksuCliRepository.dumpAppLog(uid, lines)
 
@@ -67,6 +83,7 @@ class VeilManageRepository(
         private const val PREFS = "veil_managed"
         private const val KEY_PERMS = "perms_%s"
         private const val KEY_DISABLED = "disabled_%s"
+        private const val KEY_EXCLUDED = "excluded_uids"
 
         /**
          * Map a permission to its appop name, or null if it has no appop. Curated (not a

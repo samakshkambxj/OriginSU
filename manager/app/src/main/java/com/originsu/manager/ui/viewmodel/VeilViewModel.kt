@@ -15,6 +15,7 @@ import com.originsu.manager.domain.usecase.SetSuNotifyEnabledUseCase
 import com.originsu.manager.domain.usecase.SetVeilAutoCloakUseCase
 import com.originsu.manager.domain.usecase.SetVeilCloakedUseCase
 import com.originsu.manager.domain.usecase.SetVeilEnabledUseCase
+import com.originsu.manager.domain.usecase.SetVeilExcludedUseCase
 import com.originsu.manager.domain.usecase.UncloakRestoreUseCase
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -31,6 +32,7 @@ data class VeilUiState(
     val autoCloak: Boolean = false,
     val notifyEnabled: Boolean = false,
     val cloakedUids: List<VeilCloakedUid> = emptyList(),
+    val excludedUids: Set<Int> = emptySet(),
     val history: List<VeilProbeHistory> = emptyList(),
     val isLoading: Boolean = true,
     val isRefreshing: Boolean = false,
@@ -44,6 +46,8 @@ sealed interface VeilUiAction {
     data class SetNotify(val enabled: Boolean) : VeilUiAction
     data class CloakUid(val uid: Int) : VeilUiAction
     data class UncloakUid(val uid: Int) : VeilUiAction
+    data class ExcludeUid(val uid: Int) : VeilUiAction
+    data class UnexcludeUid(val uid: Int) : VeilUiAction
     data object ClearCloaked : VeilUiAction
     data object ClearHistory : VeilUiAction
 }
@@ -59,6 +63,7 @@ class VeilViewModel(
     private val setVeilEnabled: SetVeilEnabledUseCase,
     private val setVeilAutoCloak: SetVeilAutoCloakUseCase,
     private val setVeilCloaked: SetVeilCloakedUseCase,
+    private val setVeilExcluded: SetVeilExcludedUseCase,
     private val clearVeilCloaked: ClearVeilCloakedUseCase,
     private val clearVeilHistory: ClearVeilHistoryUseCase,
     private val uncloakRestore: UncloakRestoreUseCase,
@@ -76,6 +81,7 @@ class VeilViewModel(
                 autoCloak = source.autoCloak,
                 notifyEnabled = isSuNotifyEnabled(),
                 cloakedUids = source.cloakedUids,
+                excludedUids = source.excludedUids,
                 history = source.history,
                 isLoading = source.isLoading,
                 isRefreshing = source.isRefreshing,
@@ -125,6 +131,16 @@ class VeilViewModel(
 
             is VeilUiAction.CloakUid -> submit(
                 command = { setVeilCloaked(action.uid, true) },
+                failureMessage = R.string.operation_failed,
+            )
+
+            is VeilUiAction.ExcludeUid -> submit(
+                command = { setVeilExcluded(action.uid, true) },
+                failureMessage = R.string.operation_failed,
+            )
+
+            is VeilUiAction.UnexcludeUid -> submit(
+                command = { setVeilExcluded(action.uid, false) },
                 failureMessage = R.string.operation_failed,
             )
 

@@ -12,6 +12,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.twotone.Block
+import androidx.compose.material.icons.twotone.DoNotDisturbOn
 import androidx.compose.material.icons.twotone.PlayArrow
 import androidx.compose.material.icons.twotone.Stop
 import androidx.compose.material.icons.twotone.Visibility
@@ -249,7 +250,10 @@ fun VeilDetailScreen(uid: Int) {
                     headlineContent = { Text(stringResource(R.string.veil_detail_cloak)) },
                     supportingContent = { Text(stringResource(R.string.veil_detail_cloak_summary)) },
                     trailingContent = {
-                        Switch(checked = isCloaked, onCheckedChange = { on ->
+                        Switch(
+                            checked = isCloaked,
+                            enabled = uid !in veilState.excludedUids,
+                            onCheckedChange = { on ->
                             scope.launch {
                                 if (on) {
                                     veilViewModel.dispatch(VeilUiAction.CloakUid(uid))
@@ -258,6 +262,26 @@ fun VeilDetailScreen(uid: Int) {
                                     // can't be managed here, so return to the list.
                                     veilViewModel.dispatch(VeilUiAction.UncloakUid(uid))
                                     navigator.pop()
+                                }
+                            }
+                        })
+                    },
+                )
+            }
+            item {
+                ListItem(
+                    leadingContent = { Icon(Icons.TwoTone.DoNotDisturbOn, contentDescription = null) },
+                    headlineContent = { Text(stringResource(R.string.veil_detail_exclude)) },
+                    supportingContent = { Text(stringResource(R.string.veil_detail_exclude_summary)) },
+                    trailingContent = {
+                        Switch(
+                            checked = uid in veilState.excludedUids,
+                            onCheckedChange = { on ->
+                            scope.launch {
+                                if (on) {
+                                    veilViewModel.dispatch(VeilUiAction.ExcludeUid(uid))
+                                } else {
+                                    veilViewModel.dispatch(VeilUiAction.UnexcludeUid(uid))
                                 }
                             }
                         })

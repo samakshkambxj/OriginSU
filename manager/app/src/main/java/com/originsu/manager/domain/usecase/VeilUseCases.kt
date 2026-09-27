@@ -24,6 +24,11 @@ class SetVeilCloakedUseCase(private val repository: VeilRepository) {
     suspend operator fun invoke(uid: Int, cloaked: Boolean) = repository.setCloaked(uid, cloaked)
 }
 
+class SetVeilExcludedUseCase(private val repository: VeilRepository) {
+    suspend operator fun invoke(uid: Int, excluded: Boolean) =
+        repository.setExcluded(uid, excluded)
+}
+
 class ClearVeilCloakedUseCase(private val repository: VeilRepository) {
     suspend operator fun invoke() = repository.clearCloaked()
 }

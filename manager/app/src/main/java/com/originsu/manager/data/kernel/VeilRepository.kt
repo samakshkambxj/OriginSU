@@ -16,6 +16,7 @@ import kotlinx.coroutines.withContext
 
 class VeilRepository(
     private val ksuCliRepository: KsuCliRepository,
+    private val manage: VeilManageRepository,
 ) {
     private val mutex = Mutex()
     private val mutableState = MutableStateFlow(VeilState())
@@ -32,9 +33,11 @@ class VeilRepository(
                 val autoCloak = runCatching { Natives.isVeilAutoCloak() }.getOrDefault(false)
                 val cloaked = runCatching { Natives.getVeilCloakedUids() ?: intArrayOf() }
                     .getOrDefault(intArrayOf())
+                val excluded = manage.getExcludedUids()
                 val history = runCatching { Natives.getVeilHistory().orEmpty() }
                     .getOrDefault(emptyList())
-                val cloakedUids = cloaked.sorted().map { uid ->
+                val visibleCloaked = enforceExclusions(cloaked, excluded)
+                val cloakedUids = visibleCloaked.sorted().map { uid ->
                     VeilCloakedUid(
                         uid = uid,
                         userName = runCatching { Natives.getUserName(uid) }.getOrNull(),
@@ -50,6 +53,7 @@ class VeilRepository(
                     enabled = enabled,
                     autoCloak = autoCloak,
                     cloakedUids = cloakedUids,
+                    excludedUids = excluded,
                     history = probes,
                     isLoading = false,
                 )
@@ -79,8 +83,23 @@ class VeilRepository(
     }
 
     suspend fun setCloaked(uid: Int, cloaked: Boolean): Result<Unit> = mutate {
+        if (cloaked) {
+            // Explicit cloaks lift the exclusion so the cloak sticks: the
+            // enforcement pass below would otherwise undo it on next refresh.
+            manage.setExcluded(uid, false)
+        }
         check(Natives.setVeilCloaked(uid, cloaked))
         ksuCliRepository.persistVeil()
+        refreshLocked()
+    }
+
+    suspend fun setExcluded(uid: Int, excluded: Boolean): Result<Unit> = mutate {
+        if (excluded) {
+            // Exclusion wins immediately: uncloak best-effort, then record.
+            runCatching { Natives.setVeilCloaked(uid, false) }
+            ksuCliRepository.persistVeil()
+        }
+        manage.setExcluded(uid, excluded)
         refreshLocked()
     }
 
@@ -103,18 +122,21 @@ class VeilRepository(
         // Re-read cloak set and history after a mutation; the mutex is already held.
         val cloaked = runCatching { Natives.getVeilCloakedUids() ?: intArrayOf() }
             .getOrDefault(intArrayOf())
+        val excluded = manage.getExcludedUids()
         val history = runCatching { Natives.getVeilHistory().orEmpty() }
             .getOrDefault(emptyList())
+        val visibleCloaked = enforceExclusions(cloaked, excluded)
         mutableState.update { current ->
             current.copy(
                 autoCloak = runCatching { Natives.isVeilAutoCloak() }
                     .getOrDefault(current.autoCloak),
-                cloakedUids = cloaked.sorted().map { uid ->
+                cloakedUids = visibleCloaked.sorted().map { uid ->
                     VeilCloakedUid(
                         uid = uid,
                         userName = runCatching { Natives.getUserName(uid) }.getOrNull(),
                     )
                 },
+                excludedUids = excluded,
                 history = history.sortedByDescending { it.lastNs }.map { entry ->
                     entry.toProbeHistory(
                         runCatching { Natives.getUserName(entry.uid) }.getOrNull()
@@ -122,5 +144,20 @@ class VeilRepository(
                 },
             )
         }
+    }
+
+    /**
+     * Uncloak any excluded uid the kernel grabbed (e.g. via auto-cloak) and
+     * return the cloak set minus enforced uids. Runs on Dispatchers.IO under
+     * the repository mutex in both refresh paths.
+     */
+    private fun enforceExclusions(cloaked: IntArray, excluded: Set<Int>): IntArray {
+        val violating = cloaked.filter { it in excluded }
+        if (violating.isEmpty()) return cloaked
+        violating.forEach { uid ->
+            runCatching { Natives.setVeilCloaked(uid, false) }
+        }
+        runCatching { ksuCliRepository.persistVeil() }
+        return cloaked.filter { it !in excluded }.toIntArray()
     }
 }

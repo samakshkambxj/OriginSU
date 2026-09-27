@@ -45,6 +45,7 @@ data class VeilState(
     val enabled: Boolean = false,
     val autoCloak: Boolean = false,
     val cloakedUids: List<VeilCloakedUid> = emptyList(),
+    val excludedUids: Set<Int> = emptySet(),
     val history: List<VeilProbeHistory> = emptyList(),
     val isLoading: Boolean = true,
     val isRefreshing: Boolean = false,

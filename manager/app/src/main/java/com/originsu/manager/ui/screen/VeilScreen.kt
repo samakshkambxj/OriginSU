@@ -366,6 +366,41 @@ fun VeilScreen() {
                     }
 
                     item {
+                        Text(
+                            text = stringResource(R.string.veil_excluded_apps),
+                            style = MaterialTheme.typography.titleSmall,
+                            modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
+                        )
+                    }
+
+                    if (uiState.excludedUids.isEmpty()) {
+                        item {
+                            WarningCard(
+                                modifier = Modifier.padding(horizontal = 16.dp),
+                                message = stringResource(R.string.veil_no_excluded_apps),
+                                shape = RoundedCornerShape(16.dp),
+                                color = MaterialTheme.colorScheme.secondaryContainer,
+                            )
+                            Spacer(modifier = Modifier.height(16.dp))
+                        }
+                    }
+
+                    lazySegmentColumn(
+                        uiState.excludedUids.sorted(),
+                        key = { _, it -> "excluded-$it" }) { _, uid ->
+                        val userName = uiState.cloakedUids.firstOrNull { it.uid == uid }?.userName
+                            ?: uiState.history.firstOrNull { it.uid == uid }?.userName
+                        VeilExcludedRow(
+                            uid = uid,
+                            userName = userName,
+                            onClick = { navigator.push(Route.VeilDetail(uid)) },
+                            onRemove = {
+                                viewModel.dispatch(VeilUiAction.UnexcludeUid(uid))
+                            },
+                        )
+                    }
+
+                    item {
                         Spacer(modifier = Modifier.height(16.dp))
                         Text(
                             text = stringResource(R.string.veil_probe_history),
@@ -411,6 +446,7 @@ fun VeilScreen() {
                                 stringResource(R.string.veil_probe_count, entry.count)
                             },
                             cloaked = cloakedUids,
+                            excluded = entry.uid in uiState.excludedUids,
                             onCloak = { viewModel.dispatch(VeilUiAction.CloakUid(entry.uid)) },
                             onUncloak = {
                                 viewModel.dispatch(VeilUiAction.UncloakUid(entry.uid))
@@ -474,6 +510,29 @@ private fun VeilUidRow(
 }
 
 @Composable
+private fun VeilExcludedRow(
+    uid: Int,
+    userName: String?,
+    onClick: () -> Unit,
+    onRemove: () -> Unit,
+) {
+    SettingsBaseWidget(
+        icon = Icons.TwoTone.Visibility,
+        title = stringResource(R.string.veil_uid_title, uid),
+        description = userName,
+        onClick = { onClick() },
+    ) {
+        IconButton(onClick = onRemove) {
+            Icon(
+                imageVector = Icons.TwoTone.Delete,
+                contentDescription = stringResource(R.string.veil_unexclude_action),
+                tint = MaterialTheme.colorScheme.error,
+            )
+        }
+    }
+}
+
+@Composable
 private fun VeilHistoryRow(
     uid: Int,
     userName: String?,
@@ -481,6 +540,7 @@ private fun VeilHistoryRow(
     kinds: List<String>,
     summary: String,
     cloaked: Set<Int>,
+    excluded: Boolean,
     onCloak: () -> Unit,
     onUncloak: () -> Unit,
 ) {
@@ -507,6 +567,12 @@ private fun VeilHistoryRow(
                     LabelText(
                         label = stringResource(R.string.veil_cloaked),
                         containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    )
+                }
+                if (excluded) {
+                    LabelText(
+                        label = stringResource(R.string.veil_excluded),
+                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
                     )
                 }
             }

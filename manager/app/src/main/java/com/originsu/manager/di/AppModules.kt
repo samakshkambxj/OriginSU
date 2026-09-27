@@ -178,6 +178,7 @@ import com.originsu.manager.domain.usecase.SetStringSetPreferenceUseCase
 import com.originsu.manager.domain.usecase.SetSuEnabledUseCase
 import com.originsu.manager.domain.usecase.SetVeilAutoCloakUseCase
 import com.originsu.manager.domain.usecase.SetVeilCloakedUseCase
+import com.originsu.manager.domain.usecase.SetVeilExcludedUseCase
 import com.originsu.manager.domain.usecase.SetVeilEnabledUseCase
 import com.originsu.manager.domain.usecase.StartKernelFlashUseCase
 import com.originsu.manager.domain.usecase.SuSFSConfigUseCase
@@ -409,6 +410,7 @@ val useCaseModule = module {
     factoryOf(::SetVeilEnabledUseCase)
     factoryOf(::SetVeilAutoCloakUseCase)
     factoryOf(::SetVeilCloakedUseCase)
+    factoryOf(::SetVeilExcludedUseCase)
     factoryOf(::ClearVeilCloakedUseCase)
     factoryOf(::ClearVeilHistoryUseCase)
     factoryOf(::UncloakRestoreUseCase)

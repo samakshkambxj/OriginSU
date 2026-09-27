@@ -47,6 +47,12 @@
     <string name="veil_auto_cloak_summary">Automatically hide modules from apps that probe for root.</string>
     <string name="veil_cloaked_apps">Cloaked apps</string>
     <string name="veil_no_cloaked_apps">No cloaked apps</string>
+    <string name="veil_excluded_apps">Excluded apps</string>
+    <string name="veil_no_excluded_apps">No excluded apps — excluded apps are never cloaked, even with auto-cloak on</string>
+    <string name="veil_excluded">Excluded</string>
+    <string name="veil_unexclude_action">Remove from exclusions</string>
+    <string name="veil_detail_exclude">Exclude from Veil</string>
+    <string name="veil_detail_exclude_summary">Never cloak this app, even with auto-cloak on</string>
     <string name="veil_probe_history">Probe history</string>
     <string name="veil_no_probe_history">No probes recorded</string>
     <string name="veil_uncloak_all">Uncloak all</string>
