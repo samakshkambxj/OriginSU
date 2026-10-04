@@ -19,6 +19,7 @@
 // 3: scoped su-session driver fd
 // 4: add KSU_GET_INFO_FLAG_BUNDLED
 // 5: blocking su request prompt (poll/answer ioctls + prompt features)
+// 5: add EVENT_SERVICES with a start/skip result (upstream, shares version 5)
 static const __u32 KERNEL_SU_UAPI_VERSION = 5;
 
 /* Magic numbers for reboot hook to install fd */
@@ -32,6 +33,7 @@ struct ksu_become_daemon_cmd {
 DEFINE_KSU_UAPI_CONST(__u32, EVENT_POST_FS_DATA, 1)
 DEFINE_KSU_UAPI_CONST(__u32, EVENT_BOOT_COMPLETED, 2)
 DEFINE_KSU_UAPI_CONST(__u32, EVENT_MODULE_MOUNTED, 3)
+DEFINE_KSU_UAPI_CONST(__u32, EVENT_SERVICES, 4)
 
 DEFINE_KSU_UAPI_CONST(__u32, KSU_GET_INFO_FLAG_LKM, (1U << 0))
 DEFINE_KSU_UAPI_CONST(__u32, KSU_GET_INFO_FLAG_MANAGER, (1U << 1))
