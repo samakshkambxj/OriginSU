@@ -61,12 +61,10 @@ class ThemeUtils(
 
     fun onActivityPause() {
         cardConfig.save()
-        settings.putBoolean("prevent_background_refresh", true)
         themeConfig.preventBackgroundRefresh = true
     }
 
     fun onActivityResume(activity: MainActivity) {
-        settings.putBoolean("prevent_background_refresh", false)
         themeConfig.preventBackgroundRefresh = false
         loadThemeSettings(activity)
     }

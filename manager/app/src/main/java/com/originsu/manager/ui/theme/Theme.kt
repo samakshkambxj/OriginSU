@@ -277,9 +277,7 @@ class BackgroundManager(
         val uriString = prefs.getString("custom_background", null)
 
         val newUri = uriString?.toUri()
-        val preventRefresh = prefs.getBoolean("prevent_background_refresh", false)
-
-        config.preventBackgroundRefresh = preventRefresh
+        config.preventBackgroundRefresh = false
 
         if (config.customBackgroundUri?.toString() != newUri?.toString()) {
             Log.d(tag, "加载自定义背景: $uriString")
@@ -296,13 +294,11 @@ class BackgroundManager(
 
     private fun saveBackgroundUri(uri: Uri?) {
         settings.putString("custom_background", uri?.toString())
-        settings.putBoolean("prevent_background_refresh", false)
     }
 
     private fun resetBackgroundState() {
         config.backgroundImageLoaded = false
         config.preventBackgroundRefresh = false
-        settings.putBoolean("prevent_background_refresh", false)
     }
 
     fun clearBackgroundBlurCache(context: Context) {
