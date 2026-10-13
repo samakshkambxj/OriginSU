@@ -46,6 +46,9 @@
 /* The BTI landing pad of an indirect call target: 'bti c' (an unallocated HINT
  * on cores without BTI, so checking for it is correct either way). */
 #define SUSFS_ARM64_BTI_C	0xd503245fu
+#define SUSFS_ARM64_BTI_JC	0xd50324dfu
+#define SUSFS_ARM64_PACIASP	0xd503233fu
+#define SUSFS_ARM64_PACIBSP	0xd503237fu
 
 static susfs_syscall_fn_t *sys_call_table_ptr;
 static susfs_syscall_fn_t *compat_sys_call_table_ptr;
@@ -178,17 +181,20 @@ void susfs_fp_dump_wrapper(const char *name, const void *fn)
 	}
 	pr_info("susfs_fp: %s at %px first insn 0x%08x (%s)\n", name, fn,
 		READ_ONCE(*(const u32 *)fn),
-		fp_has_landing_pad(fn) ? "bti c" : "NO LANDING PAD");
+		fp_has_landing_pad(fn) ? "CALL LANDING PAD" : "NO LANDING PAD");
 }
 
-/* An indirect call into us is checked against the target's BTI landing pad, so a
- * wrapper that does not start with 'bti c' would give "Oops - BTI" instead of
- * hiding anything.  The kernel itself is built with
- * -mbranch-protection=pac-ret+leaf+bti; the module's flags are ours to verify,
- * so verify them and refuse to install rather than find out the hard way. */
 static bool fp_has_landing_pad(const void *fn)
 {
-	return READ_ONCE(*(const u32 *)fn) == SUSFS_ARM64_BTI_C;
+	switch (READ_ONCE(*(const u32 *)fn)) {
+	case SUSFS_ARM64_BTI_C:
+	case SUSFS_ARM64_BTI_JC:
+	case SUSFS_ARM64_PACIASP:
+	case SUSFS_ARM64_PACIBSP:
+		return true;
+	default:
+		return false;
+	}
 }
 
 int susfs_fp_install(struct susfs_fp_hook *h)
@@ -222,7 +228,7 @@ int susfs_fp_install(struct susfs_fp_hook *h)
 		return -EINVAL;
 	}
 	if (!h->wrapper || !fp_has_landing_pad((const void *)h->wrapper)) {
-		pr_warn("susfs_fp: %s does not start with 'bti c' (0x%08x) - not installed\n",
+		pr_warn("susfs_fp: %s has no valid call landing pad (0x%08x) - not installed\n",
 			h->name, h->wrapper ? READ_ONCE(*(const u32 *)h->wrapper) : 0);
 		return -EINVAL;
 	}
