@@ -45,6 +45,7 @@
 #include <linux/limits.h>
 #include <linux/cred.h>
 #include <linux/atomic.h>
+#include <linux/wait.h>
 #include <linux/proc_fs.h>	/* proc_create() for /proc/susfs_path */
 #include <linux/seq_file.h>	/* single_open()/seq_write() for the same node */
 #include <linux/version.h>	/* LINUX_VERSION_CODE: the setxattr hook's first argument */
@@ -55,6 +56,7 @@
 #include "ksu_umount_gate.h"	/* susfs_is_current_proc_umounted_app (issue #34) */
 
 #include "lsm_hook.h"
+#include "fsnotify_lifetime.h"
 
 /* Bounce buffer for the dirent rewrite: one record at a time, so only a single
  * record - not a whole listing - has to fit; one that does not fit is left
@@ -102,6 +104,8 @@ struct linux_dirent64 {
  * never sees the listing's fd or superblock. */
 struct sus_path_entry {
     struct list_head list;
+    struct list_head retiring_list;
+    struct super_block *sb;
     /* ihold'ed once resolved, NULL while PENDING (registered for a path that does
      * not exist yet, upstream's _LOOP variant); a pending rule pins nothing. */
     struct inode *inode;
@@ -155,8 +159,12 @@ static void sus_path_restore_mode(struct sus_path_entry *e)
 static void sus_path_entry_set_path(struct sus_path_entry *e, const char *path);
 
 static LIST_HEAD(sus_path_list);
+static LIST_HEAD(sus_path_retiring);
 static DEFINE_SPINLOCK(sus_path_lock);
+static DEFINE_MUTEX(sus_path_lifecycle_lock);
+static DECLARE_WAIT_QUEUE_HEAD(sus_path_release_wait);
 static unsigned int sus_path_count;
+static bool sus_path_stopping;
 
 /* Rules waiting for their path to appear, counted so every fast path can bail out at
  * once; guarded by sus_path_lock. */
@@ -169,6 +177,76 @@ static DEFINE_MUTEX(sus_path_pending_lock);
 
 static void sus_path_pending_work(struct work_struct *w);
 static DECLARE_DELAYED_WORK(sus_path_pending_wq, sus_path_pending_work);
+
+static void sus_path_retire_entry(struct sus_path_entry *e, struct list_head *doomed)
+{
+    list_move_tail(&e->list, doomed);
+    sus_path_count--;
+    if (e->inode)
+        list_add_tail(&e->retiring_list, &sus_path_retiring);
+    else
+        atomic_dec(&sus_path_n_pending);
+}
+
+static bool sus_path_release_one(struct super_block *sb, const char *path,
+                                 bool ordinary)
+{
+    struct sus_path_entry *e, *found = NULL;
+    LIST_HEAD(doomed);
+
+    mutex_lock(&sus_path_lifecycle_lock);
+    spin_lock(&sus_path_lock);
+    list_for_each_entry(e, &sus_path_list, list) {
+        if ((sb && e->sb != sb) || (path && strcmp(e->path, path)) ||
+            (ordinary && e->self_protect))
+            continue;
+        found = e;
+        sus_path_retire_entry(e, &doomed);
+        break;
+    }
+    spin_unlock(&sus_path_lock);
+    if (found)
+        sus_path_restore_mode(found);
+    mutex_unlock(&sus_path_lifecycle_lock);
+    if (!found)
+        return false;
+    if (found->inode) {
+        iput(found->inode);
+        spin_lock(&sus_path_lock);
+        list_del(&found->retiring_list);
+        spin_unlock(&sus_path_lock);
+        wake_up_all(&sus_path_release_wait);
+    }
+    kfree(found);
+    return true;
+}
+
+static bool sus_path_releases_pending(struct super_block *sb)
+{
+    struct sus_path_entry *e;
+    bool pending = false;
+
+    spin_lock(&sus_path_lock);
+    list_for_each_entry(e, &sus_path_retiring, retiring_list) {
+        if (!sb || e->sb == sb) {
+            pending = true;
+            break;
+        }
+    }
+    spin_unlock(&sus_path_lock);
+    return pending;
+}
+
+static void sus_path_sb_release(struct super_block *sb)
+{
+    unsigned int removed = 0;
+
+    while (sus_path_release_one(sb, NULL, false))
+        removed++;
+    wait_event(sus_path_release_wait, !sus_path_releases_pending(sb));
+    if (removed)
+        SUSFS_LOGI("sus_path: filesystem cleanup released %u rule(s)\n", removed);
+}
 
 /* legacy/debug: hide a single exact filename everywhere (empty = disabled) */
 static char hide_name[NAME_MAX + 1];
@@ -461,11 +539,15 @@ static int sus_path_resolve_pending(void)
     int budget = SUS_PATH_PENDING_BUDGET;
     int resolved = 0;
 
-    if (!atomic_read(&sus_path_n_pending))
+    if (READ_ONCE(sus_path_stopping) || !atomic_read(&sus_path_n_pending))
         return 0;
     /* trylock: the supercall must never block behind a pass sleeping in kern_path(). */
     if (!mutex_trylock(&sus_path_pending_lock))
         return 0;
+    if (READ_ONCE(sus_path_stopping)) {
+        mutex_unlock(&sus_path_pending_lock);
+        return 0;
+    }
     atomic_inc(&sus_path_pend_passes);
 
     /* Pass marker.  0 means "never attempted", so generation 0 is skipped. */
@@ -483,6 +565,7 @@ static int sus_path_resolve_pending(void)
         struct path p;
         char name[NAME_MAX + 1];
         bool published = false;
+        bool have_path = false;
         int rc;
 
         path[0] = '\0';
@@ -507,6 +590,7 @@ static int sus_path_resolve_pending(void)
         WRITE_ONCE(sus_path_resolver, current);
         saved = sus_path_override_creds(&borrowed);
         rc = kern_path(path, LOOKUP_FOLLOW, &p);
+        have_path = !rc;
         sus_path_revert_creds(saved, borrowed);
         WRITE_ONCE(sus_path_resolver, NULL);
 
@@ -516,10 +600,8 @@ static int sus_path_resolve_pending(void)
             inode = d_inode(p.dentry);
             if (inode) {
                 strscpy(name, p.dentry->d_name.name, sizeof(name));
-                /* Hold it before path_put() can evict it; published only afterwards. */
                 ihold(inode);
             }
-            path_put(&p);
         } else if (rc != atomic_read(&sus_path_pend_logged_rc)) {
             /* Report each distinct answer once: a rule that never resolves has to be
              * distinguishable from a timer that never ran, and the rc (-ENOENT,
@@ -533,15 +615,25 @@ static int sus_path_resolve_pending(void)
          * changed while we are away (another add, or module exit tearing it down), so
          * only the path string is carried over - plus a pass marker no other pass can
          * have set on a fresh entry. */
+        mutex_lock(&sus_path_lifecycle_lock);
         spin_lock(&sus_path_lock);
         slot = NULL;
         list_for_each_entry(e, &sus_path_list, list) {
-            if (e->pass == gen && !e->inode && !strcmp(e->path, path)) {
+            if (!sus_path_stopping && e->pass == gen && !e->inode &&
+                !strcmp(e->path, path)) {
                 slot = e;
                 break;
             }
         }
         if (slot && inode) {
+            spin_unlock(&sus_path_lock);
+            rc = susfs_sb_watch_add(inode->i_sb);
+            if (rc)
+                atomic_set(&sus_path_pend_last_rc, rc);
+            spin_lock(&sus_path_lock);
+        }
+        if (slot && inode && !rc) {
+            slot->sb = inode->i_sb;
             slot->dev = (u64)inode->i_sb->s_dev;
             slot->ino = (u64)inode->i_ino;
             strscpy(slot->name, name, sizeof(slot->name));
@@ -559,12 +651,15 @@ static int sus_path_resolve_pending(void)
             sus_path_relax_mode(slot);
         }
         spin_unlock(&sus_path_lock);
+        mutex_unlock(&sus_path_lifecycle_lock);
 
         if (inode) {
             iput(inode);                /* the rule is gone, or already resolved */
         } else if (!published && !rc) {
             atomic_inc(&sus_path_pend_lost);    /* walk ok, nothing to publish */
         }
+        if (have_path)
+            path_put(&p);
     }
 
     if (resolved)
@@ -585,15 +680,16 @@ static int sus_path_resolve_pending(void)
  * context. */
 static void sus_path_pending_arm(void)
 {
-    if (!atomic_read(&sus_path_n_pending))
+    if (READ_ONCE(sus_path_stopping) || !atomic_read(&sus_path_n_pending))
         return;
 
     sus_path_resolve_pending();
-    if (!atomic_read(&sus_path_n_pending))
-        return;
-
-    atomic_set(&sus_path_pending_tries, 0);
-    schedule_delayed_work(&sus_path_pending_wq, SUS_PATH_PENDING_RETRY_S * HZ);
+    spin_lock(&sus_path_lock);
+    if (!sus_path_stopping && atomic_read(&sus_path_n_pending)) {
+        atomic_set(&sus_path_pending_tries, 0);
+        schedule_delayed_work(&sus_path_pending_wq, SUS_PATH_PENDING_RETRY_S * HZ);
+    }
+    spin_unlock(&sus_path_lock);
 }
 
 /* Retry timer, bounded on purpose: upstream's equivalent runs once per app spawn (a
@@ -606,6 +702,8 @@ static void sus_path_pending_work(struct work_struct *w)
 {
     int resolved;
 
+    if (READ_ONCE(sus_path_stopping))
+        return;
     atomic_inc(&sus_path_pend_ticks);
     resolved = sus_path_resolve_pending();
 
@@ -621,7 +719,10 @@ static void sus_path_pending_work(struct work_struct *w)
                 atomic_read(&sus_path_pend_last_rc));
         return;
     }
-    schedule_delayed_work(&sus_path_pending_wq, SUS_PATH_PENDING_RETRY_S * HZ);
+    spin_lock(&sus_path_lock);
+    if (!sus_path_stopping && atomic_read(&sus_path_n_pending))
+        schedule_delayed_work(&sus_path_pending_wq, SUS_PATH_PENDING_RETRY_S * HZ);
+    spin_unlock(&sus_path_lock);
 }
 
 /* ---------------------------------------------------------------------------
@@ -1704,44 +1805,17 @@ static int sus_path_list_puts(char *buf, int n, bool *trunc, const char *fmt, ..
  * still be holding an entry (matchers walk the list only while holding the lock). */
 int sus_path_del_path(const char *path)
 {
-    struct sus_path_entry *e, *tmp;
-    LIST_HEAD(doomed);
     char want[SUS_PATH_LEN];
     int removed = 0;
     int i;
 
     if (!path || !*path)
         return 0;
-
     strscpy(want, path, sizeof(want));
     for (i = (int)strlen(want); i > 1 && want[i - 1] == '/'; i--)
         want[i - 1] = '\0';
-
-    spin_lock(&sus_path_lock);
-    list_for_each_entry_safe(e, tmp, &sus_path_list, list) {
-        if (strcmp(e->path, want))
-            continue;
-        list_del(&e->list);
-        list_add(&e->list, &doomed);
-        sus_path_count--;
+    while (removed < SUS_PATH_MAX_ENTRIES && sus_path_release_one(NULL, want, false))
         removed++;
-    }
-    spin_unlock(&sus_path_lock);
-
-    list_for_each_entry_safe(e, tmp, &doomed, list) {
-        list_del(&e->list);
-        if (!e->inode)
-            atomic_dec(&sus_path_n_pending);
-        sus_path_restore_mode(e);
-        if (e->inode)
-            iput(e->inode);
-        kfree(e);
-    }
-    if (removed)
-        SUSFS_LOGI("sus_path: removed %d rule(s) for %s, %d left\n", removed, want,
-                sus_path_count);
-    /* A deleted rule cannot resolve later: if it was the last pending one, its caller's creds are
-     * not needed any more. */
     sus_path_maybe_drop_caller_cred();
     return removed;
 }
@@ -1780,8 +1854,6 @@ static bool sus_path_path_is_ours(const char *path)
 
 static int sus_path_command(const char *val, int *removed_out)
 {
-    struct sus_path_entry *e, *tmp;
-    LIST_HEAD(doomed);
     char cmd[SUS_PATH_LEN + 16];
     const char *arg;
     int i, removed = 0;
@@ -1792,16 +1864,8 @@ static int sus_path_command(const char *val, int *removed_out)
         cmd[i] = '\0';
 
     if (!strcmp(cmd, "clear")) {
-        spin_lock(&sus_path_lock);
-        list_for_each_entry_safe(e, tmp, &sus_path_list, list) {
-            if (e->self_protect)
-                continue;	/* ours: see the note above */
-            list_del(&e->list);
-            list_add(&e->list, &doomed);
-            sus_path_count--;
+        while (removed < SUS_PATH_MAX_ENTRIES && sus_path_release_one(NULL, NULL, true))
             removed++;
-        }
-        spin_unlock(&sus_path_lock);
     } else if (!strncmp(cmd, "add ", 4) || !strncmp(cmd, "del ", 4)) {
         bool adding = (cmd[0] == 'a');
 
@@ -1834,16 +1898,6 @@ static int sus_path_command(const char *val, int *removed_out)
         return -EINVAL;
     }
 
-    /* Outside the lock: restore_mode() writes i_mode and iput() can sleep and evict. */
-    list_for_each_entry_safe(e, tmp, &doomed, list) {
-        list_del(&e->list);
-        if (!e->inode)
-            atomic_dec(&sus_path_n_pending);
-        sus_path_restore_mode(e);
-        if (e->inode)
-            iput(e->inode);
-        kfree(e);
-    }
     /* Whatever was removed above is gone for good, `clear` included: if the last pending rule went
      * with it, the registering process' creds are not needed any more either. */
     sus_path_maybe_drop_caller_cred();
@@ -2163,78 +2217,99 @@ module_param_cb(sus_path_probe, &sus_path_probe_ops, NULL, 0600);
  * self-hide the /proc control nodes.  Same entry shape and ihold discipline as
  * sus_path_supercall(): the inode pointer is what the LSM layer matches on and it must outlive
  * path_put() below. */
+static int sus_path_publish_entry(struct sus_path_entry *e, bool merge_pending)
+{
+    struct sus_path_entry *cur;
+    int rc = 0;
+
+    mutex_lock(&sus_path_lifecycle_lock);
+    if (READ_ONCE(sus_path_stopping)) {
+        mutex_unlock(&sus_path_lifecycle_lock);
+        return -ESHUTDOWN;
+    }
+    if (e->inode) {
+        rc = susfs_sb_watch_add(e->sb);
+        if (rc) {
+            mutex_unlock(&sus_path_lifecycle_lock);
+            return rc;
+        }
+    }
+    spin_lock(&sus_path_lock);
+    list_for_each_entry(cur, &sus_path_list, list) {
+        if ((e->inode && cur->inode == e->inode) ||
+            (!e->inode && !cur->inode && !strcmp(cur->path, e->path))) {
+            rc = 1;
+            goto out;
+        }
+        if (merge_pending && e->inode && !cur->inode &&
+            !strcmp(cur->path, e->path)) {
+            cur->sb = e->sb;
+            cur->dev = e->dev;
+            cur->ino = e->ino;
+            strscpy(cur->name, e->name, sizeof(cur->name));
+            cur->inode = e->inode;
+            e->inode = NULL;
+            atomic_dec(&sus_path_n_pending);
+            sus_path_relax_mode(cur);
+            rc = 1;
+            goto out;
+        }
+    }
+    if (sus_path_count >= SUS_PATH_MAX_ENTRIES) {
+        rc = -ENOSPC;
+        goto out;
+    }
+    list_add_tail(&e->list, &sus_path_list);
+    sus_path_count++;
+    if (e->inode)
+        sus_path_relax_mode(e);
+    else
+        atomic_inc(&sus_path_n_pending);
+out:
+    spin_unlock(&sus_path_lock);
+    mutex_unlock(&sus_path_lifecycle_lock);
+    return rc;
+}
+
 static int sus_path_add_hidden_ex(const char *path, bool self_protect)
 {
-	struct path p;
-	struct inode *inode;
-	struct sus_path_entry *e;
-	int rc;
+    struct path p;
+    struct inode *inode;
+    struct sus_path_entry *e;
+    int rc;
 
-	rc = kern_path(path, LOOKUP_FOLLOW, &p);
-	if (rc)
-		return rc;
-
-	inode = d_inode(p.dentry);
-	if (!inode) {
-		path_put(&p);
-		return -ENOENT;
-	}
-
-	/* kzalloc, NOT kmalloc: the entry has two fields these add paths never set -
-	 * `self_protect` (a gate: a garbage non-zero value turns an ordinary app-only rule
-	 * into "hidden from every non-root caller") and `orig_mode` (written back into
-	 * inode->i_mode by sus_path_restore_mode() at unload).  With kmalloc both held
-	 * whatever the slab last contained, and the common case made it certain:
-	 * sus_path_relax_mode() returns early - recording nothing - when the target is
-	 * already 0777, so unloading wrote uninitialized heap bytes into a real inode mode.
-	 * Zero is the right initial value for both: false is the ordinary gate, and
-	 * orig_mode == 0 means "this rule did not touch the mode", which is exactly what
-	 * restore_mode() tests for. */
-	e = kzalloc(sizeof(*e), GFP_KERNEL);
-	if (!e) {
-		path_put(&p);
-		return -ENOMEM;
-	}
-
-	e->dev = (u64)inode->i_sb->s_dev;
-	e->ino = (u64)inode->i_ino;
-	e->inode = inode;
-	e->pass = 0;
-	e->self_protect = self_protect;
-	ihold(inode);
-	strscpy(e->name, p.dentry->d_name.name, sizeof(e->name));
-	sus_path_entry_set_path(e, path);
-	INIT_LIST_HEAD(&e->list);
-	path_put(&p);
-
-	spin_lock(&sus_path_lock);
-	{
-		struct sus_path_entry *cur;
-
-		list_for_each_entry(cur, &sus_path_list, list) {
-			if (cur->inode == inode) {
-				spin_unlock(&sus_path_lock);
-				iput(e->inode);
-				kfree(e);
-				return 0;	/* already hidden */
-			}
-		}
-	}
-	if (sus_path_count >= SUS_PATH_MAX_ENTRIES) {
-		spin_unlock(&sus_path_lock);
-		iput(e->inode);
-		kfree(e);
-		return -ENOSPC;
-	}
-	list_add_tail(&e->list, &sus_path_list);
-	sus_path_count++;
-	sus_path_relax_mode(e);
-	spin_unlock(&sus_path_lock);
-
-	SUSFS_LOGI("sus_path: hidden (built-in) '%s'%s\n", path,
-		self_protect ? " (self-protected: hidden from every non-root caller)" : "");
-	sus_path_hooks_arm();
-	return 0;
+    rc = kern_path(path, LOOKUP_FOLLOW, &p);
+    if (rc)
+        return rc;
+    inode = d_inode(p.dentry);
+    if (!inode) {
+        path_put(&p);
+        return -ENOENT;
+    }
+    e = kzalloc(sizeof(*e), GFP_KERNEL);
+    if (!e) {
+        path_put(&p);
+        return -ENOMEM;
+    }
+    e->sb = inode->i_sb;
+    e->dev = (u64)inode->i_sb->s_dev;
+    e->ino = (u64)inode->i_ino;
+    e->inode = inode;
+    e->self_protect = self_protect;
+    ihold(inode);
+    strscpy(e->name, p.dentry->d_name.name, sizeof(e->name));
+    sus_path_entry_set_path(e, path);
+    INIT_LIST_HEAD(&e->list);
+    rc = sus_path_publish_entry(e, false);
+    if (rc) {
+        iput(e->inode);
+        kfree(e);
+    }
+    path_put(&p);
+    if (rc < 0)
+        return rc;
+    sus_path_hooks_arm();
+    return 0;
 }
 
 /* Register one of the module's own control nodes: same table, flagged so the gate hides it from
@@ -2259,6 +2334,13 @@ bool sus_path_lsm_active(void)
 int sus_path_init(void)
 {
     int rc;
+
+    WRITE_ONCE(sus_path_stopping, false);
+    rc = susfs_sb_watch_init(sus_path_sb_release);
+    if (rc) {
+        pr_err("sus_path: filesystem cleanup initialization failed %d - refusing inode holds\n", rc);
+        return rc;
+    }
 
     /* kvmalloc, not kmalloc: 64 KB of physically contiguous order-4 memory is not available on a
      * phone that has been up for a while (measured: MemFree 394 MB, and kmalloc_order failed with a
@@ -2392,8 +2474,11 @@ int sus_path_init(void)
 
 void sus_path_exit(void)
 {
-    struct sus_path_entry *e, *tmp;
-    LIST_HEAD(doomed);
+    mutex_lock(&sus_path_lifecycle_lock);
+    spin_lock(&sus_path_lock);
+    WRITE_ONCE(sus_path_stopping, true);
+    spin_unlock(&sus_path_lock);
+    mutex_unlock(&sus_path_lifecycle_lock);
 
     /* Our own node goes down first, while the LSM layer that hides it is still armed: the
      * reverse order would expose a 0777 control surface for the duration of the unload. */
@@ -2446,22 +2531,10 @@ void sus_path_exit(void)
     kvfree(dirent_tmp);
     dirent_tmp = NULL;
 
-    spin_lock(&sus_path_lock);
-    list_splice_init(&sus_path_list, &doomed);
-    sus_path_count = 0;
-    atomic_set(&sus_path_n_pending, 0);
-    spin_unlock(&sus_path_lock);
-
-    /* iput outside the lock (it can sleep and evict), and the mode each rule relaxed is put
-     * back first and before the inode is released: the relaxed value only lives in memory, so
-     * once the last reference is gone there is no telling a relaxed mode from a real one. */
-    list_for_each_entry_safe(e, tmp, &doomed, list) {
-        list_del(&e->list);
-        sus_path_restore_mode(e);
-        if (e->inode)
-            iput(e->inode);
-        kfree(e);
-    }
+    while (sus_path_release_one(NULL, NULL, false))
+        ;
+    wait_event(sus_path_release_wait, !sus_path_releases_pending(NULL));
+    susfs_sb_watch_exit();
 }
 
 /* supercall: CMD_SUSFS_ADD_SUS_PATH (0x55550) / CMD_SUSFS_ADD_SUS_PATH_LOOP (0x55553)
@@ -2480,201 +2553,88 @@ void sus_path_supercall(unsigned int cmd, void __user **arg)
 {
     struct st_susfs_sus_path info = {0};
     struct sus_path_entry *e;
-    struct path path = {0};
+    struct path path;
     struct inode *inode = NULL;
+    bool have_path = false;
     bool pending_ok = (cmd == CMD_SUSFS_ADD_SUS_PATH_LOOP);
-    u64 dev = 0;
-    u64 ino = 0;
     int rc;
 
     if (copy_from_user(&info, (void __user *)*arg, sizeof(info))) {
         info.err = -EFAULT;
         goto out;
     }
-
     if (!info.target_pathname[0]) {
         info.err = -EINVAL;
         goto out;
     }
-    /* The field is char[256] and need not be NUL-terminated; kern_path() on an
-     * unterminated one reads off the end of our stack copy of the struct. */
     if (!susfs_abi_path_ok(info.target_pathname, sizeof(info.target_pathname))) {
         info.err = -ENAMETOOLONG;
         goto out;
     }
-
+    if (READ_ONCE(sus_path_stopping)) {
+        info.err = -ESHUTDOWN;
+        goto out;
+    }
     rc = kern_path(info.target_pathname, LOOKUP_FOLLOW, &path);
     if (!rc) {
+        have_path = true;
         inode = d_inode(path.dentry);
-        if (!inode) {
-            path_put(&path);
+        if (!inode)
             rc = -ENOENT;
-        }
     }
-    if (rc && rc != -ENOENT) {
-        pr_warn("sus_path: failed opening '%s' (%d)\n", info.target_pathname, rc);
+    if (rc && (rc != -ENOENT || !pending_ok)) {
         info.err = rc;
         goto out;
     }
-/* Upstream's plain ADD_SUS_PATH reports a missing path: its `err = kern_path(...)` IS the answer
- * (fs/susfs.c:58-62).  Only the _LOOP variant accepts "not there yet".  (This kern_path() also
- * runs into our own rule when the path is already hidden - upstream is no different, its
- * rejection lives in walk_component(), so both implementations answer the same -ENOENT.) */
-    if (rc == -ENOENT && !pending_ok) {
-        SUSFS_LOGI("sus_path: '%s' does not exist and this is ADD_SUS_PATH (not _LOOP): reporting -ENOENT like upstream\n",
-                info.target_pathname);
-        info.err = -ENOENT;
-        goto out;
-    }
-
-    /* kzalloc, NOT kmalloc: `self_protect` and `orig_mode` must start at zero or unloading
-     * writes uninitialized heap bytes into a real inode mode - see sus_path_add_hidden_ex(). */
     e = kzalloc(sizeof(*e), GFP_KERNEL);
     if (!e) {
-        if (inode)
-            path_put(&path);
         info.err = -ENOMEM;
         goto out;
     }
-
-    e->dev = 0;
-    e->ino = 0;
-    e->inode = NULL;
-    e->pass = 0;
-    e->name[0] = '\0';
-
     if (inode) {
-        dev = (u64)inode->i_sb->s_dev;
-        ino = (u64)inode->i_ino;
-        e->dev = dev;
-        e->ino = ino;
+        e->sb = inode->i_sb;
+        e->dev = (u64)inode->i_sb->s_dev;
+        e->ino = (u64)inode->i_ino;
         e->inode = inode;
-        /* Hold the inode: the LSM hooks match on this pointer, and the dentry is
-         * about to be released by path_put(), which would otherwise be free to
-         * evict it and let the address be reused. */
         ihold(inode);
         strscpy(e->name, path.dentry->d_name.name, sizeof(e->name));
     }
     sus_path_entry_set_path(e, info.target_pathname);
     if (!inode)
-        /* No dentry to take the name from yet: the basename of the registered path is what the
-         * table shows until the lookup succeeds, and it is then replaced by the real dentry name,
-         * which is what the dirent filter has to compare (following a symlink changes it). */
         sus_path_basename(e->path, e->name, sizeof(e->name));
     INIT_LIST_HEAD(&e->list);
-    if (inode)
-        path_put(&path);
-
-    spin_lock(&sus_path_lock);
-    if (sus_path_count >= SUS_PATH_MAX_ENTRIES) {
-        spin_unlock(&sus_path_lock);
+    rc = sus_path_publish_entry(e, true);
+    if (rc) {
         if (e->inode)
             iput(e->inode);
         kfree(e);
-        info.err = -ENOSPC;
+    }
+    if (rc < 0) {
+        info.err = rc;
         goto out;
     }
-    {
-        struct sus_path_entry *cur;
-
-        list_for_each_entry(cur, &sus_path_list, list) {
-            /* Same inode: upstream's set_bit() is idempotent.  Same still-unresolved path:
-             * nothing to add but the retry marker, which is re-armed below. */
-            if ((inode && cur->inode == inode) ||
-                (!inode && !cur->inode && !strcmp(cur->path, e->path))) {
-                /* A duplicate of a rule that is STILL pending is the documented way back from a
-                 * timer that ran out its SUS_PATH_PENDING_TRIES: without the re-arm this add
-                 * reports success and nothing ever tries the walk again, although the comment
-                 * above the loop has always said "the next add re-arms the timer".  `inode` is
-                 * NULL exactly in that case (the other arm of the condition needs it non-NULL).
-                 * The arm's immediate pass re-walks the path this add just failed on - wasted -
-                 * but it also re-tries every other pending rule, which may have become reachable
-                 * since the timer stopped. */
-                spin_unlock(&sus_path_lock);
-                if (e->inode)
-                    iput(e->inode);
-                kfree(e);
-                info.err = 0;   /* already registered, upstream is idempotent */
-                if (!inode)
-                    sus_path_pending_arm();
-                goto out;
-            }
-            /* The rule is there as a pending one and this add is what resolved it: complete that
-             * entry instead of registering a second one for the same path (a boot script that
-             * runs twice would otherwise leave one resolved and one pending entry behind), so
-             * re-adding a path is also the manual way to force the resolution. */
-            if (inode && !cur->inode && !strcmp(cur->path, e->path)) {
-                cur->dev = dev;
-                cur->ino = ino;
-                strscpy(cur->name, e->name, sizeof(cur->name));
-                cur->inode = e->inode;      /* the reference moves over */
-                e->inode = NULL;
-                atomic_dec(&sus_path_n_pending);
-                sus_path_relax_mode(cur);   /* it was pending, so it never ran */
-                spin_unlock(&sus_path_lock);
-                kfree(e);
-                info.err = 0;
-                SUSFS_LOGI("sus_path: hide '%s' (pending rule completed by this add, dev=%llu ino=%llu)\n",
-                        info.target_pathname, dev, ino);
-                goto out;
-            }
-        }
-    }
-    list_add_tail(&e->list, &sus_path_list);
-    sus_path_count++;
-    if (!inode)
-        atomic_inc(&sus_path_n_pending);
-    else
-        sus_path_relax_mode(e);
-    spin_unlock(&sus_path_lock);
-
-    if (inode && !ino) {
-        /* Stay factual about what an ino-0 filesystem costs: neither implementation filters
-         * the listing here (upstream hides by a flag and its ilookup(sb, d_ino) finds nothing
-         * for ino 0 either), the by-inode layers still hide the path, and a name-based
-         * fallback would hide unrelated entries that report d_ino 0 as well. */
+    if (inode && !inode->i_ino)
         pr_warn("sus_path: '%s' reports ino 0 - hidden by inode, but a directory listing cannot be filtered for it\n",
                 info.target_pathname);
+    if (have_path) {
+        path_put(&path);
+        have_path = false;
     }
-
     if (!dirent_tmp) {
-        /* Retry once: the first attempt may have run before the system was settled.  Still not
-         * fatal - the rule is registered either way, and the by-inode layers answer the access. */
         dirent_tmp = kvmalloc(DIRENT_BUF_SIZE, GFP_KERNEL);
         if (!dirent_tmp)
-            pr_warn("sus_path: dirent scratch buffer still unavailable, listing for '%s' stays unfiltered\n",
-                    info.target_pathname);
+            pr_warn("sus_path: dirent scratch buffer unavailable, listings remain unfiltered\n");
     }
-
-    /* First rule: the listing filter needs no arming - it gates itself on the rule count, and the
-     * tracepoint it rides is the stat family's - so what is left here is the one-shot "hooks armed"
-     * log line and the no_extra warning.  Idempotent, safe with a rule already in the list. */
     sus_path_hooks_arm();
-
     if (!inode) {
-        SUSFS_LOGI("sus_path: hide '%s' (pending: the path does not exist yet - it is hidden once the background walk resolves its inode)\n",
-                info.target_pathname);
-        /* The walk happens later, in a worker whose own creds cannot reach a path under /data
-         * (measured: -EACCES), so remember the creds of the process that registered the rule. */
         sus_path_save_caller_cred();
-        /* This add is itself the first retry opportunity (an earlier add in the same batch may
-         * be what the rule waits for), then the bounded timer keeps trying.  Upstream
-         * re-resolves on every zygote-spawned app instead, an event this kernel does not hand
-         * us. */
         sus_path_pending_arm();
-    } else {
-        SUSFS_LOGI("sus_path: hide '%s' (dev=%llu ino=%llu)\n",
-                info.target_pathname, dev, ino);
     }
-
     info.err = 0;
 out:
-    /* Every exit above can be the one that took the pending count to zero (a duplicate add that
-     * completed a pending rule, a failed add, a del/clear), and once none is left the resolver
-     * does not need the registering process' creds any more.  Idempotent, so the explicit calls
-     * in del/clear/resolve are harmless. */
+    if (have_path)
+        path_put(&path);
     sus_path_maybe_drop_caller_cred();
-    /* upstream writes back only ->err for input-type commands */
     if (copy_to_user(&((struct st_susfs_sus_path __user *)*arg)->err,
                      &info.err, sizeof(info.err)))
         pr_warn("sus_path supercall copy_to_user failed\n");
