@@ -39,6 +39,7 @@
 #include <linux/namei.h>
 #include <linux/fs.h>
 #include <linux/err.h>
+#include <linux/errno.h>
 #include <linux/compat.h>
 #include <linux/workqueue.h>	/* the pending-resolution retry timer */
 #include <linux/mutex.h>	/* serialises the first rule's arming */
@@ -165,6 +166,8 @@ static DEFINE_MUTEX(sus_path_lifecycle_lock);
 static DECLARE_WAIT_QUEUE_HEAD(sus_path_release_wait);
 static unsigned int sus_path_count;
 static bool sus_path_stopping;
+/* BTF-backed filesystem lifetime cleanup is optional on older GKI kernels. */
+static bool sus_path_lifetime_watch;
 
 /* Rules waiting for their path to appear, counted so every fast path can bail out at
  * once; guarded by sus_path_lock. */
@@ -625,7 +628,7 @@ static int sus_path_resolve_pending(void)
                 break;
             }
         }
-        if (slot && inode) {
+        if (slot && inode && READ_ONCE(sus_path_lifetime_watch)) {
             spin_unlock(&sus_path_lock);
             rc = susfs_sb_watch_add(inode->i_sb);
             if (rc)
@@ -2227,7 +2230,7 @@ static int sus_path_publish_entry(struct sus_path_entry *e, bool merge_pending)
         mutex_unlock(&sus_path_lifecycle_lock);
         return -ESHUTDOWN;
     }
-    if (e->inode) {
+    if (e->inode && READ_ONCE(sus_path_lifetime_watch)) {
         rc = susfs_sb_watch_add(e->sb);
         if (rc) {
             mutex_unlock(&sus_path_lifecycle_lock);
@@ -2336,10 +2339,16 @@ int sus_path_init(void)
     int rc;
 
     WRITE_ONCE(sus_path_stopping, false);
+    WRITE_ONCE(sus_path_lifetime_watch, false);
     rc = susfs_sb_watch_init(sus_path_sb_release);
-    if (rc) {
+    if (rc == -EOPNOTSUPP || rc == -ENOSYS) {
+        pr_warn("sus_path: fsnotify lifetime cleanup unavailable (%d); using legacy inode holds\n",
+                rc);
+    } else if (rc) {
         pr_err("sus_path: filesystem cleanup initialization failed %d - refusing inode holds\n", rc);
         return rc;
+    } else {
+        WRITE_ONCE(sus_path_lifetime_watch, true);
     }
 
     /* kvmalloc, not kmalloc: 64 KB of physically contiguous order-4 memory is not available on a
@@ -2535,6 +2544,7 @@ void sus_path_exit(void)
         ;
     wait_event(sus_path_release_wait, !sus_path_releases_pending(NULL));
     susfs_sb_watch_exit();
+    WRITE_ONCE(sus_path_lifetime_watch, false);
 }
 
 /* supercall: CMD_SUSFS_ADD_SUS_PATH (0x55550) / CMD_SUSFS_ADD_SUS_PATH_LOOP (0x55553)
