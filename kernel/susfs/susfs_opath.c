@@ -97,17 +97,15 @@ static inline bool opath_has_landing_pad(const void *fn)
 	return fn && READ_ONCE(*(const u32 *)fn) == SUSFS_ARM64_BTI_C;
 }
 
-/* Resolved BY NAME at init and cached, exactly like sus_open_redirect.c does it: fget_raw() is
- * an EXPORT_SYMBOL (fs/file.c:927-931) but GKI's module symbol list is not a promise, and
- * close_fd_get_file() (fs/file.c:795-805) is not exported at all - it is a global function,
- * so kallsyms has it and the module's own resolver can name it.  Both are called through these
- * pointers, so every function that calls them carries __nocfi.
- * susfs_opath_init() installs no table entry while either is unresolved: a wrapper that cannot
- * finish its post-check would deny nothing and only add a fault path, so the layer stays off
- * instead (the counters and the log say which name was missing). */
+/* Resolved by name at init and cached, exactly like sus_open_redirect.c does it.  fget_raw() is
+ * exported, but GKI's module symbol list is not a promise; the close-fd helpers are global
+ * symbols whose names are found by the module's resolver.  Their signatures differ by kernel
+ * generation, so each is called through its matching pointer and every caller carries __nocfi.
+ * susfs_opath_init() installs no table entry while either required capability is unresolved: a
+ * wrapper that cannot finish its post-check would deny nothing and only add a fault path. */
 static struct file *(*opath_fget_raw)(unsigned int fd);
-/* Two names with two SIGNATURES, not one function spelled twice: 5.15's
- * close_fd_get_file(fd, &res) returns an int status and fills res, while 6.11+'s
+/* Two names with two SIGNATURES, not one function spelled twice: older kernels'
+ * close_fd_get_file(fd, &res) returns an int status and fills res, while newer kernels'
  * file_close_fd(fd) returns the file itself.  Calling the latter through the former's
  * prototype read a struct file * as a status: every deny counted as a failure, the fd was
  * already out of the table, and the reference was never fput. */
@@ -204,7 +202,7 @@ static __nocfi long susfs_opath_post(long ret)
 		return ret;
 	}
 
-	/* fput() and not filp_close(): close_fd_get_file()'s comment asks for filp_close()
+	/* fput() and not filp_close(): the close-fd helper's normal contract asks for filp_close()
 	 * first, and for an O_PATH file that reduces to exactly this call - do_dentry_open()
 	 * set f_op = &empty_fops, so f_op->flush is NULL, and a file that was never opened for
 	 * reading can hold neither a POSIX lock nor a dnotify mark, which are the other two
@@ -462,14 +460,11 @@ int susfs_opath_init(void)
 
 	opath_fget_raw = (void *)find_kernel_symbol_exact("fget_raw");
 
-	/* 6.11 reworked the fd-table internals: what 5.15 calls close_fd_get_file()
-	 * (fs/file.c:795-805) became file_close_fd() (fs/file.c:778-796), and the RETURN
-	 * CONVENTION changed with the name - int status + out-param becomes the file itself.
-	 * Each name gets its own pointer, and opath_take_fd() calls whichever resolved: sharing
-	 * one pointer read a struct file * as an int status, so every deny on 6.11+ failed and
-	 * leaked the reference it had just been handed.  The rename is not cosmetic for us either
-	 * way - the CI's by-name step measures close_fd_get_file as 1 on 5.10/5.15/6.1/6.6 and 0
-	 * on 6.12/6.18, and that 0 is this layer refusing to install on those kernels. */
+	/* The fd-table helper changed both name and return convention in newer kernels:
+	 * close_fd_get_file(fd, &file) returns an int status and fills an out-parameter, while
+	 * file_close_fd(fd) returns the struct file * directly.  Resolve by name instead of a version
+	 * check so vendor backports are handled, and call whichever helper was found through its
+	 * matching pointer. */
 	opath_close_fd_get_file = (void *)find_kernel_symbol_exact("close_fd_get_file");
 	opath_close_fd_name = "close_fd_get_file";
 	if (!opath_close_fd_get_file) {
