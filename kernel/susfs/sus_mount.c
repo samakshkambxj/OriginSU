@@ -153,12 +153,19 @@
  * the two reports the list length and the rescan count - and declaring it below its
  * first use would be a compile error, not a style issue. */
 /* 64 prefixes (the list used to stop at 8, which a container setup outgrows quickly).  One write to
- * the control node may carry a whole list - it is bounded by SUS_MOUNT_KEEP_CMDLINE, i.e. 8320 bytes,
+ * the control node may carry a whole list - it is bounded by SUS_MOUNT_KEEP_CMDLINE, i.e. 8352 bytes,
  * which is 64 entries of a 128-byte prefix - and the static cost of the two buffers below is roughly
  * 16 KB. */
 #define SUS_MOUNT_KEEP_MAX 64
 #define SUS_MOUNT_KEEP_LEN 128
 #define SUS_MOUNT_KEEP_CMDLINE (SUS_MOUNT_KEEP_MAX * (SUS_MOUNT_KEEP_LEN + 2) + 32)
+
+/* Room for one more full prefix line PLUS the "there is more" notice, in the sysfs read path.
+ * Short of that, the notice is what gets cut: 64 prefixes of 127 characters stopped the loop 96 bytes
+ * from the end, so the "N more; cat /proc/susfs_hide_mounts for all" text was itself truncated
+ * mid-path and the final newline went with it - the read that needs the notice cannot print it.  One
+ * more entry than strictly needed is deliberate: the notice's own length is not fixed. */
+#define SUS_MOUNT_KEEP_TRUNC_RESERVE (SUS_MOUNT_KEEP_LEN + 64)
 
 static char mount_keep[SUS_MOUNT_KEEP_MAX][SUS_MOUNT_KEEP_LEN];
 static int n_mount_keep;
@@ -1644,7 +1651,14 @@ static int sus_mount_keep_parse(const char *val, char dst[][SUS_MOUNT_KEEP_LEN],
 	 * frame for 64 - past what the kernel allows a function to use (the module is built with
 	 * -Wframe-larger-than=2048).  Copying bought nothing: the callers already hand over a
 	 * NUL-terminated string whose length they bounded, and trailing whitespace is skipped by the
-	 * tokenizer below. */
+	 * tokenizer below.
+	 *
+	 * Contract, now that the copy is gone: @val must be NUL-terminated and shorter than
+	 * SUS_MOUNT_KEEP_CMDLINE - the tokenizer walks it directly, so a string without a terminator
+	 * would be read past its end (the old internal copy made that impossible by construction, at
+	 * the price of the frame above).  Every caller today rejects such a value before calling:
+	 * the proc/sysfs write path and the cached insmod parameter both strscpy() into a
+	 * SUS_MOUNT_KEEP_CMDLINE buffer (or refuse the value outright), so the bound holds here. */
 	while (*p) {
 		const char *tok;
 		int len;
@@ -1818,28 +1832,60 @@ out:
 	return rc;
 }
 
+/* One consistent (length, entries) pair, taken under the lock, for BOTH read paths below.  They used
+ * to print straight out of the live array while sus_mount_keep_commit() was memset()ing and
+ * memcpy()ing over it, so a read racing a commit could report a count that no longer matched the
+ * entries it printed, or print an entry that was half old prefix and half new one.
+ *
+ * The caller prints from the copy and NOT under the lock: seq_printf() grows the seq buffer with
+ * kvmalloc(GFP_KERNEL) once the output passes the page, and that must not happen in an atomic
+ * section - which is also why the copy, not the printing, is what the lock covers.  A NULL @dst
+ * reports 0 entries rather than quietly reading the live array unlocked. */
+static int sus_mount_keep_snapshot(char (*dst)[SUS_MOUNT_KEEP_LEN])
+{
+	unsigned long flags;
+	int n;
+
+	if (!dst)
+		return 0;
+	spin_lock_irqsave(&mount_keep_lock, flags);
+	n = n_mount_keep;
+	if (n > SUS_MOUNT_KEEP_MAX)
+		n = SUS_MOUNT_KEEP_MAX;
+	if (n > 0)
+		memcpy(dst, mount_keep, (size_t)n * SUS_MOUNT_KEEP_LEN);
+	spin_unlock_irqrestore(&mount_keep_lock, flags);
+	return n;
+}
+
 /* The list as one string, for the sysfs parameter read (whose buffer the kernel caps at PAGE_SIZE).
  * With 64 entries the text can exceed that, so a cut is spelled out instead of looking like the end
  * of the list - /proc/susfs_hide_mounts is the read that always shows all of them. */
 static int sus_mount_keep_format(char *buf, size_t size)
 {
-	int n = 0;
-	int i;
+	char (*snap)[SUS_MOUNT_KEEP_LEN];
+	int nents, i, n = 0;
+
+	snap = kvmalloc((size_t)SUS_MOUNT_KEEP_MAX * SUS_MOUNT_KEEP_LEN, GFP_KERNEL);
+	if (!snap)
+		return scnprintf(buf, size, "mount prefixes: (list unavailable: out of memory)\n");
+	nents = sus_mount_keep_snapshot(snap);
 
 	n += scnprintf(buf + n, size - n,
 		"mount prefixes: %d/%d, rescans=%d, recorded=%d, hidden_by_identity=%d, learned_ids=%d\n",
-		n_mount_keep, SUS_MOUNT_KEEP_MAX, atomic_read(&n_keep_rescans),
+		nents, SUS_MOUNT_KEEP_MAX, atomic_read(&n_keep_rescans),
 		atomic_read(&n_newmnt_recorded), atomic_read(&n_ident_hits),
 		atomic_read(&n_ident_learned));
 	n += scnprintf(buf + n, size - n, "prefixes:");
-	for (i = 0; i < n_mount_keep && n < (int)size - 96; i++)
-		n += scnprintf(buf + n, size - n, " %s", mount_keep[i]);
-	if (!n_mount_keep)
+	for (i = 0; i < nents && n < (int)size - SUS_MOUNT_KEEP_TRUNC_RESERVE; i++)
+		n += scnprintf(buf + n, size - n, " %s", snap[i]);
+	if (!nents)
 		n += scnprintf(buf + n, size - n, " (none - only KSU-range ids are hidden)");
-	else if (i < n_mount_keep)
+	else if (i < nents)
 		n += scnprintf(buf + n, size - n, " ... (%d more; cat /proc/susfs_hide_mounts for all)",
-			       n_mount_keep - i);
+			       nents - i);
 	n += scnprintf(buf + n, size - n, "\n");
+	kvfree(snap);
 	return n;
 }
 
@@ -1847,19 +1893,28 @@ static int sus_mount_keep_format(char *buf, size_t size)
  * buffer, so 64 prefixes come back in full. */
 static void sus_mount_keep_show_seq(struct seq_file *m)
 {
-	int i;
+	char (*snap)[SUS_MOUNT_KEEP_LEN];
+	int nents, i;
+
+	snap = kvmalloc((size_t)SUS_MOUNT_KEEP_MAX * SUS_MOUNT_KEEP_LEN, GFP_KERNEL);
+	if (!snap) {
+		seq_puts(m, "mount prefixes: (list unavailable: out of memory)\n");
+		return;
+	}
+	nents = sus_mount_keep_snapshot(snap);
 
 	seq_printf(m, "mount prefixes: %d/%d, rescans=%d, recorded=%d, hidden_by_identity=%d, learned_ids=%d\n",
-		   n_mount_keep, SUS_MOUNT_KEEP_MAX, atomic_read(&n_keep_rescans),
+		   nents, SUS_MOUNT_KEEP_MAX, atomic_read(&n_keep_rescans),
 		   atomic_read(&n_newmnt_recorded), atomic_read(&n_ident_hits),
 		   atomic_read(&n_ident_learned));
 	seq_puts(m, "prefixes:");
-	if (!n_mount_keep)
+	if (!nents)
 		seq_puts(m, " (none - only KSU-range ids are hidden)");
 	else
-		for (i = 0; i < n_mount_keep; i++)
-			seq_printf(m, " %s", mount_keep[i]);
+		for (i = 0; i < nents; i++)
+			seq_printf(m, " %s", snap[i]);
 	seq_putc(m, '\n');
+	kvfree(snap);
 }
 
 /* ---- insmod parameters must not touch the guard-protected side --------------------------------
