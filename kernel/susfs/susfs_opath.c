@@ -143,6 +143,11 @@ static int (*opath_close_fd_get_file)(unsigned int fd, struct file **res);
 /* Set when the resolved helper took a reference of its own (the pre-6.1 close_fd_get_file()):
  * the deny path then owes the file two fput()s, and one of them would leak it for good. */
 static bool opath_close_fd_extra_ref;
+/* Needed on the one path that has to UNDO a take: when the descriptor changed hands between the
+ * check and the take (files_struct is shared - CLONE_FILES), the file now in hand is not the hidden
+ * one and has to go back into the table it came out of.  See susfs_opath_post_fd(); fd_install() is
+ * exported everywhere and is already resolved by susfs_or_entry.c for the same purpose. */
+static void (*opath_fd_install)(unsigned int fd, struct file *file);
 /* Which name the kernel above answered to (see susfs_opath_init): only the log needs it, and a log
  * that prints a pointer without the name it came from cannot tell close_fd_get_file from
  * file_close_fd on a kernel where one of them is missing. */
@@ -241,39 +246,57 @@ __nocfi long susfs_opath_post_fd(long ret)
 
 	hidden = sus_path_inode_hidden_public(d_inode(f->f_path.dentry));
 
-	/* Release before deciding: the deny path takes an fd-table lock, and holding a file
-	 * reference across it buys nothing (the file is in this task's table and cannot go
-	 * away while its own syscall is running). */
-	fput(f);
-
-	if (!hidden)
+	if (!hidden) {
+		fput(f);
 		return ret;
+	}
 	atomic_inc(&n_opath_hidden);
 
-	/* Take the descriptor away and report the failure the LSM layers would have reported:
-	 * returning -ENOENT while leaving a usable O_PATH fd behind would be a worse leak than
-	 * the one being closed.  A failure here means the fd is not ours any more, which cannot
-	 * happen inside this syscall - so the original answer is kept rather than promised away,
-	 * and the counter says it happened. */
+	/* The descriptor is taken BY NUMBER while this task's fget_raw() reference on f is still held,
+	 * and the result is compared against it.  files_struct is shared (CLONE_FILES), so another
+	 * thread of this task can close this very number and open something else over it between the
+	 * check above and the take below: taking by number alone would then remove - and fput - a file
+	 * this layer never inspected, while answering -ENOENT for an open that matched nothing.
+	 * Holding f across the take costs one reference for a few instructions and turns that race into
+	 * a comparison. */
 	victim = opath_take_fd((unsigned int)ret);
 	if (!victim) {
+		/* The number is gone: nothing was taken, so the kernel's own answer stands. */
+		fput(f);
 		atomic_inc(&n_opath_err);
 		return ret;
 	}
 
-	/* fput() and not filp_close(): the close-fd helper's normal contract asks for filp_close()
+	if (victim != f) {
+		/* The number changed hands.  What came out is not the hidden file, so it is not ours to
+		 * remove: put it back exactly where it was and let the open stand.  fd_install() takes
+		 * over the reference the take had reserved for the table, so all that is left to drop
+		 * here is what fget_raw() took (plus, before 6.1, the one the helper added).  Closing it
+		 * instead would take away a descriptor this layer was never asked about, and answering
+		 * -ENOENT would deny an open that matched nothing. */
+		opath_fd_install((unsigned int)ret, victim);
+		fput(f);
+		if (opath_close_fd_extra_ref)
+			fput(victim);
+		atomic_inc(&n_opath_err);
+		return ret;
+	}
+
+	/* Same file: this is the hidden one, so the descriptor goes away - and the reference
+	 * bookkeeping has to match the helper this kernel has.
+	 *
+	 * fput() and not filp_close(): the close-fd helper's normal contract asks for filp_close()
 	 * first, and for an O_PATH file that reduces to exactly this call - do_dentry_open()
 	 * set f_op = &empty_fops, so f_op->flush is NULL, and a file that was never opened for
 	 * reading can hold neither a POSIX lock nor a dnotify mark, which are the other two
 	 * things filp_close() would run before fput().
 	 *
-	 * The pre-6.1 helper took a reference of its own on top of the one the fd table held
-	 * (fs/file.c: get_file() after the fd is out of the table), so its contract is
-	 * filp_close() AND an fput() - two releases.  With the single fput() below, that reference
-	 * was never dropped: every deny leaked a struct file for good, which is visible as nr_files
-	 * and filp slab objects that never come back down.  The 6.1+ helpers take no reference of
-	 * their own, so exactly the one fput() is the whole release there and a second would be a
-	 * refcount underflow. */
+	 * Three references pass through here on a pre-6.1 kernel and two on 6.1+: fget_raw()'s, the
+	 * one the take handed over, and - before 6.1 - the one close_fd_get_file() added itself
+	 * (fs/file.c: get_file() after the fd is out of the table).  Releasing only one of them (as
+	 * this did) leaked a struct file on every deny, which is visible as nr_files and filp slab
+	 * objects that never come back down; on 6.1+ a third fput() would be a refcount underflow. */
+	fput(f);
 	fput(victim);
 	if (opath_close_fd_extra_ref)
 		fput(victim);
@@ -566,6 +589,10 @@ int susfs_opath_init(void)
 	}
 
 	opath_fget_raw = (void *)find_kernel_symbol_exact("fget_raw");
+	/* The undo of a take that raced with a close/open on the same number: see the note on the
+	 * pointer and in susfs_opath_post_fd().  Without it the layer could not give back a descriptor
+	 * it took by number and found changed hands, so it refuses to install instead. */
+	opath_fd_install = (void *)find_kernel_symbol_exact("fd_install");
 
 	/* Which close-fd helper this kernel has, under WHICH prototype.  close_fd_get_file() kept its
 	 * name across 6.1 and changed its signature there, so the prototype comes from the kernel
@@ -587,13 +614,15 @@ int susfs_opath_init(void)
 	opath_close_fd_extra_ref = true;
 #endif
 
-	if (!opath_fget_raw || !opath_close_fd_resolved()) {
-		/* Refusing to install beats installing a wrapper that cannot finish: without
-		 * these two the post-check could not take a descriptor away, so the layer
-		 * would only have added a fault path to every open on the system.  Both names
-		 * are printed, because "the name is missing" is only useful with which one. */
-		pr_warn("opath: fget_raw=%px close_fd_get_file=%px file_close_fd=%px - a name was not resolved, no table entry is installed and O_PATH stays visible\n",
+	if (!opath_fget_raw || !opath_fd_install || !opath_close_fd_resolved()) {
+		/* Refusing to install beats installing a wrapper that cannot finish: without these the
+		 * post-check could not take a descriptor away - or could not give one back after a take
+		 * that raced - so the layer would only have added a fault path to every open on the
+		 * system.  Every name is printed, because "the name is missing" is only useful with
+		 * which one. */
+		pr_warn("opath: fget_raw=%px fd_install=%px close_fd_get_file=%px file_close_fd=%px - a name was not resolved, no table entry is installed and O_PATH stays visible\n",
 			(void *)opath_fget_raw,
+			(void *)opath_fd_install,
 			(void *)find_kernel_symbol_exact("close_fd_get_file"),
 			(void *)find_kernel_symbol_exact("file_close_fd"));
 		atomic_inc(&n_opath_err);
