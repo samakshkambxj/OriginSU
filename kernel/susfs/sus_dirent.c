@@ -20,8 +20,9 @@
  * iterate_dir() is EXPORT_SYMBOL and carries i_rwsem, f_pos, fsnotify and the LSM check, so
  * only filldir64()'s record layout is reimplemented here (fs/readdir.c).
  *
- * Native getdents64 only.  The compat entries keep the post-hoc filter: their record layout
- * differs and this has not been tested on a 32-bit caller.
+ * Both native and compat directory layouts are handled here.  This is deliberately shared by
+ * native getdents64, compat getdents64 (which uses the same linux_dirent64 layout), and compat
+ * getdents, so no ABI falls back to the post-hoc user-buffer scrub.
  */
 
 #include <linux/version.h>
@@ -62,12 +63,20 @@ struct sd_dirent64 {
 	char		d_name[];
 };
 
+struct sd_dirent_compat {
+	u32		d_ino;
+	u32		d_off;
+	unsigned short	d_reclen;
+	char		d_name[];
+};
+
 struct sd_buf {
 	struct dir_context		ctx;
-	struct sd_dirent64 __user	*current_dir;
+	void __user			*current_dir;
 	int				prev_reclen;
 	int				count;
 	int				error;
+	bool				compat;
 };
 
 static int (*sd_iterate_dir)(struct file *, struct dir_context *);
@@ -92,8 +101,8 @@ static SD_RET sd_filldir(struct dir_context *ctx, const char *name, int namlen,
 			 loff_t offset, u64 ino, unsigned int d_type)
 {
 	struct sd_buf *buf = container_of(ctx, struct sd_buf, ctx);
-	struct sd_dirent64 __user *dirent, *prev;
-	int reclen = ALIGN(offsetof(struct sd_dirent64, d_name) + namlen + 1, sizeof(u64));
+	void __user *dirent, *prev;
+	int reclen;
 	char nbuf[NAME_MAX + 1];
 	int prev_reclen;
 
@@ -120,6 +129,17 @@ static SD_RET sd_filldir(struct dir_context *ctx, const char *name, int namlen,
 		buf->error = -EIO;
 		return SD_STOP;
 	}
+	if (buf->compat) {
+		if (ino > (u64)U32_MAX) {
+			buf->error = -EOVERFLOW;
+			return SD_STOP;
+		}
+		reclen = ALIGN(offsetof(struct sd_dirent_compat, d_name) + namlen + 2,
+				       sizeof(u32));
+	} else {
+		reclen = ALIGN(offsetof(struct sd_dirent64, d_name) + namlen + 1,
+				       sizeof(u64));
+	}
 	buf->error = -EINVAL;
 	if (reclen > buf->count)
 		return SD_STOP;
@@ -133,12 +153,28 @@ static SD_RET sd_filldir(struct dir_context *ctx, const char *name, int namlen,
 	/* Same order as filldir64(): the previous record learns this entry's position.  With
 	 * prev_reclen 0 that write lands on this record and is overwritten by the next entry,
 	 * or by the tail fixup below. */
-	if (put_user(offset, &prev->d_off) ||
-	    put_user(ino, &dirent->d_ino) ||
-	    put_user((unsigned short)reclen, &dirent->d_reclen) ||
-	    put_user((unsigned char)d_type, &dirent->d_type) ||
-	    copy_to_user(dirent->d_name, name, namlen) ||
-	    put_user((char)0, &dirent->d_name[namlen])) {
+	if (buf->compat) {
+		if (put_user((u32)offset, &((struct sd_dirent_compat __user *)prev)->d_off) ||
+		    put_user((u32)ino, &((struct sd_dirent_compat __user *)dirent)->d_ino) ||
+		    put_user((unsigned short)reclen,
+			     &((struct sd_dirent_compat __user *)dirent)->d_reclen) ||
+		    copy_to_user((char __user *)dirent + offsetof(struct sd_dirent_compat, d_name),
+				 name, namlen) ||
+		    put_user((char)0,
+			     (char __user *)dirent + offsetof(struct sd_dirent_compat, d_name) + namlen) ||
+		    put_user((unsigned char)d_type, (char __user *)dirent + reclen - 1)) {
+			buf->error = -EFAULT;
+			return SD_STOP;
+		}
+	} else if (put_user(offset, &((struct sd_dirent64 __user *)prev)->d_off) ||
+		   put_user(ino, &((struct sd_dirent64 __user *)dirent)->d_ino) ||
+		   put_user((unsigned short)reclen,
+			    &((struct sd_dirent64 __user *)dirent)->d_reclen) ||
+		   put_user((unsigned char)d_type, &((struct sd_dirent64 __user *)dirent)->d_type) ||
+		   copy_to_user((char __user *)dirent + offsetof(struct sd_dirent64, d_name),
+				name, namlen) ||
+		   put_user((char)0,
+			    (char __user *)dirent + offsetof(struct sd_dirent64, d_name) + namlen)) {
 		buf->error = -EFAULT;
 		return SD_STOP;
 	}
@@ -154,11 +190,13 @@ static SD_RET sd_filldir(struct dir_context *ctx, const char *name, int namlen,
 }
 
 /*
- * fs/readdir.c's SYSCALL_DEFINE3(getdents64) with sd_filldir in place of filldir64.
+ * fs/readdir.c's getdents/getdents64 implementation with sd_filldir in place of filldir64
+ * or compat_filldir.
  * Returns false when this layer did not answer, and the caller falls back to the original
  * syscall plus the post-hoc filter - so hiding never stops, it only becomes detectable again.
  */
-__nocfi bool susfs_dirent_getdents64(const struct pt_regs *regs, long *out)
+__nocfi bool susfs_dirent_prefilter(const struct pt_regs *regs, long *out,
+					bool compat)
 {
 	unsigned int fd = (unsigned int)regs->regs[0];
 	unsigned int count = (unsigned int)regs->regs[2];
@@ -173,8 +211,9 @@ __nocfi bool susfs_dirent_getdents64(const struct pt_regs *regs, long *out)
 	atomic_inc(&n_sd_calls);
 	buf.ctx.actor = sd_filldir;
 	buf.ctx.pos = 0;
-	buf.current_dir = (struct sd_dirent64 __user *)regs->regs[1];
+	buf.current_dir = (void __user *)regs->regs[1];
 	buf.count = (int)count;
+	buf.compat = compat;
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 16, 0)
 	/* 6.16 gave dir_context a `count` field: the kernel keeps the remaining room there (its own
 	 * filldir64 decrements it) and the filesystems read it as the buffer-size hint - fuse does
@@ -205,10 +244,16 @@ __nocfi bool susfs_dirent_getdents64(const struct pt_regs *regs, long *out)
 	if (error >= 0)
 		error = buf.error;
 	if (buf.prev_reclen) {
-		struct sd_dirent64 __user *last =
-			(void __user *)buf.current_dir - buf.prev_reclen;
+		void __user *last = (void __user *)buf.current_dir - buf.prev_reclen;
+		int tail_error;
 
-		if (put_user((s64)buf.ctx.pos, &last->d_off))
+		if (buf.compat)
+			tail_error = put_user((u32)buf.ctx.pos,
+					      &((struct sd_dirent_compat __user *)last)->d_off);
+		else
+			tail_error = put_user((s64)buf.ctx.pos,
+					      &((struct sd_dirent64 __user *)last)->d_off);
+		if (tail_error)
 			error = -EFAULT;
 		else
 			error = (long)count - buf.count;

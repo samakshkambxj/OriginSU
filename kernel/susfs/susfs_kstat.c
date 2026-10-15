@@ -1668,7 +1668,7 @@ static __nocfi long kstat_wrap_getdents64(const struct pt_regs *regs)
 
 	if (!orig)
 		return -ENOSYS;
-	if (susfs_dirent_getdents64(regs, &out))
+	if (susfs_dirent_prefilter(regs, &out, false))
 		return out;
 	syscall_get_arguments(current, (struct pt_regs *)regs, a);
 	ret = orig(regs);
@@ -1684,8 +1684,39 @@ SUSFS_KSTAT_WRAPPER(kstat_wrap_compat_stat, kstat_orig_compat_stat, COMPAT_STAT_
 SUSFS_KSTAT_WRAPPER(kstat_wrap_compat_lstat, kstat_orig_compat_lstat, COMPAT_LSTAT_NR, true)
 SUSFS_KSTAT_WRAPPER(kstat_wrap_compat_fstat, kstat_orig_compat_fstat, COMPAT_FSTAT_NR, true)
 SUSFS_KSTAT_WRAPPER(kstat_wrap_compat_statx, kstat_orig_compat_statx, COMPAT_STATX_NR, true)
-SUSFS_KSTAT_WRAPPER(kstat_wrap_compat_getdents64, kstat_orig_compat_getdents64, SUS_NR_GETDENTS64_COMPAT, true)
-SUSFS_KSTAT_WRAPPER(kstat_wrap_compat_getdents, kstat_orig_compat_getdents, SUS_NR_GETDENTS_COMPAT, true)
+static __nocfi long kstat_wrap_compat_getdents64(const struct pt_regs *regs)
+{
+	susfs_syscall_fn_t orig = READ_ONCE(kstat_orig_compat_getdents64);
+	unsigned long a[6];
+	long ret, out;
+
+	if (!orig)
+		return -ENOSYS;
+	if (susfs_dirent_prefilter(regs, &out, false))
+		return out;
+	syscall_get_arguments(current, (struct pt_regs *)regs, a);
+	ret = orig(regs);
+	out = ret;
+	susfs_kstat_post(SUS_NR_GETDENTS64_COMPAT, true, a, ret, &out);
+	return out;
+}
+
+static __nocfi long kstat_wrap_compat_getdents(const struct pt_regs *regs)
+{
+	susfs_syscall_fn_t orig = READ_ONCE(kstat_orig_compat_getdents);
+	unsigned long a[6];
+	long ret, out;
+
+	if (!orig)
+		return -ENOSYS;
+	if (susfs_dirent_prefilter(regs, &out, true))
+		return out;
+	syscall_get_arguments(current, (struct pt_regs *)regs, a);
+	ret = orig(regs);
+	out = ret;
+	susfs_kstat_post(SUS_NR_GETDENTS_COMPAT, true, a, ret, &out);
+	return out;
+}
 
 static struct susfs_fp_hook kstat_hooks[] = {
 	{ .nr = __NR_newfstatat, .nr_compat = 0, .name = "kstat/newfstatat",
