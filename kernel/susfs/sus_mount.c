@@ -152,7 +152,11 @@
  * Up here, not next to the control surface further down, because mount_stat() between
  * the two reports the list length and the rescan count - and declaring it below its
  * first use would be a compile error, not a style issue. */
-#define SUS_MOUNT_KEEP_MAX 8
+/* 64 prefixes (the list used to stop at 8, which a container setup outgrows quickly).  One write to
+ * the control node may carry a whole list - it is bounded by SUS_MOUNT_KEEP_CMDLINE, i.e. 8320 bytes,
+ * which is 64 entries of a 128-byte prefix - and the static cost of the two buffers below is roughly
+ * 16 KB. */
+#define SUS_MOUNT_KEEP_MAX 64
 #define SUS_MOUNT_KEEP_LEN 128
 #define SUS_MOUNT_KEEP_CMDLINE (SUS_MOUNT_KEEP_MAX * (SUS_MOUNT_KEEP_LEN + 2) + 32)
 
@@ -1632,21 +1636,24 @@ static int sus_mount_mark_ksu_mounts(void);	/* changing the list rescans */
 
 static int sus_mount_keep_parse(const char *val, char dst[][SUS_MOUNT_KEEP_LEN], int max)
 {
-	char buf[SUS_MOUNT_KEEP_CMDLINE];
-	const char *p;
+	const char *p = val;
 	int n = 0;
 
-	strscpy(buf, val, sizeof(buf));
-	p = buf;
+	/* Scanned in place: the list is only read, never rewritten here.  It used to be copied into a
+	 * SUS_MOUNT_KEEP_CMDLINE-sized stack buffer, which was fine for 8 entries and is an 8 KB stack
+	 * frame for 64 - past what the kernel allows a function to use (the module is built with
+	 * -Wframe-larger-than=2048).  Copying bought nothing: the callers already hand over a
+	 * NUL-terminated string whose length they bounded, and trailing whitespace is skipped by the
+	 * tokenizer below. */
 	while (*p) {
-		char *tok;
+		const char *tok;
 		int len;
 
 		while (*p == ' ' || *p == ',' || *p == '\t' || *p == '\n' || *p == '\r')
 			p++;
 		if (!*p)
 			break;
-		tok = (char *)p;
+		tok = p;
 		while (*p && *p != ' ' && *p != ',' && *p != '\t' && *p != '\n' && *p != '\r')
 			p++;
 		len = (int)(p - tok);
@@ -1811,6 +1818,9 @@ out:
 	return rc;
 }
 
+/* The list as one string, for the sysfs parameter read (whose buffer the kernel caps at PAGE_SIZE).
+ * With 64 entries the text can exceed that, so a cut is spelled out instead of looking like the end
+ * of the list - /proc/susfs_hide_mounts is the read that always shows all of them. */
 static int sus_mount_keep_format(char *buf, size_t size)
 {
 	int n = 0;
@@ -1822,12 +1832,34 @@ static int sus_mount_keep_format(char *buf, size_t size)
 		atomic_read(&n_newmnt_recorded), atomic_read(&n_ident_hits),
 		atomic_read(&n_ident_learned));
 	n += scnprintf(buf + n, size - n, "prefixes:");
-	for (i = 0; i < n_mount_keep && n < (int)size - 64; i++)
+	for (i = 0; i < n_mount_keep && n < (int)size - 96; i++)
 		n += scnprintf(buf + n, size - n, " %s", mount_keep[i]);
 	if (!n_mount_keep)
 		n += scnprintf(buf + n, size - n, " (none - only KSU-range ids are hidden)");
+	else if (i < n_mount_keep)
+		n += scnprintf(buf + n, size - n, " ... (%d more; cat /proc/susfs_hide_mounts for all)",
+			       n_mount_keep - i);
 	n += scnprintf(buf + n, size - n, "\n");
 	return n;
+}
+
+/* The same list straight into a seq_file, which is what /proc/susfs_hide_mounts reads: no fixed
+ * buffer, so 64 prefixes come back in full. */
+static void sus_mount_keep_show_seq(struct seq_file *m)
+{
+	int i;
+
+	seq_printf(m, "mount prefixes: %d/%d, rescans=%d, recorded=%d, hidden_by_identity=%d, learned_ids=%d\n",
+		   n_mount_keep, SUS_MOUNT_KEEP_MAX, atomic_read(&n_keep_rescans),
+		   atomic_read(&n_newmnt_recorded), atomic_read(&n_ident_hits),
+		   atomic_read(&n_ident_learned));
+	seq_puts(m, "prefixes:");
+	if (!n_mount_keep)
+		seq_puts(m, " (none - only KSU-range ids are hidden)");
+	else
+		for (i = 0; i < n_mount_keep; i++)
+			seq_printf(m, " %s", mount_keep[i]);
+	seq_putc(m, '\n');
 }
 
 /* ---- insmod parameters must not touch the guard-protected side --------------------------------
@@ -1961,10 +1993,7 @@ module_param_cb(hide_mounts, &sus_mount_keep_ops, NULL, 0600);
 
 static int sus_mount_keep_proc_show(struct seq_file *m, void *v)
 {
-	char buf[512];
-
-	sus_mount_keep_format(buf, sizeof(buf));
-	seq_puts(m, buf);
+	sus_mount_keep_show_seq(m);
 	return 0;
 }
 
@@ -1981,7 +2010,7 @@ static int sus_mount_keep_proc_open(struct inode *inode, struct file *file)
 static ssize_t sus_mount_keep_proc_write(struct file *file, const char __user *buf,
 					 size_t len, loff_t *off)
 {
-	char cmd[SUS_MOUNT_KEEP_CMDLINE];
+	char *cmd;
 	int rc;
 
 	/* Same reason as the open check: an fd opened before the process dropped
@@ -1990,14 +2019,23 @@ static ssize_t sus_mount_keep_proc_write(struct file *file, const char __user *b
 		return -ENOENT;
 	if (len == 0)
 		return 0;
-	if (len >= sizeof(cmd))
+	/* On the heap, not on the stack: one write may carry the whole list, so the buffer is sized for
+	 * SUS_MOUNT_KEEP_MAX prefixes - 8 KB now that the list holds 64, and no function may use that
+	 * much stack. */
+	if (len >= SUS_MOUNT_KEEP_CMDLINE)
 		return -EINVAL;
-	if (copy_from_user(cmd, buf, len))
+	cmd = kvmalloc(len + 1, GFP_KERNEL);
+	if (!cmd)
+		return -ENOMEM;
+	if (copy_from_user(cmd, buf, len)) {
+		kvfree(cmd);
 		return -EFAULT;
+	}
 	cmd[len] = '\0';
 
 	/* Commands only: a typo must not silently replace the list. */
 	rc = sus_mount_keep_command(cmd, false);
+	kvfree(cmd);
 	if (rc)
 		return rc;
 	return len;
@@ -2352,7 +2390,9 @@ int susfs_sus_mount_init(void)
      * /proc/susfs_hide_mounts) - a container at /data/local/tmp/ubuntu2 needs its own
      * prefix to be hidden at all. */
     {
-        char staged[SUS_MOUNT_KEEP_MAX][SUS_MOUNT_KEEP_LEN] = { { 0 } };
+        /* One entry is all this needs: an array sized for the whole list would be 8 KB of stack here
+         * (SUS_MOUNT_KEEP_MAX is 64 now), and commit() only copies the one row it is told about. */
+        char staged[1][SUS_MOUNT_KEEP_LEN] = { { 0 } };
 
         strscpy(staged[0], mount_keep_default, SUS_MOUNT_KEEP_LEN);
         sus_mount_keep_commit(staged, 1);
