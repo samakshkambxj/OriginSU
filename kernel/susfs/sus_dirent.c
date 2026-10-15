@@ -36,6 +36,7 @@
 #include <linux/uaccess.h>
 #include <linux/sched/signal.h>
 #include <linux/string.h>
+#include <linux/limits.h>	/* NAME_MAX/PATH_MAX: the name a filldir callback hands over */
 #include <asm/ptrace.h>
 
 #include "susfs.h"
@@ -79,10 +80,12 @@ module_param(prefilter, bool, 0644);
 static atomic_t n_sd_calls = ATOMIC_INIT(0);
 static atomic_t n_sd_hidden = ATOMIC_INIT(0);
 
-/* fs/readdir.c's verify_dirent_name(), which is static there. */
+/* fs/readdir.c's verify_dirent_name(), which is static there - both halves of it: the length bound
+ * is the one this used to drop, and the kernel applies the whole check before it writes anything,
+ * which is why it is called before the copy below and not after. */
 static bool sd_name_ok(const char *name, int len)
 {
-	return len > 0 && !memchr(name, '/', len);
+	return len > 0 && len < PATH_MAX && !memchr(name, '/', len);
 }
 
 static SD_RET sd_filldir(struct dir_context *ctx, const char *name, int namlen,
@@ -91,12 +94,26 @@ static SD_RET sd_filldir(struct dir_context *ctx, const char *name, int namlen,
 	struct sd_buf *buf = container_of(ctx, struct sd_buf, ctx);
 	struct sd_dirent64 __user *dirent, *prev;
 	int reclen = ALIGN(offsetof(struct sd_dirent64, d_name) + namlen + 1, sizeof(u64));
+	char nbuf[NAME_MAX + 1];
 	int prev_reclen;
 
-	/* The whole point: a hidden name is never written, so there is nothing to take back. */
-	if (sus_path_dirent_hidden(ino, name)) {
-		atomic_inc(&n_sd_hidden);
-		return SD_GO;
+	/* A filldir callback hands over (pointer, length), NOT a C string: the NUL the kernel relies
+	 * on is one IT appends in the CALLER's buffer (filldir64 -> unsafe_copy_dirent_name), and a
+	 * filesystem that passes on raw reply bytes never had one - fuse does exactly that
+	 * (`dir_emit(ctx, dirent->name, dirent->namelen, ...)` straight out of its reply buffer),
+	 * which is how Android's /sdcard and /storage/emulated are served.  Handing that pointer to
+	 * sus_path_dirent_hidden() means strcmp() reads past namlen, and whenever the byte after the
+	 * name is not a NUL the comparison simply misses - i.e. the hidden name IS written to the
+	 * caller, which is the one thing this layer exists to prevent.  Copy it out and terminate it
+	 * first; a name that cannot be one (too long for NAME_MAX, or rejected by
+	 * verify_dirent_name()) is not matched here and falls into the check below. */
+	if (namlen > 0 && namlen <= NAME_MAX) {
+		memcpy(nbuf, name, namlen);
+		nbuf[namlen] = 0;
+		if (sus_path_dirent_hidden(ino, nbuf)) {
+			atomic_inc(&n_sd_hidden);
+			return SD_GO;
+		}
 	}
 
 	if (!sd_name_ok(name, namlen)) {
@@ -130,6 +147,9 @@ static SD_RET sd_filldir(struct dir_context *ctx, const char *name, int namlen,
 	buf->prev_reclen = reclen;
 	buf->current_dir = (void __user *)dirent + reclen;
 	buf->count -= reclen;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 16, 0)
+	ctx->count -= reclen;		/* the field the lower layer reads; see the entry point */
+#endif
 	return SD_GO;
 }
 
@@ -155,6 +175,15 @@ __nocfi bool susfs_dirent_getdents64(const struct pt_regs *regs, long *out)
 	buf.ctx.pos = 0;
 	buf.current_dir = (struct sd_dirent64 __user *)regs->regs[1];
 	buf.count = (int)count;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 16, 0)
+	/* 6.16 gave dir_context a `count` field: the kernel keeps the remaining room there (its own
+	 * filldir64 decrements it) and the filesystems read it as the buffer-size hint - fuse does
+	 * `clamp((unsigned int)ctx->count, PAGE_SIZE, max)`, overlayfs hands it to the lower layer.
+	 * Left at 0 it means "no room": fuse silently clamps back to one page per call (the pre-6.16
+	 * behaviour, measurably different from stock) and overlayfs passes 0 down.  Filled here and
+	 * kept in step in sd_filldir(). */
+	buf.ctx.count = (int)count;
+#endif
 
 	f = sd_fget(fd);
 	if (!f) {

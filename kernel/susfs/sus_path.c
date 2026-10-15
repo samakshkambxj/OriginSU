@@ -508,9 +508,24 @@ static bool sus_path_is_hidden(u64 ino, const char *name)
 
 /* The same question sus_path_is_hidden() answers, for the pre-emission filter in sus_dirent.c:
  * that layer decides whether to EMIT a record, so it needs the verdict before any byte is
- * written, not after.  Same predicate, same per-caller gate - only the caller differs. */
+ * written, not after.  Same predicate - and the same isolation switch as
+ * sus_path_dirent_filter(): with no_extra=1 this layer is not registered at all (sus_path_init()
+ * says so in the log), so a rule a supercall registers afterwards must not start filtering
+ * listings while stat/open keep succeeding.  That mismatch is the one the two-layer design exists
+ * to avoid, and the switch belongs here rather than at the call site so that both entries into the
+ * predicate answer the same way. */
 bool sus_path_dirent_hidden(u64 ino, const char *name)
 {
+    if (READ_ONCE(no_extra))
+        return false;
+
+    /* The "no rule, no work" short circuit sus_path_dirent_filter() opens with, for the same
+     * reason: without it every record of every listing takes this file's spinlock, even on a
+     * device that has no rules at all - and the pre-emission layer calls this once per record,
+     * where the post-hoc filter called it once per syscall. */
+    if (!READ_ONCE(sus_path_count) && !hide_name[0])
+        return false;
+
     return sus_path_is_hidden(ino, name);
 }
 
