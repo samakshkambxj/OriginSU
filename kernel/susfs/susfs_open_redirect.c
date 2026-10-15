@@ -680,7 +680,9 @@ static int or_fdinfo_entry(struct kretprobe_instance *ri, struct pt_regs *regs)
 }
 
 /* Find `label` in the already formatted buffer and parse the decimal that follows it; false when
- * the label is absent or has no digits. */
+ * the label is absent or has no digits.  procfs prints inode and mount ids as unsigned long, so
+ * keep the full native width here instead of the 32-bit limit that hid large inode numbers from
+ * the rewrite. */
 static bool or_fdinfo_find_dec(struct seq_file *m, const char *label, size_t label_len,
 			       size_t *out_pos, size_t *out_len, unsigned long *out_val)
 {
@@ -696,7 +698,7 @@ static bool or_fdinfo_find_dec(struct seq_file *m, const char *label, size_t lab
 	}
 	if (!pos)
 		return false;
-	while (pos + len < count && len < 10 &&
+	while (pos + len < count && len < sizeof(unsigned long) * 3 &&
 	       buf[pos + len] >= '0' && buf[pos + len] <= '9') {
 		v = v * 10 + (unsigned long)(buf[pos + len] - '0');
 		len++;
@@ -715,9 +717,9 @@ static bool or_fdinfo_find_dec(struct seq_file *m, const char *label, size_t lab
 static bool or_fdinfo_write_dec(struct seq_file *m, size_t pos, size_t len,
 				unsigned long new_val)
 {
-	char digits[12];
+	char digits[sizeof(unsigned long) * 3];
 	size_t count = m->count, i, n = 0;
-	unsigned int v = (unsigned int)new_val;
+	unsigned long v = new_val;
 
 	while (v) {
 		digits[n++] = (char)('0' + v % 10);
