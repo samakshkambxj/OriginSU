@@ -67,8 +67,11 @@ int sus_path_del_path(const char *path);
 int sus_path_dirent_layout_id(long syscall_nr, bool compat);
 
 long sus_path_dirent_filter(int lay_id, unsigned long buf, long ret);
-/* The same verdict, asked before a record is emitted rather than after (sus_dirent.c). */
+/* Pre-emission dirent filter (sus_dirent.c): a hidden name is never written to the caller. */
 bool sus_path_dirent_hidden(u64 ino, const char *name);
+__nocfi bool susfs_dirent_getdents64(const struct pt_regs *regs, long *out);
+int susfs_sus_dirent_init(void);
+void susfs_sus_dirent_exit(void);
 
 /* One line of per-ABI dirent counters for /proc/susfs_kstat: "the callback ran and filtered
  * nothing" has to be distinguishable from "the callback never ran", and the same line names the
