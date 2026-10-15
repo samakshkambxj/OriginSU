@@ -22,6 +22,8 @@
 #include <linux/err.h>		/* IS_ERR/ERR_PTR for the getlink hook */
 #include <linux/cred.h>		/* current_uid(), for the read gate */
 #include <linux/spinlock.h>	/* serialises rule publication */
+#include <linux/slab.h>		/* kmalloc(GFP_ATOMIC), for the deferred path release */
+#include <linux/task_work.h>	/* the map_files reference is released from task_work */
 #include <linux/mutex.h>	/* map_ctl_lock: serialises probe arming */
 #include "susfs_abi.h"
 #include "susfs_log.h"
@@ -202,6 +204,10 @@ static atomic_t n_walk_dbg_left = ATOMIC_INIT(4);
 /* map_files symlink resolutions that were turned into ENOENT.  n_getlink_calls vs
  * n_getlink_skip keeps "the probe ran" apart from "the probe matched". */
 static atomic_t n_map_files_hides = ATOMIC_INIT(0);
+/* The reference map_files_get_link() took for its caller could not be handed to task_work
+ * (GFP_ATOMIC or task_work_add): the call is then left as the kernel answered it - visible, but
+ * not leaked - and this is the only thing that says so. */
+static atomic_t n_map_files_putfail = ATOMIC_INIT(0);
 static atomic_t n_getlink_calls = ATOMIC_INIT(0);
 static atomic_t n_getlink_skip = ATOMIC_INIT(0);
 static atomic_t n_getlink_nomatch = ATOMIC_INIT(0);
@@ -525,6 +531,42 @@ static int sus_map_vm_access_pre(struct kprobe *kp, struct pt_regs *regs)
  * `ei->op.proc_get_link` = map_files_get_link(), the one place that hands over the MAPPED
  * file's path.  So the hook judges by inode (path->dentry), which is exact and only ever
  * fails a call that would have succeeded: the caller treats a negative return as "no link". */
+/* Releasing the reference map_files_get_link() took, from task_work rather than from the probe.
+ *
+ * The probe's return handler runs in the exception context that fired it (arm64 raises BRK for a
+ * kprobe), where sleeping is not allowed - and path_put() can sleep, because dropping the last
+ * reference reaches ->d_iput().  GFP_ATOMIC and task_work_add() are both safe there; what is not
+ * safe is guessing, so a failure to queue is reported and the reference is left where it was. */
+struct sus_map_put_work {
+	struct callback_head cb;
+	struct path path;
+};
+
+static void sus_map_put_work_fn(struct callback_head *cb)
+{
+	struct sus_map_put_work *w = container_of(cb, struct sus_map_put_work, cb);
+
+	path_put(&w->path);
+	kfree(w);
+}
+
+/* 0 when the release has been queued, -errno when it has not. */
+static int sus_map_path_put_soon(const struct path *p)
+{
+	struct sus_map_put_work *w;
+
+	w = kmalloc(sizeof(*w), GFP_ATOMIC);
+	if (!w)
+		return -ENOMEM;
+	w->path = *p;
+	init_task_work(&w->cb, sus_map_put_work_fn);
+	if (task_work_add(current, &w->cb, TWA_RESUME)) {
+		kfree(w);
+		return -EIO;
+	}
+	return 0;
+}
+
 static int sus_map_maplink_entry(struct kretprobe_instance *ri, struct pt_regs *regs)
 {
     /* struct path *path is an output argument, filled only at return: save it here. */
@@ -563,6 +605,21 @@ static int sus_map_maplink_ret(struct kretprobe_instance *ri, struct pt_regs *re
     }
 
     atomic_inc(&n_map_files_hides);
+    /* The reference has to change hands with the answer.  map_files_get_link() runs
+     * `*path = vma->vm_file->f_path; path_get(path);` before it returns 0, and its only caller
+     * releases that reference on the SUCCESS path alone (proc_pid_readlink():
+     * `if (error) goto out; ... path_put(&path);`).  Turning the return into -ENOENT without
+     * taking the reference over leaked a dentry and a mount reference on every resolution of a
+     * hidden mapping's symlink - the mapped file keeps its own reference, so the dentry is never
+     * reclaimed and the mount can never be unmounted, and an app uid can do it in a loop.
+     *
+     * It cannot be released here (see sus_map_path_put_soon()), so it goes to task_work.  If even
+     * that fails the call keeps the kernel's own answer: a symlink that resolves is a tell, a
+     * silent leak is not. */
+    if (sus_map_path_put_soon(p)) {
+        atomic_inc(&n_map_files_putfail);
+        return 0;
+    }
     pr_info_ratelimited("sus_map: hid map_files symlink to ino=%lu (uid=%u)\n",
                         inode->i_ino, current_uid().val);
     regs_set_return_value(regs, (unsigned long)(long)-ENOENT);
@@ -601,7 +658,7 @@ static int sus_map_stat_show(char *buf, const struct kernel_param *kp)
 
     return scnprintf(buf, PAGE_SIZE,
                      "rules=%d armed=%d/%d walk_seen=%d walk_vma=%d walk_skipped=%d "
-                     "ops_hit=%d scan_fail=%d nofile=%d nomatch=%d getlink: calls=%d skip=%d nomatch=%d hides=%d\n"
+                     "ops_hit=%d scan_fail=%d nofile=%d nomatch=%d getlink: calls=%d skip=%d nomatch=%d hides=%d putfail=%d\n"
                      "vm: gup_calls=%d inner_calls=%d hides=%d\n"
                      "ops: smaps=%px smaps_shmem=%px pagemap=%px\n",
                      nmap, armed, (int)N_MAP_PROBES,
@@ -611,6 +668,7 @@ static int sus_map_stat_show(char *buf, const struct kernel_param *kp)
                      atomic_read(&n_walk_nofile), atomic_read(&n_walk_nomatch),
                      atomic_read(&n_getlink_calls), atomic_read(&n_getlink_skip),
                      atomic_read(&n_getlink_nomatch), atomic_read(&n_map_files_hides),
+                     atomic_read(&n_map_files_putfail),
                      atomic_read(&n_gup_calls), atomic_read(&n_gup_inner_calls),
                      atomic_read(&n_vm_hides),
                      sus_map_ops_smaps, sus_map_ops_smaps_shmem,
