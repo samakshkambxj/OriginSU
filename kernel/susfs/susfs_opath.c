@@ -163,12 +163,15 @@ static void *opath_close_fd_pointer(void)
  * when opath_close_fd_extra_ref is set. */
 static __nocfi struct file *opath_take_fd(unsigned int fd)
 {
-	struct file *f = NULL;
-
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 1, 0)
 	if (opath_close_fd)
 		return opath_close_fd(fd);
 #else
+	/* Declared inside this arm on purpose: the 6.1+ helper returns the file itself, so the
+	 * out-parameter this one is called with does not exist on those kernels and a variable for
+	 * it there is -Wunused-variable under the build's -Werror. */
+	struct file *f = NULL;
+
 	if (opath_close_fd_get_file && !opath_close_fd_get_file(fd, &f))
 		return f;
 #endif
