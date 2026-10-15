@@ -43,6 +43,7 @@
  */
 
 #include <linux/kernel.h>
+#include <linux/version.h>	/* LINUX_VERSION_CODE: close_fd_get_file() changed prototype in 6.1 */
 #include <linux/module.h>
 #include <linux/errno.h>
 #include <linux/fs.h>		/* struct file, FMODE_PATH */
@@ -105,28 +106,72 @@ static inline bool opath_has_landing_pad(const void *fn)
  * susfs_opath_init() installs no table entry while either required capability is unresolved: a
  * wrapper that cannot finish its post-check would deny nothing and only add a fault path. */
 static struct file *(*opath_fget_raw)(unsigned int fd);
-/* Two names with two SIGNATURES, not one function spelled twice: older kernels'
- * close_fd_get_file(fd, &res) returns an int status and fills res, while newer kernels'
- * file_close_fd(fd) returns the file itself.  Calling the latter through the former's
- * prototype read a struct file * as a status: every deny counted as a failure, the fd was
- * already out of the table, and the reference was never fput. */
+/* THREE shapes, not one function under three names - and the first two share a NAME, which is
+ * exactly what a by-name resolver cannot see:
+ *
+ *   5.10..5.15  int close_fd_get_file(unsigned int fd, struct file **res)
+ *               takes the fd out of the table and then get_file()s the file, so the caller owns
+ *               TWO references and the kernel-doc there asks for filp_close() and then an fput();
+ *   6.1..6.6    struct file *close_fd_get_file(unsigned int fd)
+ *               same name, different prototype, NO reference of its own.  Called through the
+ *               older prototype above the returned pointer was read as an int status -
+ *               non-zero, therefore "failed" - while the fd was already out of the caller's
+ *               table: the deny path then handed the caller its own dead descriptor number back
+ *               (open appears to succeed, the next fstat is EBADF) and never released the file
+ *               it had just been handed;
+ *   6.12..      struct file *file_close_fd(unsigned int fd)
+ *               renamed, and "Doesn't take a separate reference count."
+ *
+ * So the PROTOTYPE is chosen at build time, from the kernel this variant is compiled for (the
+ * one place the difference is visible), and the name is resolved into it at run time - a vendor
+ * backport of either helper is still found by name.  The reference count is a run-time fact in
+ * turn: opath_close_fd_extra_ref records whether the helper that answered owes the caller a
+ * second fput(). */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 1, 0)
+static struct file *(*opath_close_fd)(unsigned int fd);
+#else
 static int (*opath_close_fd_get_file)(unsigned int fd, struct file **res);
-static struct file *(*opath_file_close_fd)(unsigned int fd);
-/* Which of the two names the kernel above answered to (see susfs_opath_init): only the log
- * needs it, and a log that prints a pointer without the name it came from cannot tell
- * close_fd_get_file from file_close_fd on a kernel where one of them is missing. */
+#endif
+/* Set when the resolved helper took a reference of its own (the pre-6.1 close_fd_get_file()):
+ * the deny path then owes the file two fput()s, and one of them would leak it for good. */
+static bool opath_close_fd_extra_ref;
+/* Which name the kernel above answered to (see susfs_opath_init): only the log needs it, and a log
+ * that prints a pointer without the name it came from cannot tell close_fd_get_file from
+ * file_close_fd on a kernel where one of them is missing. */
 static const char *opath_close_fd_name = "close_fd_get_file";
 
+static bool opath_close_fd_resolved(void)
+{
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 1, 0)
+	return opath_close_fd != NULL;
+#else
+	return opath_close_fd_get_file != NULL;
+#endif
+}
+
+static void *opath_close_fd_pointer(void)
+{
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 1, 0)
+	return (void *)opath_close_fd;
+#else
+	return (void *)opath_close_fd_get_file;
+#endif
+}
+
 /* Take the fd out of the table under whichever name this kernel has.  NULL means it was not
- * ours to take; a non-NULL file is owned by the caller and must be fput. */
+ * ours to take; a non-NULL file is owned by the caller, which must release it - once, or twice
+ * when opath_close_fd_extra_ref is set. */
 static __nocfi struct file *opath_take_fd(unsigned int fd)
 {
 	struct file *f = NULL;
 
-	if (opath_file_close_fd)
-		return opath_file_close_fd(fd);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 1, 0)
+	if (opath_close_fd)
+		return opath_close_fd(fd);
+#else
 	if (opath_close_fd_get_file && !opath_close_fd_get_file(fd, &f))
 		return f;
+#endif
 	return NULL;
 }
 
@@ -209,8 +254,18 @@ __nocfi long susfs_opath_post_fd(long ret)
 	 * first, and for an O_PATH file that reduces to exactly this call - do_dentry_open()
 	 * set f_op = &empty_fops, so f_op->flush is NULL, and a file that was never opened for
 	 * reading can hold neither a POSIX lock nor a dnotify mark, which are the other two
-	 * things filp_close() would run before fput(). */
+	 * things filp_close() would run before fput().
+	 *
+	 * The pre-6.1 helper took a reference of its own on top of the one the fd table held
+	 * (fs/file.c: get_file() after the fd is out of the table), so its contract is
+	 * filp_close() AND an fput() - two releases.  With the single fput() below, that reference
+	 * was never dropped: every deny leaked a struct file for good, which is visible as nr_files
+	 * and filp slab objects that never come back down.  The 6.1+ helpers take no reference of
+	 * their own, so exactly the one fput() is the whole release there and a second would be a
+	 * refcount underflow. */
 	fput(victim);
+	if (opath_close_fd_extra_ref)
+		fput(victim);
 
 	atomic_inc(&n_opath_deny);
 	return -ENOENT;
@@ -501,19 +556,27 @@ int susfs_opath_init(void)
 
 	opath_fget_raw = (void *)find_kernel_symbol_exact("fget_raw");
 
-	/* The fd-table helper changed both name and return convention in newer kernels:
-	 * close_fd_get_file(fd, &file) returns an int status and fills an out-parameter, while
-	 * file_close_fd(fd) returns the struct file * directly.  Resolve by name instead of a version
-	 * check so vendor backports are handled, and call whichever helper was found through its
-	 * matching pointer. */
-	opath_close_fd_get_file = (void *)find_kernel_symbol_exact("close_fd_get_file");
+	/* Which close-fd helper this kernel has, under WHICH prototype.  close_fd_get_file() kept its
+	 * name across 6.1 and changed its signature there, so the prototype comes from the kernel
+	 * this variant is built for (see the note on the pointers above) and the name is resolved
+	 * into it.  file_close_fd() exists only where the old name does not, so it is tried after
+	 * it; resolving by name - rather than assuming a version's name set - is what still covers
+	 * a vendor backport of either helper. */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 1, 0)
+	opath_close_fd = (void *)find_kernel_symbol_exact("close_fd_get_file");
 	opath_close_fd_name = "close_fd_get_file";
-	if (!opath_close_fd_get_file) {
-		opath_file_close_fd = (void *)find_kernel_symbol_exact("file_close_fd");
+	if (!opath_close_fd) {
+		opath_close_fd = (void *)find_kernel_symbol_exact("file_close_fd");
 		opath_close_fd_name = "file_close_fd";
 	}
+#else
+	opath_close_fd_get_file = (void *)find_kernel_symbol_exact("close_fd_get_file");
+	opath_close_fd_name = "close_fd_get_file";
+	/* Its result owns two references: the fd table's, and the one get_file() added. */
+	opath_close_fd_extra_ref = true;
+#endif
 
-	if (!opath_fget_raw || (!opath_close_fd_get_file && !opath_file_close_fd)) {
+	if (!opath_fget_raw || !opath_close_fd_resolved()) {
 		/* Refusing to install beats installing a wrapper that cannot finish: without
 		 * these two the post-check could not take a descriptor away, so the layer
 		 * would only have added a fault path to every open on the system.  Both names
@@ -589,11 +652,10 @@ int susfs_opath_init(void)
 			(int)susfs_expose_proc, (int)sus_path_lsm_active());
 	}
 
-	SUSFS_LOGI("opath armed: %d/%d entries, proc=%d, fget_raw=%px %s=%px\n",
+	SUSFS_LOGI("opath armed: %d/%d entries, proc=%d, fget_raw=%px %s=%px extra_ref=%d\n",
 		armed, attempted, opath_proc_entry != NULL,
 		(void *)opath_fget_raw, opath_close_fd_name,
-		opath_close_fd_get_file ? (void *)opath_close_fd_get_file
-					: (void *)opath_file_close_fd);
+		opath_close_fd_pointer(), (int)opath_close_fd_extra_ref);
 	return 0;
 }
 
