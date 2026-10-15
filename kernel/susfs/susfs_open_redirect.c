@@ -751,6 +751,14 @@ static int or_fdinfo_ret(struct kretprobe_instance *ri, struct pt_regs *regs)
 		return 0;
 	if (!m->buf || !m->count)
 		return 0;
+	/* Only fdinfo's own file is rewritten, and above 5.15 this probe sits on ALL FOUR functions
+	 * named seq_show (see kr_or_fdinfo[]): the file being read is m->file, and
+	 * /proc/<pid>/fdinfo/<fd> (and .../task/<tid>/fdinfo/<fd>) has a dentry whose parent is named
+	 * "fdinfo".  The "ino:\t" / "mnt_id:\t" label tests below already make the scan a no-op for
+	 * another file; this keeps it off other files' buffers in the first place. */
+	if (!m->file || !m->file->f_path.dentry || !m->file->f_path.dentry->d_parent ||
+	    strcmp(m->file->f_path.dentry->d_parent->d_name.name, "fdinfo") != 0)
+		return 0;
 	if (!or_reverse_visible())
 		return 0;
 
@@ -775,14 +783,19 @@ static int or_fdinfo_ret(struct kretprobe_instance *ri, struct pt_regs *regs)
 	return 0;
 }
 
-static struct kretprobe kr_or_fdinfo = {
-	.kp.symbol_name = "seq_show",		/* fs/proc/fd.c */
-	.entry_handler = or_fdinfo_entry,
-	.handler = or_fdinfo_ret,
-	.data_size = sizeof(struct seq_file *),
-	.maxactive = 16,
-};
-static bool or_fdinfo_registered;
+/* fs/proc/fd.c's fdinfo callback is reached through single_open(file, seq_show, inode): no table
+ * holds its address, so it can only be found by name - and ABOVE 5.15 THE NAME IS NOT UNIQUE.  The
+ * DDK trees carry four symbols called exactly `seq_show` on android14-6.1 and android15-6.6 (one on
+ * 5.10/5.15), and register_kprobe(.symbol_name = ...) attaches to whichever kallsyms lists first.
+ * That is not a theoretical hazard: it is exactly how this rewrite silently stopped working in
+ * sus_mount on those kernels (mountinfo showed the disguised id while /proc/<pid>/fdinfo/N printed
+ * the real one - a one-file oracle), and the registration here was the same shape.  So enumerate
+ * every match and hook all of them; the return handler decides by the file it sees, which makes an
+ * unrelated seq_show cost one comparison and change nothing. */
+#define OR_FDINFO_MAX 8
+
+static struct kretprobe kr_or_fdinfo[OR_FDINFO_MAX];
+static int n_or_fdinfo_probes;
 
 static bool or_registered;
 static bool or_dpath_registered;
@@ -856,16 +869,36 @@ static void or_register_reverse(void)
 			SUSFS_LOGI("susfs_open_redirect: reverse hook installed (show_map_vma)\n");
 		}
 	}
-	if (!or_fdinfo_registered) {
-		rc = register_kretprobe(&kr_or_fdinfo);
-		if (rc) {
-			susfs_krp_forget_addr(&kr_or_fdinfo);
-			pr_warn("open_redirect: register_kretprobe(seq_show) failed %d - fdinfo names the redirected inode\n",
-				rc);
-		} else {
-			or_fdinfo_registered = true;
-			SUSFS_LOGI("susfs_open_redirect: reverse hook installed (seq_show/fdinfo)\n");
+	if (!n_or_fdinfo_probes) {
+		unsigned long addrs[OR_FDINFO_MAX];
+		int i, n;
+
+		/* Every symbol with this name - see kr_or_fdinfo[] for why one is not enough. */
+		n = ksu_find_symbol_all("seq_show", addrs, OR_FDINFO_MAX);
+		if (n <= 0)
+			pr_warn("open_redirect: seq_show not resolved - fdinfo names the redirected inode\n");
+		for (i = 0; i < n; i++) {
+			struct kretprobe *kr = &kr_or_fdinfo[i];
+
+			kr->kp.addr = (void *)addrs[i];
+			kr->entry_handler = or_fdinfo_entry;
+			kr->handler = or_fdinfo_ret;
+			kr->data_size = sizeof(struct seq_file *);
+			kr->maxactive = 16;
+			rc = register_kretprobe(kr);
+			if (rc) {
+				pr_warn("open_redirect: register_kretprobe(seq_show @%px) failed %d\n",
+					(void *)addrs[i], rc);
+				susfs_krp_forget_addr(kr);
+				continue;
+			}
+			n_or_fdinfo_probes++;
 		}
+		if (n_or_fdinfo_probes)
+			SUSFS_LOGI("susfs_open_redirect: reverse hook installed (seq_show/fdinfo on %d/%d symbol(s))\n",
+				   n_or_fdinfo_probes, n);
+		else
+			pr_warn("open_redirect: no seq_show kretprobe could be registered - fdinfo names the redirected inode\n");
 	}
 }
 
@@ -875,10 +908,16 @@ static void or_register_reverse(void)
  * calls this, so no registration can slip in between. */
 static void or_unregister(void)
 {
-	if (or_fdinfo_registered) {
-		unregister_kretprobe(&kr_or_fdinfo);
-		susfs_krp_forget_addr(&kr_or_fdinfo);
-		or_fdinfo_registered = false;
+	{
+		int i;
+
+		for (i = 0; i < OR_FDINFO_MAX; i++) {
+			if (!kr_or_fdinfo[i].kp.addr)
+				continue;
+			unregister_kretprobe(&kr_or_fdinfo[i]);
+			susfs_krp_forget_addr(&kr_or_fdinfo[i]);
+		}
+		n_or_fdinfo_probes = 0;
 	}
 	if (or_maps_registered) {
 		unregister_kretprobe(&kr_or_maps);
@@ -1024,7 +1063,7 @@ static int or_proc_show(struct seq_file *m, void *v)
 	 * block above).  mnt_id is NOT rewritten here: that id belongs to sus_mount's table. */
 	seq_printf(m, "hooks: forward=%d dpath=%d statfs=%d maps=%d fdinfo=%d | rev hits: dpath=%d statfs=%d maps=%d/%d/%d fdinfo=%d/%d | su_sid=%u\n",
 		   susfs_or_entry_armed(), or_dpath_registered, or_statfs_registered,
-		   or_maps_registered, or_fdinfo_registered,
+		   or_maps_registered, n_or_fdinfo_probes > 0,
 		   atomic_read(&or_rev_dpath_hits),
 		   atomic_read(&or_rev_statfs_hits),
 		   atomic_read(&or_rev_maps_hits),
