@@ -506,6 +506,14 @@ static bool sus_path_is_hidden(u64 ino, const char *name)
     return hidden;
 }
 
+/* The same question sus_path_is_hidden() answers, for the pre-emission filter in sus_dirent.c:
+ * that layer decides whether to EMIT a record, so it needs the verdict before any byte is
+ * written, not after.  Same predicate, same per-caller gate - only the caller differs. */
+bool sus_path_dirent_hidden(u64 ino, const char *name)
+{
+    return sus_path_is_hidden(ino, name);
+}
+
 /* ---- deferred resolution: upstream's CMD_SUSFS_ADD_SUS_PATH_LOOP ----
  * Upstream does not resolve at add time: susfs_add_sus_path_loop() (susfs.c:99-132) checks for an
  * empty string only and stores the path on LH_SUS_PATH_LOOP; susfs_run_sus_path_loop()
