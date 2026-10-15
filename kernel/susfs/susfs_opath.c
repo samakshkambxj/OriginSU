@@ -123,10 +123,18 @@ static struct file *(*opath_fget_raw)(unsigned int fd);
  *               renamed, and "Doesn't take a separate reference count."
  *
  * So the PROTOTYPE is chosen at build time, from the kernel this variant is compiled for (the
- * one place the difference is visible), and the name is resolved into it at run time - a vendor
- * backport of either helper is still found by name.  The reference count is a run-time fact in
- * turn: opath_close_fd_extra_ref records whether the helper that answered owes the caller a
- * second fput(). */
+ * one place the difference is visible), and the name is resolved into it at run time.  What that
+ * does NOT cover, and the comment used to claim it did: a kernel whose helper kept the NAME but
+ * took the OTHER prototype - a vendor backport of the 6.1 shape onto a 5.x baseline, or the
+ * reverse.  Resolving by name cannot see that, and the two directions fail differently: the first
+ * does a second fput() on a reference it owns (refcount underflow), the second calls the newer
+ * helper through the older prototype, which then writes its out-parameter through the register
+ * that was never set.  Every stock tree checked (mainline 5.11..5.15, v5.15.y, GKI 5.10/5.15) has
+ * the older shape, which is why the build-time choice is right there; a vendor tree that moved
+ * pick_file() back would have to be looked at, not trusted.
+ *
+ * The reference count is a run-time fact in turn: opath_close_fd_extra_ref records whether the
+ * helper that answered owes the caller a second fput(). */
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 1, 0)
 static struct file *(*opath_close_fd)(unsigned int fd);
 #else
