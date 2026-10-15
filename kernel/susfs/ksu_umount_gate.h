@@ -30,14 +30,22 @@ static inline bool susfs_is_current_proc_umounted_app(void)
 	return susfs_ksu_umount_ask(uid);
 }
 
-/* The uids KernelSU itself asks the umount question about, which is the set its
- * TIF_PROC_UMOUNTED flag can ever be set for: an app uid, the webview zygote, or an isolated
- * process (kernel/feature/kernel_umount.c:93, with is_appuid()/is_isolated_process() and the
- * range constants from kernel/policy/allowlist.h:8-13).  Asking ksu_uid_should_umount() about a
- * uid OUTSIDE this set does not answer the same question: that function returns
- * default_non_root_profile.umount_modules for a uid that has no profile, and the value is TRUE
- * (kernel/policy/allowlist.c:55), so uid 0, 1000 and 2000 all answer "yes" - which is not what
- * upstream's flag says about root, init, system_server or the adb shell. */
+/* The uids KernelSU itself asks the umount question about - the gate at
+ * kernel/feature/kernel_umount.c:93 of an unpatched KernelSU
+ * (`is_appuid(new_uid) || new_uid == WEBVIEW_ZYGOTE_UID || is_isolated_process(new_uid)`, with
+ * is_appuid()/is_isolated_process() and the range constants from kernel/policy/allowlist.h:8-13).
+ *
+ * Deliberately the set KernelSU ASKS about, and not the set SUSFS's own TIF_PROC_UMOUNTED flag can
+ * be set for: that flag is SUSFS's (kernel_patches/include/linux/susfs_def.h:64), and the patch
+ * that sets it (kernel_patches/KernelSU/10_enable_susfs_for_ksu.patch, in kernel/hook/setuid_hook.c)
+ * does so for `is_isolated_process(ruid) || (is_appuid(ruid) && ksu_uid_should_umount(ruid))` - a
+ * narrower set that never includes the webview zygote (both predicates are false for uid 1053) and
+ * that additionally requires the caller to be a zygote child.
+ *
+ * Asking ksu_uid_should_umount() about a uid outside this set does not answer the same question
+ * either way: for a uid with no profile it returns default_non_root_profile.umount_modules, and
+ * that value is TRUE (kernel/policy/allowlist.c:54-55) - so uid 0, 1000 and 2000 would all be
+ * answered "yes" without the boundary below. */
 static inline bool susfs_ksu_umount_uid_applies(uid_t uid)
 {
 	uid_t appid = uid % 100000;			/* PER_USER_RANGE */
@@ -49,14 +57,19 @@ static inline bool susfs_ksu_umount_uid_applies(uid_t uid)
 
 /* Upstream's susfs_is_current_proc_umounted(): the same umount answer WITHOUT the app-uid half,
  * which is what its UID_UMOUNTED_PROC rule scheme asks for (and what makes that scheme cover
- * init-derived processes too - the webview zygote is one of them, and it is inside the set
- * above).  There is deliberately no uid fallback when KernelSU's symbol did not resolve: there
- * would be nothing to ask, and answering "true" would hide from every process alive - false is
- * what the upstream flag does on a kernel without the SUSFS patch anyway.
+ * init-derived processes too).  There is deliberately no uid fallback when KernelSU's symbol did
+ * not resolve: there would be nothing to ask, and answering "true" would hide from every process
+ * alive - false is what the upstream flag does on a kernel without the SUSFS patch anyway.
  *
- * The boundary is what keeps this a mirror of the flag rather than of the question: everything
- * KernelSU never umounts for - root, init, system_server, the adb shell, su itself - is answered
- * false here instead of being handed the "no profile, therefore umount" default. */
+ * The boundary is the set KernelSU asks about, and it is deliberately NOT the upstream flag.  The
+ * flag is inherited across fork and never cleared - nothing calls
+ * susfs_clear_current_proc_umounted() - so upstream answers true for, say, a su that descends from
+ * an already-umounted app, and it is also never set for the webview zygote (matching on it was
+ * removed when the flag moved to the SUSFS patch).  Here every uid outside the set answers false,
+ * su included, and 1053 is inside it.  What this gate mirrors is the question the umount schemes
+ * are actually about - "would KernelSU umount for this uid" - and that one has a definite answer
+ * for root, init, system_server and the adb shell instead of the "no profile, therefore umount"
+ * default. */
 static inline bool susfs_is_current_proc_umounted(void)
 {
 	uid_t uid = current_uid().val;
