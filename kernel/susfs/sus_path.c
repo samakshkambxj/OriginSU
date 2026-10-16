@@ -110,6 +110,10 @@ struct sus_path_entry {
     /* ihold'ed once resolved, NULL while PENDING (registered for a path that does
      * not exist yet, upstream's _LOOP variant); a pending rule pins nothing. */
     struct inode *inode;
+    /* The i_op this inode had before sus_path_iop_arm() pointed it at our copy (NULL
+     * when nothing was swapped).  Restored before the ihold() is dropped, so the inode
+     * is still alive and the store is safe. */
+    const struct inode_operations *orig_iop;
     u64 dev;
     u64 ino;
     char name[NAME_MAX + 1];
@@ -126,6 +130,15 @@ struct sus_path_entry {
     /* Pre-relax mode, 0 = this rule did not touch it (sus_path_relax_mode()). */
     umode_t orig_mode;
 };
+
+/* Defined next to the readlink stub further down, but called from the pending resolver
+ * (which runs inside sus_path_lock) and from both add paths, so declare them first. */
+static int sus_path_iop_arm(struct sus_path_entry *e);
+static void sus_path_iop_restore(struct sus_path_entry *e);
+/* Counted when the i_op copy could not be allocated: the readlink face then stays as it
+ * was (a registered plain file answers EINVAL where stat answers ENOENT) instead of
+ * failing the registration - the rule still hides everything the other faces cover. */
+static atomic_t n_iop_arm_fail = ATOMIC_INIT(0);
 
 /* Let DAC through, so that the LSM layer is the only thing that can refuse: DAC runs before the
  * LSM chain and answers EACCES for a denying mode before any hook could turn it into ENOENT.
@@ -214,6 +227,9 @@ static bool sus_path_release_one(struct super_block *sb, const char *path,
     if (!found)
         return false;
     if (found->inode) {
+        /* Before the reference is dropped: after iput() the inode may be evicted, and
+         * the store would be into freed memory.  See sus_path_iop_restore(). */
+        sus_path_iop_restore(found);
         iput(found->inode);
         spin_lock(&sus_path_lock);
         list_del(&found->retiring_list);
@@ -675,6 +691,11 @@ static int sus_path_resolve_pending(void)
              * (and into the freed entry's inode pointer with it).  The inode is ihold'ed
              * here, so relaxing it needs no further lifetime argument. */
             sus_path_relax_mode(slot);
+            /* Make do_readlinkat()'s gate true for this inode as well; see
+             * sus_path_inode_readlink().  Safe here: slot->inode is ihold'ed, and the
+             * copy table is an atomic-allocation spinlock, so nothing sleeps. */
+            if (sus_path_iop_arm(slot))
+                atomic_inc(&n_iop_arm_fail);
         }
         spin_unlock(&sus_path_lock);
         mutex_unlock(&sus_path_lifecycle_lock);
@@ -1244,6 +1265,159 @@ static bool sus_path_dentry_hidden(const struct dentry *dentry)
         return false;
     inode = d_inode(dentry);
     return inode && sus_path_inode_hidden(inode);
+}
+
+/* ---- readlink: the one face gated on i_op ----
+ *
+ * do_readlinkat() reaches security_inode_readlink() and vfs_readlink() only when
+ *
+ *         d_is_symlink(dentry) || inode->i_op->readlink
+ *
+ * holds.  For a registered PLAIN FILE neither is true, so the caller got -EINVAL -
+ * which says "the path is there" - while the stat family answered ENOENT.  That
+ * disagreement is the tell, and no LSM hook can close it: the hook above is not even
+ * called on that path.
+ *
+ * So the gate itself is what gets changed: a registered inode is pointed at a copy of
+ * its i_op whose readlink slot is ours.  That makes the condition true, and the slot
+ * then answers exactly what the stat family answers, through the same predicate (and
+ * therefore the same per-caller gate), at no cost on any other syscall path and with
+ * no write into read-only memory.
+ *
+ * The copy is shared per original i_op and lives as long as the module, so there is no
+ * per-inode lifetime to manage: the inode's field simply reverts to the original (or is
+ * freed with the inode) and nothing dangles. */
+
+static atomic_t n_enoent_readlink = ATOMIC_INIT(0);
+
+struct sus_path_iops {
+    struct list_head list;
+    const struct inode_operations *orig;
+    struct inode_operations copy;
+};
+
+static LIST_HEAD(sus_path_iops_list);
+/* A spinlock, not a mutex: the lookup below runs from readlink(2), which may not sleep,
+ * and the arm path below runs from inside sus_path_lock's section during a pending
+ * resolution.  Allocation is GFP_ATOMIC for the same reason - it happens once per file
+ * system that carries a registered path. */
+static DEFINE_SPINLOCK(sus_path_iops_lock);
+
+/* An indirect call into the kernel panics on a CFI mismatch instead of failing, so it
+ * carries the same __nocfi noinline treatment as SUS_LSM_ORIG_CALL. */
+static __nocfi noinline int sus_path_call_orig_readlink(const struct inode_operations *orig,
+							struct dentry *dentry,
+							char __user *buf, int buflen)
+{
+    return orig->readlink(dentry, buf, buflen);
+}
+
+/* Find the original i_op behind one of our copies (NULL if it is not ours).  The list
+ * is as long as the number of distinct file systems that carry a registered path. */
+static const struct inode_operations *sus_path_iops_orig_of(const struct inode_operations *copy)
+{
+    struct sus_path_iops *fi;
+    const struct inode_operations *orig = NULL;
+    unsigned long flags;
+
+    if (!copy)
+        return NULL;
+    spin_lock_irqsave(&sus_path_iops_lock, flags);
+    list_for_each_entry(fi, &sus_path_iops_list, list) {
+        if (&fi->copy == copy) {
+            orig = fi->orig;
+            break;
+        }
+    }
+    spin_unlock_irqrestore(&sus_path_iops_lock, flags);
+    return orig;
+}
+
+static int sus_path_inode_readlink(struct dentry *dentry, char __user *buf, int buflen)
+{
+    struct inode *inode = d_inode(dentry);
+    const struct inode_operations *orig;
+
+    if (sus_path_inode_hidden(inode)) {
+        atomic_inc(&n_enoent_readlink);
+        return -ENOENT;
+    }
+
+    /* Not hidden for this caller: answer the way the file system would.  Reached when a
+     * rule was deleted (or its gate closed) while the inode still carries our copy. */
+    orig = sus_path_iops_orig_of(inode ? inode->i_op : NULL);
+    if (orig && orig->readlink)
+        return sus_path_call_orig_readlink(orig, dentry, buf, buflen);
+    return -EINVAL;			/* what a plain file gets from the kernel */
+}
+
+/* Get the shared copy for an original i_op, creating it once. */
+static const struct inode_operations *sus_path_iops_for(const struct inode_operations *orig)
+{
+    struct sus_path_iops *fi;
+    unsigned long flags;
+
+    spin_lock_irqsave(&sus_path_iops_lock, flags);
+    list_for_each_entry(fi, &sus_path_iops_list, list) {
+        if (fi->orig == orig) {
+            spin_unlock_irqrestore(&sus_path_iops_lock, flags);
+            return &fi->copy;
+        }
+    }
+    fi = kzalloc(sizeof(*fi), GFP_ATOMIC);
+    if (!fi) {
+        spin_unlock_irqrestore(&sus_path_iops_lock, flags);
+        return NULL;
+    }
+    fi->orig = orig;
+    memcpy(&fi->copy, orig, sizeof(fi->copy));
+    fi->copy.readlink = sus_path_inode_readlink;
+    list_add(&fi->list, &sus_path_iops_list);
+    spin_unlock_irqrestore(&sus_path_iops_lock, flags);
+    return &fi->copy;
+}
+
+/* Point a resolved entry's inode at our copy.  Caller holds a reference to the inode
+ * (e->inode is ihold'ed), so it cannot go away under this store. */
+static int sus_path_iop_arm(struct sus_path_entry *e)
+{
+    const struct inode_operations *copy;
+
+    if (!e->inode || !e->inode->i_op || e->orig_iop)
+        return 0;
+    if (sus_path_iops_orig_of(e->inode->i_op))		/* already ours */
+        return 0;
+    copy = sus_path_iops_for(e->inode->i_op);
+    if (!copy)
+        return -ENOMEM;
+    e->orig_iop = e->inode->i_op;
+    WRITE_ONCE(e->inode->i_op, copy);
+    return 0;
+}
+
+/* Put it back.  Must run while the ihold() is still held - see the four iput() sites. */
+static void sus_path_iop_restore(struct sus_path_entry *e)
+{
+    if (!e || !e->inode || !e->orig_iop)
+        return;
+    WRITE_ONCE(e->inode->i_op, e->orig_iop);
+    e->orig_iop = NULL;
+}
+
+/* Called from sus_path_exit(): the copies are ours, so they go with the module.  Every
+ * inode that pointed at one has already been restored by then (each entry restores
+ * before its iput()). */
+static void sus_path_iops_free(void)
+{
+    struct sus_path_iops *fi, *tmp;
+    unsigned long flags;
+
+    spin_lock_irqsave(&sus_path_iops_lock, flags);
+    list_for_each_entry_safe(fi, tmp, &sus_path_iops_list, list) {
+        list_del(&fi->list);
+        kfree(fi);
+    }
+    spin_unlock_irqrestore(&sus_path_iops_lock, flags);
 }
 
 static int sus_path_nameop_hit(void)
@@ -2025,6 +2199,12 @@ static int sus_path_format_list(char *buf, size_t size)
                    hide_from_apps, atomic_read(&n_enoent_getattr),
                    atomic_read(&n_enoent_perm), atomic_read(&n_enoent_nameop),
                    atomic_read(&n_enoent_meta));
+    /* The readlink face works by pointing a registered inode at a copy of its i_op whose
+     * readlink slot is ours (see sus_path_inode_readlink), so what matters here is how
+     * often that slot answers, and whether every copy could be allocated. */
+    n = sus_path_list_puts(buf, n, &trunc,
+                   "readlink: enoent=%d armfail=%d\n",
+                   atomic_read(&n_enoent_readlink), atomic_read(&n_iop_arm_fail));
     n = sus_path_list_puts(buf, n, &trunc,
                    "dirent: pending=%d (counters: /proc/susfs_kstat)\n",
                    atomic_read(&sus_path_n_pending));
@@ -2323,11 +2503,14 @@ static int sus_path_add_hidden_ex(const char *path, bool self_protect)
     e->inode = inode;
     e->self_protect = self_protect;
     ihold(inode);
+    if (sus_path_iop_arm(e))
+        atomic_inc(&n_iop_arm_fail);
     strscpy(e->name, p.dentry->d_name.name, sizeof(e->name));
     sus_path_entry_set_path(e, path);
     INIT_LIST_HEAD(&e->list);
     rc = sus_path_publish_entry(e, false);
     if (rc) {
+        sus_path_iop_restore(e);
         iput(e->inode);
         kfree(e);
     }
@@ -2566,6 +2749,10 @@ void sus_path_exit(void)
     while (sus_path_release_one(NULL, NULL, false))
         ;
     wait_event(sus_path_release_wait, !sus_path_releases_pending(NULL));
+    /* Every entry restored its inode's i_op before dropping the reference (see
+     * sus_path_iop_restore()), so nothing points at these copies any more; the copies
+     * themselves are ours and go with the module. */
+    sus_path_iops_free();
     susfs_sb_watch_exit();
     WRITE_ONCE(sus_path_lifetime_watch, false);
 }
@@ -2630,6 +2817,8 @@ void sus_path_supercall(unsigned int cmd, void __user **arg)
         e->ino = (u64)inode->i_ino;
         e->inode = inode;
         ihold(inode);
+        if (sus_path_iop_arm(e))
+            atomic_inc(&n_iop_arm_fail);
         strscpy(e->name, path.dentry->d_name.name, sizeof(e->name));
     }
     sus_path_entry_set_path(e, info.target_pathname);
@@ -2638,8 +2827,10 @@ void sus_path_supercall(unsigned int cmd, void __user **arg)
     INIT_LIST_HEAD(&e->list);
     rc = sus_path_publish_entry(e, true);
     if (rc) {
-        if (e->inode)
+        if (e->inode) {
+            sus_path_iop_restore(e);
             iput(e->inode);
+        }
         kfree(e);
     }
     if (rc < 0) {
