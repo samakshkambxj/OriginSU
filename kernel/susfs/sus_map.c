@@ -224,12 +224,6 @@ static atomic_t n_walk_scan_fail = ATOMIC_INIT(0);	/* no vma for (mm,start) */
 static atomic_t n_walk_nofile = ATOMIC_INIT(0);		/* vma has no vm_file */
 static atomic_t n_walk_nomatch = ATOMIC_INIT(0);	/* inode is not a rule */
 static atomic_t n_walk_dbg_left = ATOMIC_INIT(4);
-/* Lines dropped by the show_map / show_map_vma / show_smap probes: this is the decision.
- * Kept apart from hide_modules and from n_walk_skip, which is the walk layer that only feeds
- * it - a vendor kernel can have every walk counter moving and this one at zero, which is
- * exactly the fingerprint of an inlined show_map_vma (susfs4ksu-lkm#102). */
-static atomic_t n_show_hides = ATOMIC_INIT(0);
-
 /* map_files symlink resolutions that were turned into ENOENT.  n_getlink_calls vs
  * n_getlink_skip keeps "the probe ran" apart from "the probe matched". */
 static atomic_t n_map_files_hides = ATOMIC_INIT(0);
