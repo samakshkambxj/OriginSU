@@ -109,6 +109,13 @@ static bool sus_map_gate_ok(void)
     return susfs_is_current_proc_umounted_app();
 }
 
+/* Lines dropped by the show_map / show_map_vma / show_smap probes: this is the decision.
+ * Kept apart from hide_modules and from n_walk_skip, which is the walk layer that only feeds
+ * it - a vendor kernel can have every walk counter moving and this one at zero, which is
+ * exactly the fingerprint of an inlined show_map_vma (susfs4ksu-lkm#102).  Declared here
+ * because sus_map_skip_vma_pre() below is its first user. */
+static atomic_t n_show_hides = ATOMIC_INIT(0);
+
 /* One handler for show_map_vma (maps) and show_smap (smaps) - both are seq_operations
  * .show callbacks that emit only what they are given, so returning 0 means "handled,
  * nothing printed" (seq_read ignores the value), which is upstream's SUS_MAP effect.
