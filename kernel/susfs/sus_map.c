@@ -166,6 +166,21 @@ static struct kprobe kp_map_smap = {
     .pre_handler = sus_map_skip_vma_pre,
 };
 
+/* The outer half of the maps listing.  show_map() is what proc_pid_maps_op points at
+ * (a proc_ops .proc_show field, i.e. a function pointer in data, which a build cannot
+ * inline away), and it calls show_map_vma() for every line.  A vendor kernel is free to
+ * inline that call - measured on a vivo 6.6.89: `show_map_vma` exists in /proc/kallsyms
+ * and the probe arms, but it never fires, so map_stat shows hides=0 while the listing
+ * stays visible (susfs4ksu-lkm#102).  Probing show_map() instead catches the same vma at
+ * the outer layer; and because a hit there returns straight to the caller, the inner
+ * probe (where it is out of line) never sees the same vma twice.  Both take
+ * (struct seq_file *, void *v) with the vma as the second argument, so one handler serves
+ * all of them. */
+static struct kprobe kp_map_outer = {
+    .symbol_name = "show_map",
+    .pre_handler = sus_map_skip_vma_pre,
+};
+
 /* ---- the page-walk layer: smaps_rollup and pagemap ----
  *
  * Both listings test a vma upstream holds as a local, so neither is reachable from a
@@ -637,7 +652,7 @@ static bool kr_map_files_ok;
 
 /* Kept in one table so init and exit cannot drift apart. */
 static struct kprobe *const map_probes[] = {
-    &kp_map, &kp_map_smap, &kp_map_walk, &kp_map_walk_vma,
+    &kp_map, &kp_map_smap, &kp_map_outer, &kp_map_walk, &kp_map_walk_vma,
     &kp_gup_remote, &kp_gup_remote_inner,
 };
 #define N_MAP_PROBES ARRAY_SIZE(map_probes)
