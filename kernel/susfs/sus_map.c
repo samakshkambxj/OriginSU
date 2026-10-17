@@ -144,6 +144,7 @@ static int sus_map_skip_vma_pre(struct kprobe *kp, struct pt_regs *regs)
     if (!inode)
         return 0;
     if (sus_map_lookup(inode->i_ino, inode->i_sb->s_dev)) {
+        atomic_inc(&n_show_hides);
         /* ratelimited like sus_path's; the rule stores no path, so ino/dev name it */
         pr_info_ratelimited("sus_map: hid %s line (ino=%lu dev=%lu uid=%u)\n",
                             kp->symbol_name, inode->i_ino,
@@ -216,6 +217,12 @@ static atomic_t n_walk_scan_fail = ATOMIC_INIT(0);	/* no vma for (mm,start) */
 static atomic_t n_walk_nofile = ATOMIC_INIT(0);		/* vma has no vm_file */
 static atomic_t n_walk_nomatch = ATOMIC_INIT(0);	/* inode is not a rule */
 static atomic_t n_walk_dbg_left = ATOMIC_INIT(4);
+/* Lines dropped by the show_map / show_map_vma / show_smap probes: this is the decision.
+ * Kept apart from hide_modules and from n_walk_skip, which is the walk layer that only feeds
+ * it - a vendor kernel can have every walk counter moving and this one at zero, which is
+ * exactly the fingerprint of an inlined show_map_vma (susfs4ksu-lkm#102). */
+static atomic_t n_show_hides = ATOMIC_INIT(0);
+
 /* map_files symlink resolutions that were turned into ENOENT.  n_getlink_calls vs
  * n_getlink_skip keeps "the probe ran" apart from "the probe matched". */
 static atomic_t n_map_files_hides = ATOMIC_INIT(0);
@@ -673,7 +680,7 @@ static int sus_map_stat_show(char *buf, const struct kernel_param *kp)
 
     return scnprintf(buf, PAGE_SIZE,
                      "rules=%d armed=%d/%d walk_seen=%d walk_vma=%d walk_skipped=%d "
-                     "ops_hit=%d scan_fail=%d nofile=%d nomatch=%d getlink: calls=%d skip=%d nomatch=%d hides=%d putfail=%d\n"
+                     "ops_hit=%d scan_fail=%d nofile=%d nomatch=%d getlink: calls=%d skip=%d nomatch=%d hides=%d putfail=%d line_hides=%d\n"
                      "vm: gup_calls=%d inner_calls=%d hides=%d\n"
                      "ops: smaps=%px smaps_shmem=%px pagemap=%px\n",
                      nmap, armed, (int)N_MAP_PROBES,
@@ -683,7 +690,7 @@ static int sus_map_stat_show(char *buf, const struct kernel_param *kp)
                      atomic_read(&n_walk_nofile), atomic_read(&n_walk_nomatch),
                      atomic_read(&n_getlink_calls), atomic_read(&n_getlink_skip),
                      atomic_read(&n_getlink_nomatch), atomic_read(&n_map_files_hides),
-                     atomic_read(&n_map_files_putfail),
+                     atomic_read(&n_map_files_putfail), atomic_read(&n_show_hides),
                      atomic_read(&n_gup_calls), atomic_read(&n_gup_inner_calls),
                      atomic_read(&n_vm_hides),
                      sus_map_ops_smaps, sus_map_ops_smaps_shmem,
