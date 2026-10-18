@@ -22,6 +22,7 @@
 #include "susfs.h"		/* sus_path_add_self_hidden / sus_path_del_path */
 #include "symbol_resolver.h"	/* find_kernel_symbol_exact (kallsyms_op) */
 #include "susfs_kprobe.h"	/* susfs_kp_forget_addr: a probe struct must be usable twice */
+#include "ksu_allow_gate.h"	/* the control-node gate is su's own */
 
 /* ---- hide_modules: filter other kernel modules out of /proc/modules ----
  * /proc/modules is world-readable (0444) and lists every loaded module, so a checker that greps it sees the whole set
@@ -457,7 +458,7 @@ static int hide_modules_proc_open(struct inode *inode, struct file *file)
 {
 	/* 0777 node + this check, exactly like the other control nodes: a restrictive mode would answer EACCES (which
 	 * advertises that the node exists) before sus_path could answer ENOENT. */
-	if (current_uid().val != 0)
+	if (!susfs_control_visible())
 		return -ENOENT;
 	return single_open(file, hide_modules_proc_show, NULL);
 }
@@ -469,7 +470,7 @@ static ssize_t hide_modules_proc_write(struct file *file, const char __user *buf
 	int rc;
 
 	/* Same reason as the open check: an fd opened before the process dropped privileges must not become a way in. */
-	if (current_uid().val != 0)
+	if (!susfs_control_visible())
 		return -ENOENT;
 	if (len == 0)
 		return 0;

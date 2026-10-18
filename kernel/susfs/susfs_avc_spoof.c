@@ -20,6 +20,7 @@
 #include "susfs_log.h"
 #include "susfs.h"	/* susfs_expose_proc */
 #include "susfs_kprobe.h"
+#include "ksu_allow_gate.h"	/* the control-node gate is su's own */
 
 /* module_param overrides for the two domains: the default su domain is the SukiSU variant ("ksu"), stock
  * KernelSU uses "su".  The sid is resolved at init time via security_secctx_to_secid(). */
@@ -159,7 +160,7 @@ static int avc_proc_open(struct inode *inode, struct file *file)
 {
 	/* 0777 is deliberate (the ENOENT contract comes from sus_path's hidden set, not from the mode), so
 	 * refuse non-root callers here too - see the note in susfs_enable_log.c's log_proc_open(). */
-	if (current_uid().val != 0)
+	if (!susfs_control_visible())
 		return -ENOENT;
 	return single_open(file, avc_proc_show, NULL);
 }
@@ -170,7 +171,7 @@ static ssize_t avc_proc_write(struct file *file, const char __user *buf,
 	char c;
 	int rc = 0;
 
-	if (current_uid().val != 0)
+	if (!susfs_control_visible())
 		return -ENOENT;
 
 	if (copy_from_user(&c, buf, 1))

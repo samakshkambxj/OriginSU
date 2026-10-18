@@ -7,11 +7,17 @@
 #include <linux/kernel.h>
 #include <linux/init.h>
 #include <linux/version.h>	/* LINUX_VERSION_CODE: the MODULE_IMPORT_NS spelling below */
+#include <linux/fs.h>		/* d_inode() for the control-node labels */
+#include <linux/namei.h>	/* kern_path() */
+#include <linux/path.h>		/* path_put() */
+#include <linux/security.h>	/* security_secctx_to_secid(): the nodes' SELinux label */
 
 #include "symbol_resolver.h"
 #include "patch_memory.h"	/* ksu_patch_memory_init(): the flush helper's name differs per kernel */
 #include "susfs_log.h"
 #include "ksu_umount_gate.h"
+#include "ksu_allow_gate.h"	/* KernelSU's allow predicate: the control-node gate */
+#include "btf_layout.h"		/* the SELinux inode_security_struct.sid offset, by BTF */
 #include "lsm_hook.h"
 #include "susfs.h"
 #include "susfs_opath.h"	/* SUSFS_OPATH_NODE + the layer's init/exit */
@@ -98,12 +104,131 @@ static struct {
     void (*exit)(void);
     bool fatal;
     bool armed;			/* exit is run for every layer that was attempted */
+/* The control nodes are born with procfs's default label, u:object_r:proc:s0, whose policy refuses
+ * even an adb shell that this module's gate accepted (measured: `cat /proc/susfs_open_redirect`
+ * from u:r:shell:s0 is EACCES, while the same read from u:r:ksu:s0 works).  ksu_file is the type
+ * the KernelSU policy already grants to the processes that may use su - exactly the set these
+ * nodes exist for - so they are moved under it.
+ *
+ * There is no LSM interface for this: security_inode_setsecurity() has no inode_setsecurity hook
+ * registered on this kernel (it answers the framework default, -EOPNOTSUPP, for either spelling of
+ * the attribute name), and procfs has no xattr handler to go through the VFS.  What is left is the
+ * field SELinux itself reads: inode->i_security points at its private inode_security_struct (until
+ * the per-LSM blob split in 6.4), and the `sid` member is what every check uses.  The offset comes
+ * from BTF and the member's type is verified, so a kernel whose layout moved it is refused instead
+ * of being written at a guess.
+ *
+ * This runs once at load, on inodes nobody has opened yet; a plain 32-bit store needs no lock. */
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 4, 0)
+static const char susfs_control_selinux_ctx[] = "u:object_r:ksu_file:s0";
+static const char susfs_proc_selinux_ctx[] = "u:object_r:proc:s0";
+static size_t susfs_isec_base_offset;	/* SELinux's slot inside inode->i_security */
+static size_t susfs_isec_sid_offset;
+static u32 susfs_control_sid;
+static u32 susfs_proc_sid;
+
+static bool susfs_prepare_control_sid(void)
+{
+    unsigned long blob_sizes;
+    size_t lbs_inode_off;
+    int sel_off;
+    int rc;
+
+    if (security_secctx_to_secid(susfs_control_selinux_ctx,
+                                 strlen(susfs_control_selinux_ctx),
+                                 &susfs_control_sid) ||
+        !susfs_control_sid)
+        return false;
+    if (security_secctx_to_secid(susfs_proc_selinux_ctx,
+                                 strlen(susfs_proc_selinux_ctx),
+                                 &susfs_proc_sid) ||
+        !susfs_proc_sid)
+        return false;
+    /* Idempotent: the fsnotify layer has usually called this already. */
+    if (susfs_btf_layout_init())
+        return false;
+    /* Every Android 5.15 here carries the per-LSM blob allocation even though the split landed
+     * upstream later: inode->i_security is then a blob whose SELinux slot starts at
+     * selinux_blob_sizes.lbs_inode.  A kernel without that symbol is the older shape, where
+     * inode->i_security IS the struct and the base stays 0. */
+    blob_sizes = find_kernel_symbol_exact("selinux_blob_sizes");
+    if (blob_sizes) {
+        if (susfs_btf_member_offset("lsm_blob_sizes", "lbs_inode", "int",
+                                    &lbs_inode_off))
+            return false;
+        sel_off = READ_ONCE(*(int *)((char *)blob_sizes + lbs_inode_off));
+        if (sel_off < 0 || sel_off > 4096)
+            return false;
+        susfs_isec_base_offset = (size_t)sel_off;
+    }
+    rc = susfs_btf_member_offset("inode_security_struct", "sid", "uint",
+                                 &susfs_isec_sid_offset);
+    return !rc;
+}
+
+/* The write is only made where the field already holds the proc label: that is what proves the
+ * base, the offset and the blob ownership are all right on the kernel actually running.  Anything
+ * else is left alone - a wrong guess here would corrupt a live struct. */
+static void susfs_set_inode_sid(struct inode *inode, u32 sid)
+{
+    u32 *field;
+
+    if (!inode->i_security)
+        return;
+    field = (u32 *)((char *)inode->i_security + susfs_isec_base_offset +
+                    susfs_isec_sid_offset);
+    if (READ_ONCE(*field) != susfs_proc_sid)
+        return;
+    WRITE_ONCE(*field, sid);
+}
+#endif
+
+static void susfs_relabel_control_nodes(void)
+{
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+    /* The split is upstream here and the blob walk above is untested there; the nodes keep the
+     * default label, and the module's own visibility gate is unaffected. */
+    return;
+#else
+    int i, changed = 0;
+
+    if (!susfs_expose_proc)
+        return;
+    if (!susfs_prepare_control_sid()) {
+        SUSFS_LOGI("susfs: no ksu_file label applied (context or BTF layout unavailable)\n");
+        return;
+    }
+    for (i = 0; i < ARRAY_SIZE(susfs_self_hide_paths); i++) {
+        struct path p;
+        struct inode *inode;
+
+        if (kern_path(susfs_self_hide_paths[i], 0, &p))
+            continue;
+        inode = d_inode(p.dentry);
+        if (inode && inode->i_security) {
+            u32 *field = (u32 *)((char *)inode->i_security +
+                                 susfs_isec_base_offset +
+                                 susfs_isec_sid_offset);
+
+            if (READ_ONCE(*field) == susfs_proc_sid) {
+                susfs_set_inode_sid(inode, susfs_control_sid);
+                changed++;
+            }
+        }
+        path_put(&p);
+    }
+    SUSFS_LOGI("susfs: %d control node(s) relabelled to %s\n",
+               changed, susfs_control_selinux_ctx);
+#endif
+}
+
 } susfs_layers[] = {
     /* First, and NOT fatal: this layer only decides whether KernelSU's predicate was found at load.
      * When it was not, the gates answer the pre-#34 way and every other layer still works - so a
      * failure here is a degradation, not a reason to refuse the module.  Skipping this init entirely
      * (fail_layer=1) is safe for the same reason: the flag it sets defaults to the pre-#34 answer. */
     { "ksu_umount_gate", susfs_ksu_umount_gate_init,	NULL,			false, false },
+    { "ksu_allow_gate",	susfs_ksu_allow_gate_init,	NULL,			false, false },
     { "lsm_hook",	layer_lsm_hook_init,		ksu_lsm_hook_exit,	false, false },
     { "sus_path",	sus_path_init,			sus_path_exit,		true,  false },
     /* After sus_path, because this layer asks sus_path's rule table for every open it
@@ -213,6 +338,7 @@ static int __init susfs_init(void)
     /* Registered last and undone implicitly: these are entries in sus_path's table, which
      * sus_path_exit() empties while its LSM layer still answers ENOENT for the nodes. */
     susfs_self_hide_nodes();
+    susfs_relabel_control_nodes();
 
     /* Operator note.  The module hides its own traces from EVERY caller, root included (a
      * built-in SUSFS has no module entry, so hiding it only from non-root would leave a

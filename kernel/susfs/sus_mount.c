@@ -146,6 +146,7 @@
 #include "susfs_abi.h"
 #include "susfs_log.h"
 #include "susfs.h"	/* module-wide declarations */
+#include "ksu_allow_gate.h"	/* the control-node gate is su's own */
 #include "susfs_kprobe.h"
 
 /* ---- the "which mounts are ours" prefix list: state ----
@@ -2057,7 +2058,7 @@ static int sus_mount_keep_proc_open(struct inode *inode, struct file *file)
 	/* 0777 node + this check, like every other control node: a restrictive mode would
 	 * answer EACCES (advertising that the node exists) before sus_path could answer
 	 * ENOENT. */
-	if (current_uid().val != 0)
+	if (!susfs_control_visible())
 		return -ENOENT;
 	return single_open(file, sus_mount_keep_proc_show, NULL);
 }
@@ -2070,7 +2071,7 @@ static ssize_t sus_mount_keep_proc_write(struct file *file, const char __user *b
 
 	/* Same reason as the open check: an fd opened before the process dropped
 	 * privileges must not become a way in. */
-	if (current_uid().val != 0)
+	if (!susfs_control_visible())
 		return -ENOENT;
 	if (len == 0)
 		return 0;

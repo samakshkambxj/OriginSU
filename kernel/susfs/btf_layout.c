@@ -250,6 +250,40 @@ int susfs_btf_field_offset(const char *name, const char *member,
     return 0;
 }
 
+/* Same lookup as susfs_btf_field_offset(), without that one's pointer-only shape: it exists for
+ * scalar members too (SELinux's inode_security_struct.sid is a u32).  The member's type still has
+ * to match the name given, so a layout that moved the field cannot be mistaken for the right one. */
+int susfs_btf_member_offset(const char *name, const char *member,
+                            const char *type, size_t *offset)
+{
+    u32 id;
+    bool found = false;
+    size_t actual = 0;
+
+    for (id = 1; id < susfs_btf_count; id++) {
+        const struct btf_type *t = susfs_btf_type(id);
+        const struct btf_member *m;
+        u32 bits;
+
+        if (!susfs_btf_named(t, name, BTF_KIND_STRUCT))
+            continue;
+        m = susfs_btf_member(t, member);
+        if (!m)
+            return -ENOENT;
+        bits = susfs_btf_member_bits(t, m);
+        if (bits % 8 || bits / 8 > t->size ||
+            !susfs_btf_matches(m->type, type) ||
+            (found && actual != bits / 8))
+            return -EINVAL;
+        actual = bits / 8;
+        found = true;
+    }
+    if (!found)
+        return -ENOENT;
+    *offset = actual;
+    return 0;
+}
+
 int susfs_btf_enum_value(const char *name, const char *member, int *value)
 {
     u32 id;

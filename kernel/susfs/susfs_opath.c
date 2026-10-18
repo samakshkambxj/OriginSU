@@ -70,6 +70,7 @@
 #include "susfs_opath.h"
 #include "susfs_fp_hook.h"
 #include "susfs_or_entry.h"	/* open_redirect's name layer shares exactly these five entries */
+#include "ksu_allow_gate.h"	/* the control-node gate is su's own */
 
 /* The AArch32 numbers.  No arm64 header defines them as __NR_*: they are what
  * arch/arm64/include/asm/unistd32.h is generated from, i.e.
@@ -607,7 +608,7 @@ static int opath_proc_open(struct inode *inode, struct file *file)
 	/* Root-only, with 0777 on the node on purpose: DAC has to pass so that sus_path's LSM
 	 * layer is the only thing answering a non-root reader (ENOENT), see susfs_main.c and
 	 * susfs_kstat_init().  Created only when that layer is up (susfs_control_node_allowed). */
-	if (current_uid().val != 0)
+	if (!susfs_control_visible())
 		return -ENOENT;
 	return single_open(file, opath_proc_show, NULL);
 }
