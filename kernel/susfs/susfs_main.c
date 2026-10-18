@@ -79,31 +79,6 @@ static void susfs_self_hide_nodes(void)
     }
 }
 
-/* ---- layer table: arming order IS the teardown order, reversed --------------
- * A failed load must leave NOTHING armed: when module_init() returns an error the kernel
- * frees this module's memory, so anything still installed - a patched security_hook_heads
- * slot above all - becomes a function pointer into freed memory that the next syscall goes
- * through.  Hence the exits of the already-armed layers run before failing.
- * Teardown runs in the exact reverse of arming, in one place, and the order matters:
- * sus_path's LSM layer is what answers ENOENT for this module's own 0777 control nodes (see
- * the expose_proc note), so unhooking it before the nodes are removed would expose them to
- * every process during the unload - here the nodes go first and the LSM layer last.
- * `fatal` marks the two layers whose absence makes the module useless or silent: sus_path
- * and the supercall hook; the rest log their own failure and degrade to "off".  The exits
- * are idempotent, which lets one path serve rollback and unload alike. */
-static int layer_lsm_hook_init(void)
-{
-    ksu_lsm_hook_init();
-    return 0;
-}
-
-/* Not const: the `armed` flags live here (the pointers must outlive __init too). */
-static struct {
-    const char *name;
-    int (*init)(void);
-    void (*exit)(void);
-    bool fatal;
-    bool armed;			/* exit is run for every layer that was attempted */
 /* The control nodes are born with procfs's default label, u:object_r:proc:s0, whose policy refuses
  * even an adb shell that this module's gate accepted (measured: `cat /proc/susfs_open_redirect`
  * from u:r:shell:s0 is EACCES, while the same read from u:r:ksu:s0 works).  ksu_file is the type
@@ -222,6 +197,31 @@ static void susfs_relabel_control_nodes(void)
 #endif
 }
 
+/* ---- layer table: arming order IS the teardown order, reversed --------------
+ * A failed load must leave NOTHING armed: when module_init() returns an error the kernel
+ * frees this module's memory, so anything still installed - a patched security_hook_heads
+ * slot above all - becomes a function pointer into freed memory that the next syscall goes
+ * through.  Hence the exits of the already-armed layers run before failing.
+ * Teardown runs in the exact reverse of arming, in one place, and the order matters:
+ * sus_path's LSM layer is what answers ENOENT for this module's own 0777 control nodes (see
+ * the expose_proc note), so unhooking it before the nodes are removed would expose them to
+ * every process during the unload - here the nodes go first and the LSM layer last.
+ * `fatal` marks the two layers whose absence makes the module useless or silent: sus_path
+ * and the supercall hook; the rest log their own failure and degrade to "off".  The exits
+ * are idempotent, which lets one path serve rollback and unload alike. */
+static int layer_lsm_hook_init(void)
+{
+    ksu_lsm_hook_init();
+    return 0;
+}
+
+/* Not const: the `armed` flags live here (the pointers must outlive __init too). */
+static struct {
+    const char *name;
+    int (*init)(void);
+    void (*exit)(void);
+    bool fatal;
+    bool armed;			/* exit is run for every layer that was attempted */
 } susfs_layers[] = {
     /* First, and NOT fatal: this layer only decides whether KernelSU's predicate was found at load.
      * When it was not, the gates answer the pre-#34 way and every other layer still works - so a
