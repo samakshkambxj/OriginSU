@@ -161,11 +161,14 @@ static void susfs_set_inode_sid(struct inode *inode, u32 sid)
 static void susfs_relabel_control_nodes(void)
 {
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
-    /* The split is upstream here and the blob walk above is untested there; the nodes keep the
-     * default label, and the module's own visibility gate is unaffected. */
+    /* The split is upstream here and the blob walk above is untested there, so the nodes keep their
+     * default (proc) label.  That is exactly why the gate must NOT widen here: susfs_control_visible()
+     * stays root-only until susfs_control_relabelled is set, because proc's policy answers EACCES to
+     * the shell and to su-granted apps - the gate letting them in would turn the nodes' ENOENT into
+     * an EACCES that proves they exist (susfs4ksu-lkm#108). */
     return;
 #else
-    int i, changed = 0;
+    int i, found = 0, changed = 0;
 
     if (!susfs_expose_proc)
         return;
@@ -179,6 +182,7 @@ static void susfs_relabel_control_nodes(void)
 
         if (kern_path(susfs_self_hide_paths[i], 0, &p))
             continue;
+        found++;
         inode = d_inode(p.dentry);
         if (inode && inode->i_security) {
             u32 *field = (u32 *)((char *)inode->i_security +
@@ -192,8 +196,13 @@ static void susfs_relabel_control_nodes(void)
         }
         path_put(&p);
     }
-    SUSFS_LOGI("susfs: %d control node(s) relabelled to %s\n",
-               changed, susfs_control_selinux_ctx);
+    SUSFS_LOGI("susfs: %d of %d control node(s) relabelled to %s\n",
+               changed, found, susfs_control_selinux_ctx);
+    /* Only a node that is actually relabelled may be widened to the KernelSU set: a node left under
+     * proc's label answers EACCES to exactly the callers the wider gate just admitted, and EACCES
+     * says "it is here" where ENOENT says "nothing here".  All-or-nothing on purpose - a partial
+     * relabel means the set is not usable, and root-only is what those labels say anyway. */
+    WRITE_ONCE(susfs_control_relabelled, found > 0 && changed == found);
 #endif
 }
 

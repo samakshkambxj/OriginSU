@@ -50,15 +50,30 @@ static inline bool susfs_ksu_allow_current(void)
 	return susfs_ksu_allow_uid(current_uid().val);
 }
 
+/* Set by susfs_relabel_control_nodes() once every control node it found carries the ksu_file
+ * label.  Until then the nodes keep proc's own label, whose policy answers EACCES to the shell
+ * and to su-granted apps: letting those callers past this gate would turn the hidden nodes'
+ * ENOENT into an EACCES, which proves the nodes exist - the one thing the gate is for.  So the
+ * KernelSU set applies only where SELinux will also let it read, root-only otherwise. */
+extern bool susfs_control_relabelled;
+
 /* "May this process use the module's control surface?"  The SAME gate KernelSU applies before it
  * would give this uid su: sucompat calls ksu_is_allow_uid_for_current(), which allowlist.h defines
  * as exactly this predicate - so it carries forbid_system_uid, "manager is always allowed", the
  * allowed-shell rule and the allowlist profile's allow_su, and __ksu_is_allow_uid_for_current()
  * adds the shell-only check before asking.  Every control node's open/write handler and sus_path's
  * self-protect rules ask this one question, which is what keeps "the nodes are visible" and "su is
- * available" the same set of processes instead of two policies that can drift apart. */
+ * available" the same set of processes instead of two policies that can drift apart.
+ *
+ * That set is only usable where the nodes carry a label those callers may read.  When the relabel
+ * did not happen - every >= 6.4 build, a failed or partial relabel, or a node whose inode was
+ * evicted and recreated under proc's label since - the gate falls back to root-only, which is what
+ * the nodes' own label says anyway.  Widening the gate without the label is what turned the
+ * nodes' ENOENT into an EACCES that proved they existed (susfs4ksu-lkm#108). */
 static inline bool susfs_control_visible(void)
 {
+	if (!READ_ONCE(susfs_control_relabelled))
+		return current_uid().val == 0;
 	return susfs_ksu_allow_current();
 }
 
