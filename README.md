@@ -270,3 +270,4 @@ Please report security issues privately (see [SECURITY.md](SECURITY.md)) rather 
 - [genuine](https://github.com/brevent/genuine/): APK v2 signature validation
 - [Diamorphine](https://github.com/m0nad/Diamorphine): some rootkit skills
 - [WildKSU](https://github.com/WildKernels/Wild_KSU): launcher icon artwork, themed app-shortcut icons and animated home logo concept
+- [ReSukiSU-Ultima](https://github.com/spacealtctrl/ReSukiSU-Ultima): for sentinel, which OriginVeil is inspired from
