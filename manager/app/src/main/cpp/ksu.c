@@ -206,20 +206,6 @@ bool is_su_enabled() {
     return legacy_is_su_enabled();
 }
 
-bool is_root_gate_enabled() {
-    uint64_t value = 1;
-    bool supported = false;
-    if (!get_feature(KSU_FEATURE_ROOT_GATE, &value, &supported) || !supported) {
-        // Kernel without Root Gate: never pretend root is suspended.
-        return true;
-    }
-    return value != 0;
-}
-
-bool set_root_gate_enabled(bool enabled) {
-    return set_feature(KSU_FEATURE_ROOT_GATE, enabled ? 1 : 0);
-}
-
 static inline bool get_feature(uint32_t feature_id, uint64_t *out_value, bool *out_supported) {
     struct ksu_get_feature_cmd cmd = {};
     cmd.feature_id = feature_id;
@@ -237,6 +223,21 @@ static inline bool set_feature(uint32_t feature_id, uint64_t value) {
     cmd.value = value;
     return ksuctl(KSU_IOCTL_SET_FEATURE, &cmd) == 0;
 }
+
+bool is_root_gate_enabled() {
+    uint64_t value = 1;
+    bool supported = false;
+    if (!get_feature(KSU_FEATURE_ROOT_GATE, &value, &supported) || !supported) {
+        // Kernel without Root Gate: never pretend root is suspended.
+        return true;
+    }
+    return value != 0;
+}
+
+bool set_root_gate_enabled(bool enabled) {
+    return set_feature(KSU_FEATURE_ROOT_GATE, enabled ? 1 : 0);
+}
+
 
 bool set_kernel_umount_enabled(bool enabled) {
     return set_feature(KSU_FEATURE_KERNEL_UMOUNT, enabled ? 1 : 0);

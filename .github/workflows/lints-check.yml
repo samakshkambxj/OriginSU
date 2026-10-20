@@ -14,6 +14,15 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      # Pin the formatter: .clang-format output changes between LLVM releases
+      # and the runner image's default version is not stable.
+      - name: Install clang-format
+        run: pip install 'clang-format==18.1.8'
+
       - name: Check
         working-directory: kernel
         run: make check-format

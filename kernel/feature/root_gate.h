@@ -1,6 +1,7 @@
 #ifndef __KSU_H_ROOT_GATE
 #define __KSU_H_ROOT_GATE
 
+#include <linux/init.h>
 #include <linux/types.h>
 
 // Root Gate: a global, reversible suspension of every non-manager root grant.
