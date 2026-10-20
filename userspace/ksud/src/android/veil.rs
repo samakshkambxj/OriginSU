@@ -19,7 +19,7 @@ struct VeilConf {
 fn save_config() {
     // Feature id 5 = KSU_FEATURE_ORIGIN_VEIL.
     let enabled = ksucalls::get_feature(5)
-        .map(|(v, _)| v != 0)
+        .map(|state| state.value != 0)
         .unwrap_or(false);
     let auto = ksucalls::veil_cloak_op(veil_op::GET_AUTO, 0, 0)
         .map(|v| v != 0)
