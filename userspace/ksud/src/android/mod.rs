@@ -3,6 +3,7 @@ pub mod cli;
 mod debug;
 mod dynamic_manager;
 mod feature;
+mod hot_install;
 mod init_event;
 #[cfg(all(target_arch = "aarch64", target_os = "android"))]
 mod kpm;
