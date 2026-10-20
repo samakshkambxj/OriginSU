@@ -2,6 +2,7 @@ pub mod audit;
 pub mod magic_mount;
 pub mod metamodule;
 pub mod module_config;
+pub mod transaction;
 
 use std::os::unix::{prelude::PermissionsExt, process::CommandExt};
 use std::{
@@ -712,6 +713,118 @@ where
     Ok(module_prop)
 }
 
+/// Optional relation metadata declared in module.prop.
+///
+/// `provides` lists capability names a module satisfies, `requires` lists the
+/// capabilities/module IDs it needs, and `conflicts` lists modules or
+/// capabilities that must not be active at the same time.
+#[derive(Debug, Default, Clone)]
+struct ModuleRelations {
+    provides: BTreeSet<String>,
+    requires: BTreeSet<String>,
+    conflicts: BTreeSet<String>,
+}
+
+fn parse_relation_set(value: Option<&String>) -> BTreeSet<String> {
+    value
+        .map(|value| {
+            value
+                .split(',')
+                .flat_map(str::split_whitespace)
+                .map(str::trim)
+                .filter(|entry| !entry.is_empty())
+                .map(str::to_owned)
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+impl ModuleRelations {
+    fn from_prop(prop: &HashMap<String, String>) -> Self {
+        Self {
+            provides: parse_relation_set(prop.get("provides")),
+            requires: parse_relation_set(prop.get("requires")),
+            conflicts: parse_relation_set(prop.get("conflicts")),
+        }
+    }
+
+    fn provides_any(&self, names: &BTreeSet<String>) -> bool {
+        !self.provides.is_disjoint(names)
+    }
+}
+
+/// Relations of every enabled module except `exclude_id` (the module being
+/// installed or updated).
+fn enabled_module_relations(exclude_id: &str) -> Result<Vec<(String, ModuleRelations)>> {
+    let mut relations = Vec::new();
+    let Ok(entries) = std::fs::read_dir(MODULE_DIR) else {
+        return Ok(relations);
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.join(defs::DISABLE_FILE_NAME).exists() {
+            continue;
+        }
+        let Ok(prop) = read_module_prop(&path) else {
+            continue;
+        };
+        let Some(id) = prop.get("id").map(|id| id.trim()) else {
+            continue;
+        };
+        if id.is_empty() || id == exclude_id {
+            continue;
+        }
+        relations.push((id.to_owned(), ModuleRelations::from_prop(&prop)));
+    }
+    Ok(relations)
+}
+
+/// Rejects an install that would leave an enabled module without one of its
+/// requirements, or that would activate two conflicting modules.
+fn check_module_relations(module_id: &str, prop: &HashMap<String, String>) -> Result<()> {
+    let new = ModuleRelations::from_prop(prop);
+    let installed = enabled_module_relations(module_id)?;
+
+    for (other_id, other) in &installed {
+        if new.conflicts.contains(other_id) || other.conflicts.contains(module_id) {
+            bail!("Module '{module_id}' conflicts with enabled module '{other_id}'");
+        }
+        if new.provides_any(&other.conflicts) {
+            bail!(
+                "Module '{module_id}' provides a capability that enabled module '{other_id}' conflicts with"
+            );
+        }
+        if new
+            .conflicts
+            .iter()
+            .any(|name| other.provides.contains(name))
+        {
+            bail!(
+                "Module '{module_id}' conflicts with a capability provided by enabled module '{other_id}'"
+            );
+        }
+    }
+
+    let mut available: BTreeSet<String> = installed
+        .iter()
+        .flat_map(|(id, relations)| {
+            std::iter::once(id.clone()).chain(relations.provides.iter().cloned())
+        })
+        .collect();
+    available.insert(module_id.to_owned());
+    available.extend(new.provides.iter().cloned());
+
+    let missing: Vec<_> = new.requires.difference(&available).cloned().collect();
+    if !missing.is_empty() {
+        bail!(
+            "Module '{module_id}' requires unavailable module(s)/capability(ies): {}",
+            missing.join(", ")
+        );
+    }
+
+    Ok(())
+}
+
 fn install_module_to_system(zip: &str) -> Result<String> {
     ensure_boot_completed()?;
 
@@ -740,6 +853,10 @@ fn install_module_to_system(zip: &str) -> Result<String> {
     // Validate module_id format
     validate_module_id(module_id)
         .with_context(|| format!("Invalid module ID in module.prop: '{module_id}'"))?;
+
+    // Dependency/conflict metadata is enforced before any module-controlled
+    // content is extracted or executed.
+    check_module_relations(module_id, &module_prop)?;
 
     // Check if this module is a metamodule
     let is_metamodule = metamodule::is_metamodule(&module_prop);
@@ -837,6 +954,9 @@ fn install_module_to_system(zip: &str) -> Result<String> {
     }
 
     let module_dir = Path::new(MODULE_DIR).join(module_id);
+    // Snapshot before the module becomes part of the live set. If this boot
+    // fails, bootloop protection reverts exactly this change.
+    transaction::begin(module_id)?;
     // A metamodule doing its own hot install may have moved the marker into the live dir
     std::fs::remove_file(module_dir.join(defs::HOT_INSTALL_MARKER)).ok();
     ensure_dir_exists(&module_dir)?;

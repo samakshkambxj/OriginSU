@@ -39,6 +39,8 @@ impl Default for Config {
 struct RescuedInfo {
     failed_boots: u32,
     timestamp: u64,
+    #[serde(default)]
+    rolled_back: bool,
 }
 
 fn read_config() -> Config {
@@ -103,16 +105,29 @@ pub fn on_post_fs_data() -> Result<()> {
         return Ok(());
     }
 
-    warn!("bootloop protection: {count} consecutive incomplete boots, disabling all modules!");
-    if let Err(e) = module::disable_all_modules() {
-        // Keep the count so the next boot retries the rescue.
-        warn!("bootloop protection: disable all modules failed: {e:#}");
-        return Ok(());
+    warn!(
+        "bootloop protection: {count} consecutive incomplete boots, rolling back the last module change!"
+    );
+    let rolled_back = match module::transaction::rollback() {
+        Ok(rolled_back) => rolled_back,
+        Err(e) => {
+            warn!("bootloop protection: transaction rollback failed: {e:#}");
+            false
+        }
+    };
+    if !rolled_back {
+        warn!("bootloop protection: no transaction snapshot, disabling all modules");
+        if let Err(e) = module::disable_all_modules() {
+            // Keep the count so the next boot retries the rescue.
+            warn!("bootloop protection: disable all modules failed: {e:#}");
+            return Ok(());
+        }
     }
 
     let rescued = RescuedInfo {
         failed_boots: count,
         timestamp: unix_now(),
+        rolled_back,
     };
     if let Ok(content) = serde_json::to_string_pretty(&rescued) {
         let _ = fs::write(RESCUED_PATH, content);
@@ -126,6 +141,10 @@ pub fn on_post_fs_data() -> Result<()> {
 /// The rescued marker is left for the manager to consume and dismiss.
 pub fn on_boot_completed() -> Result<()> {
     write_count(0)?;
+    // This boot succeeded: the last module transaction is committed.
+    if let Err(e) = module::transaction::commit() {
+        warn!("bootloop protection: failed to commit module transaction: {e:#}");
+    }
     Ok(())
 }
 
@@ -142,6 +161,7 @@ pub fn status() -> Result<()> {
         "rescued": rescued.is_some(),
         "rescued_failed_boots": rescued.as_ref().map(|r| r.failed_boots),
         "rescued_timestamp": rescued.as_ref().map(|r| r.timestamp),
+        "rescued_rolled_back": rescued.as_ref().map(|r| r.rolled_back),
     });
     println!("{output}");
     Ok(())
