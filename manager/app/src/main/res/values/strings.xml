@@ -26,6 +26,9 @@
     <string name="unknown">Unknown</string>
     <string name="superuser">Superuser</string>
     <string name="sulog">SU log</string>
+    <string name="feature_status_unsupported_summary">Kernel does not support this feature</string>
+    <string name="feature_status_managed_summary">This feature is managed by a module</string>
+    <string name="feature_status_forced_summary">This feature is forced by boot config</string>
     <string name="sulog_log_files">Log files</string>
     <string name="sulog_failed_to_load">Failed to load SU log</string>
     <string name="sulog_disabled_title">SU log is not enabled</string>
@@ -198,6 +201,15 @@
     <string name="module_uninstall_failed">Failed to uninstall: %s</string>
     <string name="module_version">Version</string>
     <string name="module_author">Author</string>
+    <string name="module_id">ID</string>
+    <string name="module_version_code">Code</string>
+    <string name="module_update_json_empty">Empty</string>
+    <string name="module_preinit_no_space">preinit skipped: not enough space on /metadata</string>
+    <string name="module_preinit_error">preinit skipped: invalid preinit directory</string>
+    <string name="module_preinit_bootloop">preinit disabled after repeated boot failures</string>
+    <string name="module_preinit_unsupported">preinit skipped: not supported by the current kernel</string>
+    <string name="enable_developer_options">Enable developer options</string>
+    <string name="enable_developer_options_summary">Show hidden settings and debug info relevant only for developers.</string>
     <string name="show_system_apps">Show system apps</string>
     <string name="send_log">Send logs</string>
     <string name="safe_mode">Safe mode</string>
@@ -212,6 +224,8 @@
     <string name="settings_soft_reboot_summary">Use soft restart instead of a full reboot when installing, updating, or toggling modules.</string>
     <string name="settings_adb_root" translatable="false">ADB Root</string>
     <string name="settings_adb_root_summary">Run adbd daemon with root privileges</string>
+    <string name="settings_shell_su_adb_only">Restrict shell root to ADB</string>
+    <string name="settings_shell_su_adb_only_summary">Extra check when Shell is granted root: only processes spawned by adbd or a KernelSU root process (e.g. an ADB module) can use it, preventing apps that obtain shell privileges from escalating to root</string>
     <string name="settings_selinux_permissive">SELinux permissive</string>
     <string name="settings_selinux_permissive_summary">Switch SELinux to permissive mode. Weakens device security, use only when needed.</string>
     <string name="settings_selinux_hide">Hide SELinux modification</string>

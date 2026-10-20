@@ -8,7 +8,7 @@ use log::{LevelFilter, error, info};
 use crate::{
     android::{
         bootloop, debug, dynamic_manager, feature, init_event, ksucalls,
-        module::{self, module_config, regenerate_preinit_rc},
+        module::{self, module_config, regenerate_preinit},
         profile, sepolicy, su, su_notify, sulog, susfs, tempgrant, uapi, umount_config, utils,
         veil,
     },
@@ -444,6 +444,12 @@ enum Module {
     /// list all modules
     List,
 
+    /// preinit actions run before SELinux policy is loaded
+    Preinit {
+        #[command(subcommand)]
+        command: PreinitCmd,
+    },
+
     /// manage module configuration
     Config {
         /// target internal module name (resolved as internal.<name>)
@@ -479,6 +485,14 @@ enum MagicMountCmd {
         /// backend to use (omit to print the current one)
         mode: Option<String>,
     },
+}
+
+#[derive(clap::Subcommand, Debug)]
+enum PreinitCmd {
+    /// show per-module preinit state for the next boot
+    Status,
+    /// re-enable preinit after it was disabled by repeated failed boots
+    Reset,
 }
 
 #[derive(clap::Subcommand, Debug)]
@@ -593,7 +607,7 @@ enum Feature {
     /// List all available features
     List,
 
-    /// Check feature status (supported/unsupported/managed)
+    /// Check feature status (supported/unsupported/managed/forced)
     Check {
         /// Feature ID or name (su_compat, kernel_umount, sulog, adb_root, selinux_hide, veil, su_prompt, su_prompt_timeout, su_prompt_default_allow, selinux)
         id: String,
@@ -715,8 +729,22 @@ enum BootloopOp {
 }
 
 #[derive(clap::Subcommand, Debug)]
+enum SusfsAutoloadAction {
+    /// Enable auto-load and save a KMI fallback
+    Enable {
+        /// KMI to use if boot-time KMI detection fails
+        #[arg(long)]
+        kmi: Option<String>,
+    },
+    /// Disable automatic SUSFS LKM loading
+    Disable,
+    /// Show whether automatic loading is enabled
+    Status,
+}
+
+#[derive(clap::Subcommand, Debug)]
 enum Initrc {
-    /// Regenerate preinit rc file
+    /// Regenerate preinit rc file and preinit dirs
     Refresh,
 }
 
@@ -791,6 +819,13 @@ pub fn run() -> Result<()> {
                         Some(mode) => module::magic_mount::set_backend(&mode),
                         None => module::magic_mount::print_backend(),
                     },
+                },
+                Module::Preinit { command } => match command {
+                    PreinitCmd::Status => {
+                        crate::preinit::print_status();
+                        Ok(())
+                    }
+                    PreinitCmd::Reset => crate::preinit::reset_bootcount(),
                 },
                 Module::Config { internal, command } => {
                     let module_id = match internal {
@@ -1140,7 +1175,7 @@ pub fn run() -> Result<()> {
             }
         },
         Commands::Initrc { command } => match command {
-            Initrc::Refresh => regenerate_preinit_rc(),
+            Initrc::Refresh => regenerate_preinit(),
         },
     };
 

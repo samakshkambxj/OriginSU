@@ -87,6 +87,8 @@
     <string name="settings_soft_reboot">使用软重启代替重启</string>
     <string name="settings_soft_reboot_summary">安装、更新或开关模块时使用软重启代替完整重启</string>
     <string name="settings_adb_root_summary">以 root 权限运行 adbd 守护进程</string>
+    <string name="settings_shell_su_adb_only">限制 Shell 仅可通过 ADB 获取 Root</string>
+    <string name="settings_shell_su_adb_only_summary">授权 Shell 后的额外检查：仅由 adbd 或 KernelSU Root 进程（如 ADB 模块）启动的 shell 进程可获取 Root，防止应用提权到 shell 后进一步获取 Root</string>
     <string name="settings_selinux_hide">隐藏 SELinux 修改</string>
     <string name="settings_selinux_hide_summary">阻止应用检测 SELinux 修改</string>
     <string name="settings_selinux_hide_reboot_required">重启生效</string>
@@ -231,6 +233,7 @@
     <string name="settings_sulog">超级用户访问日志</string>
     <string name="settings_sulog_summary">记录与 Root 有关的事件到 KernelSU 超级用户访问日志文件。</string>
     <string name="feature_status_managed_summary">此功能由模块管理</string>
+    <string name="feature_status_forced_summary">此功能已被启动配置强制指定</string>
     <string name="settings_mode_default">默认</string>
     <string name="theme_settings">主题设置</string>
     <string name="settings_custom_monospace_font">使用内置等宽字体</string>
@@ -621,4 +624,13 @@
     <string name="enable_adb_summary">强制允许 USB 调试并取消 adb 认证，非必要请勿开启！</string>
     <string name="install_force_backup">备份为原厂镜像</string>
     <string name="install_force_backup_summary">请确保你选择的 boot 镜像是原厂镜像</string>
+    <string name="module_id">模板 ID</string>
+    <string name="module_version_code">版本</string>
+    <string name="module_update_json_empty">空</string>
+    <string name="module_preinit_no_space">preinit 未生效：/metadata 空间不足</string>
+    <string name="module_preinit_error">preinit 未生效：preinit 目录无效</string>
+    <string name="module_preinit_bootloop">多次启动失败，preinit 已停用</string>
+    <string name="module_preinit_unsupported">preinit 未生效：当前内核不支持</string>
+    <string name="enable_developer_options">启用开发者选项</string>
+    <string name="enable_developer_options_summary">显示仅供开发者使用的隐藏设置和调试信息。</string>
 </resources>

@@ -31,6 +31,8 @@ data class PlatformFeatureStatus(
     val kernelUmountStatus: String = "",
     val adbRootStatus: String = "",
     val adbRootEnabled: Boolean = false,
+    val shellSuAdbOnlyStatus: String = "",
+    val shellSuAdbOnlyEnabled: Boolean = false,
     val sulogStatus: String = "",
     val veilStatus: String = "",
     val selinuxHideStatus: String = "",
@@ -79,6 +81,7 @@ sealed interface PlatformSetting {
     data class Locale(val tag: String) : PlatformSetting
     data class AutoJailbreak(val enabled: Boolean) : PlatformSetting
     data class AdbRoot(val enabled: Boolean) : PlatformSetting
+    data class ShellSuAdbOnly(val enabled: Boolean) : PlatformSetting
     data class SelinuxPermissive(val enabled: Boolean) : PlatformSetting
     data class SuCompatMode(val value: Int) : PlatformSetting
     data class BuiltinMonospaceFont(val enabled: Boolean) : PlatformSetting
