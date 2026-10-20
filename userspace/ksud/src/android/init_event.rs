@@ -89,11 +89,11 @@ pub fn on_post_fs_data() -> Result<()> {
         warn!("prune modules failed: {e}");
     }
 
-    // Refresh /metadata/watchdog/ksu/modules.rc so the next boot's kernel hook sees the
+    // Refresh /metadata/watchdog/ksu/{modules.rc,preinit/} so the next boot's kernel hook sees the
     // current module set. Acts as a safety net when state was changed outside
     // of ksud's normal mutation commands.
-    if let Err(e) = crate::android::module::regenerate_preinit_rc() {
-        warn!("regenerate preinit rc failed: {e}");
+    if let Err(e) = crate::android::module::regenerate_preinit() {
+        warn!("regenerate preinit failed: {e:#}");
     }
 
     if let Err(e) = restorecon::restorecon() {
@@ -231,6 +231,8 @@ pub fn on_boot_completed() {
     if let Err(e) = crate::android::su_notify::ensure_su_notifyd_running() {
         warn!("ensure_su_notifyd_running failed: {e:#}");
     }
+
+    crate::preinit::on_boot_completed();
 
     run_stage("boot-completed", ScriptWait::NoWait);
     // Load susfs boot-completed

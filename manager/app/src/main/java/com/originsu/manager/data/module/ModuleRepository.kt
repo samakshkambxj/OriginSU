@@ -183,6 +183,7 @@ class ModuleRepository(
                 dirId = value.optString("dir_id", id),
                 moduleUpdate = null,
                 banner = value.optString("banner"),
+                preinit = value.optString("preinit"),
             )
         }
     }

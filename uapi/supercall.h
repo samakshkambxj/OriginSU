@@ -20,7 +20,8 @@
 // 4: add KSU_GET_INFO_FLAG_BUNDLED
 // 5: blocking su request prompt (poll/answer ioctls + prompt features)
 // 5: add EVENT_SERVICES with a start/skip result (upstream, shares version 5)
-static const __u32 KERNEL_SU_UAPI_VERSION = 5;
+// 6: add KSU_IOCTL_LOOKUP_SYMBOLS and KSU_GET_INFO_FLAG_PREINIT; modules.rc and preinit may live under /metadata/vold/ksu
+static const __u32 KERNEL_SU_UAPI_VERSION = 6;
 
 /* Magic numbers for reboot hook to install fd */
 DEFINE_KSU_UAPI_CONST(__u32, KSU_INSTALL_MAGIC1, 0xDEADBEEF)
@@ -40,6 +41,8 @@ DEFINE_KSU_UAPI_CONST(__u32, KSU_GET_INFO_FLAG_MANAGER, (1U << 1))
 DEFINE_KSU_UAPI_CONST(__u32, KSU_GET_INFO_FLAG_LATE_LOAD, (1U << 2))
 DEFINE_KSU_UAPI_CONST(__u32, KSU_GET_INFO_FLAG_PR_BUILD, (1U << 3))
 DEFINE_KSU_UAPI_CONST(__u32, KSU_GET_INFO_FLAG_BUNDLED, (1U << 4))
+/* The preinit runner will run module preinit actions on boot */
+DEFINE_KSU_UAPI_CONST(__u32, KSU_GET_INFO_FLAG_PREINIT, (1U << 5))
 
 struct ksu_get_info_cmd {
     __u32 version; /* Output: KERNEL_SU_VERSION */
@@ -152,6 +155,15 @@ struct ksu_nuke_ext4_sysfs_cmd {
 struct ksu_get_sulog_fd_cmd {
     __u32 flags; /* Input: reserved for future use, must be 0 */
 };
+
+struct ksu_lookup_symbols_cmd {
+    __aligned_u64 names; /* Input: user pointer to `count` user pointers to null-terminated names */
+    __aligned_u64 addrs; /* Output: user pointer to `count` __u64 symbol addresses */
+    __u32 count; /* Input: number of symbols, at most KSU_LOOKUP_SYMBOLS_MAX */
+    __u32 flags; /* Input: reserved for future use, must be 0 */
+};
+
+DEFINE_KSU_UAPI_CONST(__u32, KSU_LOOKUP_SYMBOLS_MAX, 1024)
 
 struct ksu_get_veil_fd_cmd {
     __u32 flags; /* Input: reserved for future use, must be 0 */
@@ -299,6 +311,7 @@ DEFINE_KSU_UAPI_CONST(__u32, KSU_IOCTL_VEIL_CLOAK, _IOC(_IOC_READ | _IOC_WRITE, 
 DEFINE_KSU_UAPI_CONST(__u32, KSU_IOCTL_VEIL_HISTORY, _IOC(_IOC_READ | _IOC_WRITE, 'K', 24, 0))
 DEFINE_KSU_UAPI_CONST(__u32, KSU_IOCTL_SU_REQUEST_POLL, _IOC(_IOC_READ | _IOC_WRITE, 'K', 25, 0))
 DEFINE_KSU_UAPI_CONST(__u32, KSU_IOCTL_SU_REQUEST_ANSWER, _IOC(_IOC_WRITE, 'K', 26, 0))
+DEFINE_KSU_UAPI_CONST(__u32, KSU_IOCTL_LOOKUP_SYMBOLS, _IOW('K', 27, struct ksu_lookup_symbols_cmd))
 
 // Downstream add IOCTL command definitions
 DEFINE_KSU_UAPI_CONST(__u32, KSU_IOCTL_GET_FULL_VERSION, _IOC(_IOC_READ, 'K', 100, 0))

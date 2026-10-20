@@ -19,6 +19,7 @@ data class InstalledModule(
     val dirId: String,
     val moduleUpdate: ModuleUpdateMetadata?,
     val banner: String = "",
+    val preinit: String = "",
 )
 
 data class InstalledModulesState(

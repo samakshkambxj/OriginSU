@@ -13,6 +13,8 @@ mod cli_non_android;
 mod defs;
 mod lkm_image;
 mod lkm_image_btf;
+#[cfg(target_os = "android")]
+mod preinit;
 
 fn main() -> anyhow::Result<()> {
     #[cfg(target_os = "android")]

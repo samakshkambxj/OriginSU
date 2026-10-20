@@ -2136,6 +2136,23 @@ fun ModuleItem(
                         textDecoration = textDecoration,
                     )
 
+                    val preinitWarning = when (module.preinit) {
+                        "no_space" -> R.string.module_preinit_no_space
+                        "error" -> R.string.module_preinit_error
+                        "bootloop" -> R.string.module_preinit_bootloop
+                        "unsupported" -> R.string.module_preinit_unsupported
+                        else -> null
+                    }
+                    if (preinitWarning != null) {
+                        Text(
+                            text = stringResource(preinitWarning),
+                            fontSize = MaterialTheme.typography.bodySmall.fontSize,
+                            lineHeight = MaterialTheme.typography.bodySmall.lineHeight,
+                            fontFamily = MaterialTheme.typography.bodySmall.fontFamily,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    }
+
                     // 显示更多模块信息时添加updateJson
                     if (showMoreModuleInfo && module.updateJson.isNotEmpty()) {
                         val updateJsonLabel = stringResource(R.string.module_update_json)

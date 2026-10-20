@@ -61,6 +61,61 @@ ccflags-y += -I$(srctree)/security/selinux -I$(srctree)/security/selinux/include
 ccflags-y += -I$(srctree)/$(src) -I$(srctree)/$(src)/include
 ccflags-y += -I$(src) -I$(src)/include
 
+ifneq ($(KBUILD_EXTMOD),)
+# 6.18 exports the external module source as srcroot when M/MO are used.
+ifneq ($(srcroot),)
+KSU_KERNEL_DIR := $(srcroot)
+else
+KSU_KERNEL_DIR := $(KBUILD_EXTMOD)
+endif
+else ifeq ($(filter /%,$(src)),)
+KSU_KERNEL_DIR := $(srctree)/$(src)
+else
+KSU_KERNEL_DIR := $(src)
+endif
+
+# preinit runner: a static nolibc binary embedded into kernelsu, see preinit/.
+# It is built against the installed UAPI headers of the target kernel
+# (CONFIG_HEADERS_INSTALL, enabled by gki_defconfig).
+KSU_UAPI_INC := $(objtree)/usr/include
+ifneq ($(wildcard $(KSU_UAPI_INC)/linux/unistd.h),)
+# The runner is swapped in from the execve syscall hook, which only exists in
+# tracepoint and tamper modes; without one preinit could never run.
+ifneq ($(CONFIG_KSU_TRACEPOINT_HOOK)$(CONFIG_KSU_TAMPER_SYSCALL_TABLE),)
+kernelsu-objs += preinit/preinit.o
+kernelsu-objs += preinit/blob.o
+
+KSU_RUNNER_CFLAGS := $(CLANG_FLAGS) -std=gnu11 -Os -Wall \
+	-nostdinc -isystem $(shell $(CC) -print-file-name=include) \
+	-I$(KSU_KERNEL_DIR)/preinit/runner/nolibc -I$(KSU_UAPI_INC) \
+	-I$(KSU_KERNEL_DIR)/include \
+	-ffreestanding -fno-stack-protector -fno-pic -fno-pie \
+	-fno-asynchronous-unwind-tables -fno-unwind-tables \
+	-ffunction-sections -fdata-sections
+
+quiet_cmd_ksu_runner = RUNNER  $@
+      cmd_ksu_runner = $(CC) $(KSU_RUNNER_CFLAGS) -c -o $@.o $< && \
+		$(LD) -static -nostdlib -e _start --gc-sections -s -o $@ $@.o && \
+		rm -f $@.o
+
+$(obj)/preinit/runner.elf: $(KSU_KERNEL_DIR)/preinit/runner/runner.c \
+		$(wildcard $(KSU_KERNEL_DIR)/preinit/runner/nolibc/*.h \
+			   $(KSU_KERNEL_DIR)/preinit/runner/nolibc/sys/*.h \
+			   $(KSU_KERNEL_DIR)/include/uapi/*.h) FORCE
+	$(call if_changed,ksu_runner)
+
+targets += preinit/runner.elf
+$(obj)/preinit/blob.o: $(obj)/preinit/runner.elf
+asflags-y += -DKSU_PREINIT_RUNNER_BIN=\"$(obj)/preinit/runner.elf\"
+else
+$(warning -- KernelSU: preinit needs the tracepoint or tamper syscall hook, disabled)
+ccflags-y += -DKSU_NO_PREINIT
+endif
+else
+$(warning -- KernelSU: $(KSU_UAPI_INC) not found, preinit disabled)
+ccflags-y += -DKSU_NO_PREINIT
+endif
+
 obj-$(CONFIG_KSU) += kernelsu.o
 
 REPO_NAME := OriginSU
