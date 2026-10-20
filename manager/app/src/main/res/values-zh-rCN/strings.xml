@@ -39,6 +39,8 @@
     <string name="sulog_daemon_restart_count">重启 #%s</string>
     <string name="sulog_entry_unknown_event">未知事件</string>
     <string name="sulog_search_placeholder">搜索日志</string>
+    <string name="sulog_digest_title">活动摘要</string>
+    <string name="sulog_digest_summary">%1$d 个事件 · %2$d 个应用 · %3$d 次 Root 授权</string>
     <string name="module_failed_to_enable">无法启用模块：%s</string>
     <string name="module_failed_to_disable">无法禁用模块：%s</string>
     <string name="module_empty">没有安装模块</string>

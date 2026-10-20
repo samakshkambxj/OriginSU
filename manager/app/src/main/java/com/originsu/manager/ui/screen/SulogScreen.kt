@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
@@ -72,6 +73,7 @@ import com.originsu.manager.domain.model.SulogEntry
 import com.originsu.manager.domain.model.SulogEventFilter
 import com.originsu.manager.domain.model.SulogEventType
 import com.originsu.manager.domain.model.SulogFile
+import com.originsu.manager.domain.model.SulogDigest
 import com.originsu.manager.domain.model.toSulogDisplayName
 import com.originsu.manager.ui.component.SearchAppBar
 import com.originsu.manager.ui.component.WarningCard
@@ -278,6 +280,10 @@ private fun SulogScreenContent(
 
                     item {
                         SulogStatusSection(state, actions)
+                    }
+
+                    item {
+                        SulogDigestSection(state.digest)
                     }
 
                     item {
@@ -640,6 +646,36 @@ private fun LazyListScope.sulogEntriesSection(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun SulogDigestSection(digest: SulogDigest) {
+    if (digest.total == 0) return
+    Column(
+        modifier = Modifier
+            .padding(horizontal = 16.dp)
+            .padding(bottom = 16.dp)
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(MaterialTheme.colorScheme.surfaceContainer)
+            .padding(16.dp),
+    ) {
+        Text(
+            text = stringResource(R.string.sulog_digest_title),
+            style = MaterialTheme.typography.titleSmall,
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            text = stringResource(
+                R.string.sulog_digest_summary,
+                digest.total,
+                digest.apps,
+                digest.rootGrants,
+            ),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 

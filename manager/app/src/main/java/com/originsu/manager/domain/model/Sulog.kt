@@ -60,6 +60,30 @@ data class SulogState(
     val errorMessage: String? = null,
 )
 
+data class SulogDigest(
+    val total: Int = 0,
+    val apps: Int = 0,
+    val rootGrants: Int = 0,
+)
+
+fun buildSulogDigest(entries: List<SulogEntry>): SulogDigest {
+    if (entries.isEmpty()) return SulogDigest()
+    val apps = entries.mapNotNull { entry ->
+        (entry.fields["euid"] ?: entry.fields["uid"])
+            ?.takeIf { it != "0" && it.isNotEmpty() }
+    }.toSet().size
+    val rootGrants = entries.count {
+        it.eventType == SulogEventType.RootExecve ||
+            it.eventType == SulogEventType.SuCompat ||
+            it.eventType == SulogEventType.IoctlGrantRoot
+    }
+    return SulogDigest(
+        total = entries.size,
+        apps = apps,
+        rootGrants = rootGrants,
+    )
+}
+
 fun defaultSulogEventFilters(): Set<SulogEventFilter> = SulogEventFilter.entries.toSet()
 
 fun String.toSulogDisplayName(): String =

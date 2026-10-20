@@ -52,6 +52,8 @@
     <string name="sulog_daemon_restart_count">restart #%s</string>
     <string name="sulog_entry_unknown_event">Unknown event</string>
     <string name="sulog_search_placeholder">Search log</string>
+    <string name="sulog_digest_title">Activity digest</string>
+    <string name="sulog_digest_summary">%1$d events · %2$d apps · %3$d root grants</string>
     <string name="veil">Origin Veil</string>
     <string name="veil_auto_cloak">Auto-cloak probing apps</string>
     <string name="veil_auto_cloak_summary">Automatically hide modules from apps that probe for root.</string>

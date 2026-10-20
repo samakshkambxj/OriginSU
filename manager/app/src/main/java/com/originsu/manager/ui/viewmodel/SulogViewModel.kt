@@ -2,9 +2,11 @@ package com.originsu.manager.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.originsu.manager.domain.model.SulogDigest
 import com.originsu.manager.domain.model.SulogEntry
 import com.originsu.manager.domain.model.SulogEventFilter
 import com.originsu.manager.domain.model.SulogFile
+import com.originsu.manager.domain.model.buildSulogDigest
 import com.originsu.manager.domain.model.defaultSulogEventFilters
 import com.originsu.manager.domain.model.filterSulogEntries
 import com.originsu.manager.domain.usecase.CleanSulogUseCase
@@ -35,6 +37,7 @@ data class SulogScreenState(
     val selectedFilePath: String? = null,
     val entries: List<SulogEntry> = emptyList(),
     val visibleEntries: List<SulogEntry> = emptyList(),
+    val digest: SulogDigest = SulogDigest(),
     val errorMessage: String? = null,
 )
 
@@ -104,6 +107,7 @@ class SulogViewModel(
             selectedFilePath = source.selectedFilePath,
             entries = source.entries,
             visibleEntries = filterSulogEntries(source.entries, query, selectedFilters),
+            digest = buildSulogDigest(source.entries),
             errorMessage = source.errorMessage,
         )
     }.stateIn(
