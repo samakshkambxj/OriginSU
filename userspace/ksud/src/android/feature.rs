@@ -31,6 +31,7 @@ pub enum FeatureId {
     SuPromptTimeout = 7,
     SuPromptDefaultAllow = 8,
     SelinuxMode = 9,
+    ShellSuAdbOnly = 10,
 }
 
 impl FeatureId {
@@ -46,6 +47,7 @@ impl FeatureId {
             7 => Some(Self::SuPromptTimeout),
             8 => Some(Self::SuPromptDefaultAllow),
             9 => Some(Self::SelinuxMode),
+            10 => Some(Self::ShellSuAdbOnly),
             _ => None,
         }
     }
@@ -62,6 +64,7 @@ impl FeatureId {
             Self::SuPromptTimeout => "su_prompt_timeout",
             Self::SuPromptDefaultAllow => "su_prompt_default_allow",
             Self::SelinuxMode => "selinux",
+            Self::ShellSuAdbOnly => "shell_su_adb_only",
         }
     }
 
@@ -91,6 +94,9 @@ impl FeatureId {
             Self::SelinuxMode => {
                 "SELinux Mode - switch SELinux between enforcing (0) and permissive (1)"
             }
+            Self::ShellSuAdbOnly => {
+                "Shell SU ADB Only - when shell is granted root, additionally require the process to be spawned by adbd or a KernelSU root process (ksu domain)"
+            }
         }
     }
 }
@@ -107,6 +113,7 @@ fn parse_feature_id(name: &str) -> Result<FeatureId> {
         "su_prompt_timeout" | "7" => Ok(FeatureId::SuPromptTimeout),
         "su_prompt_default_allow" | "8" => Ok(FeatureId::SuPromptDefaultAllow),
         "selinux" | "9" => Ok(FeatureId::SelinuxMode),
+        "shell_su_adb_only" | "10" => Ok(FeatureId::ShellSuAdbOnly),
         _ => bail!("Unknown feature: {name}"),
     }
 }
@@ -358,6 +365,7 @@ pub fn list_features() {
         FeatureId::SuPromptTimeout,
         FeatureId::SuPromptDefaultAllow,
         FeatureId::SelinuxMode,
+        FeatureId::ShellSuAdbOnly,
     ];
 
     for feature_id in &all_features {
@@ -426,6 +434,7 @@ pub fn save_config() -> Result<()> {
         FeatureId::SuPromptTimeout,
         FeatureId::SuPromptDefaultAllow,
         FeatureId::SelinuxMode,
+        FeatureId::ShellSuAdbOnly,
     ];
 
     for feature_id in &all_features {

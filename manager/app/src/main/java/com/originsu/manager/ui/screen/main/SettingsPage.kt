@@ -174,6 +174,8 @@ fun SettingsPage(bottomPadding: Dp) {
     val descAutoJailbreak = stringResource(R.string.settings_auto_jailbreak_summary)
     val titleAdbRoot = stringResource(R.string.settings_adb_root)
     val descAdbRootDefault = stringResource(R.string.settings_adb_root_summary)
+    val titleShellSuAdbOnly = stringResource(R.string.settings_shell_su_adb_only)
+    val descShellSuAdbOnlyDefault = stringResource(R.string.settings_shell_su_adb_only_summary)
     val titleSelinux = stringResource(R.string.settings_selinux_permissive)
     val descSelinuxDefault = stringResource(R.string.settings_selinux_permissive_summary)
     val titleSoftReboot = stringResource(R.string.settings_soft_reboot)
@@ -252,6 +254,11 @@ fun SettingsPage(bottomPadding: Dp) {
         "managed" -> suSummaryManaged
         else -> descAdbRootDefault
     }
+    val shellSuAdbOnlySummary = when (uiState.shellSuAdbOnlyStatus) {
+        "unsupported" -> suSummaryUnsupported
+        "managed" -> suSummaryManaged
+        else -> descShellSuAdbOnlyDefault
+    }
     val selinuxSummary = when (uiState.selinuxStatus) {
         "unsupported" -> suSummaryUnsupported
         "managed" -> suSummaryManaged
@@ -286,6 +293,8 @@ fun SettingsPage(bottomPadding: Dp) {
     val matchUmount = matches(titleUmount, umountSummary, sectionConfiguration)
     val matchAutoJailbreak = matches(titleAutoJailbreak, descAutoJailbreak, sectionConfiguration)
     val matchAdbRoot = matches(titleAdbRoot, adbSummary, sectionConfiguration)
+    val matchShellSuAdbOnly =
+        matches(titleShellSuAdbOnly, shellSuAdbOnlySummary, sectionConfiguration)
     val matchSelinux = matches(titleSelinux, selinuxSummary, sectionConfiguration)
     val matchSoftReboot = matches(titleSoftReboot, descSoftReboot, sectionConfiguration)
     val matchSulog = matches(titleSulog, sulogSummary, sectionConfiguration)
@@ -330,6 +339,7 @@ fun SettingsPage(bottomPadding: Dp) {
         matchUmount,
         matchAutoJailbreak && homeState.systemStatus.isLateLoadMode,
         matchAdbRoot,
+        matchShellSuAdbOnly,
         matchSelinux,
         matchSoftReboot,
         matchSulog,
@@ -537,6 +547,23 @@ fun SettingsPage(bottomPadding: Dp) {
                                     onCheckedChange = { enabled ->
                                         settingsViewModel.dispatch(
                                             SettingsUiAction.SetAdbRoot(
+                                                enabled
+                                            )
+                                        )
+                                    },
+                                )
+                            }
+
+                            item(visible = matchShellSuAdbOnly) {
+                                SettingsSwitchWidget(
+                                    icon = Icons.TwoTone.Security,
+                                    title = stringResource(id = R.string.settings_shell_su_adb_only),
+                                    description = shellSuAdbOnlySummary,
+                                    checked = uiState.isShellSuAdbOnlyEnabled,
+                                    enabled = uiState.shellSuAdbOnlyStatus == "supported",
+                                    onCheckedChange = { enabled ->
+                                        settingsViewModel.dispatch(
+                                            SettingsUiAction.SetShellSuAdbOnly(
                                                 enabled
                                             )
                                         )

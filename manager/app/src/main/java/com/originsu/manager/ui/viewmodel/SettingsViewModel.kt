@@ -115,6 +115,8 @@ data class SettingsUiState(
     val autoJailbreakEnabled: Boolean = false,
     val adbRootStatus: String = "",
     val isAdbRootEnabled: Boolean = false,
+    val shellSuAdbOnlyStatus: String = "",
+    val isShellSuAdbOnlyEnabled: Boolean = false,
     val selinuxStatus: String = "",
     val isSelinuxPermissive: Boolean = false,
     val sulogStatus: String = "",
@@ -185,6 +187,7 @@ sealed interface SettingsUiAction {
     data class SetAutoJailbreak(val enabled: Boolean) : SettingsUiAction
     data class SetSelinuxHide(val enabled: Boolean) : SettingsUiAction
     data class SetAdbRoot(val enabled: Boolean) : SettingsUiAction
+    data class SetShellSuAdbOnly(val enabled: Boolean) : SettingsUiAction
     data class SetSelinuxPermissive(val enabled: Boolean) : SettingsUiAction
     data class SetSuLog(val enabled: Boolean) : SettingsUiAction
     data class SetVeil(val enabled: Boolean) : SettingsUiAction
@@ -299,6 +302,8 @@ class SettingsViewModel(
                     isKernelUmountEnabled = features.kernelUmountEnabled,
                     adbRootStatus = platform.adbRootStatus,
                     isAdbRootEnabled = platform.adbRootEnabled,
+                    shellSuAdbOnlyStatus = platform.shellSuAdbOnlyStatus,
+                    isShellSuAdbOnlyEnabled = platform.shellSuAdbOnlyEnabled,
                     selinuxStatus = platform.selinuxStatus,
                     isSelinuxPermissive = platform.selinuxPermissive,
                     sulogStatus = platform.sulogStatus,
@@ -567,6 +572,11 @@ class SettingsViewModel(
         updatePlatformAsync(PlatformSetting.AdbRoot(checked))
     }
 
+    fun handleShellSuAdbOnlyChange(checked: Boolean) {
+        mutableState.update { it.copy(isShellSuAdbOnlyEnabled = checked) }
+        updatePlatformAsync(PlatformSetting.ShellSuAdbOnly(checked))
+    }
+
     fun handleSelinuxPermissiveChange(checked: Boolean) {
         mutableState.update { it.copy(isSelinuxPermissive = checked) }
         updatePlatformAsync(PlatformSetting.SelinuxPermissive(checked))
@@ -765,6 +775,7 @@ fun dispatch(action: SettingsUiAction) {
             is SettingsUiAction.SetAutoJailbreak -> handleAutoJailbreakChange(action.enabled)
             is SettingsUiAction.SetSelinuxHide -> handleSelinuxHideChange(action.enabled)
             is SettingsUiAction.SetAdbRoot -> handleAdbRootChange(action.enabled)
+            is SettingsUiAction.SetShellSuAdbOnly -> handleShellSuAdbOnlyChange(action.enabled)
             is SettingsUiAction.SetSelinuxPermissive -> handleSelinuxPermissiveChange(action.enabled)
             is SettingsUiAction.SetSuLog -> handleSuLogChange(action.enabled)
             is SettingsUiAction.SetVeil -> handleVeilChange(action.enabled)

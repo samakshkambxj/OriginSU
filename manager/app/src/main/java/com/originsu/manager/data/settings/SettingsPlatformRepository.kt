@@ -177,6 +177,7 @@ class SettingsPlatformRepository(
             is PlatformSetting.Locale -> settings.putString("app_locale", setting.tag)
             is PlatformSetting.AutoJailbreak -> setAutoJailbreak(setting.enabled)
             is PlatformSetting.AdbRoot -> setAdbRoot(setting.enabled)
+            is PlatformSetting.ShellSuAdbOnly -> setShellSuAdbOnly(setting.enabled)
             is PlatformSetting.SelinuxPermissive -> setSelinuxPermissive(setting.enabled)
             is PlatformSetting.SuCompatMode -> settings.putInt("su_compat_mode", setting.value)
             is PlatformSetting.BuiltinMonospaceFont -> {
@@ -214,6 +215,12 @@ class SettingsPlatformRepository(
             }.getOrDefault(""),
             adbRootEnabled = runCatching {
                 ksuCliRepository.getFeaturePersistValue("adb_root") == 1L
+            }.getOrDefault(false),
+            shellSuAdbOnlyStatus = runCatching {
+                ksuCliRepository.getFeatureStatus("shell_su_adb_only")
+            }.getOrDefault(""),
+            shellSuAdbOnlyEnabled = runCatching {
+                ksuCliRepository.getFeaturePersistValue("shell_su_adb_only") == 1L
             }.getOrDefault(false),
             sulogStatus = runCatching {
                 ksuCliRepository.getFeatureStatus("sulog")
@@ -295,6 +302,12 @@ class SettingsPlatformRepository(
     private fun setAdbRoot(enabled: Boolean) {
         if (ksuCliRepository.execKsud("feature set adb_root ${if (enabled) 1 else 0}", true)) {
             ShellUtils.fastCmd("setprop ctl.restart adbd")
+            ksuCliRepository.execKsud("feature save", true)
+        }
+    }
+
+    private fun setShellSuAdbOnly(enabled: Boolean) {
+        if (ksuCliRepository.execKsud("feature set shell_su_adb_only ${if (enabled) 1 else 0}", true)) {
             ksuCliRepository.execKsud("feature save", true)
         }
     }
