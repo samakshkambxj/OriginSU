@@ -10,6 +10,7 @@ use crate::android::susfs::{
     api::prelude as api,
     config::cli::{ConfigCommand, run as run_config},
     enums::UidScheme,
+    lkm,
     slot_info,
 };
 
@@ -26,6 +27,19 @@ pub enum SuSFSSubCommands {
     Config {
         #[command(subcommand)]
         command: ConfigCommand,
+    },
+
+    /// Load the embedded SUSFS guard LKM for the detected or specified KMI.
+    Load {
+        /// Specify the kernel KMI version instead of auto-detection.
+        #[arg(long)]
+        kmi: Option<String>,
+    },
+
+    /// Configure automatic SUSFS LKM loading during post-fs-data.
+    Autoload {
+        #[command(subcommand)]
+        command: AutoloadCommand,
     },
 
     /// Added path and all its sub-paths will be hidden for umounted app process from several syscalls.
@@ -231,6 +245,20 @@ pub enum ShowType {
     Variant,
 }
 
+#[derive(Debug, Subcommand)]
+pub enum AutoloadCommand {
+    /// Enable auto-load and save a KMI fallback.
+    Enable {
+        /// KMI to use if boot-time KMI detection fails.
+        #[arg(long)]
+        kmi: Option<String>,
+    },
+    /// Disable automatic SUSFS LKM loading.
+    Disable,
+    /// Show whether automatic loading is enabled.
+    Status,
+}
+
 #[derive(Debug, Parser)]
 struct SusfsParser {
     #[command(flatten)]
@@ -279,6 +307,21 @@ pub fn run_from_args(args: &[String]) -> Result<()> {
 pub fn run_main(args: SusfsArgs) -> Result<()> {
     match args.command {
         SuSFSSubCommands::Config { command } => run_config(command)?,
+        SuSFSSubCommands::Load { kmi } => lkm::load(kmi.as_deref())?,
+        SuSFSSubCommands::Autoload { command } => match command {
+            AutoloadCommand::Enable { kmi } => lkm::set_autoload(true, kmi.as_deref())?,
+            AutoloadCommand::Disable => lkm::set_autoload(false, None)?,
+            AutoloadCommand::Status => {
+                println!(
+                    "{}",
+                    if lkm::autoload_enabled()? {
+                        "enabled"
+                    } else {
+                        "disabled"
+                    }
+                );
+            }
+        },
         SuSFSSubCommands::AddSusPath { path } => {
             api::add_sus_path(&path, false)?;
         }

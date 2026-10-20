@@ -75,6 +75,10 @@ pub fn on_post_fs_data() -> Result<()> {
         return Ok(());
     }
 
+    if let Err(e) = crate::android::susfs::lkm::load_if_autoload_enabled() {
+        warn!("SUSFS auto-load failed: {e:#}");
+    }
+
     if let Err(e) = handle_updated_modules() {
         warn!("handle updated modules failed: {e}");
     }

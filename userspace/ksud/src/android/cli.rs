@@ -715,6 +715,20 @@ enum BootloopOp {
 }
 
 #[derive(clap::Subcommand, Debug)]
+enum SusfsAutoloadAction {
+    /// Enable auto-load and save a KMI fallback
+    Enable {
+        /// KMI to use if boot-time KMI detection fails
+        #[arg(long)]
+        kmi: Option<String>,
+    },
+    /// Disable automatic SUSFS LKM loading
+    Disable,
+    /// Show whether automatic loading is enabled
+    Status,
+}
+
+#[derive(clap::Subcommand, Debug)]
 enum Initrc {
     /// Regenerate preinit rc file
     Refresh,
