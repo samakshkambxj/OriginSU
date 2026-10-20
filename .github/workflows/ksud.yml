@@ -92,7 +92,7 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
         with:
-          prefix-key: ksud-${{ inputs.target }}
+          prefix-key: ksud-v2-${{ inputs.target }}
           workspaces: userspace/ksud
           cache-directories: userspace/ksuinit
           cache-targets: true

@@ -174,6 +174,7 @@ fun ModuleRepoScreen() {
     val repoSourcesTitle = stringResource(R.string.module_repo_sources)
     val cancelText = stringResource(android.R.string.cancel)
     val okText = stringResource(android.R.string.ok)
+    val sourceInvalidText = stringResource(R.string.module_repo_source_invalid)
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var showDropdown by remember { mutableStateOf(false) }
@@ -256,11 +257,11 @@ fun ModuleRepoScreen() {
                     val schema = queueLoading.withLoading { viewModel.probeSource(url) }
                     if (schema == null) {
                         snackBarHost.showSnackbar(
-                            context.getString(R.string.module_repo_source_invalid)
+                            sourceInvalidText
                         )
                     } else if (!viewModel.addSource(name, url, schema)) {
                         snackBarHost.showSnackbar(
-                            context.getString(R.string.module_repo_source_invalid)
+                            sourceInvalidText
                         )
                     }
                 }
