@@ -81,6 +81,7 @@ class KernelRepository(
             defaultUmountModules = runCatching { Natives.isDefaultUmountModules() }.getOrDefault(
                 false
             ),
+            rootGateEnabled = runCatching { Natives.isRootGateEnabled() }.getOrDefault(true),
         )
     }
 
@@ -108,6 +109,9 @@ class KernelRepository(
 
     suspend fun setDefaultUmountModules(enabled: Boolean): Boolean =
         withContext(Dispatchers.IO) { Natives.setDefaultUmountModules(enabled) }
+
+    suspend fun setRootGateEnabled(enabled: Boolean): Boolean =
+        withContext(Dispatchers.IO) { Natives.setRootGateEnabled(enabled) }
 
     fun isLateLoadMode(): Boolean = runCatching { Natives.isLateLoadMode }.getOrDefault(false)
 

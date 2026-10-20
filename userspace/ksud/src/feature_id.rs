@@ -18,10 +18,11 @@ pub enum FeatureId {
     SuPromptDefaultAllow = 8,
     SelinuxMode = 9,
     ShellSuAdbOnly = 10,
+    RootGate = 11,
 }
 
 impl FeatureId {
-    pub const ALL: [Self; 11] = [
+    pub const ALL: [Self; 12] = [
         Self::SuCompat,
         Self::KernelUmount,
         Self::Sulog,
@@ -33,6 +34,7 @@ impl FeatureId {
         Self::SuPromptDefaultAllow,
         Self::SelinuxMode,
         Self::ShellSuAdbOnly,
+        Self::RootGate,
     ];
 
     pub const fn from_u32(id: u32) -> Option<Self> {
@@ -48,6 +50,7 @@ impl FeatureId {
             8 => Some(Self::SuPromptDefaultAllow),
             9 => Some(Self::SelinuxMode),
             10 => Some(Self::ShellSuAdbOnly),
+            11 => Some(Self::RootGate),
             _ => None,
         }
     }
@@ -65,6 +68,7 @@ impl FeatureId {
             Self::SuPromptDefaultAllow => "su_prompt_default_allow",
             Self::SelinuxMode => "selinux",
             Self::ShellSuAdbOnly => "shell_su_adb_only",
+            Self::RootGate => "root_gate",
         }
     }
 
@@ -97,6 +101,9 @@ impl FeatureId {
             Self::ShellSuAdbOnly => {
                 "Shell SU ADB Only - when shell is granted root, additionally require the process to be spawned by adbd or a KernelSU root process (ksu domain)"
             }
+            Self::RootGate => {
+                "Root Gate - master switch that suspends every root grant without touching app profiles; the manager can always resume it"
+            }
         }
     }
 }
@@ -114,6 +121,7 @@ pub fn parse_feature_id(name: &str) -> Result<FeatureId> {
         "su_prompt_default_allow" | "8" => Ok(FeatureId::SuPromptDefaultAllow),
         "selinux" | "9" => Ok(FeatureId::SelinuxMode),
         "shell_su_adb_only" | "10" => Ok(FeatureId::ShellSuAdbOnly),
+        "root_gate" | "11" => Ok(FeatureId::RootGate),
         _ => bail!("Unknown feature: {name}"),
     }
 }

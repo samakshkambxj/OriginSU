@@ -70,4 +70,5 @@ data class KernelFeatureSettings(
     val selinuxHideEnabled: Boolean,
     val veilEnabled: Boolean,
     val defaultUmountModules: Boolean,
+    val rootGateEnabled: Boolean,
 )

@@ -29,5 +29,9 @@ class KernelSUApplication : Application() {
         runBlocking(Dispatchers.IO) {
             koin.get<InitializeApplicationUseCase>()()
         }
+        runCatching {
+            val rootGate = koin.get<com.originsu.manager.data.grant.RootGateRepository>()
+            if (rootGate.isLockBoundEnabled()) rootGate.startService()
+        }
     }
 }

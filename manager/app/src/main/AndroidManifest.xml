@@ -279,6 +279,15 @@
         </service>
 
         <service
+            android:name=".data.grant.RootGateService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync|specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Suspends root grants while the device is locked" />
+        </service>
+
+        <service
             android:name=".data.su.SuRequestPollService"
             android:exported="false"
             android:foregroundServiceType="dataSync|specialUse">
@@ -300,6 +309,22 @@
             android:name=".RootRequestReceiver"
             android:enabled="true"
             android:exported="true" />
+        <receiver
+            android:name=".data.grant.GrantSignerReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.PACKAGE_ADDED" />
+                <action android:name="android.intent.action.PACKAGE_REPLACED" />
+                <data android:scheme="package" />
+            </intent-filter>
+        </receiver>
+        <receiver
+            android:name=".data.grant.RootGateBootReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
         <receiver
             android:name=".magica.BootCompletedReceiver"
             android:directBootAware="true"

@@ -232,6 +232,15 @@
     <string name="settings_mode_disable_always">始终禁用</string>
     <string name="settings_sulog">超级用户访问日志</string>
     <string name="settings_sulog_summary">记录与 Root 有关的事件到 KernelSU 超级用户访问日志文件。</string>
+    <string name="settings_root_gate">暂停全部 Root 授权</string>
+    <string name="settings_root_gate_summary">在不修改应用配置的情况下临时阻止所有 su 授权。管理器始终可以重新开启 Root。</string>
+    <string name="settings_lock_bound_root">锁屏时暂停 Root</string>
+    <string name="settings_lock_bound_root_summary">屏幕锁定时暂停 Root 授权，解锁设备后自动恢复。</string>
+    <string name="root_gate_notification_channel">Root 安全</string>
+    <string name="root_gate_notification_title">锁屏时已暂停 Root</string>
+    <string name="root_gate_notification_summary">解锁设备后恢复 Root 授权。</string>
+    <string name="grant_signer_changed_title">已撤销 Root 授权</string>
+    <string name="grant_signer_changed_summary">%1$s 使用了不同的签名证书更新，其 Root 授权已被撤销。</string>
     <string name="feature_status_managed_summary">此功能由模块管理</string>
     <string name="feature_status_forced_summary">此功能已被启动配置强制指定</string>
     <string name="settings_mode_default">默认</string>

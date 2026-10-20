@@ -502,6 +502,14 @@ NativeBridge(setSuEnabled, jboolean, jboolean enabled) {
 	return set_su_enabled(enabled);
 }
 
+NativeBridgeNP(isRootGateEnabled, jboolean) {
+    return is_root_gate_enabled();
+}
+
+NativeBridge(setRootGateEnabled, jboolean, jboolean enabled) {
+    return set_root_gate_enabled(enabled);
+}
+
 NativeBridgeNP(isSuLogEnabled, jboolean) {
     return is_sulog_enabled();
 }

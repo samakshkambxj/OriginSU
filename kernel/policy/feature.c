@@ -24,6 +24,7 @@ static const char *const feature_names[KSU_FEATURE_MAX] = {
     [KSU_FEATURE_SU_PROMPT_DEFAULT_ALLOW] = "su_prompt_default_allow",
     [KSU_FEATURE_SELINUX_MODE] = "selinux",
     [KSU_FEATURE_SHELL_SU_ADB_ONLY] = "shell_su_adb_only",
+    [KSU_FEATURE_ROOT_GATE] = "root_gate",
 };
 
 // Features forced by boot config. Written only while parsing module params
@@ -102,7 +103,7 @@ static int force_feature_param_set(const char *val, const struct kernel_param *k
 
 static const struct kernel_param_ops force_feature_param_ops = {
     .set = force_feature_param_set,
-    // A bare `force_feature` would otherwise fail parse_args() and the whole module load
+// A bare `force_feature` would otherwise fail parse_args() and the whole module load
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0)
     .flags = KERNEL_PARAM_OPS_FL_NOARG,
 #endif

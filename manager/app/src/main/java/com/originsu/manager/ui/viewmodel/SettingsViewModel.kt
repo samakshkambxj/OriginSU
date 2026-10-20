@@ -20,6 +20,7 @@ import com.originsu.manager.data.appearance.MiuixHomeStyle
 import com.originsu.manager.data.appearance.MiuixHomeStyleRepository
 import com.originsu.manager.ui.UiMode
 import com.originsu.manager.data.grant.GrantToastRepository
+import com.originsu.manager.data.grant.RootGateRepository
 import com.originsu.manager.data.shortcuts.AppShortcutsRepository
 import com.originsu.manager.data.su.SuRequestRepository
 import com.originsu.manager.domain.usecase.GetBooleanPreferenceUseCase
@@ -39,6 +40,7 @@ import com.originsu.manager.domain.usecase.SetBootloopEnabledUseCase
 import com.originsu.manager.domain.usecase.SetBootloopMaxUseCase
 import com.originsu.manager.domain.usecase.SetDefaultUmountModulesUseCase
 import com.originsu.manager.domain.usecase.SetKernelUmountEnabledUseCase
+import com.originsu.manager.domain.usecase.SetRootGateEnabledUseCase
 import com.originsu.manager.domain.usecase.SetSelinuxHideEnabledUseCase
 import com.originsu.manager.domain.usecase.SetSuEnabledUseCase
 import com.originsu.manager.domain.usecase.UpdateAppearanceUseCase
@@ -133,6 +135,8 @@ data class SettingsUiState(
     val defaultUmountModules: Boolean = false,
     val useBuiltinMonoFont: Boolean = false,
     val isSecureRootEnabled: Boolean = false,
+    val isRootGateEnabled: Boolean = true,
+    val isLockBoundRootEnabled: Boolean = false,
     val isAppLockEnabled: Boolean = false,
     val appLockTimeout: Long = 60000L,
     val isHapticsEnabled: Boolean = false,
@@ -197,6 +201,8 @@ sealed interface SettingsUiAction {
     data object RefreshOverlayPermission : SettingsUiAction
     data class SetDefaultUmountModules(val enabled: Boolean) : SettingsUiAction
     data class SetSecureRootEnabled(val enabled: Boolean) : SettingsUiAction
+    data class SetRootGateEnabled(val enabled: Boolean) : SettingsUiAction
+    data class SetLockBoundRootEnabled(val enabled: Boolean) : SettingsUiAction
     data class SetAppLockEnabled(val enabled: Boolean) : SettingsUiAction
     data class SetAppLockTimeout(val timeoutMillis: Long) : SettingsUiAction
     data class SetHapticsEnabled(val enabled: Boolean) : SettingsUiAction
@@ -253,6 +259,8 @@ class SettingsViewModel(
     private val topBarLogoRepository: TopBarLogoRepository,
     private val uiModeRepository: UiModeRepository,
     private val miuixHomeStyleRepository: MiuixHomeStyleRepository,
+    private val setRootGateEnabled: SetRootGateEnabledUseCase,
+    private val rootGateRepository: RootGateRepository,
 ) : ViewModel() {
     private val mutableState = MutableStateFlow(SettingsUiState())
     val state: StateFlow<SettingsUiState> = mutableState.asStateFlow()
@@ -269,6 +277,7 @@ class SettingsViewModel(
         mutableState.update {
             it.copy(
                 isSecureRootEnabled = getBooleanPreference(SECURE_ROOT_PREF_KEY, false),
+                isLockBoundRootEnabled = rootGateRepository.isLockBoundEnabled(),
                 isAppLockEnabled = getBooleanPreference(APP_LOCK_PREF_KEY, false),
                 appLockTimeout = getLongPreference(APP_LOCK_TIMEOUT_PREF_KEY, 60000L),
                 isHapticsEnabled = getBooleanPreference(HAPTICS_PREF_KEY, false),
@@ -317,6 +326,7 @@ class SettingsViewModel(
                     isSuPromptSupported = suRequestRepository.isSupported(),
                     selinuxHideStatus = platform.selinuxHideStatus,
                     isSelinuxHideEnabled = features.selinuxHideEnabled,
+                    isRootGateEnabled = features.rootGateEnabled,
                     defaultUmountModules = features.defaultUmountModules,
                 )
             }
@@ -474,6 +484,26 @@ class SettingsViewModel(
     fun handleAutoJailbreakChange(enabled: Boolean) {
         mutableState.update { it.copy(autoJailbreakEnabled = enabled) }
         updatePlatformAsync(PlatformSetting.AutoJailbreak(enabled))
+    }
+
+    fun handleRootGateChange(enabled: Boolean) {
+        viewModelScope.launch {
+            if (setRootGateEnabled(enabled)) {
+                mutableState.update { it.copy(isRootGateEnabled = enabled) }
+            }
+        }
+    }
+
+    fun handleLockBoundRootChange(enabled: Boolean) {
+        rootGateRepository.setLockBoundEnabled(enabled)
+        mutableState.update { it.copy(isLockBoundRootEnabled = enabled) }
+        if (enabled && !rootGateRepository.isRootGateEnabled()) {
+            viewModelScope.launch {
+                if (setRootGateEnabled(true)) {
+                    mutableState.update { it.copy(isRootGateEnabled = true) }
+                }
+            }
+        }
     }
 
     fun handleSecureRootChange(enabled: Boolean) {
@@ -787,6 +817,10 @@ fun dispatch(action: SettingsUiAction) {
                 handleDefaultUmountModulesChange(action.enabled)
             is SettingsUiAction.SetSecureRootEnabled ->
                 handleSecureRootChange(action.enabled)
+            is SettingsUiAction.SetRootGateEnabled ->
+                handleRootGateChange(action.enabled)
+            is SettingsUiAction.SetLockBoundRootEnabled ->
+                handleLockBoundRootChange(action.enabled)
             is SettingsUiAction.SetAppLockEnabled ->
                 handleAppLockChange(action.enabled)
             is SettingsUiAction.SetAppLockTimeout ->

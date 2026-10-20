@@ -2,6 +2,7 @@ package com.originsu.manager.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.originsu.manager.data.grant.GrantSignerRepository
 import com.originsu.manager.data.grant.GrantToastRepository
 import com.originsu.manager.domain.model.AppControlAction
 import com.originsu.manager.domain.model.AppProfile
@@ -76,6 +77,7 @@ class AppProfileViewModel(
     private val revokeTempAccess: RevokeTempAccessUseCase,
     private val observeTempGrants: ObserveTempGrantsUseCase,
     private val refreshTempGrants: RefreshTempGrantsUseCase,
+    private val grantSignerRepository: GrantSignerRepository,
 ) : ViewModel() {
     private val mutableState = MutableStateFlow(AppProfileUiState())
     val state: StateFlow<AppProfileUiState> = mutableState.asStateFlow()
@@ -161,6 +163,12 @@ class AppProfileViewModel(
                         runCatching { setProfile(profileToSave) }
                             .onSuccess { saved ->
                                 if (saved) {
+                                    // Pin the signer whenever root is granted so a
+                                    // later update signed with another key cannot
+                                    // silently inherit this grant.
+                                    if (profileToSave.allowSu) {
+                                        runCatching { grantSignerRepository.pinUid(uid) }
+                                    }
                                     mutableEvents.tryEmit(AppProfileUiEvent.Saved)
                                 } else {
                                     rollbackIfCurrent(profileToSave, previous)

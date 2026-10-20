@@ -39,6 +39,7 @@ static inline int __must_check ksu_kref_get_unless_zero(struct kref *kref)
 #include "runtime/ksud_boot.h"
 #include "selinux/selinux.h"
 #include "policy/allowlist.h"
+#include "feature/root_gate.h"
 #include "manager/manager_identity.h"
 #include "infra/su_mount_ns.h"
 #include "feature/shell_su_adb_only.h"
@@ -282,6 +283,12 @@ bool __ksu_is_allow_uid(uid_t uid)
     if (unlikely(ksu_is_manager_uid(uid))) {
         // manager is always allowed!
         return true;
+    }
+
+    // Root Gate suspends every other grant; the manager and ksu domain
+    // processes (ksud runs there) must keep working so root can be resumed.
+    if (unlikely(!ksu_root_gate_allows()) && !is_ksu_domain()) {
+        return false;
     }
 
     if (unlikely(allow_shell) && uid == SHELL_UID) {

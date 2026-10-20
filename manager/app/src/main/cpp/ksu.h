@@ -56,6 +56,10 @@ bool clear_dynamic_manager();
 bool set_su_enabled(bool enabled);
 bool is_su_enabled();
 
+// Root Gate (global reversible suspension of root grants)
+bool is_root_gate_enabled(void);
+bool set_root_gate_enabled(bool enabled);
+
 // sulog
 bool is_sulog_enabled();
 

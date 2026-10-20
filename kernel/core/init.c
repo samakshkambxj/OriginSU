@@ -39,6 +39,7 @@
 #include "feature/selinux_hide.h"
 #include "feature/selinux_mode.h"
 #include "feature/shell_su_adb_only.h"
+#include "feature/root_gate.h"
 #include "infra/symbol_resolver.h"
 #include "preinit/preinit.h"
 
@@ -254,6 +255,7 @@ int __init kernelsu_init(void)
     ksu_selinux_hide_init();
     ksu_selinux_mode_init();
     ksu_shell_su_adb_only_init();
+    ksu_root_gate_init();
 
     ksu_supercalls_init();
     ksu_app_profile_init();

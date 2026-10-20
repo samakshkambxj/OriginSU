@@ -6,6 +6,7 @@ import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
 import android.os.Build
 import androidx.core.net.toUri
+import com.originsu.manager.data.grant.GrantSignerRepository
 import com.originsu.manager.data.profile.AppProfileKey
 import com.originsu.manager.data.profile.ProfileRepository
 import com.originsu.manager.domain.model.AllowlistOperationResult
@@ -35,6 +36,7 @@ class SuperUserRepository(
     private val cache: InstalledPackageCache,
     private val installedPackageRepository: InstalledPackageRepository,
     private val profileRepository: ProfileRepository,
+    private val grantSignerRepository: GrantSignerRepository,
     applicationScope: CoroutineScope,
 ) {
     private val refreshMutex = Mutex()
@@ -114,7 +116,23 @@ class SuperUserRepository(
                     userName = profileRepository.getUserName(WEBVIEW_ZYGOTE_UID),
                     shouldUmount = webviewProfile.shouldUmount,
                 )
-                normalGroups + webviewGroup
+                // Revoke grants whose signing certificate changed. New grants
+                // are pinned here as well, so this also covers grants made by
+                // older manager versions.
+                val verifiedGroups = normalGroups.map { group ->
+                    val profile = group.profile ?: return@map group
+                    if (!profile.allowSu) return@map group
+                    val packages = group.apps.map(InstalledApp::packageName)
+                    if (grantSignerRepository.verifyOrPin(group.uid, packages)) {
+                        group
+                    } else {
+                        val revoked = profile.copy(allowSu = false)
+                        profileRepository.setProfile(revoked)
+                        grantSignerRepository.pin(group.uid, packages)
+                        group.copy(profile = revoked)
+                    }
+                }
+                verifiedGroups + webviewGroup
             }
             mutableState.value = SuperUserState(
                 groups = groups,

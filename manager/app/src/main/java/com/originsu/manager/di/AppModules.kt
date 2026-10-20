@@ -12,6 +12,8 @@ import com.originsu.manager.data.flash.KpmPatchRepository
 import com.originsu.manager.data.kernel.KernelRepository
 import com.originsu.manager.data.kernel.UmountRepository
 import com.originsu.manager.data.grant.GrantToastRepository
+import com.originsu.manager.data.grant.RootGateRepository
+import com.originsu.manager.data.grant.GrantSignerRepository
 import com.originsu.manager.data.appearance.AppIconRepository
 import com.originsu.manager.data.appearance.TopBarLogoRepository
 import com.originsu.manager.data.appearance.UiModeRepository
@@ -168,6 +170,7 @@ import com.originsu.manager.domain.usecase.SetBootloopEnabledUseCase
 import com.originsu.manager.domain.usecase.SetBootloopMaxUseCase
 import com.originsu.manager.domain.usecase.SetLongPreferenceUseCase
 import com.originsu.manager.domain.usecase.SetDefaultUmountModulesUseCase
+import com.originsu.manager.domain.usecase.SetRootGateEnabledUseCase
 import com.originsu.manager.domain.usecase.SetKernelUmountEnabledUseCase
 import com.originsu.manager.domain.usecase.SetManualDynamicManagerUseCase
 import com.originsu.manager.domain.usecase.SetModuleEnabledUseCase
@@ -293,6 +296,7 @@ val repositoryModule = module {
             cache = get(),
             installedPackageRepository = get(),
             profileRepository = get(),
+            grantSignerRepository = get(),
             applicationScope = get(applicationScopeQualifier),
         )
     }
@@ -335,6 +339,8 @@ val repositoryModule = module {
     single { KernelTuningRepository(androidApplication(), get()) }
     single { TempGrantRepository(androidApplication(), get()) }
     single { GrantToastRepository(androidApplication(), get()) }
+    single { RootGateRepository(androidApplication(), get()) }
+    single { GrantSignerRepository(androidApplication(), get(), get()) }
     single { SuRequestRepository(androidApplication(), get()) }
     single { AppIconRepository(androidApplication(), get()) }
     singleOf(::TopBarLogoRepository)
@@ -421,6 +427,7 @@ val useCaseModule = module {
     factoryOf(::ConfigureVeilUseCase)
     factoryOf(::SetSelinuxHideEnabledUseCase)
     factoryOf(::SetDefaultUmountModulesUseCase)
+    factoryOf(::SetRootGateEnabledUseCase)
     factoryOf(::IsLateLoadModeUseCase)
     factoryOf(::GetAppProfileUseCase)
     factoryOf(::SetAppProfileUseCase)
@@ -542,6 +549,7 @@ val viewModelModule = module {
             revokeTempAccess = get(),
             observeTempGrants = get(),
             refreshTempGrants = get(),
+            grantSignerRepository = get(),
         )
     }
     viewModelOf(::HomeViewModel)
@@ -552,7 +560,7 @@ val viewModelModule = module {
         SettingsViewModel(
             get(), get(), get(), get(), get(), get(), get(), get(), get(), get(),
             get(), get(), get(), get(), get(), get(), get(), get(), get(), get(),
-            get(), get(), get(), get(), get(), get(),
+            get(), get(), get(), get(), get(), get(), get(), get(),
         )
     }
     viewModelOf(::ModuleViewModel)

@@ -137,6 +137,10 @@ object Natives {
     external fun isSuEnabled(): Boolean
     external fun setSuEnabled(enabled: Boolean): Boolean
 
+    /** Root Gate: one reversible switch that suspends every root grant. */
+    external fun isRootGateEnabled(): Boolean
+    external fun setRootGateEnabled(enabled: Boolean): Boolean
+
     external fun isSuLogEnabled(): Boolean
     external fun setSuLogEnabled(enabled: Boolean): Boolean
 

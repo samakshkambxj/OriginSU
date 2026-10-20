@@ -26,8 +26,15 @@
     <string name="unknown">Unknown</string>
     <string name="superuser">Superuser</string>
     <string name="sulog">SU log</string>
-    <string name="feature_status_unsupported_summary">Kernel does not support this feature</string>
-    <string name="feature_status_managed_summary">This feature is managed by a module</string>
+    <string name="settings_root_gate">Suspend all root</string>
+    <string name="settings_root_gate_summary">Temporarily block every su grant without changing app profiles. The manager can always turn root back on.</string>
+    <string name="settings_lock_bound_root">Suspend root while locked</string>
+    <string name="settings_lock_bound_root_summary">Root grants are suspended when the screen locks and restored after you unlock the device.</string>
+    <string name="root_gate_notification_channel">Root safety</string>
+    <string name="root_gate_notification_title">Root suspended while locked</string>
+    <string name="root_gate_notification_summary">Root grants resume when the device is unlocked.</string>
+    <string name="grant_signer_changed_title">Root access revoked</string>
+    <string name="grant_signer_changed_summary">%1$s was updated with a different signing certificate. Its root grant was revoked.</string>
     <string name="feature_status_forced_summary">This feature is forced by boot config</string>
     <string name="sulog_log_files">Log files</string>
     <string name="sulog_failed_to_load">Failed to load SU log</string>

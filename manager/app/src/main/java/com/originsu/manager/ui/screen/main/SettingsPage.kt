@@ -208,6 +208,10 @@ fun SettingsPage(bottomPadding: Dp) {
     val titleSecureRoot = stringResource(R.string.settings_secure_root)
     val descSecureRoot = stringResource(R.string.settings_secure_root_summary)
     val titleAppLock = stringResource(R.string.settings_app_lock)
+    val titleRootGate = stringResource(R.string.settings_root_gate)
+    val descRootGate = stringResource(R.string.settings_root_gate_summary)
+    val titleLockBoundRoot = stringResource(R.string.settings_lock_bound_root)
+    val descLockBoundRoot = stringResource(R.string.settings_lock_bound_root_summary)
     val descAppLock = stringResource(R.string.settings_app_lock_summary)
     val titleAppLockTimeout = stringResource(R.string.settings_app_lock_timeout)
     val titleOriginGuard = stringResource(R.string.settings_originguard)
@@ -314,6 +318,8 @@ fun SettingsPage(bottomPadding: Dp) {
     val matchAppLock = matches(
         titleAppLock, descAppLock, titleAppLockTimeout, sectionOrigin
     )
+    val matchRootGate = matches(titleRootGate, descRootGate, sectionOrigin)
+    val matchLockBoundRoot = matches(titleLockBoundRoot, descLockBoundRoot, sectionOrigin)
     val matchOriginGuard = matches(titleOriginGuard, descOriginGuard, sectionOrigin)
     val matchMagicMount = matches(titleMagicMount, descMagicMount, sectionOrigin)
     val matchMagicBackend = matches(titleMagicBackend, descMagicBackend, sectionOrigin)
@@ -358,6 +364,8 @@ fun SettingsPage(bottomPadding: Dp) {
         matchBootloopThreshold && isFullFeatured && uiState.isBootloopEnabled,
         matchSecureRoot,
         matchAppLock,
+        matchRootGate,
+        matchLockBoundRoot,
         matchOriginGuard,
         matchMagicMount,
         matchMagicBackend,
@@ -919,6 +927,34 @@ fun SettingsPage(bottomPadding: Dp) {
                                 onSelectedIndexChange = { index ->
                                     settingsViewModel.dispatch(
                                         SettingsUiAction.SetAppLockTimeout(timeoutValues[index])
+                                    )
+                                },
+                            )
+                        }
+
+                        item(visible = matchRootGate) {
+                            SettingsSwitchWidget(
+                                icon = Icons.TwoTone.Security,
+                                title = titleRootGate,
+                                description = descRootGate,
+                                checked = uiState.isRootGateEnabled,
+                                onCheckedChange = { enabled ->
+                                    settingsViewModel.dispatch(
+                                        SettingsUiAction.SetRootGateEnabled(enabled)
+                                    )
+                                },
+                            )
+                        }
+
+                        item(visible = matchLockBoundRoot) {
+                            SettingsSwitchWidget(
+                                icon = Icons.TwoTone.Lock,
+                                title = titleLockBoundRoot,
+                                description = descLockBoundRoot,
+                                checked = uiState.isLockBoundRootEnabled,
+                                onCheckedChange = { enabled ->
+                                    settingsViewModel.dispatch(
+                                        SettingsUiAction.SetLockBoundRootEnabled(enabled)
                                     )
                                 },
                             )
