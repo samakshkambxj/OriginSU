@@ -160,6 +160,7 @@ fun InstallScreen(
     val summary = stringResource(R.string.horizon_kernel_summary)
     val failedReboot = stringResource(R.string.failed_reboot)
     val horizonCopyFailed = stringResource(R.string.horizon_copy_failed)
+    val kpmFileSaved = stringResource(R.string.kpm_file_saved)
 
     LaunchedEffect(viewModel) {
         viewModel.events.collect { event ->
@@ -352,7 +353,7 @@ fun InstallScreen(
                             if (kpmSavePatched) {
                                 Toast.makeText(
                                     context,
-                                    context.getString(R.string.kpm_file_saved),
+                                    kpmFileSaved,
                                     Toast.LENGTH_SHORT
                                 ).show()
                             }
@@ -407,7 +408,7 @@ fun InstallScreen(
                             if (kpmSavePatched) {
                                 Toast.makeText(
                                     context,
-                                    context.getString(R.string.kpm_file_saved),
+                                    kpmFileSaved,
                                     Toast.LENGTH_SHORT
                                 ).show()
                             }

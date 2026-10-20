@@ -6,7 +6,7 @@ pub mod transaction;
 
 use std::os::unix::{prelude::PermissionsExt, process::CommandExt};
 use std::{
-    collections::{BTreeMap, HashMap},
+    collections::{BTreeMap, BTreeSet, HashMap},
     env::var as env_var,
     fs::{File, Permissions, canonicalize, copy, remove_dir_all, rename, set_permissions},
     io::{Cursor, Read, Seek, Write},
