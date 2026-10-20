@@ -22,8 +22,8 @@
 #include "susfs_log.h"
 
 static const char *const ksu_allow_symbols[] = {
-	"__ksu_is_allow_uid_for_current",
-	"ksu_is_allow_uid_for_current",
+    "__ksu_is_allow_uid_for_current",
+    "ksu_is_allow_uid_for_current",
 };
 
 /* Written once in init, read by every caller through susfs_ksu_allow_current().  Non-NULL exactly
@@ -48,42 +48,43 @@ bool susfs_control_relabelled;
  * every kind nobody implemented. */
 bool __nocfi noinline susfs_ksu_allow_ask(uid_t uid)
 {
-	switch (READ_ONCE(susfs_ksu_allow_kind)) {
-	case 1:
-		return ksu_allow_fn(uid);
-	default:
-		/* Unreachable while the flag above says a source exists; the strict answer is the safe
+    switch (READ_ONCE(susfs_ksu_allow_kind)) {
+    case 1:
+        return ksu_allow_fn(uid);
+    default:
+        /* Unreachable while the flag above says a source exists; the strict answer is the safe
 		 * one if the kind ever changes under a caller. */
-		return uid == 0;
-	}
+        return uid == 0;
+    }
 }
 
 int susfs_ksu_allow_gate_init(void)
 {
-	unsigned long addr = 0;
-	const char *used = NULL;
-	int i;
+    unsigned long addr = 0;
+    const char *used = NULL;
+    int i;
 
-	for (i = 0; i < ARRAY_SIZE(ksu_allow_symbols); i++) {
-		addr = ksu_kallsyms_lookup_name(ksu_allow_symbols[i]);
-		if (addr) {
-			used = ksu_allow_symbols[i];
-			break;
-		}
-	}
+    for (i = 0; i < ARRAY_SIZE(ksu_allow_symbols); i++) {
+        addr = ksu_kallsyms_lookup_name(ksu_allow_symbols[i]);
+        if (addr) {
+            used = ksu_allow_symbols[i];
+            break;
+        }
+    }
 
-	if (!addr) {
-		WRITE_ONCE(susfs_ksu_allow_kind, 0);
-		/* pr_warn, not SUSFS_LOGI: "the allowlist predicate is not in effect on this device"
+    if (!addr) {
+        WRITE_ONCE(susfs_ksu_allow_kind, 0);
+        /* pr_warn, not SUSFS_LOGI: "the allowlist predicate is not in effect on this device"
 		 * is something an operator has to be able to see from the load alone. */
-		pr_warn("susfs_guard_lkm: neither %s nor %s is in kallsyms - the privileged-view predicate falls back to uid == 0, so a su-granted app and the manager app are NOT covered here.\n",
-			ksu_allow_symbols[0], ksu_allow_symbols[1]);
-		return 0;
-	}
+        pr_warn(
+            "susfs_guard_lkm: neither %s nor %s is in kallsyms - the privileged-view predicate falls back to uid == 0, so a su-granted app and the manager app are NOT covered here.\n",
+            ksu_allow_symbols[0], ksu_allow_symbols[1]);
+        return 0;
+    }
 
-	ksu_allow_fn = (bool (*)(uid_t))addr;
-	WRITE_ONCE(susfs_ksu_allow_kind, 1);	/* only now is there something to ask */
-	SUSFS_LOGI("ksu_allow_gate: resolved %s at %px - the privileged-view predicate now answers KernelSU\n",
-		   used, (void *)addr);
-	return 0;
+    ksu_allow_fn = (bool (*)(uid_t))addr;
+    WRITE_ONCE(susfs_ksu_allow_kind, 1); /* only now is there something to ask */
+    SUSFS_LOGI("ksu_allow_gate: resolved %s at %px - the privileged-view predicate now answers KernelSU\n", used,
+               (void *)addr);
+    return 0;
 }

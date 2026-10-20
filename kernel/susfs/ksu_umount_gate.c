@@ -29,7 +29,7 @@
 #include "symbol_resolver.h"
 #include "susfs_log.h"
 
-#define KSU_UMOUNT_GATE_SYMBOL	"ksu_uid_should_umount"
+#define KSU_UMOUNT_GATE_SYMBOL "ksu_uid_should_umount"
 
 /* Fail-safe default: the pre-#34 answer, until the init below proves that KernelSU's symbol exists.
  * A path that skips that init entirely - the fail_layer=1 diagnostic in susfs_main.c is one, and this
@@ -47,25 +47,26 @@ static bool (*ksu_uid_should_umount_fn)(uid_t uid);
  * LTO would otherwise inline a small static helper back into a caller that is not marked. */
 bool __nocfi noinline susfs_ksu_umount_ask(uid_t uid)
 {
-	return ksu_uid_should_umount_fn(uid);
+    return ksu_uid_should_umount_fn(uid);
 }
 
 int susfs_ksu_umount_gate_init(void)
 {
-	unsigned long addr = ksu_kallsyms_lookup_name(KSU_UMOUNT_GATE_SYMBOL);
+    unsigned long addr = ksu_kallsyms_lookup_name(KSU_UMOUNT_GATE_SYMBOL);
 
-	if (!addr) {
-		susfs_ksu_umount_gate_off = true;
-		/* pr_warn, not SUSFS_LOGI: "issue #34's fix is not in effect on this device" is something an
+    if (!addr) {
+        susfs_ksu_umount_gate_off = true;
+        /* pr_warn, not SUSFS_LOGI: "issue #34's fix is not in effect on this device" is something an
 		 * operator has to be able to see, and the load is otherwise silent about it. */
-		pr_warn("susfs_guard_lkm: %s is not in kallsyms - the hide gates keep the uid >= 10000 rule, so issue #34's fix (hiding follows KernelSU's exclusion list) is NOT in effect here.  A KernelSU loaded after this module needs this module reloaded to be picked up.\n",
-			KSU_UMOUNT_GATE_SYMBOL);
-		return 0;
-	}
+        pr_warn(
+            "susfs_guard_lkm: %s is not in kallsyms - the hide gates keep the uid >= 10000 rule, so issue #34's fix (hiding follows KernelSU's exclusion list) is NOT in effect here.  A KernelSU loaded after this module needs this module reloaded to be picked up.\n",
+            KSU_UMOUNT_GATE_SYMBOL);
+        return 0;
+    }
 
-	ksu_uid_should_umount_fn = (bool (*)(uid_t))addr;
-	susfs_ksu_umount_gate_off = false;	/* only now is there something to ask */
-	SUSFS_LOGI("ksu_umount_gate: resolved %s at %px - the hide gates now answer KernelSU (issue #34)\n",
-		   KSU_UMOUNT_GATE_SYMBOL, (void *)addr);
-	return 0;
+    ksu_uid_should_umount_fn = (bool (*)(uid_t))addr;
+    susfs_ksu_umount_gate_off = false; /* only now is there something to ask */
+    SUSFS_LOGI("ksu_umount_gate: resolved %s at %px - the hide gates now answer KernelSU (issue #34)\n",
+               KSU_UMOUNT_GATE_SYMBOL, (void *)addr);
+    return 0;
 }

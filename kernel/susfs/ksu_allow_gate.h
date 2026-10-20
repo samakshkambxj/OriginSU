@@ -39,15 +39,15 @@ bool susfs_ksu_allow_ask(uid_t uid);
  * privileged view stops being visible to su) instead of leaking it to apps. */
 static inline bool susfs_ksu_allow_uid(uid_t uid)
 {
-	if (READ_ONCE(susfs_ksu_allow_kind) == 0)
-		return uid == 0;	/* nothing resolved: the strict answer, by design */
+    if (READ_ONCE(susfs_ksu_allow_kind) == 0)
+        return uid == 0; /* nothing resolved: the strict answer, by design */
 
-	return susfs_ksu_allow_ask(uid);
+    return susfs_ksu_allow_ask(uid);
 }
 
 static inline bool susfs_ksu_allow_current(void)
 {
-	return susfs_ksu_allow_uid(current_uid().val);
+    return susfs_ksu_allow_uid(current_uid().val);
 }
 
 /* Set by susfs_relabel_control_nodes() once every control node it found carries the ksu_file
@@ -72,9 +72,9 @@ extern bool susfs_control_relabelled;
  * nodes' ENOENT into an EACCES that proved they existed (susfs4ksu-lkm#108). */
 static inline bool susfs_control_visible(void)
 {
-	if (!READ_ONCE(susfs_control_relabelled))
-		return current_uid().val == 0;
-	return susfs_ksu_allow_current();
+    if (!READ_ONCE(susfs_control_relabelled))
+        return current_uid().val == 0;
+    return susfs_ksu_allow_current();
 }
 
 int susfs_ksu_allow_gate_init(void);

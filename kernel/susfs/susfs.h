@@ -3,8 +3,8 @@
 #define __SUSFS_H
 
 #include <linux/string.h>
-#include <linux/err.h>	/* IS_ERR */
-#include <linux/mm.h>	/* PAGE_SIZE */
+#include <linux/err.h> /* IS_ERR */
+#include <linux/mm.h> /* PAGE_SIZE */
 
 /* A kernel pointer taken out of a kprobe register, checked before dereference: single_open()'s fake inode is (void *)1
  * and a kretprobe hands that sentinel over as "the argument" - the sus_map vma probe panicked on exactly that (fault
@@ -12,7 +12,7 @@
  * sentinel and a garbage register too, and IS_ERR() covers error pointers; user pointers must NOT go through it. */
 static inline bool susfs_ptr_plausible(const void *p)
 {
-	return (unsigned long)p >= PAGE_SIZE && !IS_ERR(p);
+    return (unsigned long)p >= PAGE_SIZE && !IS_ERR(p);
 }
 
 /* Bind a fixed-size ABI pathname field to a C string safely: char[N] pathname fields a caller need not NUL-terminate, and
@@ -20,7 +20,7 @@ static inline bool susfs_ptr_plausible(const void *p)
  * an ABI pathname goes through this first. */
 static inline bool susfs_abi_path_ok(const char *field, size_t size)
 {
-	return strnlen(field, size) < size;
+    return strnlen(field, size) < size;
 }
 
 /* Refuse to load when this image's imported symbol addresses are not kernel addresses, i.e. when
@@ -57,7 +57,7 @@ int sus_path_del_path(const char *path);
  * getdents - which is why the number alone never identifies the call and the ABI is always
  * read with it. */
 #define SUS_NR_GETDENTS64_COMPAT 217
-#define SUS_NR_GETDENTS_COMPAT   141
+#define SUS_NR_GETDENTS_COMPAT 141
 
 /* The listing filter: which layout a syscall number denotes for a task running the given ABI
  * (-1 when it is not a listing call), and the rewrite itself.  There is no "armed" flag any
@@ -69,8 +69,7 @@ int sus_path_dirent_layout_id(long syscall_nr, bool compat);
 long sus_path_dirent_filter(int lay_id, unsigned long buf, long ret);
 /* Pre-emission dirent filter (sus_dirent.c): a hidden name is never written to the caller. */
 bool sus_path_dirent_hidden(u64 ino, const char *name);
-__nocfi bool susfs_dirent_prefilter(const struct pt_regs *regs, long *out,
-					bool compat);
+__nocfi bool susfs_dirent_prefilter(const struct pt_regs *regs, long *out, bool compat);
 int susfs_sus_dirent_init(void);
 void susfs_sus_dirent_exit(void);
 
@@ -82,7 +81,7 @@ int sus_path_dirent_stat_line(char *buf, size_t size);
 /* The module's own name: the /sys/module directory and the modinfo name are both the module file name, and the self-hide
  * rules and the /proc/modules filter have to agree with it. */
 #define SUSFS_LKM_MODULE_NAME "susfs_guard_lkm"
-#define SUSFS_LKM_SYSFS_DIR   "/sys/module/" SUSFS_LKM_MODULE_NAME
+#define SUSFS_LKM_SYSFS_DIR "/sys/module/" SUSFS_LKM_MODULE_NAME
 
 /* The build's version string.  It lives here rather than in susfs_main.c because imports_guard.c
  * reports it when it refuses a load - and that happens before susfs_main.c prints its banner. */
@@ -180,7 +179,7 @@ bool sus_path_inode_hidden_public(struct inode *inode);
  * the feature inits on !susfs_expose_proc, which silently disabled sus_kstat's tracepoint and kretprobe. */
 static inline bool susfs_control_node_allowed(void)
 {
-	return susfs_expose_proc && sus_path_lsm_active();
+    return susfs_expose_proc && sus_path_lsm_active();
 }
 
 /* open_redirect, reverse direction, for callers that only have an inode NUMBER: fdinfo prints "ino:\t<i>" with no device, so
@@ -207,7 +206,7 @@ extern unsigned int susfs_open_redirect_rules;
 
 static inline bool susfs_open_redirect_active(void)
 {
-	return READ_ONCE(susfs_open_redirect_rules) != 0;
+    return READ_ONCE(susfs_open_redirect_rules) != 0;
 }
 
 /* The name-layer redirection of the same feature: no cached path, no inode held.  Optional - it

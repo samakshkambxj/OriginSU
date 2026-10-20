@@ -16,11 +16,11 @@ struct pt_regs;
 typedef long (*susfs_syscall_fn_t)(const struct pt_regs *regs);
 
 struct susfs_fp_hook {
-	/* Index into sys_call_table, or -1 when this syscall has no native arm64 entry at
+    /* Index into sys_call_table, or -1 when this syscall has no native arm64 entry at
 	 * all (see nr_compat).  A hook with nr < 0 sets nr_compat or it has nothing to
 	 * patch, which susfs_fp_install() refuses outright. */
-	int nr;					/* __NR_* */
-	/* Index into compat_sys_call_table; 0 = this hook has no 32-bit entry.
+    int nr; /* __NR_* */
+    /* Index into compat_sys_call_table; 0 = this hook has no 32-bit entry.
 	 * The two tables do NOT share a numbering and the same number is a DIFFERENT
 	 * syscall in them: native openat/openat2 are 56/437 (include/uapi/asm-generic/
 	 * unistd.h) while the AArch32 side numbers open 5 and openat 322 (generated from
@@ -30,21 +30,21 @@ struct susfs_fp_hook {
 	 * There is deliberately no "0 = the same number as nr" shorthand: it would put an
 	 * implicit NATIVE number into a compat index, which is the exact mistake this field
 	 * exists to prevent, so every compat index is written out instead. */
-	int nr_compat;
-	const char *name;			/* our wrapper, for logs */
-	const char *sym;			/* the kernel's wrapper symbol, for logs */
-	susfs_syscall_fn_t wrapper;		/* what we put into the table */
-	susfs_syscall_fn_t *orig_slot;		/* where the wrapper reads the original */
-	susfs_syscall_fn_t orig;		/* the entry we replaced */
-	bool installed;
-	/* The 32-bit half.  A 32-bit task never touches sys_call_table, so a hook with no
+    int nr_compat;
+    const char *name; /* our wrapper, for logs */
+    const char *sym; /* the kernel's wrapper symbol, for logs */
+    susfs_syscall_fn_t wrapper; /* what we put into the table */
+    susfs_syscall_fn_t *orig_slot; /* where the wrapper reads the original */
+    susfs_syscall_fn_t orig; /* the entry we replaced */
+    bool installed;
+    /* The 32-bit half.  A 32-bit task never touches sys_call_table, so a hook with no
 	 * compat index is simply not there for it - and an entry layer the compat side cannot
 	 * reach is exactly why the compat kprobes exist.
 	 * nr_compat alone decides whether this side exists: a separate "also patch compat"
 	 * bool would be a second way of asking the same question, and the two could disagree
 	 * (a hook marked compat whose nr_compat is 0, i.e. with no number to patch with). */
-	susfs_syscall_fn_t *orig_slot_compat;	/* where a wrapper reads the compat original */
-	susfs_syscall_fn_t orig_compat;		/* the compat entry we replaced */
+    susfs_syscall_fn_t *orig_slot_compat; /* where a wrapper reads the compat original */
+    susfs_syscall_fn_t orig_compat; /* the compat entry we replaced */
 };
 
 /* Resolves and caches sys_call_table; 0 on the first success. */

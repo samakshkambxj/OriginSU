@@ -108,16 +108,14 @@ int ksu_syscall_table_hook(int nr, sys_call_ptr_t fn, sys_call_ptr_t *old)
         }
         // Slot changed under us: re-validate before touching it.
         if (!ksu_slot_is_kernel_text(live)) {
-            pr_err("refuse to re-patch syscall %d: slot 0x%lx is not kernel text\n", nr,
-                   (unsigned long)live);
+            pr_err("refuse to re-patch syscall %d: slot 0x%lx is not kernel text\n", nr, (unsigned long)live);
             ret = -EFAULT;
             goto out;
         }
         hooked_entries[i].hook = fn;
     } else {
         if (!ksu_slot_is_kernel_text(live)) {
-            pr_err("refuse to patch syscall %d: slot 0x%lx is not kernel text\n", nr,
-                   (unsigned long)live);
+            pr_err("refuse to patch syscall %d: slot 0x%lx is not kernel text\n", nr, (unsigned long)live);
             ret = -EFAULT;
             goto out;
         }
@@ -165,8 +163,7 @@ void ksu_syscall_table_unhook(int nr)
         if (hooked_entries[i].nr == nr) {
             sys_call_ptr_t live = READ_ONCE(ksu_syscall_table[nr]);
             if (live != hooked_entries[i].hook) {
-                pr_warn("syscall %d slot 0x%lx no longer ours, skip restore\n", nr,
-                        (unsigned long)live);
+                pr_warn("syscall %d slot 0x%lx no longer ours, skip restore\n", nr, (unsigned long)live);
             } else if (patch_syscall_table(nr, hooked_entries[i].orig)) {
                 pr_err("restore syscall %d failed, keeping record\n", nr);
                 mutex_unlock(&hooked_entries_lock);

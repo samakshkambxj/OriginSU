@@ -111,7 +111,7 @@
 #include <linux/kprobes.h>
 #include <linux/fs.h>
 #include <linux/seq_file.h>
-#include <linux/stat.h>     /* struct statx (stx_mnt_id) */
+#include <linux/stat.h> /* struct statx (stx_mnt_id) */
 #include <linux/uaccess.h>
 #include <linux/sched.h>
 #include <linux/cred.h>
@@ -120,33 +120,33 @@
 #include <linux/rcupdate.h>
 #include <linux/spinlock.h>
 #include <linux/slab.h>
-#include <linux/mm.h>		/* kvmalloc()/kvfree() for the keep-list staging buffers */
+#include <linux/mm.h> /* kvmalloc()/kvfree() for the keep-list staging buffers */
 #include <linux/string.h>
 #include <linux/list.h>
-#include <linux/idr.h>      /* struct ida + ida_alloc_range()/ida_free() prototypes */
+#include <linux/idr.h> /* struct ida + ida_alloc_range()/ida_free() prototypes */
 #include <linux/err.h>
-#include <linux/errno.h>    /* -ENOSYS/-ENOENT/-ENOMEM used by the scan result */
-#include <linux/dcache.h>   /* d_path() - called through a resolved symbol */
-#include <linux/limits.h>   /* PATH_MAX, INT_MAX (via vdso/limits.h) */
+#include <linux/errno.h> /* -ENOSYS/-ENOENT/-ENOMEM used by the scan result */
+#include <linux/dcache.h> /* d_path() - called through a resolved symbol */
+#include <linux/limits.h> /* PATH_MAX, INT_MAX (via vdso/limits.h) */
 #include <linux/security.h> /* security_secctx_to_secid() */
-#include <linux/proc_fs.h>  /* proc_create() for /proc/susfs_hide_mounts */
-#include <linux/version.h>  /* LINUX_VERSION_CODE / KERNEL_VERSION: nothing else here
+#include <linux/proc_fs.h> /* proc_create() for /proc/susfs_hide_mounts */
+#include <linux/version.h> /* LINUX_VERSION_CODE / KERNEL_VERSION: nothing else here
                              * pulled version.h in, and -Werror=undef turned the
                              * version gates below into hard errors when it was missing */
-#include <linux/rbtree.h>   /* >= 6.12: ns->mounts is an rb-tree, not a list */
-#include <linux/rwsem.h>    /* >= 6.12: namespace_sem is a struct rw_semaphore */
+#include <linux/rbtree.h> /* >= 6.12: ns->mounts is an rb-tree, not a list */
+#include <linux/rwsem.h> /* >= 6.12: namespace_sem is a struct rw_semaphore */
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 12, 0)
 #include <linux/workqueue.h> /* >= 6.12: the deferred walk of a cloned namespace */
 #endif
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 18, 0)
-#include <linux/xarray.h>   /* >= 6.18: struct xarray + XA_LIMIT()/xa_lock() for mnt_id_xa */
+#include <linux/xarray.h> /* >= 6.18: struct xarray + XA_LIMIT()/xa_lock() for mnt_id_xa */
 #endif
-#include "mount.h"      /* fs/mount.h: struct mount + struct mnt_namespace + real_mount() */
+#include "mount.h" /* fs/mount.h: struct mount + struct mnt_namespace + real_mount() */
 #include "symbol_resolver.h"
 #include "susfs_abi.h"
 #include "susfs_log.h"
-#include "susfs.h"	/* module-wide declarations */
-#include "ksu_allow_gate.h"	/* the control-node gate is su's own */
+#include "susfs.h" /* module-wide declarations */
+#include "ksu_allow_gate.h" /* the control-node gate is su's own */
 #include "susfs_kprobe.h"
 
 /* ---- the "which mounts are ours" prefix list: state ----
@@ -232,20 +232,17 @@ static u32 su_sid;
  * anything (fail closed). */
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 18, 0)
 static struct xarray *sus_mount_mnt_id_xa;
-static int (*pfn_xa_alloc)(struct xarray *xa, u32 *id, void *entry,
-                           struct xa_limit limit, gfp_t gfp);
+static int (*pfn_xa_alloc)(struct xarray *xa, u32 *id, void *entry, struct xa_limit limit, gfp_t gfp);
 static void *(*pfn_xa_erase)(struct xarray *xa, unsigned long index);
 static const char *sus_mount_xa_obj_src = "none";
 static const char *sus_mount_xa_alloc_src = "none";
 static const char *sus_mount_xa_erase_src = "none";
 extern struct xarray mnt_id_xa;
-extern int __xa_alloc(struct xarray *xa, u32 *id, void *entry,
-                      struct xa_limit limit, gfp_t gfp);
+extern int __xa_alloc(struct xarray *xa, u32 *id, void *entry, struct xa_limit limit, gfp_t gfp);
 extern void *__xa_erase(struct xarray *xa, unsigned long index);
 #else
 static struct ida *sus_mount_mnt_id_ida;
-static int (*pfn_ida_alloc_range)(struct ida *ida, unsigned int min,
-                                  unsigned int max, gfp_t gfp);
+static int (*pfn_ida_alloc_range)(struct ida *ida, unsigned int min, unsigned int max, gfp_t gfp);
 static void (*pfn_ida_free)(struct ida *ida, unsigned int id);
 #endif
 
@@ -301,9 +298,8 @@ static __nocfi int sus_mount_ida_alloc(void)
         return ret;
     return (int)id;
 #else
-    return pfn_ida_alloc_range(sus_mount_mnt_id_ida,
-                               (unsigned int)DEFAULT_KSU_MNT_ID,
-                               (unsigned int)(INT_MAX - 1), GFP_KERNEL);
+    return pfn_ida_alloc_range(sus_mount_mnt_id_ida, (unsigned int)DEFAULT_KSU_MNT_ID, (unsigned int)(INT_MAX - 1),
+                               GFP_KERNEL);
 #endif
 }
 
@@ -389,14 +385,14 @@ static DEFINE_MUTEX(sus_mount_ctl_lock);
 struct sus_mount_idmap_entry {
     int sus_id;
     int shown_id;
-    dev_t s_dev;	/* the superblock the mount lived on (see the drop note) */
+    dev_t s_dev; /* the superblock the mount lived on (see the drop note) */
 };
 
 static struct sus_mount_idmap_entry mount_idmap[SUS_MOUNT_IDMAP_MAX];
 static int n_idmap;
 static DEFINE_SPINLOCK(idmap_lock);
-static atomic_t n_idmap_recycled = ATOMIC_INIT(0);	/* stale entries dropped */
-static atomic_t n_idmap_dropped_dev = ATOMIC_INIT(0);	/* dropped at sb teardown */
+static atomic_t n_idmap_recycled = ATOMIC_INIT(0); /* stale entries dropped */
+static atomic_t n_idmap_dropped_dev = ATOMIC_INIT(0); /* dropped at sb teardown */
 
 static atomic_t n_fdinfo_hits = ATOMIC_INIT(0);
 static atomic_t n_fdinfo_rewrites = ATOMIC_INIT(0);
@@ -499,8 +495,7 @@ static int sus_mount_shown_for(int sus_id)
  * mount itself and report its own (hidden) number. */
 static int sus_mount_shown_id(struct mount *mnt)
 {
-    while (mnt && mnt->mnt_parent && mnt != mnt->mnt_parent &&
-           (unsigned int)mnt->mnt_id >= SUS_MOUNT_KSU_ID_MIN)
+    while (mnt && mnt->mnt_parent && mnt != mnt->mnt_parent && (unsigned int)mnt->mnt_id >= SUS_MOUNT_KSU_ID_MIN)
         mnt = mnt->mnt_parent;
     return mnt ? mnt->mnt_id : 0;
 }
@@ -536,7 +531,7 @@ static bool sus_mount_path_is_ours(const char *s);
 
 struct sus_mount_ident {
     dev_t s_dev;
-    unsigned long root_ino;	/* 0 = free slot */
+    unsigned long root_ino; /* 0 = free slot */
     bool devname_is_path;
     /* strscpy() truncates a longer devname; without this flag the record could never match
      * its own live mount again (a truncated copy is always unequal), silently disabling
@@ -548,11 +543,11 @@ struct sus_mount_ident {
 static struct sus_mount_ident mount_ident[SUS_MOUNT_IDENT_MAX];
 static int n_ident;
 static DEFINE_SPINLOCK(ident_lock);
-static atomic_t n_ident_hits = ATOMIC_INIT(0);		/* hidden by identity, not by id */
-static atomic_t n_ident_learned = ATOMIC_INIT(0);	/* ids learned while hiding */
-static atomic_t n_ident_full = ATOMIC_INIT(0);		/* records that found no slot */
-static atomic_t n_ident_dropped_dev = ATOMIC_INIT(0);	/* records dropped at sb teardown */
-static atomic_t n_sb_down = ATOMIC_INIT(0);		/* superblocks seen shut down */
+static atomic_t n_ident_hits = ATOMIC_INIT(0); /* hidden by identity, not by id */
+static atomic_t n_ident_learned = ATOMIC_INIT(0); /* ids learned while hiding */
+static atomic_t n_ident_full = ATOMIC_INIT(0); /* records that found no slot */
+static atomic_t n_ident_dropped_dev = ATOMIC_INIT(0); /* records dropped at sb teardown */
+static atomic_t n_sb_down = ATOMIC_INIT(0); /* superblocks seen shut down */
 
 static int mount_dbg;
 module_param_named(mount_dbg, mount_dbg, int, 0644);
@@ -580,8 +575,7 @@ static void sus_mount_ident_add(struct mount *r)
     spin_lock_irqsave(&ident_lock, flags);
     /* Re-check under the lock so two scans cannot both append; a re-enable finds them here. */
     for (i = 0; i < n_ident; i++) {
-        if (mount_ident[i].s_dev == r->mnt.mnt_sb->s_dev &&
-            mount_ident[i].root_ino == ino)
+        if (mount_ident[i].s_dev == r->mnt.mnt_sb->s_dev && mount_ident[i].root_ino == ino)
             goto out;
         if (!mount_ident[i].root_ino && slot < 0)
             slot = i;
@@ -591,8 +585,7 @@ static void sus_mount_ident_add(struct mount *r)
             /* Silent truncation is a "registered but not effective" failure; say it once. */
             if (atomic_inc_return(&n_ident_full) == 1)
                 pr_warn("sus_mount: identity table full (%d), %s is NOT recognised in other namespaces\n",
-                        SUS_MOUNT_IDENT_MAX,
-                        devname ? devname : "(no devname)");
+                        SUS_MOUNT_IDENT_MAX, devname ? devname : "(no devname)");
             goto out;
         }
         slot = n_ident;
@@ -610,9 +603,8 @@ static void sus_mount_ident_add(struct mount *r)
             e->devname[0] = '\0';
         }
         if (mount_dbg)
-            SUSFS_LOGI("sus_mount: ident[%d] s_dev=%u root_ino=%lu devname=%s\n",
-                    slot, (unsigned int)e->s_dev, ino,
-                    e->devname_is_path ? e->devname : "(not path-shaped)");
+            SUSFS_LOGI("sus_mount: ident[%d] s_dev=%u root_ino=%lu devname=%s\n", slot, (unsigned int)e->s_dev, ino,
+                       e->devname_is_path ? e->devname : "(not path-shaped)");
         /* Set LAST: root_ino != 0 is what makes the record live for the readers. */
         smp_store_release(&e->root_ino, ino);
     }
@@ -636,9 +628,8 @@ static bool sus_mount_ident_match(struct mount *r)
         if (e_ino && e_ino == ino && e->s_dev == r->mnt.mnt_sb->s_dev)
             return true;
         if (e->devname_is_path && devname &&
-            (e->devname_truncated
-                 ? !strncmp(e->devname, devname, sizeof(e->devname) - 1)
-                 : !strcmp(e->devname, devname)))
+            (e->devname_truncated ? !strncmp(e->devname, devname, sizeof(e->devname) - 1) :
+                                    !strcmp(e->devname, devname)))
             return true;
     }
     return false;
@@ -710,8 +701,7 @@ static int sus_mount_shown_id_from(struct mount *mnt)
 {
     if (mnt && (unsigned int)mnt->mnt_id < SUS_MOUNT_KSU_ID_MIN)
         mnt = mnt->mnt_parent;
-    while (mnt && mnt->mnt_parent && mnt != mnt->mnt_parent &&
-           sus_mount_is_ours(mnt))
+    while (mnt && mnt->mnt_parent && mnt != mnt->mnt_parent && sus_mount_is_ours(mnt))
         mnt = mnt->mnt_parent;
     return mnt ? (int)mnt->mnt_id : 0;
 }
@@ -784,29 +774,29 @@ static void sus_mount_ns_walk_end(void)
     up_read(sus_mount_namespace_sem);
 }
 
-#define SUS_MOUNT_ITER_TYPE		struct rb_node *
-#define SUS_MOUNT_ITER_FOR(ns, it)	for ((it) = rb_first(&(ns)->mounts); (it); (it) = rb_next(it))
-#define SUS_MOUNT_ITER_MOUNT(it)	rb_entry((it), struct mount, mnt_node)
+#define SUS_MOUNT_ITER_TYPE struct rb_node *
+#define SUS_MOUNT_ITER_FOR(ns, it) for ((it) = rb_first(&(ns)->mounts); (it); (it) = rb_next(it))
+#define SUS_MOUNT_ITER_MOUNT(it) rb_entry((it), struct mount, mnt_node)
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 13, 0)
-#define SUS_MOUNT_MNT_NOT_IN_NS(r, ns)	((r)->mnt_ns != (ns) || !mnt_ns_attached(r))
+#define SUS_MOUNT_MNT_NOT_IN_NS(r, ns) ((r)->mnt_ns != (ns) || !mnt_ns_attached(r))
 #else
 
-#define SUS_MOUNT_MNT_NOT_IN_NS(r, ns)	((r)->mnt_ns != (ns) || RB_EMPTY_NODE(&(r)->mnt_node))
+#define SUS_MOUNT_MNT_NOT_IN_NS(r, ns) ((r)->mnt_ns != (ns) || RB_EMPTY_NODE(&(r)->mnt_node))
 #endif
 #else
 static bool sus_mount_ns_walk_begin(void)
 {
-    return true;	/* the caller takes ns_lock instead */
+    return true; /* the caller takes ns_lock instead */
 }
 
 static void sus_mount_ns_walk_end(void)
 {
 }
 
-#define SUS_MOUNT_ITER_TYPE		struct list_head *
-#define SUS_MOUNT_ITER_FOR(ns, it)	for ((it) = (ns)->list.next; (it) != &(ns)->list; (it) = (it)->next)
-#define SUS_MOUNT_ITER_MOUNT(it)	list_entry((it), struct mount, mnt_list)
-#define SUS_MOUNT_MNT_NOT_IN_NS(r, ns)	((r)->mnt_ns != (ns) || ((r)->mnt.mnt_flags & MNT_CURSOR))
+#define SUS_MOUNT_ITER_TYPE struct list_head *
+#define SUS_MOUNT_ITER_FOR(ns, it) for ((it) = (ns)->list.next; (it) != &(ns)->list; (it) = (it)->next)
+#define SUS_MOUNT_ITER_MOUNT(it) list_entry((it), struct mount, mnt_list)
+#define SUS_MOUNT_MNT_NOT_IN_NS(r, ns) ((r)->mnt_ns != (ns) || ((r)->mnt.mnt_flags & MNT_CURSOR))
 #endif
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(6, 12, 0)
@@ -818,7 +808,8 @@ static void sus_mount_learn_ns(struct mnt_namespace *ns)
     int learned = 0;
 
     spin_lock(&ns->ns_lock);
-    SUS_MOUNT_ITER_FOR(ns, pos) {
+    SUS_MOUNT_ITER_FOR(ns, pos)
+    {
         int shown;
 
         r = SUS_MOUNT_ITER_MOUNT(pos);
@@ -881,7 +872,8 @@ static int sus_mount_learn_ns_walk(struct mnt_namespace *ns)
         return -ENOSYS;
 
     rcu_read_lock();
-    SUS_MOUNT_ITER_FOR(ns, pos) {
+    SUS_MOUNT_ITER_FOR(ns, pos)
+    {
         struct mount *r;
         int shown;
 
@@ -913,7 +905,8 @@ static void sus_mount_learn_work(struct work_struct *w)
         int learned = sus_mount_learn_ns_walk(ns);
 
         if (learned == -ENOSYS && !atomic_xchg(&n_clone_refused_logged, 1))
-            pr_warn("sus_mount: namespace_sem could not be resolved at load time - refusing to walk a cloned namespace without the lock the kernel's own mount-table iterator holds (that namespace's ids stay unlearned)\n");
+            pr_warn(
+                "sus_mount: namespace_sem could not be resolved at load time - refusing to walk a cloned namespace without the lock the kernel's own mount-table iterator holds (that namespace's ids stay unlearned)\n");
         atomic_inc(&n_clone_walks);
         if (learned > 0)
             atomic_add(learned, &n_clone_learned);
@@ -978,7 +971,7 @@ static int sus_mount_clone_ret(struct kretprobe_instance *ri, struct pt_regs *re
     struct mnt_namespace *ns = (struct mnt_namespace *)regs_return_value(regs);
 
     if (!(st->flags & CLONE_NEWNS))
-        return 0;			/* plain fork: the current namespace, not a copy */
+        return 0; /* plain fork: the current namespace, not a copy */
     if (IS_ERR_OR_NULL(ns))
         return 0;
 #if LINUX_VERSION_CODE < KERNEL_VERSION(6, 12, 0)
@@ -1029,7 +1022,7 @@ static int sus_mount_newmnt_entry(struct kretprobe_instance *ri, struct pt_regs 
 {
     struct sus_mount_newmnt_state *st = (struct sus_mount_newmnt_state *)ri->data;
 
-    st->m = (struct mount *)regs->regs[0];	/* source_mnt */
+    st->m = (struct mount *)regs->regs[0]; /* source_mnt */
     return 0;
 }
 
@@ -1070,7 +1063,7 @@ static int sus_mount_newmnt_ret(struct kretprobe_instance *ri, struct pt_regs *r
     char *why = NULL;
 
     if (!susfs_ptr_plausible(r) || (long)regs_return_value(regs) != 0)
-        return 0;			/* the attach failed: nothing was mounted */
+        return 0; /* the attach failed: nothing was mounted */
     atomic_inc(&n_newmnt_seen);
     /* A successful attach leaves the mount with a parent; without one there is no
      * mountpoint path to test and no parent chain for the shown id. */
@@ -1082,8 +1075,8 @@ static int sus_mount_newmnt_ret(struct kretprobe_instance *ri, struct pt_regs *r
     sus_mount_ident_add(r);
     sus_mount_note_id(r);
     atomic_inc(&n_newmnt_recorded);
-    SUSFS_LOGI("sus_mount: learned mount at %s (mnt_id %d, devname %s)\n",
-            why, r->mnt_id, r->mnt_devname ? r->mnt_devname : "none");
+    SUSFS_LOGI("sus_mount: learned mount at %s (mnt_id %d, devname %s)\n", why, r->mnt_id,
+               r->mnt_devname ? r->mnt_devname : "none");
     return 0;
 }
 
@@ -1105,8 +1098,8 @@ static bool kr_newmnt_ok;
  * small one), so the buffer is only shortened.  Works whether the kernel formats the line
  * with one seq_printf (AOSP 5.15) or with seq_put_decimal_ull() - both leave
  * "mnt_id:\t<digits>" in the buffer at return. */
-#define SUS_MOUNT_MNTID_LABEL		"mnt_id:\t"
-#define SUS_MOUNT_MNTID_LABEL_LEN	8
+#define SUS_MOUNT_MNTID_LABEL "mnt_id:\t"
+#define SUS_MOUNT_MNTID_LABEL_LEN 8
 
 /* Per-instance state for the kretprobes below (fdinfo + the two statx landing points), in
  * ri->data and NOT in per-CPU storage: seq_show() formats through seq_printf(), whose
@@ -1116,9 +1109,9 @@ static bool kr_newmnt_ok;
  * (the getdents64 filter in sus_path.c does the same), and one struct serves all of them
  * because the fields are disjoint. */
 struct sus_mount_kretprobe_state {
-    struct seq_file *m;		/* fdinfo: the seq_file being filled */
-    unsigned long ubuf;		/* statx: the caller's struct statx __user * */
-    char where;			/* statx: 's' = __arm64_sys_statx, 'd' = do_statx */
+    struct seq_file *m; /* fdinfo: the seq_file being filled */
+    unsigned long ubuf; /* statx: the caller's struct statx __user * */
+    char where; /* statx: 's' = __arm64_sys_statx, 'd' = do_statx */
 };
 
 static atomic_t n_fdinfo_entry = ATOMIC_INIT(0);
@@ -1132,8 +1125,7 @@ static int sus_mount_fdinfo_entry(struct kretprobe_instance *ri, struct pt_regs 
     /* Not dereferenced here - the return handler checks it - but an implausible
      * value means this kretprobe sits on a function that does not take a seq_file,
      * and the rewrite below would then read an unrelated object. */
-    st->m = susfs_ptr_plausible((void *)regs->regs[0])
-               ? (struct seq_file *)regs->regs[0] : NULL;
+    st->m = susfs_ptr_plausible((void *)regs->regs[0]) ? (struct seq_file *)regs->regs[0] : NULL;
     return 0;
 }
 
@@ -1159,8 +1151,7 @@ static bool sus_mount_fdinfo_replace_mntid(struct seq_file *m)
     if (!pos)
         return false;
 
-    while (pos + len < count && len < 10 &&
-           buf[pos + len] >= '0' && buf[pos + len] <= '9') {
+    while (pos + len < count && len < 10 && buf[pos + len] >= '0' && buf[pos + len] <= '9') {
         old = old * 10 + (unsigned long)(buf[pos + len] - '0');
         len++;
     }
@@ -1353,16 +1344,14 @@ static int sus_mount_statx_ret(struct kretprobe_instance *ri, struct pt_regs *re
         /* Named, because "which landing point had no pointer" is the difference
          * between a wrong register and a wrong understanding of the call. */
         atomic_inc(&n_statx_nobuf);
-        pr_info_ratelimited("sus_mount: statx landing point %c had no buffer\n",
-                            st->where);
+        pr_info_ratelimited("sus_mount: statx landing point %c had no buffer\n", st->where);
         return 0;
     }
     if (sus_mount_is_su_domain())
         return 0;
 
     atomic_inc(&n_statx_hits);
-    if (copy_from_user(&id, (void __user *)(ubuf + offsetof(struct statx, stx_mnt_id)),
-                       sizeof(id))) {
+    if (copy_from_user(&id, (void __user *)(ubuf + offsetof(struct statx, stx_mnt_id)), sizeof(id))) {
         atomic_inc(&n_statx_copyfail);
         return 0;
     }
@@ -1372,8 +1361,7 @@ static int sus_mount_statx_ret(struct kretprobe_instance *ri, struct pt_regs *re
         return 0;
     }
     shown = (u64)new_id;
-    if (copy_to_user((void __user *)(ubuf + offsetof(struct statx, stx_mnt_id)),
-                     &shown, sizeof(shown))) {
+    if (copy_to_user((void __user *)(ubuf + offsetof(struct statx, stx_mnt_id)), &shown, sizeof(shown))) {
         atomic_inc(&n_statx_copyfail);
         return 0;
     }
@@ -1447,33 +1435,21 @@ static int sus_mount_stat_show(char *buf, const struct kernel_param *kp)
                      "fdinfo: probes=%d entry=%d hits=%d rewrites=%d nolabel=%d\n"
                      "statx: entry=%d ret=%d hits=%d rewrites=%d nobuf=%d err=%d copyfail=%d nomap=%d "
                      "(sys=%d do=%d)\n",
-                     sus_mount_idmap_live(), n_idmap,
-                     sus_mount_ident_live(), READ_ONCE(n_ident), mount_registered,
-                     (int)sus_mount_is_su_domain(),
-                     n_show_probes,
-                     atomic_read(&n_ident_hits), atomic_read(&n_ident_learned),
-                     atomic_read(&n_ident_full),
-                     atomic_read(&n_ident_dropped_dev),
-                     atomic_read(&n_idmap_recycled),
-                     atomic_read(&n_idmap_dropped_dev),
-                     atomic_read(&n_sb_down), (int)kp_sb_down_ok,
-                     atomic_read(&n_clone_walks), atomic_read(&n_clone_learned),
+                     sus_mount_idmap_live(), n_idmap, sus_mount_ident_live(), READ_ONCE(n_ident), mount_registered,
+                     (int)sus_mount_is_su_domain(), n_show_probes, atomic_read(&n_ident_hits),
+                     atomic_read(&n_ident_learned), atomic_read(&n_ident_full), atomic_read(&n_ident_dropped_dev),
+                     atomic_read(&n_idmap_recycled), atomic_read(&n_idmap_dropped_dev), atomic_read(&n_sb_down),
+                     (int)kp_sb_down_ok, atomic_read(&n_clone_walks), atomic_read(&n_clone_learned),
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 12, 0)
                      atomic_read(&n_clone_queued), atomic_read(&n_clone_dropped),
 #endif
-                     (int)kr_clone_ns_ok,
-                     atomic_read(&n_newmnt_seen), atomic_read(&n_newmnt_recorded),
-                     atomic_read(&n_newmnt_pathfail), (int)kr_newmnt_ok,
-                     n_mount_keep, atomic_read(&n_keep_rescans),
-                     n_fdinfo_probes,
-                     atomic_read(&n_fdinfo_entry), atomic_read(&n_fdinfo_hits),
-                     atomic_read(&n_fdinfo_rewrites),
-                     atomic_read(&n_fdinfo_nolabel),
-                     atomic_read(&n_statx_entry), atomic_read(&n_statx_ret),
-                     atomic_read(&n_statx_hits), atomic_read(&n_statx_rewrites),
-                     atomic_read(&n_statx_nobuf), atomic_read(&n_statx_err),
-                     atomic_read(&n_statx_copyfail), atomic_read(&n_statx_nomap),
-                     (int)kr_statx_ok, (int)kr_statx_do_ok);
+                     (int)kr_clone_ns_ok, atomic_read(&n_newmnt_seen), atomic_read(&n_newmnt_recorded),
+                     atomic_read(&n_newmnt_pathfail), (int)kr_newmnt_ok, n_mount_keep, atomic_read(&n_keep_rescans),
+                     n_fdinfo_probes, atomic_read(&n_fdinfo_entry), atomic_read(&n_fdinfo_hits),
+                     atomic_read(&n_fdinfo_rewrites), atomic_read(&n_fdinfo_nolabel), atomic_read(&n_statx_entry),
+                     atomic_read(&n_statx_ret), atomic_read(&n_statx_hits), atomic_read(&n_statx_rewrites),
+                     atomic_read(&n_statx_nobuf), atomic_read(&n_statx_err), atomic_read(&n_statx_copyfail),
+                     atomic_read(&n_statx_nomap), (int)kr_statx_ok, (int)kr_statx_do_ok);
 }
 static const struct kernel_param_ops sus_mount_stat_ops = {
     .get = sus_mount_stat_show,
@@ -1498,9 +1474,8 @@ static int sus_mount_show_pre(struct kprobe *kp, struct pt_regs *regs)
         /* mount_dbg: say why - the id, s_dev, root dentry and source are exactly
          * what sus_mount_is_ours() compared. */
         if (mount_dbg && atomic_inc_return(&n_dbg_logged) <= 40)
-            SUSFS_LOGI("sus_mount: hook: NOT ours id=%d s_dev=%u root=%px devname=%s\n",
-                    r->mnt_id, (unsigned int)r->mnt.mnt_sb->s_dev,
-                    r->mnt.mnt_root, r->mnt_devname ? r->mnt_devname : "none");
+            SUSFS_LOGI("sus_mount: hook: NOT ours id=%d s_dev=%u root=%px devname=%s\n", r->mnt_id,
+                       (unsigned int)r->mnt.mnt_sb->s_dev, r->mnt.mnt_root, r->mnt_devname ? r->mnt_devname : "none");
         return 0;
     }
     /* domain gate, upstream patch:1561-1585: the su/ksu domain is not
@@ -1509,7 +1484,7 @@ static int sus_mount_show_pre(struct kprobe *kp, struct pt_regs *regs)
         return 0;
     sus_mount_note_id(r);
     atomic_inc(&n_ident_hits);
-    regs->pc = regs->regs[30];   /* skip this mount line */
+    regs->pc = regs->regs[30]; /* skip this mount line */
     /* These show_* callbacks return int and x0 still holds seq_file*.
      * seq_read() treats a negative return as a hard error, so a stray high
      * bit here would break the whole read; upstream's equivalent site
@@ -1543,10 +1518,14 @@ static struct kprobe kp_vfsmnt = {
  * unregister of a probe that never armed is not a no-op, so teardown must ask. */
 #define SUS_MOUNT_SHOW_N 3
 static struct kprobe *const sus_mount_show_probes[SUS_MOUNT_SHOW_N] = {
-    &kp_vfsstat, &kp_mountinfo, &kp_vfsmnt,
+    &kp_vfsstat,
+    &kp_mountinfo,
+    &kp_vfsmnt,
 };
 static const char *const sus_mount_show_names[SUS_MOUNT_SHOW_N] = {
-    "show_vfsstat", "show_mountinfo", "show_vfsmnt",
+    "show_vfsstat",
+    "show_mountinfo",
+    "show_vfsmnt",
 };
 static bool sus_mount_show_armed[SUS_MOUNT_SHOW_N];
 
@@ -1640,14 +1619,14 @@ static bool sus_mount_path_is_ours(const char *s)
 
 /* ---- control surface: which mounts are ours ---- */
 
-static int sus_mount_mark_ksu_mounts(void);	/* changing the list rescans */
+static int sus_mount_mark_ksu_mounts(void); /* changing the list rescans */
 
 static int sus_mount_keep_parse(const char *val, char dst[][SUS_MOUNT_KEEP_LEN], int max)
 {
-	const char *p = val;
-	int n = 0;
+    const char *p = val;
+    int n = 0;
 
-	/* Scanned in place: the list is only read, never rewritten here.  It used to be copied into a
+    /* Scanned in place: the list is only read, never rewritten here.  It used to be copied into a
 	 * SUS_MOUNT_KEEP_CMDLINE-sized stack buffer, which was fine for 8 entries and is an 8 KB stack
 	 * frame for 64 - past what the kernel allows a function to use (the module is built with
 	 * -Wframe-larger-than=2048).  Copying bought nothing: the callers already hand over a
@@ -1660,52 +1639,51 @@ static int sus_mount_keep_parse(const char *val, char dst[][SUS_MOUNT_KEEP_LEN],
 	 * the price of the frame above).  Every caller today rejects such a value before calling:
 	 * the proc/sysfs write path and the cached insmod parameter both strscpy() into a
 	 * SUS_MOUNT_KEEP_CMDLINE buffer (or refuse the value outright), so the bound holds here. */
-	while (*p) {
-		const char *tok;
-		int len;
+    while (*p) {
+        const char *tok;
+        int len;
 
-		while (*p == ' ' || *p == ',' || *p == '\t' || *p == '\n' || *p == '\r')
-			p++;
-		if (!*p)
-			break;
-		tok = p;
-		while (*p && *p != ' ' && *p != ',' && *p != '\t' && *p != '\n' && *p != '\r')
-			p++;
-		len = (int)(p - tok);
-		if (len <= 0)
-			continue;
-		if (len >= SUS_MOUNT_KEEP_LEN)
-			return -ENAMETOOLONG;
-		if (n >= max)
-			return -ENOSPC;
-		memcpy(dst[n], tok, len);
-		dst[n][len] = '\0';
-		n++;
-	}
-	return n;
+        while (*p == ' ' || *p == ',' || *p == '\t' || *p == '\n' || *p == '\r')
+            p++;
+        if (!*p)
+            break;
+        tok = p;
+        while (*p && *p != ' ' && *p != ',' && *p != '\t' && *p != '\n' && *p != '\r')
+            p++;
+        len = (int)(p - tok);
+        if (len <= 0)
+            continue;
+        if (len >= SUS_MOUNT_KEEP_LEN)
+            return -ENAMETOOLONG;
+        if (n >= max)
+            return -ENOSPC;
+        memcpy(dst[n], tok, len);
+        dst[n][len] = '\0';
+        n++;
+    }
+    return n;
 }
 
 static void sus_mount_keep_commit(char dst[][SUS_MOUNT_KEEP_LEN], int n)
 {
-	unsigned long flags;
+    unsigned long flags;
 
-	spin_lock_irqsave(&mount_keep_lock, flags);
-	memset(mount_keep, 0, sizeof(mount_keep));
-	memcpy(mount_keep, dst, (size_t)n * SUS_MOUNT_KEEP_LEN);
-	n_mount_keep = n;
-	spin_unlock_irqrestore(&mount_keep_lock, flags);
+    spin_lock_irqsave(&mount_keep_lock, flags);
+    memset(mount_keep, 0, sizeof(mount_keep));
+    memcpy(mount_keep, dst, (size_t)n * SUS_MOUNT_KEEP_LEN);
+    n_mount_keep = n;
+    spin_unlock_irqrestore(&mount_keep_lock, flags);
 }
 
 static void sus_mount_keep_rescan(void)
 {
-	int rc;
+    int rc;
 
-	if (!mount_registered)
-		return;		/* nothing is armed yet; the scan at enable will do it */
-	rc = sus_mount_mark_ksu_mounts();
-	atomic_inc(&n_keep_rescans);
-	SUSFS_LOGI("sus_mount: rescanned after a list change: %d mount(s) marked (rc=%d)\n",
-			rc, rc < 0 ? rc : 0);
+    if (!mount_registered)
+        return; /* nothing is armed yet; the scan at enable will do it */
+    rc = sus_mount_mark_ksu_mounts();
+    atomic_inc(&n_keep_rescans);
+    SUSFS_LOGI("sus_mount: rescanned after a list change: %d mount(s) marked (rc=%d)\n", rc, rc < 0 ? rc : 0);
 }
 
 /* Commands, same shape as the hide_modules node: add <prefix> | del <prefix> |
@@ -1721,116 +1699,115 @@ static void sus_mount_keep_rescan(void)
  * safe.  The command semantics are unchanged - the early returns now go through @out. */
 static int sus_mount_keep_command(const char *val, bool bare_list)
 {
-	char *cmd;
-	char (*staged)[SUS_MOUNT_KEEP_LEN];
-	const char *arg;
-	int i, n;
-	int rc = 0;
+    char *cmd;
+    char(*staged)[SUS_MOUNT_KEEP_LEN];
+    const char *arg;
+    int i, n;
+    int rc = 0;
 
-	cmd = kvmalloc(SUS_MOUNT_KEEP_CMDLINE, GFP_KERNEL);
-	staged = kvmalloc_array(SUS_MOUNT_KEEP_MAX, SUS_MOUNT_KEEP_LEN, GFP_KERNEL);
-	if (!cmd || !staged) {
-		kvfree(cmd);
-		kvfree(staged);
-		return -ENOMEM;
-	}
+    cmd = kvmalloc(SUS_MOUNT_KEEP_CMDLINE, GFP_KERNEL);
+    staged = kvmalloc_array(SUS_MOUNT_KEEP_MAX, SUS_MOUNT_KEEP_LEN, GFP_KERNEL);
+    if (!cmd || !staged) {
+        kvfree(cmd);
+        kvfree(staged);
+        return -ENOMEM;
+    }
 
-	strscpy(cmd, val, SUS_MOUNT_KEEP_CMDLINE);
-	for (i = (int)strlen(cmd) - 1; i >= 0 && (cmd[i] == '\n' || cmd[i] == '\r' || cmd[i] == ' '); i--)
-		cmd[i] = '\0';
+    strscpy(cmd, val, SUS_MOUNT_KEEP_CMDLINE);
+    for (i = (int)strlen(cmd) - 1; i >= 0 && (cmd[i] == '\n' || cmd[i] == '\r' || cmd[i] == ' '); i--)
+        cmd[i] = '\0';
 
-	if (!strcmp(cmd, "reset")) {
-		strscpy(staged[0], mount_keep_default, SUS_MOUNT_KEEP_LEN);
-		sus_mount_keep_commit(staged, 1);
-		sus_mount_keep_rescan();
-		SUSFS_LOGI("sus_mount: prefix list reset to the default\n");
-		goto out;
-	}
-	if (!strcmp(cmd, "clear")) {
-		sus_mount_keep_commit(staged, 0);
-		SUSFS_LOGI("sus_mount: prefix list cleared (no new mount is accepted by path)\n");
-		goto out;
-	}
-	if (!strncmp(cmd, "set ", 4)) {
-		n = sus_mount_keep_parse(cmd + 4, staged, SUS_MOUNT_KEEP_MAX);
-		if (n < 0) {
-			rc = n;
-			goto out;
-		}
-		sus_mount_keep_commit(staged, n);
-		sus_mount_keep_rescan();
-		SUSFS_LOGI("sus_mount: prefix list set to %d entr(ies)\n", n);
-		goto out;
-	}
-	if (!strncmp(cmd, "add ", 4) || !strncmp(cmd, "del ", 4)) {
-		bool adding = (cmd[0] == 'a');
+    if (!strcmp(cmd, "reset")) {
+        strscpy(staged[0], mount_keep_default, SUS_MOUNT_KEEP_LEN);
+        sus_mount_keep_commit(staged, 1);
+        sus_mount_keep_rescan();
+        SUSFS_LOGI("sus_mount: prefix list reset to the default\n");
+        goto out;
+    }
+    if (!strcmp(cmd, "clear")) {
+        sus_mount_keep_commit(staged, 0);
+        SUSFS_LOGI("sus_mount: prefix list cleared (no new mount is accepted by path)\n");
+        goto out;
+    }
+    if (!strncmp(cmd, "set ", 4)) {
+        n = sus_mount_keep_parse(cmd + 4, staged, SUS_MOUNT_KEEP_MAX);
+        if (n < 0) {
+            rc = n;
+            goto out;
+        }
+        sus_mount_keep_commit(staged, n);
+        sus_mount_keep_rescan();
+        SUSFS_LOGI("sus_mount: prefix list set to %d entr(ies)\n", n);
+        goto out;
+    }
+    if (!strncmp(cmd, "add ", 4) || !strncmp(cmd, "del ", 4)) {
+        bool adding = (cmd[0] == 'a');
 
-		arg = cmd + 4;
-		while (*arg == ' ')
-			arg++;
-		if (!*arg || strlen(arg) >= SUS_MOUNT_KEEP_LEN) {
-			rc = -EINVAL;
-			goto out;
-		}
+        arg = cmd + 4;
+        while (*arg == ' ')
+            arg++;
+        if (!*arg || strlen(arg) >= SUS_MOUNT_KEEP_LEN) {
+            rc = -EINVAL;
+            goto out;
+        }
 
-		spin_lock(&mount_keep_lock);
-		n = n_mount_keep;
-		if (n > SUS_MOUNT_KEEP_MAX)
-			n = SUS_MOUNT_KEEP_MAX;
-		memcpy(staged, mount_keep, (size_t)n * SUS_MOUNT_KEEP_LEN);
-		spin_unlock(&mount_keep_lock);
+        spin_lock(&mount_keep_lock);
+        n = n_mount_keep;
+        if (n > SUS_MOUNT_KEEP_MAX)
+            n = SUS_MOUNT_KEEP_MAX;
+        memcpy(staged, mount_keep, (size_t)n * SUS_MOUNT_KEEP_LEN);
+        spin_unlock(&mount_keep_lock);
 
-		{
-			bool found = false;
+        {
+            bool found = false;
 
-			for (i = 0; i < n; i++) {
-				if (strcmp(staged[i], arg))
-					continue;
-				found = true;
-				if (adding)
-					goto out;
-				memmove(&staged[i], &staged[i + 1],
-					(size_t)(n - i - 1) * SUS_MOUNT_KEEP_LEN);
-				n--;
-				break;
-			}
-			if (adding) {
-				if (found)
-					goto out;
-				if (n >= SUS_MOUNT_KEEP_MAX) {
-					rc = -ENOSPC;
-					goto out;
-				}
-				strscpy(staged[n], arg, SUS_MOUNT_KEEP_LEN);
-				n++;
-			} else if (!found) {
-				rc = -ENOENT;
-				goto out;
-			}
-		}
-		sus_mount_keep_commit(staged, n);
-		sus_mount_keep_rescan();
-		SUSFS_LOGI("sus_mount: %s %s -> %d prefix(es)\n", adding ? "add" : "del", arg, n);
-		goto out;
-	}
+            for (i = 0; i < n; i++) {
+                if (strcmp(staged[i], arg))
+                    continue;
+                found = true;
+                if (adding)
+                    goto out;
+                memmove(&staged[i], &staged[i + 1], (size_t)(n - i - 1) * SUS_MOUNT_KEEP_LEN);
+                n--;
+                break;
+            }
+            if (adding) {
+                if (found)
+                    goto out;
+                if (n >= SUS_MOUNT_KEEP_MAX) {
+                    rc = -ENOSPC;
+                    goto out;
+                }
+                strscpy(staged[n], arg, SUS_MOUNT_KEEP_LEN);
+                n++;
+            } else if (!found) {
+                rc = -ENOENT;
+                goto out;
+            }
+        }
+        sus_mount_keep_commit(staged, n);
+        sus_mount_keep_rescan();
+        SUSFS_LOGI("sus_mount: %s %s -> %d prefix(es)\n", adding ? "add" : "del", arg, n);
+        goto out;
+    }
 
-	if (!bare_list) {
-		rc = -EINVAL;
-		goto out;
-	}
-	n = sus_mount_keep_parse(cmd, staged, SUS_MOUNT_KEEP_MAX);
-	if (n < 0) {
-		rc = n;
-		goto out;
-	}
-	sus_mount_keep_commit(staged, n);
-	sus_mount_keep_rescan();
-	SUSFS_LOGI("sus_mount: prefix list set to %d entr(ies)\n", n);
+    if (!bare_list) {
+        rc = -EINVAL;
+        goto out;
+    }
+    n = sus_mount_keep_parse(cmd, staged, SUS_MOUNT_KEEP_MAX);
+    if (n < 0) {
+        rc = n;
+        goto out;
+    }
+    sus_mount_keep_commit(staged, n);
+    sus_mount_keep_rescan();
+    SUSFS_LOGI("sus_mount: prefix list set to %d entr(ies)\n", n);
 
 out:
-	kvfree(staged);
-	kvfree(cmd);
-	return rc;
+    kvfree(staged);
+    kvfree(cmd);
+    return rc;
 }
 
 /* One consistent (length, entries) pair, taken under the lock, for BOTH read paths below.  They used
@@ -1844,19 +1821,19 @@ out:
  * reports 0 entries rather than quietly reading the live array unlocked. */
 static int sus_mount_keep_snapshot(char (*dst)[SUS_MOUNT_KEEP_LEN])
 {
-	unsigned long flags;
-	int n;
+    unsigned long flags;
+    int n;
 
-	if (!dst)
-		return 0;
-	spin_lock_irqsave(&mount_keep_lock, flags);
-	n = n_mount_keep;
-	if (n > SUS_MOUNT_KEEP_MAX)
-		n = SUS_MOUNT_KEEP_MAX;
-	if (n > 0)
-		memcpy(dst, mount_keep, (size_t)n * SUS_MOUNT_KEEP_LEN);
-	spin_unlock_irqrestore(&mount_keep_lock, flags);
-	return n;
+    if (!dst)
+        return 0;
+    spin_lock_irqsave(&mount_keep_lock, flags);
+    n = n_mount_keep;
+    if (n > SUS_MOUNT_KEEP_MAX)
+        n = SUS_MOUNT_KEEP_MAX;
+    if (n > 0)
+        memcpy(dst, mount_keep, (size_t)n * SUS_MOUNT_KEEP_LEN);
+    spin_unlock_irqrestore(&mount_keep_lock, flags);
+    return n;
 }
 
 /* The list as one string, for the sysfs parameter read (whose buffer the kernel caps at PAGE_SIZE).
@@ -1864,58 +1841,55 @@ static int sus_mount_keep_snapshot(char (*dst)[SUS_MOUNT_KEEP_LEN])
  * of the list - /proc/susfs_hide_mounts is the read that always shows all of them. */
 static int sus_mount_keep_format(char *buf, size_t size)
 {
-	char (*snap)[SUS_MOUNT_KEEP_LEN];
-	int nents, i, n = 0;
+    char(*snap)[SUS_MOUNT_KEEP_LEN];
+    int nents, i, n = 0;
 
-	snap = kvmalloc((size_t)SUS_MOUNT_KEEP_MAX * SUS_MOUNT_KEEP_LEN, GFP_KERNEL);
-	if (!snap)
-		return scnprintf(buf, size, "mount prefixes: (list unavailable: out of memory)\n");
-	nents = sus_mount_keep_snapshot(snap);
+    snap = kvmalloc((size_t)SUS_MOUNT_KEEP_MAX * SUS_MOUNT_KEEP_LEN, GFP_KERNEL);
+    if (!snap)
+        return scnprintf(buf, size, "mount prefixes: (list unavailable: out of memory)\n");
+    nents = sus_mount_keep_snapshot(snap);
 
-	n += scnprintf(buf + n, size - n,
-		"mount prefixes: %d/%d, rescans=%d, recorded=%d, hidden_by_identity=%d, learned_ids=%d\n",
-		nents, SUS_MOUNT_KEEP_MAX, atomic_read(&n_keep_rescans),
-		atomic_read(&n_newmnt_recorded), atomic_read(&n_ident_hits),
-		atomic_read(&n_ident_learned));
-	n += scnprintf(buf + n, size - n, "prefixes:");
-	for (i = 0; i < nents && n < (int)size - SUS_MOUNT_KEEP_TRUNC_RESERVE; i++)
-		n += scnprintf(buf + n, size - n, " %s", snap[i]);
-	if (!nents)
-		n += scnprintf(buf + n, size - n, " (none - only KSU-range ids are hidden)");
-	else if (i < nents)
-		n += scnprintf(buf + n, size - n, " ... (%d more; cat /proc/susfs_hide_mounts for all)",
-			       nents - i);
-	n += scnprintf(buf + n, size - n, "\n");
-	kvfree(snap);
-	return n;
+    n += scnprintf(buf + n, size - n,
+                   "mount prefixes: %d/%d, rescans=%d, recorded=%d, hidden_by_identity=%d, learned_ids=%d\n", nents,
+                   SUS_MOUNT_KEEP_MAX, atomic_read(&n_keep_rescans), atomic_read(&n_newmnt_recorded),
+                   atomic_read(&n_ident_hits), atomic_read(&n_ident_learned));
+    n += scnprintf(buf + n, size - n, "prefixes:");
+    for (i = 0; i < nents && n < (int)size - SUS_MOUNT_KEEP_TRUNC_RESERVE; i++)
+        n += scnprintf(buf + n, size - n, " %s", snap[i]);
+    if (!nents)
+        n += scnprintf(buf + n, size - n, " (none - only KSU-range ids are hidden)");
+    else if (i < nents)
+        n += scnprintf(buf + n, size - n, " ... (%d more; cat /proc/susfs_hide_mounts for all)", nents - i);
+    n += scnprintf(buf + n, size - n, "\n");
+    kvfree(snap);
+    return n;
 }
 
 /* The same list straight into a seq_file, which is what /proc/susfs_hide_mounts reads: no fixed
  * buffer, so 64 prefixes come back in full. */
 static void sus_mount_keep_show_seq(struct seq_file *m)
 {
-	char (*snap)[SUS_MOUNT_KEEP_LEN];
-	int nents, i;
+    char(*snap)[SUS_MOUNT_KEEP_LEN];
+    int nents, i;
 
-	snap = kvmalloc((size_t)SUS_MOUNT_KEEP_MAX * SUS_MOUNT_KEEP_LEN, GFP_KERNEL);
-	if (!snap) {
-		seq_puts(m, "mount prefixes: (list unavailable: out of memory)\n");
-		return;
-	}
-	nents = sus_mount_keep_snapshot(snap);
+    snap = kvmalloc((size_t)SUS_MOUNT_KEEP_MAX * SUS_MOUNT_KEEP_LEN, GFP_KERNEL);
+    if (!snap) {
+        seq_puts(m, "mount prefixes: (list unavailable: out of memory)\n");
+        return;
+    }
+    nents = sus_mount_keep_snapshot(snap);
 
-	seq_printf(m, "mount prefixes: %d/%d, rescans=%d, recorded=%d, hidden_by_identity=%d, learned_ids=%d\n",
-		   nents, SUS_MOUNT_KEEP_MAX, atomic_read(&n_keep_rescans),
-		   atomic_read(&n_newmnt_recorded), atomic_read(&n_ident_hits),
-		   atomic_read(&n_ident_learned));
-	seq_puts(m, "prefixes:");
-	if (!nents)
-		seq_puts(m, " (none - only KSU-range ids are hidden)");
-	else
-		for (i = 0; i < nents; i++)
-			seq_printf(m, " %s", snap[i]);
-	seq_putc(m, '\n');
-	kvfree(snap);
+    seq_printf(m, "mount prefixes: %d/%d, rescans=%d, recorded=%d, hidden_by_identity=%d, learned_ids=%d\n", nents,
+               SUS_MOUNT_KEEP_MAX, atomic_read(&n_keep_rescans), atomic_read(&n_newmnt_recorded),
+               atomic_read(&n_ident_hits), atomic_read(&n_ident_learned));
+    seq_puts(m, "prefixes:");
+    if (!nents)
+        seq_puts(m, " (none - only KSU-range ids are hidden)");
+    else
+        for (i = 0; i < nents; i++)
+            seq_printf(m, " %s", snap[i]);
+    seq_putc(m, '\n');
+    kvfree(snap);
 }
 
 /* ---- insmod parameters must not touch the guard-protected side --------------------------------
@@ -1948,15 +1922,15 @@ static DEFINE_MUTEX(sus_mount_keep_param_lock);
  * No lock, no commit, no rescan - safe to call from parse_args(). */
 static int sus_mount_keep_list_check(const char *list)
 {
-	char (*dst)[SUS_MOUNT_KEEP_LEN];
-	int rc;
+    char(*dst)[SUS_MOUNT_KEEP_LEN];
+    int rc;
 
-	dst = kvmalloc_array(SUS_MOUNT_KEEP_MAX, SUS_MOUNT_KEEP_LEN, GFP_KERNEL);
-	if (!dst)
-		return -ENOMEM;
-	rc = sus_mount_keep_parse(list, dst, SUS_MOUNT_KEEP_MAX);
-	kvfree(dst);
-	return rc < 0 ? rc : 0;
+    dst = kvmalloc_array(SUS_MOUNT_KEEP_MAX, SUS_MOUNT_KEEP_LEN, GFP_KERNEL);
+    if (!dst)
+        return -ENOMEM;
+    rc = sus_mount_keep_parse(list, dst, SUS_MOUNT_KEEP_MAX);
+    kvfree(dst);
+    return rc < 0 ? rc : 0;
 }
 
 /* The grammar sus_mount_keep_command() accepts, checked without running it: `reset`, `clear`,
@@ -1964,145 +1938,144 @@ static int sus_mount_keep_list_check(const char *list)
  * in place (trailing whitespace trimmed), which is why the caller hands over its own copy. */
 static int sus_mount_keep_check(char *val)
 {
-	const char *arg;
-	size_t i;
+    const char *arg;
+    size_t i;
 
-	for (i = strlen(val); i > 0 && (val[i - 1] == '\n' || val[i - 1] == '\r' || val[i - 1] == ' '); i--)
-		val[i - 1] = '\0';
+    for (i = strlen(val); i > 0 && (val[i - 1] == '\n' || val[i - 1] == '\r' || val[i - 1] == ' '); i--)
+        val[i - 1] = '\0';
 
-	/* An empty value is not "set the list to nothing": that is what `clear` says, and silently emptying
+    /* An empty value is not "set the list to nothing": that is what `clear` says, and silently emptying
 	 * the prefix list (which the built-in default otherwise seeds) is not something a typo should do. */
-	if (!val[0])
-		return -EINVAL;
-	if (!strcmp(val, "reset") || !strcmp(val, "clear"))
-		return 0;
-	if (!strncmp(val, "set ", 4))
-		return sus_mount_keep_list_check(val + 4);
-	if (!strncmp(val, "add ", 4) || !strncmp(val, "del ", 4)) {
-		arg = val + 4;
-		while (*arg == ' ')
-			arg++;
-		if (!*arg || strlen(arg) >= SUS_MOUNT_KEEP_LEN)
-			return -EINVAL;
-		/* parse_args runs before the list has any entry, so `del` could only fail later (-ENOENT). */
-		if (val[0] == 'd')
-			return -EINVAL;
-		return 0;
-	}
-	return sus_mount_keep_list_check(val);
+    if (!val[0])
+        return -EINVAL;
+    if (!strcmp(val, "reset") || !strcmp(val, "clear"))
+        return 0;
+    if (!strncmp(val, "set ", 4))
+        return sus_mount_keep_list_check(val + 4);
+    if (!strncmp(val, "add ", 4) || !strncmp(val, "del ", 4)) {
+        arg = val + 4;
+        while (*arg == ' ')
+            arg++;
+        if (!*arg || strlen(arg) >= SUS_MOUNT_KEEP_LEN)
+            return -EINVAL;
+        /* parse_args runs before the list has any entry, so `del` could only fail later (-ENOENT). */
+        if (val[0] == 'd')
+            return -EINVAL;
+        return 0;
+    }
+    return sus_mount_keep_list_check(val);
 }
 
 /* The same trailing-whitespace rule the command applies ("echo" leaves a "\n" behind), used to tell an
  * empty value from a real one on the live path as well. */
 static bool sus_mount_keep_value_empty(const char *val)
 {
-	size_t i;
+    size_t i;
 
-	for (i = strlen(val); i > 0; i--)
-		if (val[i - 1] != '\n' && val[i - 1] != '\r' && val[i - 1] != ' ')
-			return false;
-	return true;
+    for (i = strlen(val); i > 0; i--)
+        if (val[i - 1] != '\n' && val[i - 1] != '\r' && val[i - 1] != ' ')
+            return false;
+    return true;
 }
 
 static int sus_mount_keep_param_set(const char *val, const struct kernel_param *kp)
 {
-	int rc;
+    int rc;
 
-	mutex_lock(&sus_mount_keep_param_lock);
-	if (mount_keep_ready) {
-		bool empty = sus_mount_keep_value_empty(val);
-		bool too_long = strlen(val) >= SUS_MOUNT_KEEP_CMDLINE;
+    mutex_lock(&sus_mount_keep_param_lock);
+    if (mount_keep_ready) {
+        bool empty = sus_mount_keep_value_empty(val);
+        bool too_long = strlen(val) >= SUS_MOUNT_KEEP_CMDLINE;
 
-		mutex_unlock(&sus_mount_keep_param_lock);
-		/* An empty value is not "set the list to nothing" - that is what `clear` says, and the
+        mutex_unlock(&sus_mount_keep_param_lock);
+        /* An empty value is not "set the list to nothing" - that is what `clear` says, and the
 		 * pre-init path refuses it for the same reason (see sus_mount_keep_check()).  A value that
 		 * does not fit the command buffer is refused too: its tail is cut off, and the cut can leave
 		 * an empty command behind, i.e. the same silent clear. */
-		return (empty || too_long) ? -EINVAL : sus_mount_keep_command(val, true);
-	}
+        return (empty || too_long) ? -EINVAL : sus_mount_keep_command(val, true);
+    }
 
-	/* parse_args(): validate and cache only - see mount_keep_pending.  Validate the value itself, not a
+    /* parse_args(): validate and cache only - see mount_keep_pending.  Validate the value itself, not a
 	 * copy that was already truncated to the cache size. */
-	if (strlen(val) >= sizeof(mount_keep_pending)) {
-		mutex_unlock(&sus_mount_keep_param_lock);
-		return -EINVAL;
-	}
-	strscpy(mount_keep_pending, val, sizeof(mount_keep_pending));
-	rc = sus_mount_keep_check(mount_keep_pending);
-	if (!rc)
-		mount_keep_pending_given = true;
-	mutex_unlock(&sus_mount_keep_param_lock);
-	return rc;
+    if (strlen(val) >= sizeof(mount_keep_pending)) {
+        mutex_unlock(&sus_mount_keep_param_lock);
+        return -EINVAL;
+    }
+    strscpy(mount_keep_pending, val, sizeof(mount_keep_pending));
+    rc = sus_mount_keep_check(mount_keep_pending);
+    if (!rc)
+        mount_keep_pending_given = true;
+    mutex_unlock(&sus_mount_keep_param_lock);
+    return rc;
 }
 
 static int sus_mount_keep_param_get(char *buf, const struct kernel_param *kp)
 {
-	return sus_mount_keep_format(buf, PAGE_SIZE);
+    return sus_mount_keep_format(buf, PAGE_SIZE);
 }
 
 static const struct kernel_param_ops sus_mount_keep_ops = {
-	.get = sus_mount_keep_param_get,
-	.set = sus_mount_keep_param_set,
+    .get = sus_mount_keep_param_get,
+    .set = sus_mount_keep_param_set,
 };
 /* 0600: root only; the whole directory is inside the one hide_modules hides. */
 module_param_cb(hide_mounts, &sus_mount_keep_ops, NULL, 0600);
 
 static int sus_mount_keep_proc_show(struct seq_file *m, void *v)
 {
-	sus_mount_keep_show_seq(m);
-	return 0;
+    sus_mount_keep_show_seq(m);
+    return 0;
 }
 
 static int sus_mount_keep_proc_open(struct inode *inode, struct file *file)
 {
-	/* 0777 node + this check, like every other control node: a restrictive mode would
+    /* 0777 node + this check, like every other control node: a restrictive mode would
 	 * answer EACCES (advertising that the node exists) before sus_path could answer
 	 * ENOENT. */
-	if (!susfs_control_visible())
-		return -ENOENT;
-	return single_open(file, sus_mount_keep_proc_show, NULL);
+    if (!susfs_control_visible())
+        return -ENOENT;
+    return single_open(file, sus_mount_keep_proc_show, NULL);
 }
 
-static ssize_t sus_mount_keep_proc_write(struct file *file, const char __user *buf,
-					 size_t len, loff_t *off)
+static ssize_t sus_mount_keep_proc_write(struct file *file, const char __user *buf, size_t len, loff_t *off)
 {
-	char *cmd;
-	int rc;
+    char *cmd;
+    int rc;
 
-	/* Same reason as the open check: an fd opened before the process dropped
+    /* Same reason as the open check: an fd opened before the process dropped
 	 * privileges must not become a way in. */
-	if (!susfs_control_visible())
-		return -ENOENT;
-	if (len == 0)
-		return 0;
-	/* On the heap, not on the stack: one write may carry the whole list, so the buffer is sized for
+    if (!susfs_control_visible())
+        return -ENOENT;
+    if (len == 0)
+        return 0;
+    /* On the heap, not on the stack: one write may carry the whole list, so the buffer is sized for
 	 * SUS_MOUNT_KEEP_MAX prefixes - 8 KB now that the list holds 64, and no function may use that
 	 * much stack. */
-	if (len >= SUS_MOUNT_KEEP_CMDLINE)
-		return -EINVAL;
-	cmd = kvmalloc(len + 1, GFP_KERNEL);
-	if (!cmd)
-		return -ENOMEM;
-	if (copy_from_user(cmd, buf, len)) {
-		kvfree(cmd);
-		return -EFAULT;
-	}
-	cmd[len] = '\0';
+    if (len >= SUS_MOUNT_KEEP_CMDLINE)
+        return -EINVAL;
+    cmd = kvmalloc(len + 1, GFP_KERNEL);
+    if (!cmd)
+        return -ENOMEM;
+    if (copy_from_user(cmd, buf, len)) {
+        kvfree(cmd);
+        return -EFAULT;
+    }
+    cmd[len] = '\0';
 
-	/* Commands only: a typo must not silently replace the list. */
-	rc = sus_mount_keep_command(cmd, false);
-	kvfree(cmd);
-	if (rc)
-		return rc;
-	return len;
+    /* Commands only: a typo must not silently replace the list. */
+    rc = sus_mount_keep_command(cmd, false);
+    kvfree(cmd);
+    if (rc)
+        return rc;
+    return len;
 }
 
 static const struct proc_ops sus_mount_keep_proc_ops = {
-	.proc_open = sus_mount_keep_proc_open,
-	.proc_read = seq_read,
-	.proc_write = sus_mount_keep_proc_write,
-	.proc_lseek = seq_lseek,
-	.proc_release = single_release,
+    .proc_open = sus_mount_keep_proc_open,
+    .proc_read = seq_read,
+    .proc_write = sus_mount_keep_proc_write,
+    .proc_lseek = seq_lseek,
+    .proc_release = single_release,
 };
 
 static struct proc_dir_entry *sus_mount_keep_entry;
@@ -2128,8 +2101,9 @@ static int sus_mount_scan_ns(struct mnt_namespace *ns, char *buf, unsigned long 
     int i;
 
     if (!sus_mount_ns_walk_begin()) {
-        pr_warn("sus_mount: namespace_sem could not be resolved at load time - refusing to walk ns %p without the lock the kernel's own mount-table iterator holds (mounts stay unmarked)\n",
-                ns);
+        pr_warn(
+            "sus_mount: namespace_sem could not be resolved at load time - refusing to walk ns %p without the lock the kernel's own mount-table iterator holds (mounts stay unmarked)\n",
+            ns);
         return -ENOSYS;
     }
 
@@ -2147,8 +2121,7 @@ static int sus_mount_scan_ns(struct mnt_namespace *ns, char *buf, unsigned long 
         batch[n_batch++] = id;
     }
     if (!n_batch) {
-        pr_warn("sus_mount: could not allocate KSU-range ids for ns %p - that namespace is left unmarked\n",
-                ns);
+        pr_warn("sus_mount: could not allocate KSU-range ids for ns %p - that namespace is left unmarked\n", ns);
         sus_mount_ns_walk_end();
         return 0;
     }
@@ -2157,7 +2130,8 @@ static int sus_mount_scan_ns(struct mnt_namespace *ns, char *buf, unsigned long 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(6, 12, 0)
     spin_lock(&ns->ns_lock);
 #endif
-    SUS_MOUNT_ITER_FOR(ns, pos) {
+    SUS_MOUNT_ITER_FOR(ns, pos)
+    {
         struct path mnt_path;
         struct mount *r;
         const char *shown;
@@ -2207,8 +2181,7 @@ static int sus_mount_scan_ns(struct mnt_namespace *ns, char *buf, unsigned long 
              * mounts show what d_path() actually renders for them. */
             if (scan_logged < 40) {
                 scan_logged++;
-                SUSFS_LOGI("sus_mount: scan %s -> %s\n", r->mnt_devname,
-                        IS_ERR_OR_NULL(dp) ? "(d_path failed)" : dp);
+                SUSFS_LOGI("sus_mount: scan %s -> %s\n", r->mnt_devname, IS_ERR_OR_NULL(dp) ? "(d_path failed)" : dp);
             }
             if (IS_ERR_OR_NULL(dp)) {
                 n_dpath_err++;
@@ -2221,15 +2194,13 @@ static int sus_mount_scan_ns(struct mnt_namespace *ns, char *buf, unsigned long 
         }
 
         if (used >= n_batch) {
-            pr_warn("sus_mount: id batch exhausted in ns %p, remaining mounts left unmarked\n",
-                    ns);
+            pr_warn("sus_mount: id batch exhausted in ns %p, remaining mounts left unmarked\n", ns);
             failed = true;
             break;
         }
         new_id = batch[used++];
-        SUSFS_LOGI("sus_mount: marked mnt_id %d -> %d (%s, devname %s)\n",
-                r->mnt_id, new_id, shown,
-                r->mnt_devname ? r->mnt_devname : "none");
+        SUSFS_LOGI("sus_mount: marked mnt_id %d -> %d (%s, devname %s)\n", r->mnt_id, new_id, shown,
+                   r->mnt_devname ? r->mnt_devname : "none");
         if (n_replaced < (int)ARRAY_SIZE(replaced))
             replaced[n_replaced++] = r->mnt_id;
         r->mnt_id = new_id;
@@ -2258,14 +2229,13 @@ static int sus_mount_scan_ns(struct mnt_namespace *ns, char *buf, unsigned long 
         sus_mount_ida_release(replaced[i]);
 
     if (hit_cap)
-        pr_warn("sus_mount: walk of ns %p stopped after %u entries (cap %d), result may be incomplete\n",
-                ns, seen, SUS_MOUNT_MAX_SCAN);
+        pr_warn("sus_mount: walk of ns %p stopped after %u entries (cap %d), result may be incomplete\n", ns, seen,
+                SUS_MOUNT_MAX_SCAN);
     if (failed)
-        pr_warn("sus_mount: marking in ns %p stopped early, %d mount(s) marked\n",
-                ns, marked);
-    SUSFS_LOGI("sus_mount: ns %p: seen=%u devname_hits=%u dpath_ok=%u dpath_err=%u skipped(other ns/cursor)=%u skipped(already marked)=%u marked=%d ids_alloc=%d\n",
-            ns, seen, n_devname, n_dpath_ok, n_dpath_err, n_skipped_ns,
-            n_skipped_marked, marked, n_batch);
+        pr_warn("sus_mount: marking in ns %p stopped early, %d mount(s) marked\n", ns, marked);
+    SUSFS_LOGI(
+        "sus_mount: ns %p: seen=%u devname_hits=%u dpath_ok=%u dpath_err=%u skipped(other ns/cursor)=%u skipped(already marked)=%u marked=%d ids_alloc=%d\n",
+        ns, seen, n_devname, n_dpath_ok, n_dpath_err, n_skipped_ns, n_skipped_marked, marked, n_batch);
     return marked;
 }
 
@@ -2279,11 +2249,13 @@ static int sus_mount_mark_ksu_mounts(void)
      * self-made id would leave an ida_free WARN behind on umount. */
     if (!sus_mount_ida_ready()) {
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 18, 0)
-        pr_warn("sus_mount: NOT marking: mnt_id_xa=%s __xa_alloc=%s __xa_erase=%s must all be supplied; min_mnt_id stays false, so the feature does nothing\n",
-                sus_mount_xa_obj_src, sus_mount_xa_alloc_src, sus_mount_xa_erase_src);
+        pr_warn(
+            "sus_mount: NOT marking: mnt_id_xa=%s __xa_alloc=%s __xa_erase=%s must all be supplied; min_mnt_id stays false, so the feature does nothing\n",
+            sus_mount_xa_obj_src, sus_mount_xa_alloc_src, sus_mount_xa_erase_src);
 #else
-        pr_warn("sus_mount: NOT marking: mnt_id_ida=%d ida_alloc_range=%d ida_free=%d must all resolve; min_mnt_id stays false, so the feature does nothing\n",
-                !!sus_mount_mnt_id_ida, !!pfn_ida_alloc_range, !!pfn_ida_free);
+        pr_warn(
+            "sus_mount: NOT marking: mnt_id_ida=%d ida_alloc_range=%d ida_free=%d must all resolve; min_mnt_id stays false, so the feature does nothing\n",
+            !!sus_mount_mnt_id_ida, !!pfn_ida_alloc_range, !!pfn_ida_free);
 #endif
         return -ENOSYS;
     }
@@ -2295,8 +2267,8 @@ static int sus_mount_mark_ksu_mounts(void)
 
     /* clamp the tunable (a value of 0/1 would match every mount line). */
     if (param_min_mnt_id < SUS_MOUNT_MIN_SANE_MNT_ID) {
-        pr_warn("sus_mount: min_mnt_id=%lu is below %d, clamping to %llu\n",
-                param_min_mnt_id, SUS_MOUNT_MIN_SANE_MNT_ID, DEFAULT_KSU_MNT_ID);
+        pr_warn("sus_mount: min_mnt_id=%lu is below %d, clamping to %llu\n", param_min_mnt_id,
+                SUS_MOUNT_MIN_SANE_MNT_ID, DEFAULT_KSU_MNT_ID);
         param_min_mnt_id = DEFAULT_KSU_MNT_ID;
     }
     min = sus_mount_min_mnt_id();
@@ -2324,14 +2296,15 @@ static int sus_mount_mark_ksu_mounts(void)
     kfree(buf);
 
     if (marked > 0)
-        SUSFS_LOGI("sus_mount: %d KSU mount(s) marked with real ids from the kernel's own mount-id allocator (>= %llu), %d identity record(s) cached\n",
-                marked, DEFAULT_KSU_MNT_ID, READ_ONCE(n_ident));
+        SUSFS_LOGI(
+            "sus_mount: %d KSU mount(s) marked with real ids from the kernel's own mount-id allocator (>= %llu), %d identity record(s) cached\n",
+            marked, DEFAULT_KSU_MNT_ID, READ_ONCE(n_ident));
     else if (marked < 0)
-        SUSFS_LOGI("sus_mount: scan refused (%d), nothing marked - the reason is the pr_warn above\n",
-                marked);
+        SUSFS_LOGI("sus_mount: scan refused (%d), nothing marked - the reason is the pr_warn above\n", marked);
     else
-        SUSFS_LOGI("sus_mount: 0 KSU mounts marked (nothing under /data/adb matched in this mnt ns, hide threshold %lu)\n",
-                min);
+        SUSFS_LOGI(
+            "sus_mount: 0 KSU mounts marked (nothing under /data/adb matched in this mnt ns, hide threshold %lu)\n",
+            min);
     return marked;
 }
 
@@ -2339,8 +2312,7 @@ int susfs_sus_mount_init(void)
 {
     int err;
 
-    pfn_security_cred_getsecid =
-        (void *)find_kernel_symbol_exact("security_cred_getsecid");
+    pfn_security_cred_getsecid = (void *)find_kernel_symbol_exact("security_cred_getsecid");
     pfn_d_path = (void *)find_kernel_symbol_exact("d_path");
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 18, 0)
     void *loader_xa = (void *)&mnt_id_xa;
@@ -2351,8 +2323,7 @@ int susfs_sus_mount_init(void)
     if (sus_mount_mnt_id_xa) {
         sus_mount_xa_obj_src = "kallsyms";
         if (loader_xa && loader_xa != (void *)sus_mount_mnt_id_xa)
-            pr_warn("sus_mount: mnt_id_xa: kallsyms %px != loader %px\n",
-                    sus_mount_mnt_id_xa, loader_xa);
+            pr_warn("sus_mount: mnt_id_xa: kallsyms %px != loader %px\n", sus_mount_mnt_id_xa, loader_xa);
     } else if (loader_xa) {
         sus_mount_mnt_id_xa = loader_xa;
         sus_mount_xa_obj_src = "loader";
@@ -2362,8 +2333,7 @@ int susfs_sus_mount_init(void)
     if (pfn_xa_alloc) {
         sus_mount_xa_alloc_src = "kallsyms";
         if (loader_alloc && loader_alloc != (void *)pfn_xa_alloc)
-            pr_warn("sus_mount: __xa_alloc: kallsyms %px != loader %px\n",
-                    (void *)pfn_xa_alloc, loader_alloc);
+            pr_warn("sus_mount: __xa_alloc: kallsyms %px != loader %px\n", (void *)pfn_xa_alloc, loader_alloc);
     } else if (loader_alloc) {
         pfn_xa_alloc = loader_alloc;
         sus_mount_xa_alloc_src = "loader";
@@ -2373,8 +2343,7 @@ int susfs_sus_mount_init(void)
     if (pfn_xa_erase) {
         sus_mount_xa_erase_src = "kallsyms";
         if (loader_erase && loader_erase != (void *)pfn_xa_erase)
-            pr_warn("sus_mount: __xa_erase: kallsyms %px != loader %px\n",
-                    (void *)pfn_xa_erase, loader_erase);
+            pr_warn("sus_mount: __xa_erase: kallsyms %px != loader %px\n", (void *)pfn_xa_erase, loader_erase);
     } else if (loader_erase) {
         pfn_xa_erase = loader_erase;
         sus_mount_xa_erase_src = "loader";
@@ -2396,41 +2365,52 @@ int susfs_sus_mount_init(void)
     }
 
     if (param_min_mnt_id < SUS_MOUNT_MIN_SANE_MNT_ID) {
-        pr_warn("sus_mount: min_mnt_id=%lu is below %d, clamping to %llu\n",
-                param_min_mnt_id, SUS_MOUNT_MIN_SANE_MNT_ID, DEFAULT_KSU_MNT_ID);
+        pr_warn("sus_mount: min_mnt_id=%lu is below %d, clamping to %llu\n", param_min_mnt_id,
+                SUS_MOUNT_MIN_SANE_MNT_ID, DEFAULT_KSU_MNT_ID);
         param_min_mnt_id = DEFAULT_KSU_MNT_ID;
     }
 
-    SUSFS_LOGI("sus_mount: su ctx \"%s\" -> sid %u (stock KernelSU uses \"u:r:su:s0\", override with susfs_guard_lkm.su_ctx)\n",
-            param_su_ctx, su_sid);
+    SUSFS_LOGI(
+        "sus_mount: su ctx \"%s\" -> sid %u (stock KernelSU uses \"u:r:su:s0\", override with susfs_guard_lkm.su_ctx)\n",
+        param_su_ctx, su_sid);
     if (!pfn_security_cred_getsecid)
-        pr_warn("sus_mount: security_cred_getsecid not found - no su-domain gating, KSU mounts will be hidden from EVERY process including su\n");
+        pr_warn(
+            "sus_mount: security_cred_getsecid not found - no su-domain gating, KSU mounts will be hidden from EVERY process including su\n");
     if (!pfn_d_path)
-        pr_warn("sus_mount: d_path not found - only mnt_devname is checked, meta-overlayfs style mounts will NOT be marked\n");
-    /* The id side must own real ids; each missing symbol is named explicitly and
+        pr_warn(
+            "sus_mount: d_path not found - only mnt_devname is checked, meta-overlayfs style mounts will NOT be marked\n");
+        /* The id side must own real ids; each missing symbol is named explicitly and
      * only disables the marking (the hook itself can still be installed). */
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 18, 0)
     SUSFS_LOGI("sus_mount: 6.18 mount-id allocator: mnt_id_xa via %s, __xa_alloc via %s, __xa_erase via %s\n",
-            sus_mount_xa_obj_src, sus_mount_xa_alloc_src, sus_mount_xa_erase_src);
+               sus_mount_xa_obj_src, sus_mount_xa_alloc_src, sus_mount_xa_erase_src);
     if (!sus_mount_mnt_id_xa)
-        pr_warn("sus_mount: mnt_id_xa not supplied (neither kallsyms nor the loader has the name) - KSU mounts will NOT be marked, threshold stays false (feature does nothing)\n");
+        pr_warn(
+            "sus_mount: mnt_id_xa not supplied (neither kallsyms nor the loader has the name) - KSU mounts will NOT be marked, threshold stays false (feature does nothing)\n");
     if (!pfn_xa_alloc)
-        pr_warn("sus_mount: __xa_alloc not supplied - KSU mounts will NOT be marked, threshold stays false (feature does nothing)\n");
+        pr_warn(
+            "sus_mount: __xa_alloc not supplied - KSU mounts will NOT be marked, threshold stays false (feature does nothing)\n");
     if (!pfn_xa_erase)
-        pr_warn("sus_mount: __xa_erase not supplied - KSU mounts will NOT be marked, threshold stays false (feature does nothing)\n");
+        pr_warn(
+            "sus_mount: __xa_erase not supplied - KSU mounts will NOT be marked, threshold stays false (feature does nothing)\n");
 #else
     if (!sus_mount_mnt_id_ida)
-        pr_warn("sus_mount: mnt_id_ida not found - KSU mounts will NOT be marked, threshold stays false (feature does nothing)\n");
+        pr_warn(
+            "sus_mount: mnt_id_ida not found - KSU mounts will NOT be marked, threshold stays false (feature does nothing)\n");
     if (!pfn_ida_alloc_range)
-        pr_warn("sus_mount: ida_alloc_range not found - KSU mounts will NOT be marked, threshold stays false (feature does nothing)\n");
+        pr_warn(
+            "sus_mount: ida_alloc_range not found - KSU mounts will NOT be marked, threshold stays false (feature does nothing)\n");
     if (!pfn_ida_free)
-        pr_warn("sus_mount: ida_free not found - KSU mounts will NOT be marked, threshold stays false (feature does nothing)\n");
+        pr_warn(
+            "sus_mount: ida_free not found - KSU mounts will NOT be marked, threshold stays false (feature does nothing)\n");
 #endif
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 12, 0)
     if (!sus_mount_namespace_sem)
-        pr_warn("sus_mount: namespace_sem not found - the namespace scan will refuse to walk, so KSU mounts will NOT be marked (feature does nothing)\n");
+        pr_warn(
+            "sus_mount: namespace_sem not found - the namespace scan will refuse to walk, so KSU mounts will NOT be marked (feature does nothing)\n");
     if (!pfn_put_mnt_ns)
-        pr_warn("sus_mount: put_mnt_ns not found - a namespace cloned after the enable is not recorded, so its mounts' ids are only learned by a later scan\n");
+        pr_warn(
+            "sus_mount: put_mnt_ns not found - a namespace cloned after the enable is not recorded, so its mounts' ids are only learned by a later scan\n");
 #endif
 
     /* upstream defaults this OFF (static key false) so zygisk can see sus
@@ -2457,13 +2437,13 @@ int susfs_sus_mount_init(void)
     (void)sus_mount_mark_ksu_mounts();
 
     if (susfs_control_node_allowed()) {
-        sus_mount_keep_entry = proc_create("susfs_hide_mounts", 0777, NULL,
-                           &sus_mount_keep_proc_ops);
+        sus_mount_keep_entry = proc_create("susfs_hide_mounts", 0777, NULL, &sus_mount_keep_proc_ops);
         if (!sus_mount_keep_entry)
-            pr_warn("sus_mount: proc_create(susfs_hide_mounts) failed - runtime prefix control unavailable, use the hide_mounts parameter\n");
+            pr_warn(
+                "sus_mount: proc_create(susfs_hide_mounts) failed - runtime prefix control unavailable, use the hide_mounts parameter\n");
     } else {
-        SUSFS_LOGI("sus_mount: /proc/susfs_hide_mounts not created (expose_proc=%d lsm=%d)\n",
-                (int)susfs_expose_proc, (int)sus_path_lsm_active());
+        SUSFS_LOGI("sus_mount: /proc/susfs_hide_mounts not created (expose_proc=%d lsm=%d)\n", (int)susfs_expose_proc,
+                   (int)sus_path_lsm_active());
     }
 
     /* Apply what the insmod parameter cached (see mount_keep_pending): the import guard has passed and
@@ -2477,8 +2457,9 @@ int susfs_sus_mount_init(void)
         int rc = sus_mount_keep_command(mount_keep_pending, true);
 
         if (rc)
-            pr_warn("sus_mount: applying hide_mounts=\"%s\" from insmod failed %d - that prefix list is not in effect\n",
-                    mount_keep_pending, rc);
+            pr_warn(
+                "sus_mount: applying hide_mounts=\"%s\" from insmod failed %d - that prefix list is not in effect\n",
+                mount_keep_pending, rc);
     }
     mutex_unlock(&sus_mount_keep_param_lock);
     return 0;
@@ -2614,7 +2595,8 @@ static int sus_mount_register(void)
         n_show_probes++;
     }
     if (!n_show_probes) {
-        pr_err("sus_mount: none of show_vfsstat/show_mountinfo/show_vfsmnt could be hooked - not reporting the feature as enabled\n");
+        pr_err(
+            "sus_mount: none of show_vfsstat/show_mountinfo/show_vfsmnt could be hooked - not reporting the feature as enabled\n");
         mutex_unlock(&sus_mount_ctl_lock);
         return -EINVAL;
     }
@@ -2624,18 +2606,23 @@ static int sus_mount_register(void)
      * the place upstream rewrites them. */
     rc = sus_mount_fdinfo_arm();
     if (rc)
-        pr_warn("sus_mount: the fdinfo probe could not be armed %d - /proc/<pid>/fdinfo keeps printing the real mnt_id\n", rc);
+        pr_warn(
+            "sus_mount: the fdinfo probe could not be armed %d - /proc/<pid>/fdinfo keeps printing the real mnt_id\n",
+            rc);
     rc = register_kretprobe(&kr_statx);
     if (rc) {
         susfs_krp_forget_addr(&kr_statx);
-        pr_warn("sus_mount: register_kretprobe(__arm64_sys_statx) failed %d - statx keeps returning the real stx_mnt_id\n", rc);
+        pr_warn(
+            "sus_mount: register_kretprobe(__arm64_sys_statx) failed %d - statx keeps returning the real stx_mnt_id\n",
+            rc);
     } else {
         kr_statx_ok = true;
     }
     rc = register_kretprobe(&kr_statx_do);
     if (rc) {
         susfs_krp_forget_addr(&kr_statx_do);
-        pr_warn("sus_mount: register_kretprobe(do_statx) failed %d - the second statx landing point is not armed\n", rc);
+        pr_warn("sus_mount: register_kretprobe(do_statx) failed %d - the second statx landing point is not armed\n",
+                rc);
     } else {
         kr_statx_do_ok = true;
     }
@@ -2646,8 +2633,9 @@ static int sus_mount_register(void)
     rc = register_kprobe(&kp_sb_down);
     if (rc) {
         susfs_kp_forget_addr(&kp_sb_down);
-        pr_warn("sus_mount: register_kprobe(generic_shutdown_super) failed %d - records are NOT dropped when their filesystem is unmounted, a reused s_dev can match an unrelated mount\n",
-                rc);
+        pr_warn(
+            "sus_mount: register_kprobe(generic_shutdown_super) failed %d - records are NOT dropped when their filesystem is unmounted, a reused s_dev can match an unrelated mount\n",
+            rc);
     } else {
         kp_sb_down_ok = true;
     }
@@ -2657,8 +2645,9 @@ static int sus_mount_register(void)
     rc = register_kretprobe(&kr_clone_ns);
     if (rc) {
         susfs_krp_forget_addr(&kr_clone_ns);
-        pr_warn("sus_mount: register_kretprobe(copy_mnt_ns) failed %d - ids of mounts in a namespace copied later are only learned when its mount table is read\n",
-                rc);
+        pr_warn(
+            "sus_mount: register_kretprobe(copy_mnt_ns) failed %d - ids of mounts in a namespace copied later are only learned when its mount table is read\n",
+            rc);
     } else {
         kr_clone_ns_ok = true;
     }
@@ -2669,8 +2658,9 @@ static int sus_mount_register(void)
     rc = register_kretprobe(&kr_newmnt);
     if (rc) {
         susfs_krp_forget_addr(&kr_newmnt);
-        pr_warn("sus_mount: register_kretprobe(attach_recursive_mnt) failed %d - a mount created after the enable is NOT hidden (not marked, no identity recorded)\n",
-                rc);
+        pr_warn(
+            "sus_mount: register_kretprobe(attach_recursive_mnt) failed %d - a mount created after the enable is NOT hidden (not marked, no identity recorded)\n",
+            rc);
     } else {
         kr_newmnt_ok = true;
     }
@@ -2682,7 +2672,7 @@ static int sus_mount_register(void)
 /* supercall: CMD_SUSFS_HIDE_SUS_MNTS_FOR_NON_SU_PROCS */
 void susfs_sus_mount_supercall(void __user **arg)
 {
-    struct st_susfs_hide_sus_mnts_for_non_su_procs info = {0};
+    struct st_susfs_hide_sus_mnts_for_non_su_procs info = { 0 };
     int rc;
 
     if (copy_from_user(&info, (void __user *)*arg, sizeof(info))) {
@@ -2703,8 +2693,9 @@ void susfs_sus_mount_supercall(void __user **arg)
          * see from err=0.  (A scan that found zero KSU mounts is not a failure: rc==0.) */
         rc = sus_mount_mark_ksu_mounts();
         if (rc < 0) {
-            pr_warn("sus_mount: scan on enable failed %d - hook is live but no mount was marked, reporting the failure to userspace\n",
-                    rc);
+            pr_warn(
+                "sus_mount: scan on enable failed %d - hook is live but no mount was marked, reporting the failure to userspace\n",
+                rc);
             info.err = rc;
             goto out;
         }
@@ -2715,7 +2706,7 @@ void susfs_sus_mount_supercall(void __user **arg)
     SUSFS_LOGI("sus_mount: %s (supercall)\n", info.enabled ? "hide" : "unhide");
 out:
     /* upstream writes back only ->err for input-type commands */
-    if (copy_to_user(&((struct st_susfs_hide_sus_mnts_for_non_su_procs __user *)*arg)->err,
-                     &info.err, sizeof(info.err)))
+    if (copy_to_user(&((struct st_susfs_hide_sus_mnts_for_non_su_procs __user *)*arg)->err, &info.err,
+                     sizeof(info.err)))
         pr_warn("sus_mount supercall copy_to_user failed\n");
 }

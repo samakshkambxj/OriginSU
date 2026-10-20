@@ -20,14 +20,14 @@ bool susfs_ksu_umount_ask(uid_t uid);
  * su-granted app, the manager and a profile with "umount modules" off are not hidden from. */
 static inline bool susfs_is_current_proc_umounted_app(void)
 {
-	uid_t uid = current_uid().val;
+    uid_t uid = current_uid().val;
 
-	if (uid < 10000)
-		return false;
-	if (READ_ONCE(susfs_ksu_umount_gate_off))
-		return true;	/* nothing resolved to ask: hide from app uids, as this module did before #34 */
+    if (uid < 10000)
+        return false;
+    if (READ_ONCE(susfs_ksu_umount_gate_off))
+        return true; /* nothing resolved to ask: hide from app uids, as this module did before #34 */
 
-	return susfs_ksu_umount_ask(uid);
+    return susfs_ksu_umount_ask(uid);
 }
 
 /* The uids KernelSU itself asks the umount question about - the gate at
@@ -48,11 +48,11 @@ static inline bool susfs_is_current_proc_umounted_app(void)
  * answered "yes" without the boundary below. */
 static inline bool susfs_ksu_umount_uid_applies(uid_t uid)
 {
-	uid_t appid = uid % 100000;			/* PER_USER_RANGE */
+    uid_t appid = uid % 100000; /* PER_USER_RANGE */
 
-	return (appid >= 10000 && appid <= 19999) ||	/* is_appuid() */
-	       (appid >= 99000 && appid <= 99999) ||	/* is_isolated_process() */
-	       uid == 1053;				/* WEBVIEW_ZYGOTE_UID */
+    return (appid >= 10000 && appid <= 19999) || /* is_appuid() */
+           (appid >= 99000 && appid <= 99999) || /* is_isolated_process() */
+           uid == 1053; /* WEBVIEW_ZYGOTE_UID */
 }
 
 /* Upstream's susfs_is_current_proc_umounted(): the same umount answer WITHOUT the app-uid half,
@@ -72,14 +72,14 @@ static inline bool susfs_ksu_umount_uid_applies(uid_t uid)
  * default. */
 static inline bool susfs_is_current_proc_umounted(void)
 {
-	uid_t uid = current_uid().val;
+    uid_t uid = current_uid().val;
 
-	if (READ_ONCE(susfs_ksu_umount_gate_off))
-		return false;
-	if (!susfs_ksu_umount_uid_applies(uid))
-		return false;
+    if (READ_ONCE(susfs_ksu_umount_gate_off))
+        return false;
+    if (!susfs_ksu_umount_uid_applies(uid))
+        return false;
 
-	return susfs_ksu_umount_ask(uid);
+    return susfs_ksu_umount_ask(uid);
 }
 
 int susfs_ksu_umount_gate_init(void);

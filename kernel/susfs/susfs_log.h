@@ -18,10 +18,10 @@
  * rule add still printed "susfs_guard_lkm: sus_path: ..." in dmesg - a root-side fingerprint. */
 bool susfs_log_enabled(void);
 
-#define SUSFS_LOGI(fmt, ...)						\
-	do {								\
-		if (susfs_log_enabled())				\
-			pr_info(fmt, ##__VA_ARGS__);			\
-	} while (0)
+#define SUSFS_LOGI(fmt, ...)                                                                                           \
+    do {                                                                                                               \
+        if (susfs_log_enabled())                                                                                       \
+            pr_info(fmt, ##__VA_ARGS__);                                                                               \
+    } while (0)
 
 #endif

@@ -387,7 +387,7 @@ pub fn check_feature(id: &str) -> Result<()> {
     let state = crate::android::ksucalls::get_feature(feature_id as u32)
         .with_context(|| format!("Failed to get feature {id}"))?;
 
-   if state.supported {
+    if state.supported {
         println!("supported");
     } else {
         println!("unsupported");

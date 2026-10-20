@@ -50,12 +50,12 @@
  * registration failure too, for the reason in the block above. */
 static inline void susfs_kp_forget_addr(struct kprobe *kp)
 {
-	kp->addr = NULL;
+    kp->addr = NULL;
 }
 
 static inline void susfs_krp_forget_addr(struct kretprobe *krp)
 {
-	krp->kp.addr = NULL;
+    krp->kp.addr = NULL;
 }
 
 #endif /* _SUSFS_KPROBE_H */

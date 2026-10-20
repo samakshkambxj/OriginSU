@@ -16,8 +16,7 @@ use std::{
 
 use crate::{
     android::{
-        hot_install,
-        ksucalls,
+        hot_install, ksucalls,
         module::ModuleType::{Active, All},
         restorecon::{restore_syscon, setsyscon},
         sepolicy,

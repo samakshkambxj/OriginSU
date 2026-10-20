@@ -6,21 +6,21 @@
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/init.h>
-#include <linux/version.h>	/* LINUX_VERSION_CODE: the MODULE_IMPORT_NS spelling below */
-#include <linux/fs.h>		/* d_inode() for the control-node labels */
-#include <linux/namei.h>	/* kern_path() */
-#include <linux/path.h>		/* path_put() */
-#include <linux/security.h>	/* security_secctx_to_secid(): the nodes' SELinux label */
+#include <linux/version.h> /* LINUX_VERSION_CODE: the MODULE_IMPORT_NS spelling below */
+#include <linux/fs.h> /* d_inode() for the control-node labels */
+#include <linux/namei.h> /* kern_path() */
+#include <linux/path.h> /* path_put() */
+#include <linux/security.h> /* security_secctx_to_secid(): the nodes' SELinux label */
 
 #include "symbol_resolver.h"
-#include "patch_memory.h"	/* ksu_patch_memory_init(): the flush helper's name differs per kernel */
+#include "patch_memory.h" /* ksu_patch_memory_init(): the flush helper's name differs per kernel */
 #include "susfs_log.h"
 #include "ksu_umount_gate.h"
-#include "ksu_allow_gate.h"	/* KernelSU's allow predicate: the control-node gate */
-#include "btf_layout.h"		/* the SELinux inode_security_struct.sid offset, by BTF */
+#include "ksu_allow_gate.h" /* KernelSU's allow predicate: the control-node gate */
+#include "btf_layout.h" /* the SELinux inode_security_struct.sid offset, by BTF */
 #include "lsm_hook.h"
 #include "susfs.h"
-#include "susfs_opath.h"	/* SUSFS_OPATH_NODE + the layer's init/exit */
+#include "susfs_opath.h" /* SUSFS_OPATH_NODE + the layer's init/exit */
 
 /* The module's own name lives in susfs.h (SUSFS_LKM_MODULE_NAME / SUSFS_LKM_SYSFS_DIR):
  * /sys/module's directory and the rules that hide it (susfs_hide_syms.c) must agree, and the
@@ -44,12 +44,8 @@ bool susfs_expose_proc = true;
 module_param_named(expose_proc, susfs_expose_proc, bool, 0600);
 
 static const char *const susfs_self_hide_paths[] = {
-    "/proc/susfs_kstat",
-    "/proc/susfs_open_redirect",
-    "/proc/susfs_enable_log",
-    "/proc/susfs_avc_spoof",
-    SUSFS_HIDE_MODULES_NODE,
-    SUSFS_HIDE_MOUNTS_NODE,
+    "/proc/susfs_kstat", "/proc/susfs_open_redirect", "/proc/susfs_enable_log", "/proc/susfs_avc_spoof",
+    SUSFS_HIDE_MODULES_NODE, SUSFS_HIDE_MOUNTS_NODE,
     /* sus_path's own interface (the rule listing): it goes through the same table it
      * prints, so a broken rule table is visible in the very view that reports it. */
     SUSFS_PATH_NODE,
@@ -74,8 +70,7 @@ static void susfs_self_hide_nodes(void)
         int rc = sus_path_add_self_hidden(susfs_self_hide_paths[i]);
 
         if (rc)
-            pr_warn("susfs_guard_lkm: self-hide %s failed %d\n",
-                    susfs_self_hide_paths[i], rc);
+            pr_warn("susfs_guard_lkm: self-hide %s failed %d\n", susfs_self_hide_paths[i], rc);
     }
 }
 
@@ -97,7 +92,7 @@ static void susfs_self_hide_nodes(void)
 #if LINUX_VERSION_CODE < KERNEL_VERSION(6, 4, 0)
 static const char susfs_control_selinux_ctx[] = "u:object_r:ksu_file:s0";
 static const char susfs_proc_selinux_ctx[] = "u:object_r:proc:s0";
-static size_t susfs_isec_base_offset;	/* SELinux's slot inside inode->i_security */
+static size_t susfs_isec_base_offset; /* SELinux's slot inside inode->i_security */
 static size_t susfs_isec_sid_offset;
 static u32 susfs_control_sid;
 static u32 susfs_proc_sid;
@@ -109,14 +104,10 @@ static bool susfs_prepare_control_sid(void)
     int sel_off;
     int rc;
 
-    if (security_secctx_to_secid(susfs_control_selinux_ctx,
-                                 strlen(susfs_control_selinux_ctx),
-                                 &susfs_control_sid) ||
+    if (security_secctx_to_secid(susfs_control_selinux_ctx, strlen(susfs_control_selinux_ctx), &susfs_control_sid) ||
         !susfs_control_sid)
         return false;
-    if (security_secctx_to_secid(susfs_proc_selinux_ctx,
-                                 strlen(susfs_proc_selinux_ctx),
-                                 &susfs_proc_sid) ||
+    if (security_secctx_to_secid(susfs_proc_selinux_ctx, strlen(susfs_proc_selinux_ctx), &susfs_proc_sid) ||
         !susfs_proc_sid)
         return false;
     /* Idempotent: the fsnotify layer has usually called this already. */
@@ -128,16 +119,14 @@ static bool susfs_prepare_control_sid(void)
      * inode->i_security IS the struct and the base stays 0. */
     blob_sizes = find_kernel_symbol_exact("selinux_blob_sizes");
     if (blob_sizes) {
-        if (susfs_btf_member_offset("lsm_blob_sizes", "lbs_inode", "int",
-                                    &lbs_inode_off))
+        if (susfs_btf_member_offset("lsm_blob_sizes", "lbs_inode", "int", &lbs_inode_off))
             return false;
         sel_off = READ_ONCE(*(int *)((char *)blob_sizes + lbs_inode_off));
         if (sel_off < 0 || sel_off > 4096)
             return false;
         susfs_isec_base_offset = (size_t)sel_off;
     }
-    rc = susfs_btf_member_offset("inode_security_struct", "sid", "uint",
-                                 &susfs_isec_sid_offset);
+    rc = susfs_btf_member_offset("inode_security_struct", "sid", "uint", &susfs_isec_sid_offset);
     return !rc;
 }
 
@@ -150,8 +139,7 @@ static void susfs_set_inode_sid(struct inode *inode, u32 sid)
 
     if (!inode->i_security)
         return;
-    field = (u32 *)((char *)inode->i_security + susfs_isec_base_offset +
-                    susfs_isec_sid_offset);
+    field = (u32 *)((char *)inode->i_security + susfs_isec_base_offset + susfs_isec_sid_offset);
     if (READ_ONCE(*field) != susfs_proc_sid)
         return;
     WRITE_ONCE(*field, sid);
@@ -185,9 +173,7 @@ static void susfs_relabel_control_nodes(void)
         found++;
         inode = d_inode(p.dentry);
         if (inode && inode->i_security) {
-            u32 *field = (u32 *)((char *)inode->i_security +
-                                 susfs_isec_base_offset +
-                                 susfs_isec_sid_offset);
+            u32 *field = (u32 *)((char *)inode->i_security + susfs_isec_base_offset + susfs_isec_sid_offset);
 
             if (READ_ONCE(*field) == susfs_proc_sid) {
                 susfs_set_inode_sid(inode, susfs_control_sid);
@@ -196,8 +182,7 @@ static void susfs_relabel_control_nodes(void)
         }
         path_put(&p);
     }
-    SUSFS_LOGI("susfs: %d of %d control node(s) relabelled to %s\n",
-               changed, found, susfs_control_selinux_ctx);
+    SUSFS_LOGI("susfs: %d of %d control node(s) relabelled to %s\n", changed, found, susfs_control_selinux_ctx);
     /* Only a node that is actually relabelled may be widened to the KernelSU set: a node left under
      * proc's label answers EACCES to exactly the callers the wider gate just admitted, and EACCES
      * says "it is here" where ENOENT says "nothing here".  All-or-nothing on purpose - a partial
@@ -230,35 +215,35 @@ static struct {
     int (*init)(void);
     void (*exit)(void);
     bool fatal;
-    bool armed;			/* exit is run for every layer that was attempted */
+    bool armed; /* exit is run for every layer that was attempted */
 } susfs_layers[] = {
     /* First, and NOT fatal: this layer only decides whether KernelSU's predicate was found at load.
      * When it was not, the gates answer the pre-#34 way and every other layer still works - so a
      * failure here is a degradation, not a reason to refuse the module.  Skipping this init entirely
      * (fail_layer=1) is safe for the same reason: the flag it sets defaults to the pre-#34 answer. */
-    { "ksu_umount_gate", susfs_ksu_umount_gate_init,	NULL,			false, false },
-    { "ksu_allow_gate",	susfs_ksu_allow_gate_init,	NULL,			false, false },
-    { "lsm_hook",	layer_lsm_hook_init,		ksu_lsm_hook_exit,	false, false },
-    { "sus_path",	sus_path_init,			sus_path_exit,		true,  false },
+    { "ksu_umount_gate", susfs_ksu_umount_gate_init, NULL, false, false },
+    { "ksu_allow_gate", susfs_ksu_allow_gate_init, NULL, false, false },
+    { "lsm_hook", layer_lsm_hook_init, ksu_lsm_hook_exit, false, false },
+    { "sus_path", sus_path_init, sus_path_exit, true, false },
     /* After sus_path, because this layer asks sus_path's rule table for every open it
      * post-checks - arming it first would install table entries that answer from a table
      * nobody has filled in yet.  NOT fatal: a failure here only means open(..., O_PATH) keeps
      * answering the pre-layer way (which is what the layer exists to fix, not what makes the
      * module useful), and every entry carries its own reason in the log. */
-    { "opath",		susfs_opath_init,		susfs_opath_exit,	false, false },
+    { "opath", susfs_opath_init, susfs_opath_exit, false, false },
     /* After sus_path, whose rule table it asks.  NOT fatal: when it does not arm the
      * post-hoc filter still hides, it is only detectable while doing so. */
-    { "dirent",		susfs_sus_dirent_init,		susfs_sus_dirent_exit,	false, false },
-    { "uname",		susfs_uname_init,		susfs_uname_exit,	false, false },
-    { "kstat",		susfs_kstat_init,		susfs_kstat_exit,	false, false },
-    { "sus_map",	susfs_sus_map_init,		susfs_sus_map_exit,	false, false },
-    { "sus_mount",	susfs_sus_mount_init,		susfs_sus_mount_exit,	false, false },
-    { "cmdline",	susfs_spoof_cmdline_init,	susfs_spoof_cmdline_exit, false, false },
-    { "open_redirect",	susfs_open_redirect_init,	susfs_open_redirect_exit, false, false },
-    { "enable_log",	susfs_enable_log_init,		susfs_enable_log_exit,	false, false },
-    { "avc_spoof",	susfs_avc_spoof_init,		susfs_avc_spoof_exit,	false, false },
-    { "supercall",	susfs_supercall_init,		susfs_supercall_exit,	true,  false },
-    { "hide_syms",	susfs_hide_syms_init,		susfs_hide_syms_exit,	false, false },
+    { "dirent", susfs_sus_dirent_init, susfs_sus_dirent_exit, false, false },
+    { "uname", susfs_uname_init, susfs_uname_exit, false, false },
+    { "kstat", susfs_kstat_init, susfs_kstat_exit, false, false },
+    { "sus_map", susfs_sus_map_init, susfs_sus_map_exit, false, false },
+    { "sus_mount", susfs_sus_mount_init, susfs_sus_mount_exit, false, false },
+    { "cmdline", susfs_spoof_cmdline_init, susfs_spoof_cmdline_exit, false, false },
+    { "open_redirect", susfs_open_redirect_init, susfs_open_redirect_exit, false, false },
+    { "enable_log", susfs_enable_log_init, susfs_enable_log_exit, false, false },
+    { "avc_spoof", susfs_avc_spoof_init, susfs_avc_spoof_exit, false, false },
+    { "supercall", susfs_supercall_init, susfs_supercall_exit, true, false },
+    { "hide_syms", susfs_hide_syms_init, susfs_hide_syms_exit, false, false },
 };
 
 /* Diagnostic: make one layer's init fail, by 1-based index, to exercise the rollback path
@@ -323,8 +308,8 @@ static int __init susfs_init(void)
         susfs_layers[i].armed = true;
 
         if (fail_layer == i + 1) {
-            pr_warn("susfs_guard_lkm: fail_layer=%d - forcing %s's init to fail (diagnostic)\n",
-                    fail_layer, susfs_layers[i].name);
+            pr_warn("susfs_guard_lkm: fail_layer=%d - forcing %s's init to fail (diagnostic)\n", fail_layer,
+                    susfs_layers[i].name);
             ret = -EIO;
         } else {
             ret = susfs_layers[i].init ? susfs_layers[i].init() : 0;
@@ -334,14 +319,12 @@ static int __init susfs_init(void)
             continue;
 
         if (susfs_layers[i].fatal) {
-            pr_err("susfs_guard_lkm: %s init failed %d, refusing to load\n",
-                   susfs_layers[i].name, ret);
+            pr_err("susfs_guard_lkm: %s init failed %d, refusing to load\n", susfs_layers[i].name, ret);
             /* The kernel is about to free this module; a hook left behind points into it. */
             susfs_layers_down(i);
             return ret;
         }
-        pr_warn("susfs_guard_lkm: %s init failed %d - that feature stays off\n",
-                susfs_layers[i].name, ret);
+        pr_warn("susfs_guard_lkm: %s init failed %d - that feature stays off\n", susfs_layers[i].name, ret);
     }
 
     /* Registered last and undone implicitly: these are entries in sus_path's table, which
@@ -358,8 +341,9 @@ static int __init susfs_init(void)
      * operator greps for, so it stays unconditional even for a silent load - otherwise
      * "loaded but logging off" is indistinguishable from "not loaded".  The prefix comes
      * from pr_fmt (susfs_log.h), so the message must not repeat it. */
-    pr_info("loaded. This module is filtered out of /proc/modules for every caller including root, so `lsmod | grep susfs` stays empty - check /sys/module/%s instead (a second insmod fails with -EEXIST while it is loaded).\n",
-            SUSFS_LKM_MODULE_NAME);
+    pr_info(
+        "loaded. This module is filtered out of /proc/modules for every caller including root, so `lsmod | grep susfs` stays empty - check /sys/module/%s instead (a second insmod fails with -EEXIST while it is loaded).\n",
+        SUSFS_LKM_MODULE_NAME);
 
     return 0;
 }

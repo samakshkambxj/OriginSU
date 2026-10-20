@@ -46,8 +46,11 @@ struct ksu_lsm_hook {
 
 #define KSU_LSM_HOOK_INIT(member, target_symbol, replacement_fn, off)                                                  \
     {                                                                                                                  \
-        .head_name = #member, .target_name = target_symbol, .head_offset = offsetof(KSU_LSM_HOOK_HEADS_TYPE, member),  \
-        .hook_offset = offsetof(struct security_hook_list, hook.member), .replacement = (void *)(replacement_fn),      \
+        .head_name = #member,                                                                                          \
+        .target_name = target_symbol,                                                                                  \
+        .head_offset = offsetof(KSU_LSM_HOOK_HEADS_TYPE, member),                                                      \
+        .hook_offset = offsetof(struct security_hook_list, hook.member),                                               \
+        .replacement = (void *)(replacement_fn),                                                                       \
         .offset = off,                                                                                                 \
     }
 
@@ -60,11 +63,13 @@ struct ksu_lsm_hook {
  * where each member is `struct lsm_static_call <member>[MAX_LSM_COUNT]`, so the offset
  * names the first slot of that hook's array and is only the fallback of the identity
  * scan) - which is why one macro serves both dispatch types. */
-#define KSU_LSM_HOOK_INSERT(member, replacement_fn)                                          \
-    {                                                                                        \
-        .head_name = #member, .head_offset = offsetof(KSU_LSM_HOOK_HEADS_TYPE, member),       \
-        .hook_offset = offsetof(struct security_hook_list, hook.member),                      \
-        .replacement = (void *)(replacement_fn), .insert = true,                              \
+#define KSU_LSM_HOOK_INSERT(member, replacement_fn)                                                                    \
+    {                                                                                                                  \
+        .head_name = #member,                                                                                          \
+        .head_offset = offsetof(KSU_LSM_HOOK_HEADS_TYPE, member),                                                      \
+        .hook_offset = offsetof(struct security_hook_list, hook.member),                                               \
+        .replacement = (void *)(replacement_fn),                                                                       \
+        .insert = true,                                                                                                \
     }
 
 /* Runtime patching of existing LSM hook slots (workaround for out-of-tree modules; the normal

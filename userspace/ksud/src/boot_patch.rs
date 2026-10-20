@@ -15,8 +15,8 @@ use anyhow::{Context, Result, anyhow, bail, ensure};
 use memmap2::{Mmap, MmapOptions};
 use regex_lite::Regex;
 
-use crate::{assets, banner};
 use crate::feature_id::{FeatureId, parse_feature_id};
+use crate::{assets, banner};
 
 const KSU_BLOCK_MODULES_CONFIG: &str = "ksu_block_modules";
 const KSU_BLOCK_MODULES_MAX_LEN: usize = 255;

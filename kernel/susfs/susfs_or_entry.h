@@ -14,17 +14,17 @@
  * found every symbol it needs, and the wrapper tests it before each call, so a missing symbol
  * costs nothing but the feature. */
 enum susfs_or_entry_kind {
-	SUSFS_OR_ENTRY_OPENAT = 0,
-	SUSFS_OR_ENTRY_OPENAT2,
-	SUSFS_OR_ENTRY_COMPAT_OPEN,
-	SUSFS_OR_ENTRY_COMPAT_OPENAT,
-	SUSFS_OR_ENTRY_COMPAT_OPENAT2,
-	SUSFS_OR_ENTRY_KIND_COUNT,
+    SUSFS_OR_ENTRY_OPENAT = 0,
+    SUSFS_OR_ENTRY_OPENAT2,
+    SUSFS_OR_ENTRY_COMPAT_OPEN,
+    SUSFS_OR_ENTRY_COMPAT_OPENAT,
+    SUSFS_OR_ENTRY_COMPAT_OPENAT2,
+    SUSFS_OR_ENTRY_KIND_COUNT,
 };
 
 /* Returned when the hook did not redirect: the caller then runs the original syscall.  LONG_MIN
  * cannot be a real answer here (a fd or -errno), so a mistake cannot be mistaken for one. */
-#define SUSFS_OR_ENTRY_PASS	LONG_MIN
+#define SUSFS_OR_ENTRY_PASS LONG_MIN
 
 typedef long (*susfs_or_entry_fn_t)(const struct pt_regs *regs, int kind);
 
@@ -34,7 +34,7 @@ extern susfs_or_entry_fn_t susfs_or_entry_hook;
  * a rule that cannot fire is worse than no rule, so it refuses rather than register one. */
 static inline bool susfs_or_entry_armed(void)
 {
-	return READ_ONCE(susfs_or_entry_hook) != NULL;
+    return READ_ONCE(susfs_or_entry_hook) != NULL;
 }
 
 /* Both are called from the open_redirect layer's init/exit.  init never fails: the layer is

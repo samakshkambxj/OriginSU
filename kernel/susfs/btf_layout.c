@@ -46,8 +46,8 @@ static u32 susfs_btf_unwrap(u32 id)
         if (!t)
             return 0;
         kind = BTF_INFO_KIND(t->info);
-        if (kind != BTF_KIND_TYPEDEF && kind != BTF_KIND_CONST &&
-            kind != BTF_KIND_VOLATILE && kind != BTF_KIND_RESTRICT && kind != 18)
+        if (kind != BTF_KIND_TYPEDEF && kind != BTF_KIND_CONST && kind != BTF_KIND_VOLATILE &&
+            kind != BTF_KIND_RESTRICT && kind != 18)
             return id;
         id = t->type;
     }
@@ -64,8 +64,7 @@ static bool susfs_btf_named(const struct btf_type *t, const char *name, u32 kind
     return actual && !strcmp(actual, name);
 }
 
-static const struct btf_member *susfs_btf_member(const struct btf_type *t,
-                                               const char *name)
+static const struct btf_member *susfs_btf_member(const struct btf_type *t, const char *name)
 {
     const struct btf_member *members = (const void *)(t + 1);
     const struct btf_member *found = NULL;
@@ -76,8 +75,7 @@ static const struct btf_member *susfs_btf_member(const struct btf_type *t,
 
         if (!actual || strcmp(actual, name))
             continue;
-        if (found || (BTF_INFO_KFLAG(t->info) &&
-                      BTF_MEMBER_BITFIELD_SIZE(members[i].offset)))
+        if (found || (BTF_INFO_KFLAG(t->info) && BTF_MEMBER_BITFIELD_SIZE(members[i].offset)))
             return NULL;
         found = &members[i];
     }
@@ -123,8 +121,8 @@ static bool susfs_btf_matches(u32 id, const char *wanted)
         name = susfs_btf_name(t->name_off);
         if (kind == BTF_KIND_TYPEDEF && name && !strcmp(name, base))
             return true;
-        if (kind == BTF_KIND_TYPEDEF || kind == BTF_KIND_CONST ||
-            kind == BTF_KIND_VOLATILE || kind == BTF_KIND_RESTRICT || kind == 18) {
+        if (kind == BTF_KIND_TYPEDEF || kind == BTF_KIND_CONST || kind == BTF_KIND_VOLATILE ||
+            kind == BTF_KIND_RESTRICT || kind == 18) {
             id = t->type;
             continue;
         }
@@ -134,25 +132,21 @@ static bool susfs_btf_matches(u32 id, const char *wanted)
             if (kind != BTF_KIND_INT || t->size != sizeof(u32))
                 return false;
             encoding = *(const u32 *)(t + 1);
-            return BTF_INT_BITS(encoding) == 32 &&
-                   BTF_INT_OFFSET(encoding) == 0 &&
-                   !!(BTF_INT_ENCODING(encoding) & BTF_INT_SIGNED) ==
-                       !strcmp(base, "int");
+            return BTF_INT_BITS(encoding) == 32 && BTF_INT_OFFSET(encoding) == 0 &&
+                   !!(BTF_INT_ENCODING(encoding) & BTF_INT_SIGNED) == !strcmp(base, "int");
         }
         return kind == BTF_KIND_STRUCT && name && !strcmp(name, base);
     }
     return false;
 }
 
-static int susfs_btf_proto(u32 id, const char *result,
-                          const char *const *params, size_t count)
+static int susfs_btf_proto(u32 id, const char *result, const char *const *params, size_t count)
 {
     const struct btf_type *t = susfs_btf_type(susfs_btf_unwrap(id));
     const struct btf_param *args;
     size_t i;
 
-    if (!t || BTF_INFO_KIND(t->info) != BTF_KIND_FUNC_PROTO ||
-        BTF_INFO_VLEN(t->info) != count ||
+    if (!t || BTF_INFO_KIND(t->info) != BTF_KIND_FUNC_PROTO || BTF_INFO_VLEN(t->info) != count ||
         !susfs_btf_matches(t->type, result))
         return -EINVAL;
     args = (const void *)(t + 1);
@@ -167,9 +161,7 @@ int susfs_btf_layout_init(void)
 {
     unsigned long address = find_kernel_symbol_exact("btf_vmlinux");
 
-    if (!address || copy_from_kernel_nofault(&susfs_core_btf,
-                                            (const void *)address,
-                                            sizeof(susfs_core_btf)) ||
+    if (!address || copy_from_kernel_nofault(&susfs_core_btf, (const void *)address, sizeof(susfs_core_btf)) ||
         IS_ERR_OR_NULL(susfs_core_btf))
         return -EOPNOTSUPP;
     susfs_btf_type_fn = ksu_resolve_symbol_for_functable_hook("btf_type_by_id");
@@ -217,8 +209,7 @@ int susfs_btf_struct_size(const char *name, size_t *size)
     return 0;
 }
 
-int susfs_btf_field_offset(const char *name, const char *member,
-                          const char *type, size_t *offset)
+int susfs_btf_field_offset(const char *name, const char *member, const char *type, size_t *offset)
 {
     u32 id;
     bool found = false;
@@ -235,11 +226,8 @@ int susfs_btf_field_offset(const char *name, const char *member,
         if (!m)
             return -ENOENT;
         bits = susfs_btf_member_bits(t, m);
-        if (bits % (sizeof(void *) * 8) ||
-            bits / 8 > t->size ||
-            t->size - bits / 8 < sizeof(void *) ||
-            !susfs_btf_matches(m->type, type) ||
-            (found && actual != bits / 8))
+        if (bits % (sizeof(void *) * 8) || bits / 8 > t->size || t->size - bits / 8 < sizeof(void *) ||
+            !susfs_btf_matches(m->type, type) || (found && actual != bits / 8))
             return -EINVAL;
         actual = bits / 8;
         found = true;
@@ -253,8 +241,7 @@ int susfs_btf_field_offset(const char *name, const char *member,
 /* Same lookup as susfs_btf_field_offset(), without that one's pointer-only shape: it exists for
  * scalar members too (SELinux's inode_security_struct.sid is a u32).  The member's type still has
  * to match the name given, so a layout that moved the field cannot be mistaken for the right one. */
-int susfs_btf_member_offset(const char *name, const char *member,
-                            const char *type, size_t *offset)
+int susfs_btf_member_offset(const char *name, const char *member, const char *type, size_t *offset)
 {
     u32 id;
     bool found = false;
@@ -271,9 +258,7 @@ int susfs_btf_member_offset(const char *name, const char *member,
         if (!m)
             return -ENOENT;
         bits = susfs_btf_member_bits(t, m);
-        if (bits % 8 || bits / 8 > t->size ||
-            !susfs_btf_matches(m->type, type) ||
-            (found && actual != bits / 8))
+        if (bits % 8 || bits / 8 > t->size || !susfs_btf_matches(m->type, type) || (found && actual != bits / 8))
             return -EINVAL;
         actual = bits / 8;
         found = true;
@@ -319,8 +304,7 @@ int susfs_btf_enum_value(const char *name, const char *member, int *value)
     return 0;
 }
 
-int susfs_btf_check_function(const char *name, const char *result,
-                            const char *const *params, size_t count)
+int susfs_btf_check_function(const char *name, const char *result, const char *const *params, size_t count)
 {
     u32 id;
     bool found = false;
@@ -337,9 +321,8 @@ int susfs_btf_check_function(const char *name, const char *result,
     return found ? 0 : -ENOENT;
 }
 
-int susfs_btf_callback_offset(const char *name, const char *member,
-                             const char *result, const char *const *params,
-                             size_t count, size_t *offset)
+int susfs_btf_callback_offset(const char *name, const char *member, const char *result, const char *const *params,
+                              size_t count, size_t *offset)
 {
     u32 id;
     bool found = false;
@@ -357,9 +340,7 @@ int susfs_btf_callback_offset(const char *name, const char *member,
         if (!m)
             return -ENOENT;
         bits = susfs_btf_member_bits(t, m);
-        if (bits % (sizeof(void *) * 8) ||
-            bits / 8 > t->size ||
-            t->size - bits / 8 < sizeof(void *) ||
+        if (bits % (sizeof(void *) * 8) || bits / 8 > t->size || t->size - bits / 8 < sizeof(void *) ||
             (found && actual != bits / 8))
             return -EINVAL;
         pointer = susfs_btf_type(susfs_btf_unwrap(m->type));

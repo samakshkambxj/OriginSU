@@ -12,11 +12,11 @@
 #include <linux/uaccess.h>
 #include <linux/utsname.h>
 #include <linux/string.h>
-#include <linux/mutex.h>	/* uname_ctl_lock: serialises the arm/disarm pair */
+#include <linux/mutex.h> /* uname_ctl_lock: serialises the arm/disarm pair */
 #include <linux/version.h>
 #include "susfs_abi.h"
 #include "susfs_log.h"
-#include "susfs.h"	/* susfs_abi_path_ok */
+#include "susfs.h" /* susfs_abi_path_ok */
 #include "susfs_kprobe.h"
 
 #define SUSFS_UNAME_LEN (__NEW_UTS_LEN + 1)
@@ -45,7 +45,7 @@ static int kr_newuname_entry(struct kretprobe_instance *ri, struct pt_regs *regs
     /* this GKI kernel does NOT auto-adjust syscall-wrapper probe regs:
      * regs->regs[0] is the struct pt_regs* argument, not the user arg */
     if (!user)
-        return 1;   /* no return handler: ri->data would be left stale */
+        return 1; /* no return handler: ri->data would be left stale */
 
     a->name = (struct new_utsname __user *)user->regs[0];
     return 0;
@@ -60,11 +60,9 @@ static int kr_newuname_ret(struct kretprobe_instance *ri, struct pt_regs *regs)
     if (!uname_spoof_enabled || !a->name)
         return 0;
 
-    if (copy_to_user((char __user *)a->name + offsetof(struct new_utsname, release),
-                     fake_release, SUSFS_UNAME_LEN))
+    if (copy_to_user((char __user *)a->name + offsetof(struct new_utsname, release), fake_release, SUSFS_UNAME_LEN))
         return 0;
-    if (copy_to_user((char __user *)a->name + offsetof(struct new_utsname, version),
-                     fake_version, SUSFS_UNAME_LEN))
+    if (copy_to_user((char __user *)a->name + offsetof(struct new_utsname, version), fake_version, SUSFS_UNAME_LEN))
         return 0;
     return 0;
 }
@@ -106,8 +104,7 @@ static int uname_register(void)
     }
     uname_registered = true;
     mutex_unlock(&uname_ctl_lock);
-    SUSFS_LOGI("uname spoof armed: release=%s version=%s\n",
-            fake_release, fake_version);
+    SUSFS_LOGI("uname spoof armed: release=%s version=%s\n", fake_release, fake_version);
     return 0;
 }
 
@@ -145,7 +142,7 @@ void susfs_uname_exit(void)
 /* supercall: CMD_SUSFS_SET_UNAME */
 void susfs_uname_supercall(void __user **arg)
 {
-    struct st_susfs_uname info = {0};
+    struct st_susfs_uname info = { 0 };
     int rc;
 
     if (copy_from_user(&info, (void __user *)*arg, sizeof(info))) {
@@ -184,7 +181,6 @@ void susfs_uname_supercall(void __user **arg)
     SUSFS_LOGI("uname spoof set: release=%s version=%s\n", fake_release, fake_version);
 out:
     /* upstream writes back only ->err for input-type commands */
-    if (copy_to_user(&((struct st_susfs_uname __user *)*arg)->err,
-                     &info.err, sizeof(info.err)))
+    if (copy_to_user(&((struct st_susfs_uname __user *)*arg)->err, &info.err, sizeof(info.err)))
         pr_warn("uname supercall copy_to_user failed\n");
 }

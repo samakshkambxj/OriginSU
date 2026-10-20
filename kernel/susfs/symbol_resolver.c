@@ -84,7 +84,7 @@ static int find_kernel_symbol_exact_cb(void *data, unsigned long addr)
  * called indirectly, which CFI checks; NULL is a degradation, never a load failure. */
 static __nocfi void *ksu_bootstrap_symbol(const char *name)
 {
-    struct kprobe kp;	/* stack-local and zeroed on every call, so unlike the long-lived probes in
+    struct kprobe kp; /* stack-local and zeroed on every call, so unlike the long-lived probes in
 			 * the feature files it never carries a stale .addr - see kernel/susfs_kprobe.h */
     void *addr = NULL;
 
@@ -133,7 +133,7 @@ static int ksu_exact_name_cb(void *data, const char *name, struct module *mod, u
         return 0;
 
     ctx->addr = addr;
-    return 1;	/* stop the walk */
+    return 1; /* stop the walk */
 }
 
 /* Same shape as ksu_exact_name_cb(), but it keeps every match (see ksu_find_symbol_all()). */
@@ -163,11 +163,11 @@ static int ksu_all_names_cb(void *data, const char *name, struct module *mod, un
 
     for (i = 0; i < ctx->n; i++)
         if (ctx->addrs[i] == addr)
-            return 0;			/* the walk can report a symbol twice (aliases) */
+            return 0; /* the walk can report a symbol twice (aliases) */
 
     if (ctx->n < ctx->max)
         ctx->addrs[ctx->n++] = addr;
-    return 0;				/* keep walking: uniqueness is not assumed */
+    return 0; /* keep walking: uniqueness is not assumed */
 }
 
 unsigned long __nocfi find_kernel_symbol_exact(const char *symbol_name)
@@ -192,7 +192,7 @@ unsigned long __nocfi find_kernel_symbol_exact(const char *symbol_name)
 
     addr = kallsyms_lookup_name_fn(symbol_name);
     if (!addr)
-        return 0;	/* walking kallsyms for address 0 answers nothing */
+        return 0; /* walking kallsyms for address 0 answers nothing */
 
     if (likely(kallsyms_lookup_fn)) {
         /* PATH IN USE on every kernel this module builds against: name -> address through
@@ -238,10 +238,10 @@ unsigned long __nocfi find_kernel_symbol_exact(const char *symbol_name)
  * sleeps.  __nocfi because the call goes through the resolver's function pointer. */
 unsigned long __nocfi ksu_kallsyms_lookup_name(const char *name)
 {
-	if (!name || !name[0] || unlikely(!kallsyms_lookup_name_fn))
-		return 0;
+    if (!name || !name[0] || unlikely(!kallsyms_lookup_name_fn))
+        return 0;
 
-	return kallsyms_lookup_name_fn(name);
+    return kallsyms_lookup_name_fn(name);
 }
 
 /* Collect EVERY vmlinux symbol with this exact name, not just the first one.
@@ -446,9 +446,8 @@ int __nocfi ksu_symbol_is_start(unsigned long addr, const char *name)
         return 0;
 
     len = strlen(name);
-    if (kallsyms_lookup_fn && len < sizeof(buf) &&
-        kallsyms_lookup_fn(addr, NULL, &offset, &modname, buf) && !modname && !offset &&
-        !strncmp(buf, name, len) && (!buf[len] || buf[len] == '.' || buf[len] == '$') &&
+    if (kallsyms_lookup_fn && len < sizeof(buf) && kallsyms_lookup_fn(addr, NULL, &offset, &modname, buf) && !modname &&
+        !offset && !strncmp(buf, name, len) && (!buf[len] || buf[len] == '.' || buf[len] == '$') &&
         !strstr(buf + len, ".cfi_jt"))
         return 1;
 

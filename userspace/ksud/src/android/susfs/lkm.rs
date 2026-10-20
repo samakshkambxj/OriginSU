@@ -30,9 +30,9 @@ fn validate_kmi(kmi: &str) -> Result<()> {
     ensure!(
         !kmi.is_empty()
             && kmi.len() <= 64
-            && kmi.bytes().all(|byte| {
-                byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'_' | b'-')
-            }),
+            && kmi
+                .bytes()
+                .all(|byte| { byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'_' | b'-') }),
         "Invalid KMI '{kmi}'"
     );
     Ok(())

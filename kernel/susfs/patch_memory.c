@@ -92,9 +92,11 @@ int ksu_patch_memory_init(void)
         ksu_icache_fn = (void *)find_kernel_symbol_exact("__flush_icache_range");
 
     if (!ksu_dcache_new_fn && !ksu_dcache_old_fn)
-        pr_warn("patch_memory: no dcache flush symbol (dcache_clean_inval_poc / __flush_dcache_area) - patching is off\n");
+        pr_warn(
+            "patch_memory: no dcache flush symbol (dcache_clean_inval_poc / __flush_dcache_area) - patching is off\n");
     if (!ksu_icache_fn)
-        pr_warn("patch_memory: no icache flush symbol (caches_clean_inval_pou / __flush_icache_range) - an icache flush request would be refused\n");
+        pr_warn(
+            "patch_memory: no icache flush symbol (caches_clean_inval_pou / __flush_icache_range) - an icache flush request would be refused\n");
 
     /* Only the dcache helper decides whether patching works: every caller today asks for
      * KSU_PATCH_TEXT_FLUSH_DCACHE, and an icache flush would be refused individually below anyway.

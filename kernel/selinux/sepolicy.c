@@ -1260,8 +1260,8 @@ out:
 }
 #endif
 
-#define KSU_SEPOL_SYNC_MAX_BUF   SZ_64M
-#define KSU_SEPOL_SYNC_SLACK     SZ_256K
+#define KSU_SEPOL_SYNC_MAX_BUF SZ_64M
+#define KSU_SEPOL_SYNC_SLACK SZ_256K
 #define KSU_SEPOL_SYNC_MAX_TRIES 4
 
 /*
@@ -1277,8 +1277,7 @@ static int ksu_policydb_sync_len(struct policydb *db, const char *tag)
     int ret = -EINVAL;
 
     if (tracked + KSU_SEPOL_SYNC_SLACK > KSU_SEPOL_SYNC_MAX_BUF) {
-        pr_err("sepolicy: [%s] policydb.len %zu is too large to measure\n",
-               tag, tracked);
+        pr_err("sepolicy: [%s] policydb.len %zu is too large to measure\n", tag, tracked);
         return -E2BIG;
     }
 
@@ -1304,8 +1303,7 @@ static int ksu_policydb_sync_len(struct policydb *db, const char *tag)
         if (!ret) {
             const size_t actual = cap - remaining;
 
-            ksu_dbg("sepolicy: [%s] len tracked=%zu actual=%zu delta=%zd attempts=%u buf=%zu\n",
-                    tag, tracked, actual,
+            ksu_dbg("sepolicy: [%s] len tracked=%zu actual=%zu delta=%zd attempts=%u buf=%zu\n", tag, tracked, actual,
                     (ssize_t)actual - (ssize_t)tracked, attempt, cap);
             db->len = actual;
             return 0;
@@ -1317,13 +1315,11 @@ static int ksu_policydb_sync_len(struct policydb *db, const char *tag)
             return ret;
         }
 
-        ksu_dbg("sepolicy: [%s] buffer %zu too small (attempt %u)\n",
-                tag, cap, attempt);
+        ksu_dbg("sepolicy: [%s] buffer %zu too small (attempt %u)\n", tag, cap, attempt);
         cap *= 2;
     }
 
-    pr_err("sepolicy: [%s] giving up after %u attempts (tracked=%zu): %d\n",
-           tag, attempt, tracked, ret);
+    pr_err("sepolicy: [%s] giving up after %u attempts (tracked=%zu): %d\n", tag, attempt, tracked, ret);
     return ret;
 }
 
@@ -1334,8 +1330,8 @@ int ksu_policydb_fixup_len(struct policydb *db, const char *tag)
 
     if (ret) {
         db->len += KSU_SEPOL_SYNC_SLACK;
-        pr_warn("sepolicy: [%s] could not measure policydb (%d), padded policydb.len by %zu to %zu\n",
-                tag, ret, (size_t)KSU_SEPOL_SYNC_SLACK, (size_t)db->len);
+        pr_warn("sepolicy: [%s] could not measure policydb (%d), padded policydb.len by %zu to %zu\n", tag, ret,
+                (size_t)KSU_SEPOL_SYNC_SLACK, (size_t)db->len);
     }
     return ret;
 }

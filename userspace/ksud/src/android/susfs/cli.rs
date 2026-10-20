@@ -10,8 +10,7 @@ use crate::android::susfs::{
     api::prelude as api,
     config::cli::{ConfigCommand, run as run_config},
     enums::UidScheme,
-    lkm,
-    slot_info,
+    lkm, slot_info,
 };
 
 #[derive(Debug, Args)]

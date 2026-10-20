@@ -13,23 +13,23 @@
 #include <linux/module.h>
 #include <linux/kprobes.h>
 #include <linux/fs.h>
-#include <linux/mm.h>		/* struct mm_struct; sus_map_find_vma() walks its vmas */
+#include <linux/mm.h> /* struct mm_struct; sus_map_find_vma() walks its vmas */
 #include <linux/mm_types.h>
-#include <linux/version.h>	/* LINUX_VERSION_CODE: mm->mmap vs mm->mm_mt (6.1) */
+#include <linux/version.h> /* LINUX_VERSION_CODE: mm->mmap vs mm->mm_mt (6.1) */
 #include <linux/namei.h>
 #include <linux/dcache.h>
 #include <linux/uaccess.h>
-#include <linux/err.h>		/* IS_ERR/ERR_PTR for the getlink hook */
-#include <linux/cred.h>		/* current_uid(), for the read gate */
-#include <linux/spinlock.h>	/* serialises rule publication */
-#include <linux/slab.h>		/* kmalloc(GFP_ATOMIC), for the deferred path release */
-#include <linux/task_work.h>	/* the map_files reference is released from task_work */
-#include <linux/mutex.h>	/* map_ctl_lock: serialises probe arming */
+#include <linux/err.h> /* IS_ERR/ERR_PTR for the getlink hook */
+#include <linux/cred.h> /* current_uid(), for the read gate */
+#include <linux/spinlock.h> /* serialises rule publication */
+#include <linux/slab.h> /* kmalloc(GFP_ATOMIC), for the deferred path release */
+#include <linux/task_work.h> /* the map_files reference is released from task_work */
+#include <linux/mutex.h> /* map_ctl_lock: serialises probe arming */
 #include "susfs_abi.h"
 #include "susfs_log.h"
-#include "susfs.h"	/* susfs_abi_path_ok */
-#include "symbol_resolver.h"	/* find_kernel_symbol_exact, for the walk ops */
-#include "ksu_umount_gate.h"	/* susfs_is_current_proc_umounted_app (issue #34) */
+#include "susfs.h" /* susfs_abi_path_ok */
+#include "symbol_resolver.h" /* find_kernel_symbol_exact, for the walk ops */
+#include "ksu_umount_gate.h" /* susfs_is_current_proc_umounted_app (issue #34) */
 #include "susfs_kprobe.h"
 
 #define SUS_MAP_MAX 64
@@ -153,10 +153,8 @@ static int sus_map_skip_vma_pre(struct kprobe *kp, struct pt_regs *regs)
     if (sus_map_lookup(inode->i_ino, inode->i_sb->s_dev)) {
         atomic_inc(&n_show_hides);
         /* ratelimited like sus_path's; the rule stores no path, so ino/dev name it */
-        pr_info_ratelimited("sus_map: hid %s line (ino=%lu dev=%lu uid=%u)\n",
-                            kp->symbol_name, inode->i_ino,
-                            (unsigned long)inode->i_sb->s_dev,
-                            current_uid().val);
+        pr_info_ratelimited("sus_map: hid %s line (ino=%lu dev=%lu uid=%u)\n", kp->symbol_name, inode->i_ino,
+                            (unsigned long)inode->i_sb->s_dev, current_uid().val);
         regs_set_return_value(regs, 0);
         regs->pc = regs->regs[30];
         return 1;
@@ -216,13 +214,13 @@ static const void *sus_map_ops_smaps_shmem;
 static const void *sus_map_ops_pagemap;
 static bool sus_map_walk_ops_done;
 static atomic_t n_walk_skip = ATOMIC_INIT(0);
-static atomic_t n_walk_seen = ATOMIC_INIT(0);		/* walk_page_range calls */
-static atomic_t n_walk_seen_vma = ATOMIC_INIT(0);	/* walk_page_vma calls  */
+static atomic_t n_walk_seen = ATOMIC_INIT(0); /* walk_page_range calls */
+static atomic_t n_walk_seen_vma = ATOMIC_INIT(0); /* walk_page_vma calls  */
 /* One counter per resolution step: "the walk was not skipped" has four different causes. */
-static atomic_t n_walk_ops_hit = ATOMIC_INIT(0);	/* ops was ours */
-static atomic_t n_walk_scan_fail = ATOMIC_INIT(0);	/* no vma for (mm,start) */
-static atomic_t n_walk_nofile = ATOMIC_INIT(0);		/* vma has no vm_file */
-static atomic_t n_walk_nomatch = ATOMIC_INIT(0);	/* inode is not a rule */
+static atomic_t n_walk_ops_hit = ATOMIC_INIT(0); /* ops was ours */
+static atomic_t n_walk_scan_fail = ATOMIC_INIT(0); /* no vma for (mm,start) */
+static atomic_t n_walk_nofile = ATOMIC_INIT(0); /* vma has no vm_file */
+static atomic_t n_walk_nomatch = ATOMIC_INIT(0); /* inode is not a rule */
 static atomic_t n_walk_dbg_left = ATOMIC_INIT(4);
 /* map_files symlink resolutions that were turned into ENOENT.  n_getlink_calls vs
  * n_getlink_skip keeps "the probe ran" apart from "the probe matched". */
@@ -268,13 +266,10 @@ static int sus_map_walk_ops_show(char *buf, const struct kernel_param *kp)
 
     for (i = 0; i < cnt; i++)
         n += scnprintf(buf + n, PAGE_SIZE - n, "%2d %pS\n", i, walk_seen_ops[i]);
-    n += scnprintf(buf + n, PAGE_SIZE - n,
-                   "counts: page_range=%d page_vma=%d skipped=%d\n",
-                   atomic_read(&n_walk_seen), atomic_read(&n_walk_seen_vma),
-                   atomic_read(&n_walk_skip));
+    n += scnprintf(buf + n, PAGE_SIZE - n, "counts: page_range=%d page_vma=%d skipped=%d\n", atomic_read(&n_walk_seen),
+                   atomic_read(&n_walk_seen_vma), atomic_read(&n_walk_skip));
     for (i = 0; i < cnt; i++)
-        n += scnprintf(buf + n, PAGE_SIZE - n, "  [%d] n=%d\n", i,
-                       atomic_read(&walk_seen_cnt[i]));
+        n += scnprintf(buf + n, PAGE_SIZE - n, "  [%d] n=%d\n", i, atomic_read(&walk_seen_cnt[i]));
     return n;
 }
 static const struct kernel_param_ops sus_map_walk_ops_ops = {
@@ -297,8 +292,8 @@ static void sus_map_resolve_walk_ops(void)
                 "smaps_rollup and pagemap stay unfiltered\n");
         return;
     }
-    SUSFS_LOGI("sus_map: walk ops smaps=%px smaps_shmem=%px pagemap=%px\n",
-            sus_map_ops_smaps, sus_map_ops_smaps_shmem, sus_map_ops_pagemap);
+    SUSFS_LOGI("sus_map: walk ops smaps=%px smaps_shmem=%px pagemap=%px\n", sus_map_ops_smaps, sus_map_ops_smaps_shmem,
+               sus_map_ops_pagemap);
 }
 
 static bool sus_map_walk_ops_any(void)
@@ -308,12 +303,10 @@ static bool sus_map_walk_ops_any(void)
 
 static bool sus_map_walk_ops_ours(const void *ops)
 {
-    return ops && (ops == sus_map_ops_smaps || ops == sus_map_ops_smaps_shmem ||
-                   ops == sus_map_ops_pagemap);
+    return ops && (ops == sus_map_ops_smaps || ops == sus_map_ops_smaps_shmem || ops == sus_map_ops_pagemap);
 }
 
-static bool sus_map_walk_answer(struct kprobe *kp, struct pt_regs *regs,
-                                struct vm_area_struct *vma)
+static bool sus_map_walk_answer(struct kprobe *kp, struct pt_regs *regs, struct vm_area_struct *vma)
 {
     struct inode *inode;
 
@@ -335,8 +328,7 @@ static bool sus_map_walk_answer(struct kprobe *kp, struct pt_regs *regs,
     }
 
     atomic_inc(&n_walk_skip);
-    pr_info_ratelimited("sus_map: skipped %s walk for ino=%lu dev=%lu uid=%u\n",
-                        kp->symbol_name, inode->i_ino,
+    pr_info_ratelimited("sus_map: skipped %s walk for ino=%lu dev=%lu uid=%u\n", kp->symbol_name, inode->i_ino,
                         (unsigned long)inode->i_sb->s_dev, current_uid().val);
     /* Both primitives return int 0 for "walked, nothing wrong" and both callers expect
      * that from a skipped walk (upstream's own skip leaves the same value).  Leaving
@@ -359,38 +351,38 @@ static bool sus_map_walk_answer(struct kprobe *kp, struct pt_regs *regs,
 static struct vm_area_struct *sus_map_find_vma(struct mm_struct *mm, unsigned long start)
 {
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 1, 0)
-	struct vm_area_struct *vma;
-	VMA_ITERATOR(vmi, mm, 0);
+    struct vm_area_struct *vma;
+    VMA_ITERATOR(vmi, mm, 0);
 
-	for_each_vma(vmi, vma) {
-		if (start < vma->vm_end)
-			return vma;
-	}
-	return NULL;
+    for_each_vma(vmi, vma)
+    {
+        if (start < vma->vm_end)
+            return vma;
+    }
+    return NULL;
 #else
-	struct vm_area_struct *vma;
+    struct vm_area_struct *vma;
 
-	for (vma = mm->mmap; vma; vma = vma->vm_next) {
-		if (start < vma->vm_end)
-			break;
-	}
-	return vma;
+    for (vma = mm->mmap; vma; vma = vma->vm_next) {
+        if (start < vma->vm_end)
+            break;
+    }
+    return vma;
 #endif
 }
 
 /* walk_dbg >= 2: dump the first few resolutions past the ops test, to tell "no vma for
  * (mm, start)" from "the vma is not the expected one". */
-static void sus_map_walk_dbg_log(const char *what, struct mm_struct *mm,
-                                 unsigned long start, struct vm_area_struct *vma)
+static void sus_map_walk_dbg_log(const char *what, struct mm_struct *mm, unsigned long start,
+                                 struct vm_area_struct *vma)
 {
     if (walk_dbg < 2)
         return;
     if (atomic_dec_if_positive(&n_walk_dbg_left) < 0)
         return;
-    SUSFS_LOGI("sus_map: %s mm=%px start=%lx mmap=%px vma=%px %lx-%lx file=%px\n",
-            what, mm, start, mm ? sus_map_find_vma(mm, 0) : NULL, vma,
-            vma ? vma->vm_start : 0UL, vma ? vma->vm_end : 0UL,
-            (vma && vma->vm_file) ? vma->vm_file : NULL);
+    SUSFS_LOGI("sus_map: %s mm=%px start=%lx mmap=%px vma=%px %lx-%lx file=%px\n", what, mm, start,
+               mm ? sus_map_find_vma(mm, 0) : NULL, vma, vma ? vma->vm_start : 0UL, vma ? vma->vm_end : 0UL,
+               (vma && vma->vm_file) ? vma->vm_file : NULL);
 }
 
 /* walk_page_range(mm, start, end, ops, private): the vma is resolved from (mm, start) as
@@ -444,8 +436,7 @@ static int sus_map_skip_walk_vma_pre(struct kprobe *kp, struct pt_regs *regs)
     if (!sus_map_gate_ok())
         return 0;
 
-    return sus_map_walk_answer(kp, regs,
-                               (struct vm_area_struct *)regs->regs[0]) ? 1 : 0;
+    return sus_map_walk_answer(kp, regs, (struct vm_area_struct *)regs->regs[0]) ? 1 : 0;
 }
 
 static struct kprobe kp_map_walk = {
@@ -532,8 +523,8 @@ static int sus_map_vm_access_pre(struct kprobe *kp, struct pt_regs *regs)
         return 0;
 
     atomic_inc(&n_vm_hides);
-    regs_set_return_value(regs, 0);     /* "nothing transferred" */
-    regs->pc = regs->regs[30];          /* skip the call: nothing is pinned */
+    regs_set_return_value(regs, 0); /* "nothing transferred" */
+    regs->pc = regs->regs[30]; /* skip the call: nothing is pinned */
     return 1;
 }
 
@@ -561,33 +552,33 @@ static int sus_map_vm_access_pre(struct kprobe *kp, struct pt_regs *regs)
  * reference reaches ->d_iput().  GFP_ATOMIC and task_work_add() are both safe there; what is not
  * safe is guessing, so a failure to queue is reported and the reference is left where it was. */
 struct sus_map_put_work {
-	struct callback_head cb;
-	struct path path;
+    struct callback_head cb;
+    struct path path;
 };
 
 static void sus_map_put_work_fn(struct callback_head *cb)
 {
-	struct sus_map_put_work *w = container_of(cb, struct sus_map_put_work, cb);
+    struct sus_map_put_work *w = container_of(cb, struct sus_map_put_work, cb);
 
-	path_put(&w->path);
-	kfree(w);
+    path_put(&w->path);
+    kfree(w);
 }
 
 /* 0 when the release has been queued, -errno when it has not. */
 static int sus_map_path_put_soon(const struct path *p)
 {
-	struct sus_map_put_work *w;
+    struct sus_map_put_work *w;
 
-	w = kmalloc(sizeof(*w), GFP_ATOMIC);
-	if (!w)
-		return -ENOMEM;
-	w->path = *p;
-	init_task_work(&w->cb, sus_map_put_work_fn);
-	if (task_work_add(current, &w->cb, TWA_RESUME)) {
-		kfree(w);
-		return -EIO;
-	}
-	return 0;
+    w = kmalloc(sizeof(*w), GFP_ATOMIC);
+    if (!w)
+        return -ENOMEM;
+    w->path = *p;
+    init_task_work(&w->cb, sus_map_put_work_fn);
+    if (task_work_add(current, &w->cb, TWA_RESUME)) {
+        kfree(w);
+        return -EIO;
+    }
+    return 0;
 }
 
 static int sus_map_maplink_entry(struct kretprobe_instance *ri, struct pt_regs *regs)
@@ -643,8 +634,7 @@ static int sus_map_maplink_ret(struct kretprobe_instance *ri, struct pt_regs *re
         atomic_inc(&n_map_files_putfail);
         return 0;
     }
-    pr_info_ratelimited("sus_map: hid map_files symlink to ino=%lu (uid=%u)\n",
-                        inode->i_ino, current_uid().val);
+    pr_info_ratelimited("sus_map: hid map_files symlink to ino=%lu (uid=%u)\n", inode->i_ino, current_uid().val);
     regs_set_return_value(regs, (unsigned long)(long)-ENOENT);
     return 0;
 }
@@ -653,15 +643,14 @@ static struct kretprobe kr_map_files = {
     .kp.symbol_name = "map_files_get_link",
     .entry_handler = sus_map_maplink_entry,
     .handler = sus_map_maplink_ret,
-    .data_size = sizeof(unsigned long),	/* the output struct path * */
+    .data_size = sizeof(unsigned long), /* the output struct path * */
     .maxactive = 16,
 };
 static bool kr_map_files_ok;
 
 /* Kept in one table so init and exit cannot drift apart. */
 static struct kprobe *const map_probes[] = {
-    &kp_map, &kp_map_smap, &kp_map_outer, &kp_map_walk, &kp_map_walk_vma,
-    &kp_gup_remote, &kp_gup_remote_inner,
+    &kp_map, &kp_map_smap, &kp_map_outer, &kp_map_walk, &kp_map_walk_vma, &kp_gup_remote, &kp_gup_remote_inner,
 };
 #define N_MAP_PROBES ARRAY_SIZE(map_probes)
 static bool map_registered;
@@ -679,23 +668,19 @@ static int sus_map_stat_show(char *buf, const struct kernel_param *kp)
     for (i = 0; i < (int)N_MAP_PROBES; i++)
         armed += map_probe_armed[i] ? 1 : 0;
 
-    return scnprintf(buf, PAGE_SIZE,
-                     "rules=%d armed=%d/%d walk_seen=%d walk_vma=%d walk_skipped=%d "
-                     "ops_hit=%d scan_fail=%d nofile=%d nomatch=%d getlink: calls=%d skip=%d nomatch=%d hides=%d putfail=%d line_hides=%d\n"
-                     "vm: gup_calls=%d inner_calls=%d hides=%d\n"
-                     "ops: smaps=%px smaps_shmem=%px pagemap=%px\n",
-                     nmap, armed, (int)N_MAP_PROBES,
-                     atomic_read(&n_walk_seen), atomic_read(&n_walk_seen_vma),
-                     atomic_read(&n_walk_skip),
-                     atomic_read(&n_walk_ops_hit), atomic_read(&n_walk_scan_fail),
-                     atomic_read(&n_walk_nofile), atomic_read(&n_walk_nomatch),
-                     atomic_read(&n_getlink_calls), atomic_read(&n_getlink_skip),
-                     atomic_read(&n_getlink_nomatch), atomic_read(&n_map_files_hides),
-                     atomic_read(&n_map_files_putfail), atomic_read(&n_show_hides),
-                     atomic_read(&n_gup_calls), atomic_read(&n_gup_inner_calls),
-                     atomic_read(&n_vm_hides),
-                     sus_map_ops_smaps, sus_map_ops_smaps_shmem,
-                     sus_map_ops_pagemap);
+    return scnprintf(
+        buf, PAGE_SIZE,
+        "rules=%d armed=%d/%d walk_seen=%d walk_vma=%d walk_skipped=%d "
+        "ops_hit=%d scan_fail=%d nofile=%d nomatch=%d getlink: calls=%d skip=%d nomatch=%d hides=%d putfail=%d line_hides=%d\n"
+        "vm: gup_calls=%d inner_calls=%d hides=%d\n"
+        "ops: smaps=%px smaps_shmem=%px pagemap=%px\n",
+        nmap, armed, (int)N_MAP_PROBES, atomic_read(&n_walk_seen), atomic_read(&n_walk_seen_vma),
+        atomic_read(&n_walk_skip), atomic_read(&n_walk_ops_hit), atomic_read(&n_walk_scan_fail),
+        atomic_read(&n_walk_nofile), atomic_read(&n_walk_nomatch), atomic_read(&n_getlink_calls),
+        atomic_read(&n_getlink_skip), atomic_read(&n_getlink_nomatch), atomic_read(&n_map_files_hides),
+        atomic_read(&n_map_files_putfail), atomic_read(&n_show_hides), atomic_read(&n_gup_calls),
+        atomic_read(&n_gup_inner_calls), atomic_read(&n_vm_hides), sus_map_ops_smaps, sus_map_ops_smaps_shmem,
+        sus_map_ops_pagemap);
 }
 static const struct kernel_param_ops sus_map_stat_ops = {
     .get = sus_map_stat_show,
@@ -727,8 +712,7 @@ static int sus_map_register_probes(void)
 
         if (map_probe_armed[i])
             continue;
-        if ((map_probes[i] == &kp_map_walk || map_probes[i] == &kp_map_walk_vma) &&
-            !sus_map_walk_ops_any())
+        if ((map_probes[i] == &kp_map_walk || map_probes[i] == &kp_map_walk_vma) && !sus_map_walk_ops_any())
             continue;
         rc = register_kprobe(map_probes[i]);
         if (rc) {
@@ -748,8 +732,7 @@ static int sus_map_register_probes(void)
     }
 
     if (n)
-        SUSFS_LOGI("sus_map: %d/%d probes armed (%d rules)\n",
-                n, (int)N_MAP_PROBES, nmap);
+        SUSFS_LOGI("sus_map: %d/%d probes armed (%d rules)\n", n, (int)N_MAP_PROBES, nmap);
 
     /* The map_files hook is a kretprobe, so it lives outside map_probes[] (which
      * holds struct kprobe *) and is tracked on its own; optional like the rest. */
@@ -758,20 +741,20 @@ static int sus_map_register_probes(void)
 
         if (rc) {
             susfs_krp_forget_addr(&kr_map_files);
-            pr_warn("sus_map: register_kretprobe(proc_map_files_get_link) failed %d - readlink on a hidden mapping still names the file\n",
-                    rc);
+            pr_warn(
+                "sus_map: register_kretprobe(proc_map_files_get_link) failed %d - readlink on a hidden mapping still names the file\n",
+                rc);
         } else {
             kr_map_files_ok = true;
         }
     }
 
-    map_registered = map_probe_armed[0];   /* show_map_vma is the required one */
+    map_registered = map_probe_armed[0]; /* show_map_vma is the required one */
     ret = map_registered ? 0 : first_err;
 
     mutex_unlock(&map_ctl_lock);
     return ret;
 }
-
 
 int susfs_sus_map_init(void)
 {
@@ -826,7 +809,7 @@ void susfs_sus_map_exit(void)
 /* supercall: CMD_SUSFS_ADD_SUS_MAP (resolve path -> ino/dev, register hook) */
 void susfs_sus_map_supercall(void __user **arg)
 {
-    struct st_susfs_sus_map info = {0};
+    struct st_susfs_sus_map info = { 0 };
     struct path p;
     struct inode *inode;
     int rc;
@@ -868,8 +851,7 @@ void susfs_sus_map_supercall(void __user **arg)
         info.err = rc;
         goto out;
     }
-    SUSFS_LOGI("sus_map: added %s (ino=%lu) via supercall\n",
-            info.target_pathname, inode->i_ino);
+    SUSFS_LOGI("sus_map: added %s (ino=%lu) via supercall\n", info.target_pathname, inode->i_ino);
     path_put(&p);
 
     if (!map_registered) {
@@ -882,7 +864,6 @@ void susfs_sus_map_supercall(void __user **arg)
     info.err = 0;
 out:
     /* upstream writes back only ->err for input-type commands */
-    if (copy_to_user(&((struct st_susfs_sus_map __user *)*arg)->err,
-                     &info.err, sizeof(info.err)))
+    if (copy_to_user(&((struct st_susfs_sus_map __user *)*arg)->err, &info.err, sizeof(info.err)))
         pr_warn("sus_map supercall copy_to_user failed\n");
 }
