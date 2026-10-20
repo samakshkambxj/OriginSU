@@ -4,6 +4,7 @@ import android.os.SystemClock
 import com.originsu.manager.data.shell.KsuCliRepository
 import com.originsu.manager.domain.model.SulogFile
 import com.originsu.manager.domain.model.SulogState
+import com.originsu.manager.domain.model.buildSulogDigest
 import com.originsu.manager.domain.model.parseSulogLines
 import com.topjohnwu.superuser.io.SuFile
 import com.topjohnwu.superuser.io.SuFileInputStream
@@ -47,16 +48,38 @@ class SulogRepository(
                 }
                 val lines = selectedFile?.let { readFile(it.path) }.orEmpty()
                 currentCoroutineContext().ensureActive()
+                val currentTimeMillis = System.currentTimeMillis()
+                val uptimeMillis = SystemClock.uptimeMillis()
+                val entries = parseSulogLines(
+                    lines = lines,
+                    currentTimeMillis = currentTimeMillis,
+                    uptimeMillis = uptimeMillis,
+                )
+                val digestEntries = entries.toMutableList()
+                var digestFileCount = if (selectedFile != null) 1 else 0
+                var remainingDigestLines = DIGEST_LINE_BUDGET - lines.size
+                for (file in files) {
+                    if (file.path == selectedFile?.path || remainingDigestLines <= 0) continue
+                    val extraLines = readFile(
+                        file.path,
+                        minOf(DIGEST_LINES_PER_FILE, remainingDigestLines),
+                    )
+                    if (extraLines.isEmpty()) continue
+                    digestFileCount++
+                    remainingDigestLines -= extraLines.size
+                    digestEntries += parseSulogLines(
+                        lines = extraLines,
+                        currentTimeMillis = currentTimeMillis,
+                        uptimeMillis = uptimeMillis,
+                    )
+                }
                 mutableState.value = SulogState(
                     status = ksuCliRepository.getFeatureStatus("sulog"),
                     enabled = ksuCliRepository.getFeaturePersistValue("sulog") == 1L,
                     files = files,
                     selectedFilePath = selectedFile?.path,
-                    entries = parseSulogLines(
-                        lines = lines,
-                        currentTimeMillis = System.currentTimeMillis(),
-                        uptimeMillis = SystemClock.uptimeMillis(),
-                    ),
+                    entries = entries,
+                    digest = buildSulogDigest(digestEntries, digestFileCount),
                     isLoading = false,
                 )
             }.onFailure { error ->
@@ -103,14 +126,14 @@ class SulogRepository(
         return names.map { SulogFile(name = it, path = "$SULOG_DIR/$it") }
     }
 
-    private fun readFile(path: String): List<String> {
+    private fun readFile(path: String, limit: Int = LINE_LIMIT): List<String> {
         val file = SuFile(path)
         if (!file.isFile) return emptyList()
-        val lines = ArrayDeque<String>(LINE_LIMIT)
+        val lines = ArrayDeque<String>(limit)
         SuFileInputStream.open(file).use { input ->
             InputStreamReader(input).buffered().useLines { sequence ->
                 sequence.forEach { line ->
-                    if (lines.size == LINE_LIMIT) lines.removeFirst()
+                    if (lines.size == limit) lines.removeFirst()
                     lines.addLast(line)
                 }
             }
@@ -121,6 +144,8 @@ class SulogRepository(
     private companion object {
         const val SULOG_DIR = "/data/adb/ksu/log"
         const val LINE_LIMIT = 1000
+        const val DIGEST_LINE_BUDGET = 4000
+        const val DIGEST_LINES_PER_FILE = 1000
         val FILE_NAME_REGEX = Regex("""sulog-(\d{4}-\d{2}-\d{2})(?:-(\d+))?\.log""")
     }
 }

@@ -6,7 +6,6 @@ import com.originsu.manager.domain.model.SulogDigest
 import com.originsu.manager.domain.model.SulogEntry
 import com.originsu.manager.domain.model.SulogEventFilter
 import com.originsu.manager.domain.model.SulogFile
-import com.originsu.manager.domain.model.buildSulogDigest
 import com.originsu.manager.domain.model.defaultSulogEventFilters
 import com.originsu.manager.domain.model.filterSulogEntries
 import com.originsu.manager.domain.usecase.CleanSulogUseCase
@@ -107,7 +106,7 @@ class SulogViewModel(
             selectedFilePath = source.selectedFilePath,
             entries = source.entries,
             visibleEntries = filterSulogEntries(source.entries, query, selectedFilters),
-            digest = buildSulogDigest(source.entries),
+            digest = source.digest,
             errorMessage = source.errorMessage,
         )
     }.stateIn(

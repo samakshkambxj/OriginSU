@@ -12,6 +12,7 @@ class RootGateBootReceiver : BroadcastReceiver(), KoinComponent {
 
     override fun onReceive(context: Context?, intent: Intent?) {
         if (intent?.action != Intent.ACTION_BOOT_COMPLETED) return
+        runCatching { repository.restorePanicIfNeeded() }
         if (!repository.isLockBoundEnabled()) return
         runCatching { repository.startService() }
     }

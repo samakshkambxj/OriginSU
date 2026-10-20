@@ -20,6 +20,9 @@ data class InstalledModule(
     val moduleUpdate: ModuleUpdateMetadata?,
     val banner: String = "",
     val preinit: String = "",
+    val provides: List<String> = emptyList(),
+    val requires: List<String> = emptyList(),
+    val conflicts: List<String> = emptyList(),
 )
 
 data class InstalledModulesState(

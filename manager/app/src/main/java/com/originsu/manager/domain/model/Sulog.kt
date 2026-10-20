@@ -55,19 +55,31 @@ data class SulogState(
     val files: List<SulogFile> = emptyList(),
     val selectedFilePath: String? = null,
     val entries: List<SulogEntry> = emptyList(),
+    val digest: SulogDigest = SulogDigest(),
     val isLoading: Boolean = true,
     val isRefreshing: Boolean = false,
     val errorMessage: String? = null,
+)
+
+data class SulogDigestApp(
+    val name: String,
+    val events: Int,
 )
 
 data class SulogDigest(
     val total: Int = 0,
     val apps: Int = 0,
     val rootGrants: Int = 0,
+    val files: Int = 0,
+    val topApps: List<SulogDigestApp> = emptyList(),
 )
 
-fun buildSulogDigest(entries: List<SulogEntry>): SulogDigest {
-    if (entries.isEmpty()) return SulogDigest()
+fun buildSulogDigest(
+    entries: List<SulogEntry>,
+    fileCount: Int = 0,
+): SulogDigest {
+    if (entries.isEmpty()) return SulogDigest(files = fileCount)
+    val appNames = entries.mapNotNull { entry -> entry.appIdentity() }
     val apps = entries.mapNotNull { entry ->
         (entry.fields["euid"] ?: entry.fields["uid"])
             ?.takeIf { it != "0" && it.isNotEmpty() }
@@ -77,12 +89,25 @@ fun buildSulogDigest(entries: List<SulogEntry>): SulogDigest {
             it.eventType == SulogEventType.SuCompat ||
             it.eventType == SulogEventType.IoctlGrantRoot
     }
+    val topApps = appNames
+        .groupingBy { it }
+        .eachCount()
+        .entries
+        .sortedWith(compareByDescending<Map.Entry<String, Int>> { it.value }.thenBy { it.key })
+        .take(3)
+        .map { SulogDigestApp(it.key, it.value) }
     return SulogDigest(
         total = entries.size,
         apps = apps,
         rootGrants = rootGrants,
+        files = fileCount,
+        topApps = topApps,
     )
 }
+
+private fun SulogEntry.appIdentity(): String? =
+    fields["comm"]?.takeIf { it.isNotBlank() }
+        ?: (fields["euid"] ?: fields["uid"])?.takeIf { it != "0" && it.isNotEmpty() }
 
 fun defaultSulogEventFilters(): Set<SulogEventFilter> = SulogEventFilter.entries.toSet()
 

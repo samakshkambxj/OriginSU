@@ -676,6 +676,33 @@ private fun SulogDigestSection(digest: SulogDigest) {
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        if (digest.files > 1) {
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = stringResource(R.string.sulog_digest_files, digest.files),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        if (digest.topApps.isNotEmpty()) {
+            Spacer(modifier = Modifier.height(12.dp))
+            Text(
+                text = stringResource(R.string.sulog_digest_top_apps),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            digest.topApps.forEach { app ->
+                Text(
+                    text = stringResource(
+                        R.string.sulog_digest_app_line,
+                        app.name,
+                        app.events,
+                    ),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+            }
+        }
     }
 }
 

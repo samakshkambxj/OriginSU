@@ -2187,6 +2187,42 @@ fun ModuleItem(
                                 ),
                         )
                     }
+
+                    if (showMoreModuleInfo && module.provides.isNotEmpty()) {
+                        Text(
+                            text = stringResource(R.string.module_provides) + ": " +
+                                module.provides.joinToString(", "),
+                            fontSize = MaterialTheme.typography.bodySmall.fontSize,
+                            lineHeight = MaterialTheme.typography.bodySmall.lineHeight,
+                            fontFamily = MaterialTheme.typography.bodySmall.fontFamily,
+                            textDecoration = textDecoration,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                    }
+
+                    if (showMoreModuleInfo && module.requires.isNotEmpty()) {
+                        Text(
+                            text = stringResource(R.string.module_requires) + ": " +
+                                module.requires.joinToString(", "),
+                            fontSize = MaterialTheme.typography.bodySmall.fontSize,
+                            lineHeight = MaterialTheme.typography.bodySmall.lineHeight,
+                            fontFamily = MaterialTheme.typography.bodySmall.fontFamily,
+                            textDecoration = textDecoration,
+                            color = MaterialTheme.colorScheme.secondary,
+                        )
+                    }
+
+                    if (showMoreModuleInfo && module.conflicts.isNotEmpty()) {
+                        Text(
+                            text = stringResource(R.string.module_conflicts) + ": " +
+                                module.conflicts.joinToString(", "),
+                            fontSize = MaterialTheme.typography.bodySmall.fontSize,
+                            lineHeight = MaterialTheme.typography.bodySmall.lineHeight,
+                            fontFamily = MaterialTheme.typography.bodySmall.fontFamily,
+                            textDecoration = textDecoration,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    }
                 }
 
                 Spacer(modifier = Modifier.weight(1f))

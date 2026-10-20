@@ -184,6 +184,9 @@ class ModuleRepository(
                 moduleUpdate = null,
                 banner = value.optString("banner"),
                 preinit = value.optString("preinit"),
+                provides = parseRelationList(value.optString("provides")),
+                requires = parseRelationList(value.optString("requires")),
+                conflicts = parseRelationList(value.optString("conflicts")),
             )
         }
     }
@@ -223,3 +226,9 @@ private fun JSONObject.getIntCompat(key: String, default: Int = 0): Int =
             else -> default
         }
     }
+
+private fun parseRelationList(raw: String): List<String> =
+    raw.split(',', ' ', '\n', '\t')
+        .map(String::trim)
+        .filter(String::isNotEmpty)
+        .distinct()

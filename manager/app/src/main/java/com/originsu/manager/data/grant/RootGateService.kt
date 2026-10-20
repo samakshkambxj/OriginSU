@@ -80,6 +80,8 @@ class RootGateService : Service() {
 
     private fun resumeAfterUnlock() {
         if (!repository.wasSuspendedByLock()) return
+        // A timed panic must keep root suspended even when the device unlocks.
+        if (repository.isPanicActive()) return
         if (repository.setRootGateEnabled(true)) {
             repository.markSuspendedByLock(false)
         }

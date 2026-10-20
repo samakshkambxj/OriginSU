@@ -271,6 +271,9 @@ fun AppProfileScreen(
             isTempGrantEnabled = uiState.isTempGrantEnabled,
             onGrantTemp = { viewModel.dispatch(AppProfileUiAction.GrantTemp(it)) },
             onRevokeTemp = { viewModel.dispatch(AppProfileUiAction.RevokeTemp) },
+            signerDigest = uiState.signerDigest,
+            onRepinSigner = { viewModel.dispatch(AppProfileUiAction.RepinSigner) },
+            onClearSignerPin = { viewModel.dispatch(AppProfileUiAction.ClearSignerPin) },
         )
     }
 }
@@ -296,6 +299,9 @@ private fun AppProfileInner(
     isTempGrantEnabled: Boolean = false,
     onGrantTemp: (TempGrantDuration) -> Unit = {},
     onRevokeTemp: () -> Unit = {},
+    signerDigest: String? = null,
+    onRepinSigner: () -> Unit = {},
+    onClearSignerPin: () -> Unit = {},
 ) {
     val cardConfig: CardConfig = koinInject()
     val themeConfig: ThemeConfig = koinInject()
@@ -363,6 +369,43 @@ private fun AppProfileInner(
                         checked = isRootGranted,
                         onCheckedChange = { onProfileChange(profile.copy(allowSu = it)) },
                     )
+                }
+            }
+        }
+
+        if (!isSpecial && (isRootGranted || signerDigest != null)) {
+            item {
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    color = MaterialTheme.colorScheme.surfaceBright.copy(
+                        alpha = cardConfig.cardAlpha
+                    ),
+                    contentColor = MaterialTheme.colorScheme.onSurface,
+                ) {
+                    SettingsBaseWidget(
+                        icon = Icons.TwoTone.Security,
+                        title = stringResource(R.string.grant_signer_pin_title),
+                        description = signerDigest?.let { digest ->
+                            stringResource(
+                                R.string.grant_signer_pin_summary,
+                                digest.take(16),
+                            )
+                        } ?: stringResource(R.string.grant_signer_pin_none),
+                    ) {
+                        Row {
+                            TextButton(onClick = onRepinSigner) {
+                                Text(stringResource(R.string.grant_signer_repin))
+                            }
+                            if (signerDigest != null) {
+                                TextButton(onClick = onClearSignerPin) {
+                                    Text(stringResource(R.string.grant_signer_clear))
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }

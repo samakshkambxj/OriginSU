@@ -116,6 +116,7 @@ import com.originsu.manager.ui.viewmodel.HomeViewModel
 import com.originsu.manager.ui.viewmodel.SettingsUiAction
 import com.originsu.manager.ui.viewmodel.SettingsViewModel
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import top.yukonga.miuix.kmp.utils.overScrollVertical
@@ -212,6 +213,8 @@ fun SettingsPage(bottomPadding: Dp) {
     val descRootGate = stringResource(R.string.settings_root_gate_summary)
     val titleLockBoundRoot = stringResource(R.string.settings_lock_bound_root)
     val descLockBoundRoot = stringResource(R.string.settings_lock_bound_root_summary)
+    val titleRootGatePanic = stringResource(R.string.settings_root_gate_panic)
+    val descRootGatePanic = stringResource(R.string.settings_root_gate_panic_summary)
     val descAppLock = stringResource(R.string.settings_app_lock_summary)
     val titleAppLockTimeout = stringResource(R.string.settings_app_lock_timeout)
     val titleOriginGuard = stringResource(R.string.settings_originguard)
@@ -320,6 +323,7 @@ fun SettingsPage(bottomPadding: Dp) {
     )
     val matchRootGate = matches(titleRootGate, descRootGate, sectionOrigin)
     val matchLockBoundRoot = matches(titleLockBoundRoot, descLockBoundRoot, sectionOrigin)
+    val matchRootGatePanic = matches(titleRootGatePanic, descRootGatePanic, sectionOrigin)
     val matchOriginGuard = matches(titleOriginGuard, descOriginGuard, sectionOrigin)
     val matchMagicMount = matches(titleMagicMount, descMagicMount, sectionOrigin)
     val matchMagicBackend = matches(titleMagicBackend, descMagicBackend, sectionOrigin)
@@ -366,6 +370,7 @@ fun SettingsPage(bottomPadding: Dp) {
         matchAppLock,
         matchRootGate,
         matchLockBoundRoot,
+        matchRootGatePanic,
         matchOriginGuard,
         matchMagicMount,
         matchMagicBackend,
@@ -388,6 +393,14 @@ fun SettingsPage(bottomPadding: Dp) {
         settingsViewModel.dispatch(SettingsUiAction.LoadFeatureSettings)
         settingsViewModel.dispatch(SettingsUiAction.RefreshOriginZygisk)
         settingsViewModel.dispatch(SettingsUiAction.RefreshBootloop)
+    }
+
+    LaunchedEffect(uiState.rootGatePanicUntil) {
+        val remaining = uiState.rootGatePanicUntil - System.currentTimeMillis()
+        if (remaining > 0L) {
+            delay(remaining)
+            settingsViewModel.dispatch(SettingsUiAction.LoadFeatureSettings)
+        }
     }
 
     ActivityResumeEffect {
@@ -955,6 +968,41 @@ fun SettingsPage(bottomPadding: Dp) {
                                 onCheckedChange = { enabled ->
                                     settingsViewModel.dispatch(
                                         SettingsUiAction.SetLockBoundRootEnabled(enabled)
+                                    )
+                                },
+                            )
+                        }
+
+                        item(visible = matchRootGatePanic) {
+                            val panicRemainingMillis =
+                                uiState.rootGatePanicUntil - System.currentTimeMillis()
+                            val panicActive = panicRemainingMillis > 0L
+                            val panicMinutes =
+                                ((panicRemainingMillis + 59_999L) / 60_000L)
+                                    .coerceAtLeast(1L)
+                            SettingsJumpPageWidget(
+                                icon = Icons.TwoTone.Timer,
+                                title = if (panicActive) {
+                                    stringResource(R.string.settings_root_gate_panic_active)
+                                } else {
+                                    titleRootGatePanic
+                                },
+                                description = if (panicActive) {
+                                    stringResource(
+                                        R.string.settings_root_gate_panic_remaining,
+                                        panicMinutes,
+                                    )
+                                } else {
+                                    descRootGatePanic
+                                },
+                                enabled = panicActive || uiState.isRootGateEnabled,
+                                onClick = {
+                                    settingsViewModel.dispatch(
+                                        if (panicActive) {
+                                            SettingsUiAction.EndRootGatePanic
+                                        } else {
+                                            SettingsUiAction.StartRootGatePanic
+                                        }
                                     )
                                 },
                             )

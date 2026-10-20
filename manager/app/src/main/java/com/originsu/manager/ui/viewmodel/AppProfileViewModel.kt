@@ -44,6 +44,7 @@ data class AppProfileUiState(
     val isSecureRootEnabled: Boolean = false,
     val isTempGrantEnabled: Boolean = false,
     val tempRemainingSecs: Long? = null,
+    val signerDigest: String? = null,
 )
 
 sealed interface AppProfileUiAction {
@@ -53,6 +54,8 @@ sealed interface AppProfileUiAction {
     data class ValidateSepolicy(val rules: String) : AppProfileUiAction
     data class GrantTemp(val duration: TempGrantDuration) : AppProfileUiAction
     data object RevokeTemp : AppProfileUiAction
+    data object RepinSigner : AppProfileUiAction
+    data object ClearSignerPin : AppProfileUiAction
 }
 
 sealed interface AppProfileUiEvent {
@@ -130,6 +133,7 @@ class AppProfileViewModel(
                         ),
                         tempRemainingSecs = observeTempGrants()
                             .value.grants.firstOrNull { it.uid == uid }?.remainingSecs,
+                        signerDigest = grantSignerRepository.pinnedSigner(uid),
                     )
                     refreshTempGrants()
                 }.onFailure { error ->
@@ -168,6 +172,11 @@ class AppProfileViewModel(
                                     // silently inherit this grant.
                                     if (profileToSave.allowSu) {
                                         runCatching { grantSignerRepository.pinUid(uid) }
+                                    }
+                                    mutableState.update {
+                                        it.copy(
+                                            signerDigest = grantSignerRepository.pinnedSigner(uid),
+                                        )
                                     }
                                     mutableEvents.tryEmit(AppProfileUiEvent.Saved)
                                 } else {
@@ -219,6 +228,19 @@ class AppProfileViewModel(
                         mutableState.update { it.copy(tempRemainingSecs = null) }
                     }
                     .onFailure { mutableEvents.tryEmit(AppProfileUiEvent.Error(it)) }
+            }
+
+            AppProfileUiAction.RepinSigner -> viewModelScope.launch {
+                runCatching { grantSignerRepository.pinUid(uid) }
+                    .onFailure { mutableEvents.tryEmit(AppProfileUiEvent.Error(it)) }
+                mutableState.update {
+                    it.copy(signerDigest = grantSignerRepository.pinnedSigner(uid))
+                }
+            }
+
+            AppProfileUiAction.ClearSignerPin -> {
+                grantSignerRepository.clearPinnedSigner(uid)
+                mutableState.update { it.copy(signerDigest = null) }
             }
         }
     }

@@ -55,6 +55,14 @@ class GrantSignerRepository(
         pin(uid, packagesForUid(uid))
     }
 
+    /** Returns the pinned signer digest for [uid], if any. */
+    fun pinnedSigner(uid: Int): String? = appSettings.getString(pinKey(uid))
+
+    /** Removes the pin so the next verification accepts and pins the current signer. */
+    fun clearPinnedSigner(uid: Int) {
+        appSettings.putString(pinKey(uid), null)
+    }
+
     private fun packagesForUid(uid: Int): List<String> =
         context.packageManager.getPackagesForUid(uid)?.toList().orEmpty()
 

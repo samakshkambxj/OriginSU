@@ -326,6 +326,9 @@
             </intent-filter>
         </receiver>
         <receiver
+            android:name=".data.grant.RootGatePanicReceiver"
+            android:exported="false" />
+        <receiver
             android:name=".magica.BootCompletedReceiver"
             android:directBootAware="true"
             android:enabled="false"

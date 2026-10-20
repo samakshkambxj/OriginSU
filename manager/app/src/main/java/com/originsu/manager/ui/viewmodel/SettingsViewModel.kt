@@ -137,6 +137,7 @@ data class SettingsUiState(
     val isSecureRootEnabled: Boolean = false,
     val isRootGateEnabled: Boolean = true,
     val isLockBoundRootEnabled: Boolean = false,
+    val rootGatePanicUntil: Long = 0L,
     val isAppLockEnabled: Boolean = false,
     val appLockTimeout: Long = 60000L,
     val isHapticsEnabled: Boolean = false,
@@ -203,6 +204,8 @@ sealed interface SettingsUiAction {
     data class SetSecureRootEnabled(val enabled: Boolean) : SettingsUiAction
     data class SetRootGateEnabled(val enabled: Boolean) : SettingsUiAction
     data class SetLockBoundRootEnabled(val enabled: Boolean) : SettingsUiAction
+    data object StartRootGatePanic : SettingsUiAction
+    data object EndRootGatePanic : SettingsUiAction
     data class SetAppLockEnabled(val enabled: Boolean) : SettingsUiAction
     data class SetAppLockTimeout(val timeoutMillis: Long) : SettingsUiAction
     data class SetHapticsEnabled(val enabled: Boolean) : SettingsUiAction
@@ -278,6 +281,7 @@ class SettingsViewModel(
             it.copy(
                 isSecureRootEnabled = getBooleanPreference(SECURE_ROOT_PREF_KEY, false),
                 isLockBoundRootEnabled = rootGateRepository.isLockBoundEnabled(),
+                rootGatePanicUntil = rootGateRepository.panicUntil(),
                 isAppLockEnabled = getBooleanPreference(APP_LOCK_PREF_KEY, false),
                 appLockTimeout = getLongPreference(APP_LOCK_TIMEOUT_PREF_KEY, 60000L),
                 isHapticsEnabled = getBooleanPreference(HAPTICS_PREF_KEY, false),
@@ -327,6 +331,7 @@ class SettingsViewModel(
                     selinuxHideStatus = platform.selinuxHideStatus,
                     isSelinuxHideEnabled = features.selinuxHideEnabled,
                     isRootGateEnabled = features.rootGateEnabled,
+                    rootGatePanicUntil = rootGateRepository.panicUntil(),
                     defaultUmountModules = features.defaultUmountModules,
                 )
             }
@@ -489,7 +494,33 @@ class SettingsViewModel(
     fun handleRootGateChange(enabled: Boolean) {
         viewModelScope.launch {
             if (setRootGateEnabled(enabled)) {
-                mutableState.update { it.copy(isRootGateEnabled = enabled) }
+                if (enabled) rootGateRepository.clearPanic()
+                mutableState.update {
+                    it.copy(
+                        isRootGateEnabled = enabled,
+                        rootGatePanicUntil = if (enabled) 0L else it.rootGatePanicUntil,
+                    )
+                }
+            }
+        }
+    }
+
+    fun handleStartRootGatePanic() {
+        if (!rootGateRepository.isRootGateEnabled()) return
+        if (rootGateRepository.startPanic(PANIC_DURATION_MILLIS)) {
+            mutableState.update {
+                it.copy(
+                    isRootGateEnabled = false,
+                    rootGatePanicUntil = rootGateRepository.panicUntil(),
+                )
+            }
+        }
+    }
+
+    fun handleEndRootGatePanic() {
+        if (rootGateRepository.endPanic()) {
+            mutableState.update {
+                it.copy(isRootGateEnabled = true, rootGatePanicUntil = 0L)
             }
         }
     }
@@ -497,7 +528,9 @@ class SettingsViewModel(
     fun handleLockBoundRootChange(enabled: Boolean) {
         rootGateRepository.setLockBoundEnabled(enabled)
         mutableState.update { it.copy(isLockBoundRootEnabled = enabled) }
-        if (enabled && !rootGateRepository.isRootGateEnabled()) {
+        if (enabled && !rootGateRepository.isRootGateEnabled() &&
+            !rootGateRepository.isPanicActive()
+        ) {
             viewModelScope.launch {
                 if (setRootGateEnabled(true)) {
                     mutableState.update { it.copy(isRootGateEnabled = true) }
@@ -821,6 +854,8 @@ fun dispatch(action: SettingsUiAction) {
                 handleRootGateChange(action.enabled)
             is SettingsUiAction.SetLockBoundRootEnabled ->
                 handleLockBoundRootChange(action.enabled)
+            SettingsUiAction.StartRootGatePanic -> handleStartRootGatePanic()
+            SettingsUiAction.EndRootGatePanic -> handleEndRootGatePanic()
             is SettingsUiAction.SetAppLockEnabled ->
                 handleAppLockChange(action.enabled)
             is SettingsUiAction.SetAppLockTimeout ->
@@ -916,6 +951,7 @@ fun dispatch(action: SettingsUiAction) {
     }
 
     private companion object {
+        const val PANIC_DURATION_MILLIS = 15 * 60 * 1000L
         val THEME_OPTIONS = listOf(
             R.string.theme_follow_system,
             R.string.theme_light,
