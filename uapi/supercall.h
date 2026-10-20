@@ -267,10 +267,10 @@ DEFINE_KSU_UAPI_CONST(__u8, KSU_KPM_CONTROL, 6)
 DEFINE_KSU_UAPI_CONST(__u8, KSU_KPM_VERSION, 7)
 
 struct ksu_kpm_cmd {
-    __u8 __user control_code;
-    __aligned_u64 __user arg1;
-    __aligned_u64 __user arg2;
-    __aligned_u64 __user result_code;
+    __u8 control_code;
+    __aligned_u64 arg1;
+    __aligned_u64 arg2;
+    __aligned_u64 result_code;
 } __attribute__((packed));
 
 DEFINE_KSU_UAPI_CONST(__u8, KERNEL_PATCH_NOT_FOUND, 0)

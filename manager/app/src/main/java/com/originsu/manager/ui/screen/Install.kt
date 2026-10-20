@@ -159,6 +159,7 @@ fun InstallScreen(
     val isAbDevice = environment.isAbDevice
     val summary = stringResource(R.string.horizon_kernel_summary)
     val failedReboot = stringResource(R.string.failed_reboot)
+    val horizonCopyFailed = stringResource(R.string.horizon_copy_failed)
 
     LaunchedEffect(viewModel) {
         viewModel.events.collect { event ->
@@ -329,7 +330,7 @@ fun InstallScreen(
                                 File(context.cacheDir, "kpm-anykernel-$ts.zip")
                             context.contentResolver.openInputStream(uri)?.use { input ->
                                 cacheFile.outputStream().use { input.copyTo(it) }
-                            } ?: error(context.getString(R.string.horizon_copy_failed))
+                            } ?: error(horizonCopyFailed)
                             patchAnyKernelWithKpm(context, cacheFile, undo) {}.getOrThrow()
                             if (kpmSavePatched) {
                                 val saved = saveKpmPatchedFile(
