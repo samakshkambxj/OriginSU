@@ -23,3 +23,7 @@ root implementation and monitor/daemon errors. The engine writes that file
 atomically and emits valid JSON; the manager still tolerates trailing commas
 from older payloads. Module installers and boot-stage scripts receive
 `ZYGISK_ENABLED=1` while the enable flag and boot hook are both present.
+
+The engine also honors `/data/adb/ksu/originzygisk/unmount`; the module WebUI
+exposes this as the OriginZygisk Umount toggle. The bundled manager payload
+contains the engine binaries only, not the WebUI.
