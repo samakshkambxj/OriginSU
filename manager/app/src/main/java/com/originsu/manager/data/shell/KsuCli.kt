@@ -1309,6 +1309,7 @@ class KsuCliRepository(context: Context) {
     private fun isOriginZygiskDeployed(): Boolean {
         return runCatching {
             SuFile.open("$ORIGIN_ZYGISK_DIR/enable").isFile &&
+                SuFile.open("$ORIGIN_ZYGISK_DIR/bin").isDirectory &&
                 SuFile.open(ORIGIN_ZYGISK_HOOK).isFile
         }.getOrDefault(false)
     }
@@ -1320,7 +1321,8 @@ class KsuCliRepository(context: Context) {
         val shell = getRootShell()
         ShellUtils.fastCmdResult(
             shell,
-            "[ -f $ORIGIN_ZYGISK_DIR/enable ] && [ -f $ORIGIN_ZYGISK_HOOK ]"
+            "[ -f $ORIGIN_ZYGISK_DIR/enable ] && [ -d $ORIGIN_ZYGISK_DIR/bin ] && " +
+                "[ -f $ORIGIN_ZYGISK_HOOK ]"
         )
     }
 
