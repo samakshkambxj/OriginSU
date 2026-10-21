@@ -65,6 +65,7 @@ pub fn validate_module_id(module_id: &str) -> Result<()> {
 /// Whether the built-in OriginZygisk engine is deployed and armed for boot.
 fn origin_zygisk_enabled() -> bool {
     Path::new("/data/adb/ksu/originzygisk/enable").exists()
+        && Path::new("/data/adb/ksu/originzygisk/bin").is_dir()
         && Path::new("/data/adb/post-fs-data.d/originzygisk.sh").exists()
 }
 
