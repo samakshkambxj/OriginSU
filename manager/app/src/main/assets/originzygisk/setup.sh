@@ -8,7 +8,18 @@ SRC="$D/payload"
 cd "$D" || exit 1
 
 VER="unknown"
-[ -f "$SRC/version" ] && VER=$(cat "$SRC/version")
+if [ -f "$SRC/version" ]; then
+  VER=$(cat "$SRC/version")
+fi
+
+# Verify the bundled payload before touching the runtime. Older payloads do
+# not ship a manifest, so the check is best-effort for compatibility.
+if [ -f "$SRC/manifest.sha256" ]; then
+  if ! (cd "$SRC" && sha256sum -c manifest.sha256 >/dev/null); then
+    echo "OriginZygisk payload integrity check failed" >&2
+    exit 1
+  fi
+fi
 
 # Pick the ABI list with the most entries (Tango devices split it across props).
 CPU_ABIS_PROP1=$(getprop ro.system.product.cpu.abilist)
@@ -55,6 +66,11 @@ if [ "$SUPPORTS_32BIT" = "true" ]; then
   [ -f "$SRC/machikado.$M32" ] && cp "$SRC/machikado.$M32" "machikado.$M32"
 fi
 
+if [ -f "$SRC/originzygiskctl.sh" ]; then
+  cp "$SRC/originzygiskctl.sh" bin/originzygiskctl
+  chmod 0755 bin/originzygiskctl
+fi
+
 # Permissions + SELinux contexts (libs must look like system libraries).
 chmod -R 0755 bin
 [ -d lib64 ] && { chmod 0644 lib64/* ; chcon u:object_r:system_file:s0 lib64/* 2>/dev/null || true ; }
@@ -74,5 +90,13 @@ description=Built-in Zygisk for OriginSU (BreZygisk based)
 EOF
 cp -f module.prop module.prop.bak
 chmod 0644 module.prop module.prop.bak
+
+# Deployed-file manifest used by the manager and originzygiskctl integrity.
+{
+  for f in bin/* lib/* lib64/* machikado.* module.prop; do
+    if [ -f "$f" ]; then sha256sum "$f"; fi
+  done
+} > deployed.sha256 2>/dev/null || true
+chmod 0644 deployed.sha256 2>/dev/null || true
 
 exit 0

@@ -19,27 +19,103 @@ import com.topjohnwu.superuser.Shell
 import com.topjohnwu.superuser.ShellUtils
 import com.topjohnwu.superuser.io.SuFile
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
+import java.io.BufferedOutputStream
 import java.io.File
+import java.nio.charset.StandardCharsets
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import java.util.Properties
+import java.util.zip.ZipEntry
 import java.util.zip.ZipFile
+import java.util.zip.ZipInputStream
+import java.util.zip.ZipOutputStream
+
+/** A Zygisk module discovered under /data/adb/modules. */
+data class OriginZygiskModule(
+    val id: String,
+    val name: String,
+    val version: String,
+    val description: String,
+    val enabled: Boolean,
+    val loaded: Boolean,
+    val zygiskDisabled: Boolean,
+    val quarantined: Boolean,
+    val abi32: Boolean,
+    val abi64: Boolean,
+    val hasCurrentAbi: Boolean,
+)
+
+/** One daemon (32/64-bit) reported by the engine's state.json. */
+data class OriginZygiskDaemonStatus(
+    val abi: String,
+    val running: Boolean,
+    val reason: String? = null,
+    val modules: List<String> = emptyList(),
+)
+
+/** One line from /data/adb/ksu/originzygisk/telemetry.jsonl. */
+data class OriginZygiskTelemetryEvent(
+    val timestamp: Long,
+    val event: String,
+    val abi: String,
+    val uid: Int,
+    val process: String,
+    val flags: Long,
+    val skipped: Boolean,
+)
+
+/** Minimal installed-app record used by the per-app skip picker. */
+data class OriginZygiskAppInfo(
+    val packageName: String,
+    val label: String,
+    val uid: Int,
+    val isSystem: Boolean,
+)
 
 /**
  * Snapshot of the built-in OriginZygisk runtime, derived from the engine's
- * state.json plus a process liveness check.
+ * state.json, policy files, checksums, and process liveness checks.
  */
 data class OriginZygiskStatus(
+    val installed: Boolean = false,
     val deployed: Boolean = false,
     val running: Boolean = false,
     val rootImplementation: String = "",
     val modules: List<String> = emptyList(),
     val error: String? = null,
-)
+    val monitorState: Int = 0,
+    val monitorReason: String? = null,
+    val daemons: List<OriginZygiskDaemonStatus> = emptyList(),
+    val payloadVersion: String = "",
+    val expectedVersion: String = "",
+    val integrityOk: Boolean = false,
+    val integrityError: String? = null,
+    val umountEnabled: Boolean = false,
+    val installedModules: List<OriginZygiskModule> = emptyList(),
+    val skippedPackages: Set<String> = emptySet(),
+    val skippedUids: Set<Int> = emptySet(),
+    val disabledModules: Set<String> = emptySet(),
+    val quarantinedModules: Set<String> = emptySet(),
+    val telemetry: List<OriginZygiskTelemetryEvent> = emptyList(),
+    val bootLog: String = "",
+) {
+    val injectionPaused: Boolean get() = monitorState != 0
+    val moduleHealth: String
+        get() = buildString {
+            val loadedCount = installedModules.count { it.loaded }
+            append("$loadedCount/${installedModules.size} loaded")
+            val skipped = installedModules.count { it.quarantined || it.zygiskDisabled }
+            if (skipped > 0) append(" · $skipped skipped")
+            val missing = installedModules.count { !it.hasCurrentAbi }
+            if (missing > 0) append(" · $missing missing ABI")
+        }
+}
 
 /**
  * @author weishu
@@ -61,6 +137,9 @@ class KsuCliRepository(context: Context) {
         // OriginZygisk deploy locations (built-in engine, not a module).
         const val ORIGIN_ZYGISK_DIR = "/data/adb/ksu/originzygisk"
         const val ORIGIN_ZYGISK_HOOK = "/data/adb/post-fs-data.d/originzygisk.sh"
+
+        private const val ORIGIN_ZYGISK_DIAG_PREFS = "originzygisk_diagnostics"
+        private const val ORIGIN_ZYGISK_LAST_CRASH_KEY = "last_crash_error"
 
         // Magic Mount backend ids accepted by `ksud module magic-mount backend`.
         val MAGIC_MOUNT_BACKENDS = listOf("auto", "overlay", "bind")
@@ -142,6 +221,11 @@ class KsuCliRepository(context: Context) {
 
     @Volatile
     private var cachedGlobalShell: Shell? = null
+
+    @Volatile
+    private var cachedOriginZygiskPayloadVersion: String? = null
+
+    private val originZygiskPolicyMutex = Mutex()
 
     @Synchronized
     fun getRootShell(globalMnt: Boolean = false): Shell {
@@ -1306,6 +1390,13 @@ class KsuCliRepository(context: Context) {
         return "None"
     }
 
+    private fun isOriginZygiskInstalled(): Boolean {
+        return runCatching {
+            SuFile.open("$ORIGIN_ZYGISK_DIR/bin").isDirectory &&
+                SuFile.open("$ORIGIN_ZYGISK_DIR/payload/version").isFile
+        }.getOrDefault(false)
+    }
+
     private fun isOriginZygiskDeployed(): Boolean {
         return runCatching {
             SuFile.open("$ORIGIN_ZYGISK_DIR/enable").isFile &&
@@ -1375,15 +1466,21 @@ class KsuCliRepository(context: Context) {
     }
 
     /**
-     * Read the engine's own state.json so the manager can report loaded
-     * modules and daemon failures instead of only "a process is running".
+     * Read the engine state, policy files, checksums, module health and
+     * telemetry. This is the single source for the native control panel.
      */
     suspend fun getOriginZygiskStatus(): OriginZygiskStatus = withContext(Dispatchers.IO) {
-        if (!isOriginZygiskDeployed()) {
+        if (!rootAvailable()) {
             return@withContext OriginZygiskStatus()
         }
 
+        val installed = isOriginZygiskInstalled()
+        if (!installed) {
+            return@withContext OriginZygiskStatus(expectedVersion = bundledPayloadVersion())
+        }
+
         val shell = getRootShell()
+        val deployed = isOriginZygiskDeployed()
         val running = ShellUtils.fastCmdResult(shell, "pgrep -f '[z]ygisk-ptrace' >/dev/null 2>&1")
         val raw = runCatching {
             runCmd(shell, "cat /data/adb/rezygisk/state.json 2>/dev/null")
@@ -1391,7 +1488,10 @@ class KsuCliRepository(context: Context) {
 
         var rootImplementation = ""
         var error: String? = null
+        var monitorState = 0
+        var monitorReason: String? = null
         val modules = linkedSetOf<String>()
+        val daemons = mutableListOf<OriginZygiskDaemonStatus>()
 
         runCatching {
             // Older engine builds wrote a trailing comma after monitor.reason
@@ -1402,34 +1502,236 @@ class KsuCliRepository(context: Context) {
             rootImplementation = state.optString("root")
 
             val monitor = state.optJSONObject("monitor")
-            if (monitor != null && monitor.optInt("state", 0) != 0) {
-                error = monitor.optString("reason").ifBlank {
-                    appContext.getString(R.string.origin_zygisk_error_monitor_stopped)
+            if (monitor != null) {
+                monitorState = monitor.optInt("state", 0)
+                monitorReason = monitor.optString("reason").takeIf { it.isNotBlank() }
+                if (monitorState != 0 && monitorReason != "user requested") {
+                    error = monitorReason
+                        ?: appContext.getString(R.string.origin_zygisk_error_monitor_stopped)
                 }
             }
 
-            val daemons = state.optJSONObject("rezygiskd")
+            val daemonsJson = state.optJSONObject("rezygiskd")
             for (abi in listOf("64", "32")) {
-                val daemon = daemons?.optJSONObject(abi) ?: continue
-                if (daemon.optInt("state", 0) == 0 && error == null) {
-                    error = daemon.optString("reason").ifBlank {
-                        appContext.getString(R.string.origin_zygisk_error_daemon, abi)
+                val daemon = daemonsJson?.optJSONObject(abi) ?: continue
+                val daemonRunning = daemon.optInt("state", 0) == 0
+                val reason = daemon.optString("reason").takeIf { it.isNotBlank() }
+                val loaded = mutableListOf<String>()
+                val loadedJson = daemon.optJSONArray("modules")
+                if (loadedJson != null) {
+                    for (i in 0 until loadedJson.length()) {
+                        loadedJson.optString(i).takeIf { it.isNotBlank() }?.let {
+                            loaded.add(it)
+                            modules.add(it)
+                        }
                     }
                 }
-                val loaded = daemon.optJSONArray("modules") ?: continue
-                for (i in 0 until loaded.length()) {
-                    loaded.optString(i).takeIf { it.isNotBlank() }?.let(modules::add)
+                daemons.add(OriginZygiskDaemonStatus(abi, daemonRunning, reason, loaded))
+                if (!daemonRunning && error == null) {
+                    error = reason ?: appContext.getString(R.string.origin_zygisk_error_daemon, abi)
                 }
             }
         }
 
-        OriginZygiskStatus(
-            deployed = true,
+        val skippedPackages = readOriginZygiskPolicy(shell, "skip_packages.txt").toSet()
+        val skippedUids = readOriginZygiskPolicy(shell, "skip_uids.txt")
+            .mapNotNull { it.toIntOrNull() }
+            .toSet()
+        val disabledModules = readOriginZygiskPolicy(shell, "disabled_modules.txt").toSet()
+        val quarantinedModules = readOriginZygiskPolicy(shell, "quarantine.txt").toSet()
+
+        val manifest = "$ORIGIN_ZYGISK_DIR/deployed.sha256"
+        val hasManifest = ShellUtils.fastCmdResult(shell, "[ -f $manifest ]")
+        var integrityOk = false
+        var integrityError: String? = null
+        if (hasManifest) {
+            val check = runCmd(
+                shell,
+                "cd $ORIGIN_ZYGISK_DIR && sha256sum -c deployed.sha256 2>&1",
+            )
+            integrityOk = check.lineSequence().any { it.endsWith(": OK") } &&
+                !check.contains("FAILED")
+            if (!integrityOk) {
+                integrityError = check.lineSequence()
+                    .firstOrNull { it.contains("FAILED") || it.contains("No such") }
+                    ?.trim()
+                    ?: appContext.getString(R.string.origin_zygisk_integrity_failed)
+            }
+        } else {
+            integrityError = appContext.getString(R.string.origin_zygisk_integrity_manifest_missing)
+        }
+
+        val payloadVersion = runCmd(
+            shell,
+            "cat $ORIGIN_ZYGISK_DIR/payload/version 2>/dev/null",
+        ).trim()
+        val expectedVersion = bundledPayloadVersion()
+        val umountEnabled = ShellUtils.fastCmdResult(
+            shell,
+            "[ -f $ORIGIN_ZYGISK_DIR/unmount ]",
+        )
+
+        val loadedSet = modules.toSet()
+        val supports64 = Build.SUPPORTED_64_BIT_ABIS.isNotEmpty()
+        val supports32 = Build.SUPPORTED_32_BIT_ABIS.isNotEmpty()
+        val installedModules = parseOriginZygiskModules(
+            shell,
+            loadedSet,
+            disabledModules,
+            quarantinedModules,
+            supports64,
+            supports32,
+        )
+
+        val telemetry = runCmd(
+            shell,
+            "tail -n 100 $ORIGIN_ZYGISK_DIR/telemetry.jsonl 2>/dev/null",
+        ).lineSequence()
+            .mapNotNull { line ->
+                runCatching {
+                    val obj = JSONObject(line)
+                    OriginZygiskTelemetryEvent(
+                        timestamp = obj.optLong("ts"),
+                        event = obj.optString("event"),
+                        abi = obj.optString("abi"),
+                        uid = obj.optInt("uid"),
+                        process = obj.optString("process"),
+                        flags = obj.optLong("flags"),
+                        skipped = obj.optBoolean("skip"),
+                    )
+                }.getOrNull()
+            }
+            .toList()
+            .asReversed()
+
+        val bootLog = runCmd(shell, "tail -n 400 $ORIGIN_ZYGISK_DIR/boot.log 2>/dev/null")
+
+        val status = OriginZygiskStatus(
+            installed = true,
+            deployed = deployed,
             running = running,
             rootImplementation = rootImplementation,
             modules = modules.toList(),
             error = error,
+            monitorState = monitorState,
+            monitorReason = monitorReason,
+            daemons = daemons,
+            payloadVersion = payloadVersion,
+            expectedVersion = expectedVersion,
+            integrityOk = integrityOk,
+            integrityError = integrityError,
+            umountEnabled = umountEnabled,
+            installedModules = installedModules,
+            skippedPackages = skippedPackages,
+            skippedUids = skippedUids,
+            disabledModules = disabledModules,
+            quarantinedModules = quarantinedModules,
+            telemetry = telemetry,
+            bootLog = bootLog,
         )
+
+        if (error != null) {
+            maybeSnapshotOriginZygiskCrash(error, raw, bootLog)
+        } else {
+            appContext.getSharedPreferences(ORIGIN_ZYGISK_DIAG_PREFS, Context.MODE_PRIVATE)
+                .edit()
+                .remove(ORIGIN_ZYGISK_LAST_CRASH_KEY)
+                .apply()
+        }
+
+        status
+    }
+
+    private fun readOriginZygiskPolicy(shell: Shell, name: String): List<String> {
+        return runCmd(shell, "cat ${shellQuote("$ORIGIN_ZYGISK_DIR/$name")} 2>/dev/null")
+            .lineSequence()
+            .map { it.trim() }
+            .filter { it.isNotEmpty() && !it.startsWith("#") }
+            .toList()
+    }
+
+    private fun writeOriginZygiskPolicy(
+        shell: Shell,
+        name: String,
+        values: Collection<String>,
+    ): Boolean {
+        val cleaned = values.map { it.trim() }.filter { it.isNotEmpty() }.distinct().sorted()
+        val content = if (cleaned.isEmpty()) "" else cleaned.joinToString("\n") + "\n"
+        val tmp = "$ORIGIN_ZYGISK_DIR/$name.tmp"
+        val cmd = "mkdir -p $ORIGIN_ZYGISK_DIR && " +
+            "printf '%s' ${shellQuote(content)} > $tmp && " +
+            "chmod 0644 $tmp && mv -f $tmp $ORIGIN_ZYGISK_DIR/$name"
+        return runCatching { shell.newJob().add(cmd).exec().isSuccess }.getOrDefault(false)
+    }
+
+    private fun parseOriginZygiskModules(
+        shell: Shell,
+        loaded: Set<String>,
+        disabled: Set<String>,
+        quarantined: Set<String>,
+        supports64: Boolean,
+        supports32: Boolean,
+    ): List<OriginZygiskModule> {
+        val script = """
+            for d in /data/adb/modules/*; do
+              [ -d "${'$'}d" ] || continue
+              id=${'$'}{d##*/}
+              [ -f "${'$'}d/module.prop" ] || continue
+              libs=${'$'}(ls "${'$'}d/zygisk"/*.so 2>/dev/null | sed 's|.*/||' | tr '\n' ',')
+              [ -n "${'$'}libs" ] || continue
+              name=${'$'}(sed -n 's/^name=//p' "${'$'}d/module.prop" | head -n 1)
+              version=${'$'}(sed -n 's/^version=//p' "${'$'}d/module.prop" | head -n 1)
+              desc=${'$'}(sed -n 's/^description=//p' "${'$'}d/module.prop" | head -n 1)
+              module_disabled=0
+              [ -f "${'$'}d/disable" ] && module_disabled=1
+              printf 'MODULE\t%s\t%s\t%s\t%s\t%s\t%s\n' "${'$'}id" "${'$'}module_disabled" "${'$'}name" "${'$'}version" "${'$'}desc" "${'$'}libs"
+            done
+        """.trimIndent()
+        val raw = runCatching { runCmd(shell, script) }.getOrDefault("")
+        return raw.lineSequence().mapNotNull { line ->
+            if (!line.startsWith("MODULE\t")) return@mapNotNull null
+            val parts = line.split('\t', limit = 7)
+            if (parts.size < 7) return@mapNotNull null
+            val id = parts[1]
+            val libs = parts[6]
+            val abi32 = libs.contains("armeabi-v7a.so") || libs.contains("x86.so")
+            val abi64 = libs.contains("arm64-v8a.so") || libs.contains("x86_64.so")
+            OriginZygiskModule(
+                id = id,
+                name = parts[3].ifBlank { id },
+                version = parts[4],
+                description = parts[5],
+                enabled = parts[2] != "1",
+                loaded = loaded.contains(id),
+                zygiskDisabled = disabled.contains(id),
+                quarantined = quarantined.contains(id),
+                abi32 = abi32,
+                abi64 = abi64,
+                hasCurrentAbi = (supports64 && abi64) || (supports32 && abi32),
+            )
+        }.sortedWith(compareBy<OriginZygiskModule> { it.name.lowercase(Locale.getDefault()) })
+            .toList()
+    }
+
+    private fun bundledPayloadVersion(): String {
+        cachedOriginZygiskPayloadVersion?.let { return it }
+        var version = ""
+        runCatching {
+            appContext.assets.open("originzygisk/payload.zip").use { input ->
+                ZipInputStream(input).use { zip ->
+                    var entry = zip.nextEntry
+                    while (entry != null) {
+                        if (entry.name == "version") {
+                            version = zip.readBytes().toString(StandardCharsets.UTF_8).trim()
+                            break
+                        }
+                        entry = zip.nextEntry
+                    }
+                }
+            }
+        }
+        cachedOriginZygiskPayloadVersion = version
+        return version
     }
 
     private fun copyAssetToCacheDir(name: String): File? {
@@ -1442,48 +1744,300 @@ class KsuCliRepository(context: Context) {
         }.getOrNull()
     }
 
+    /**
+     * Atomically redeploy the bundled payload. The previous runtime is kept
+     * until the new one passes its checksum manifest, then swapped in.
+     */
+    suspend fun repairOriginZygisk(): Boolean = withContext(Dispatchers.IO) {
+        deployOriginZygisk()
+    }
+
+    private fun deployOriginZygisk(): Boolean {
+        if (!rootAvailable()) return false
+        val payload = copyAssetToCacheDir("originzygisk/payload.zip")
+        val setup = copyAssetToCacheDir("originzygisk/setup.sh")
+        val launch = copyAssetToCacheDir("originzygisk/launch.sh")
+        if (payload == null || setup == null || launch == null) {
+            Log.w(TAG, "OriginZygisk assets missing in APK")
+            payload?.delete()
+            setup?.delete()
+            launch?.delete()
+            return false
+        }
+
+        val dir = ORIGIN_ZYGISK_DIR
+        val newDir = "$dir.new"
+        val oldDir = "$dir.old"
+        val hook = ORIGIN_ZYGISK_HOOK
+        val sepolicy = "$dir/payload/sepolicy.rule"
+        val script = """
+            set -e
+            rm -rf ${shellQuote(newDir)} ${shellQuote(oldDir)}
+            mkdir -p ${shellQuote("$newDir/payload")} /data/adb/post-fs-data.d
+            cp ${shellQuote(payload.absolutePath)} ${shellQuote("$newDir/payload.zip")}
+            cp ${shellQuote(setup.absolutePath)} ${shellQuote("$newDir/setup.sh")}
+            cp ${shellQuote(launch.absolutePath)} ${shellQuote("$newDir/launch.sh")}
+            cd ${shellQuote("$newDir/payload")} && unzip -o ${shellQuote("$newDir/payload.zip")} >/dev/null
+            cd ${shellQuote(newDir)} && sh setup.sh ${shellQuote(newDir)}
+            if [ -f ${shellQuote("$newDir/payload/manifest.sha256")} ]; then
+              (cd ${shellQuote("$newDir/payload")} && sha256sum -c manifest.sha256 >/dev/null)
+            fi
+            if [ -f ${shellQuote("$newDir/deployed.sha256")} ]; then
+              (cd ${shellQuote(newDir)} && sha256sum -c deployed.sha256 >/dev/null)
+            fi
+            for f in enable unmount skip_packages.txt skip_uids.txt disabled_modules.txt quarantine.txt telemetry.jsonl telemetry.jsonl.1 boot.log boot.log.1; do
+              if [ -e ${shellQuote("$dir/")}${'$'}f ]; then cp -f ${shellQuote("$dir/")}${'$'}f ${shellQuote("$newDir/")}${'$'}f; fi
+            done
+            if [ -d ${shellQuote(dir)} ]; then mv ${shellQuote(dir)} ${shellQuote(oldDir)}; fi
+            if ! mv ${shellQuote(newDir)} ${shellQuote(dir)}; then
+              if [ -d ${shellQuote(oldDir)} ]; then mv ${shellQuote(oldDir)} ${shellQuote(dir)}; fi
+              exit 1
+            fi
+            rm -rf ${shellQuote(oldDir)}
+            ${getKsuDaemonPath()} sepolicy apply ${shellQuote(sepolicy)} || true
+            if [ -f ${shellQuote("$dir/enable")} ]; then
+              cp ${shellQuote("$dir/launch.sh")} ${shellQuote(hook)}
+              chmod 0755 ${shellQuote(hook)}
+            else
+              rm -f ${shellQuote(hook)}
+            fi
+        """.trimIndent()
+        val shell = getRootShell()
+        val ok = runCatching { shell.newJob().add(script).exec().isSuccess }.getOrDefault(false)
+        payload.delete()
+        setup.delete()
+        launch.delete()
+        Log.i(TAG, "deploy OriginZygisk result: $ok")
+        return ok
+    }
+
     suspend fun setOriginZygiskEnabled(enabled: Boolean): Boolean =
         withContext(Dispatchers.IO) {
-            val shell = getRootShell()
             if (!enabled) {
-                return@withContext ShellUtils.fastCmdResult(
-                    shell,
-                    "rm -f $ORIGIN_ZYGISK_DIR/enable $ORIGIN_ZYGISK_HOOK; " +
-                        "pkill -f '[z]ygisk-ptrace' 2>/dev/null; " +
-                        "pkill -f '[z]ygiskd' 2>/dev/null; true"
-                )
+                val shell = getRootShell()
+                val ctl = "$ORIGIN_ZYGISK_DIR/bin/originzygiskctl"
+                val command = "rm -f $ORIGIN_ZYGISK_DIR/enable $ORIGIN_ZYGISK_HOOK; " +
+                    "if [ -x $ctl ]; then $ctl stop >/dev/null 2>&1 || true; " +
+                    "else pkill -f '[z]ygisk-ptrace' 2>/dev/null; " +
+                    "pkill -f '[z]ygiskd' 2>/dev/null; fi; true"
+                return@withContext runCatching {
+                    shell.newJob().add(command).exec().isSuccess
+                }.getOrDefault(false)
             }
-            val payload = copyAssetToCacheDir("originzygisk/payload.zip")
-            val setup = copyAssetToCacheDir("originzygisk/setup.sh")
-            val launch = copyAssetToCacheDir("originzygisk/launch.sh")
-            if (payload == null || setup == null || launch == null) {
-                Log.w(TAG, "OriginZygisk assets missing in APK")
-                payload?.delete()
-                setup?.delete()
-                launch?.delete()
-                return@withContext false
-            }
-            val script = """
-                set -e
-                rm -rf $ORIGIN_ZYGISK_DIR
-                mkdir -p $ORIGIN_ZYGISK_DIR/payload /data/adb/post-fs-data.d
-                cp '${payload.absolutePath}' $ORIGIN_ZYGISK_DIR/payload.zip
-                cp '${setup.absolutePath}' $ORIGIN_ZYGISK_DIR/setup.sh
-                cp '${launch.absolutePath}' $ORIGIN_ZYGISK_DIR/launch.sh
-                cd $ORIGIN_ZYGISK_DIR/payload && unzip -o $ORIGIN_ZYGISK_DIR/payload.zip >/dev/null
-                cd $ORIGIN_ZYGISK_DIR && sh setup.sh $ORIGIN_ZYGISK_DIR
-                ${getKsuDaemonPath()} sepolicy apply $ORIGIN_ZYGISK_DIR/payload/sepolicy.rule || true
-                touch $ORIGIN_ZYGISK_DIR/enable
-                cp $ORIGIN_ZYGISK_DIR/launch.sh $ORIGIN_ZYGISK_HOOK
-                chmod 0755 $ORIGIN_ZYGISK_HOOK
-            """.trimIndent()
-            val ok = shell.newJob().add(script).exec().isSuccess
-            payload.delete()
-            setup.delete()
-            launch.delete()
+
+            if (!deployOriginZygisk()) return@withContext false
+            val shell = getRootShell()
+            val sepolicy = "$ORIGIN_ZYGISK_DIR/payload/sepolicy.rule"
+            val command = "touch $ORIGIN_ZYGISK_DIR/enable && " +
+                "cp $ORIGIN_ZYGISK_DIR/launch.sh $ORIGIN_ZYGISK_HOOK && " +
+                "chmod 0755 $ORIGIN_ZYGISK_HOOK && " +
+                "(${getKsuDaemonPath()} sepolicy apply $sepolicy || true)"
+            val ok = runCatching { shell.newJob().add(command).exec().isSuccess }
+                .getOrDefault(false)
             Log.i(TAG, "set OriginZygisk enabled=$enabled result: $ok")
             ok
         }
+
+    suspend fun setOriginZygiskUmount(enabled: Boolean): Boolean = withContext(Dispatchers.IO) {
+        val shell = getRootShell()
+        val command = if (enabled) {
+            "mkdir -p $ORIGIN_ZYGISK_DIR && touch $ORIGIN_ZYGISK_DIR/unmount && chmod 0644 $ORIGIN_ZYGISK_DIR/unmount"
+        } else {
+            "rm -f $ORIGIN_ZYGISK_DIR/unmount"
+        }
+        runCatching { shell.newJob().add(command).exec().isSuccess }.getOrDefault(false)
+    }
+
+    suspend fun setOriginZygiskSkipPackage(packageName: String, skip: Boolean): Boolean =
+        withContext(Dispatchers.IO) {
+            if (packageName.isBlank()) return@withContext false
+            originZygiskPolicyMutex.withLock {
+                val shell = getRootShell()
+                val current = readOriginZygiskPolicy(shell, "skip_packages.txt").toMutableSet()
+                if (skip) current.add(packageName) else current.remove(packageName)
+                writeOriginZygiskPolicy(shell, "skip_packages.txt", current)
+            }
+        }
+
+    suspend fun setOriginZygiskModuleEnabled(moduleId: String, enabled: Boolean): Boolean =
+        withContext(Dispatchers.IO) {
+            if (moduleId.isBlank()) return@withContext false
+            originZygiskPolicyMutex.withLock {
+                val shell = getRootShell()
+                val current = readOriginZygiskPolicy(shell, "disabled_modules.txt").toMutableSet()
+                if (enabled) current.remove(moduleId) else current.add(moduleId)
+                writeOriginZygiskPolicy(shell, "disabled_modules.txt", current)
+            }
+        }
+
+    suspend fun setOriginZygiskModuleQuarantined(moduleId: String, quarantined: Boolean): Boolean =
+        withContext(Dispatchers.IO) {
+            if (moduleId.isBlank()) return@withContext false
+            originZygiskPolicyMutex.withLock {
+                val shell = getRootShell()
+                val current = readOriginZygiskPolicy(shell, "quarantine.txt").toMutableSet()
+                if (quarantined) current.add(moduleId) else current.remove(moduleId)
+                writeOriginZygiskPolicy(shell, "quarantine.txt", current)
+            }
+        }
+
+    suspend fun setOriginZygiskInjectionPaused(paused: Boolean): Boolean =
+        withContext(Dispatchers.IO) {
+            val shell = getRootShell()
+            val ctl = "$ORIGIN_ZYGISK_DIR/bin/originzygiskctl"
+            val fallback = "$ORIGIN_ZYGISK_DIR/bin/zygisk-ptrace" +
+                if (Build.SUPPORTED_64_BIT_ABIS.isNotEmpty()) "64" else "32"
+            val command = if (paused) "stop" else "start"
+            val script = "if [ -x $ctl ]; then $ctl $command; else $fallback ctl $command; fi"
+            runCatching { shell.newJob().add(script).exec().isSuccess }.getOrDefault(false)
+        }
+
+    private fun maybeSnapshotOriginZygiskCrash(
+        error: String,
+        stateJson: String,
+        bootLog: String,
+    ) {
+        val prefs = appContext.getSharedPreferences(
+            ORIGIN_ZYGISK_DIAG_PREFS,
+            Context.MODE_PRIVATE,
+        )
+        if (prefs.getString(ORIGIN_ZYGISK_LAST_CRASH_KEY, null) == error) return
+
+        runCatching {
+            val file = File(
+                appContext.cacheDir,
+                "originzygisk-crash-${System.currentTimeMillis()}.txt",
+            )
+            file.writeText(
+                buildString {
+                    appendLine("time=${SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(Date())}")
+                    appendLine("error=$error")
+                    appendLine()
+                    appendLine("--- state.json ---")
+                    appendLine(stateJson)
+                    appendLine()
+                    appendLine("--- boot.log ---")
+                    appendLine(bootLog)
+                },
+            )
+            prefs.edit().putString(ORIGIN_ZYGISK_LAST_CRASH_KEY, error).apply()
+            appContext.cacheDir.listFiles { f -> f.name.startsWith("originzygisk-crash-") }
+                ?.sortedBy { it.lastModified() }
+                ?.dropLast(5)
+                ?.forEach { it.delete() }
+        }
+    }
+
+    /**
+     * Build a zip with engine state, logs, policies, pstore and module health.
+     * The caller owns the returned cache file and should share/delete it.
+     */
+    suspend fun buildOriginZygiskDiagnostics(): File? = withContext(Dispatchers.IO) {
+        if (!rootAvailable()) return@withContext null
+        val shell = getRootShell()
+        val status = runCatching { getOriginZygiskStatus() }.getOrDefault(OriginZygiskStatus())
+        val stamp = SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(Date())
+        val out = File(appContext.cacheDir, "originzygisk-diagnostics-$stamp.zip")
+
+        fun read(path: String, maxBytes: Int = 262144): String =
+            runCmd(
+                shell,
+                "if [ -f ${shellQuote(path)} ]; then head -c $maxBytes ${shellQuote(path)}; fi",
+            )
+
+        runCatching {
+            ZipOutputStream(BufferedOutputStream(out.outputStream())).use { zip ->
+                fun add(name: String, content: String) {
+                    zip.putNextEntry(ZipEntry(name))
+                    zip.write(content.toByteArray(StandardCharsets.UTF_8))
+                    zip.closeEntry()
+                }
+
+                add(
+                    "summary.txt",
+                    buildString {
+                        appendLine("time=${SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(Date())}")
+                        appendLine("installed=${status.installed}")
+                        appendLine("enabled=${status.deployed}")
+                        appendLine("running=${status.running}")
+                        appendLine("root=${status.rootImplementation}")
+                        appendLine("payload=${status.payloadVersion}")
+                        appendLine("expected=${status.expectedVersion}")
+                        appendLine("integrity=${status.integrityOk}")
+                        appendLine("integrityError=${status.integrityError.orEmpty()}")
+                        appendLine("umount=${status.umountEnabled}")
+                        appendLine("monitorState=${status.monitorState}")
+                        appendLine("monitorReason=${status.monitorReason.orEmpty()}")
+                        appendLine("loadedModules=${status.modules.joinToString(",")}")
+                        appendLine("skippedPackages=${status.skippedPackages.joinToString(",")}")
+                        appendLine("disabledModules=${status.disabledModules.joinToString(",")}")
+                        appendLine("quarantinedModules=${status.quarantinedModules.joinToString(",")}")
+                        appendLine()
+                        appendLine("--- status ---")
+                        appendLine(status.toString())
+                    },
+                )
+                add("state.json", read("/data/adb/rezygisk/state.json"))
+                add("boot.log", read("$ORIGIN_ZYGISK_DIR/boot.log"))
+                add("boot.log.1", read("$ORIGIN_ZYGISK_DIR/boot.log.1"))
+                add("telemetry.jsonl", read("$ORIGIN_ZYGISK_DIR/telemetry.jsonl"))
+                add("telemetry.jsonl.1", read("$ORIGIN_ZYGISK_DIR/telemetry.jsonl.1"))
+                add("deployed.sha256", read("$ORIGIN_ZYGISK_DIR/deployed.sha256"))
+                add("payload-version.txt", read("$ORIGIN_ZYGISK_DIR/payload/version"))
+                add("skip_packages.txt", read("$ORIGIN_ZYGISK_DIR/skip_packages.txt"))
+                add("skip_uids.txt", read("$ORIGIN_ZYGISK_DIR/skip_uids.txt"))
+                add("disabled_modules.txt", read("$ORIGIN_ZYGISK_DIR/disabled_modules.txt"))
+                add("quarantine.txt", read("$ORIGIN_ZYGISK_DIR/quarantine.txt"))
+                add("props.txt", runCmd(shell, "getprop"))
+                add(
+                    "modules.txt",
+                    runCmd(
+                        shell,
+                        "find /data/adb/modules -maxdepth 3 -path '*/zygisk/*.so' -type f -print 2>/dev/null",
+                    ),
+                )
+                add(
+                    "logcat.txt",
+                    runCmd(
+                        shell,
+                        "logcat -d -v threadtime 2>/dev/null | " +
+                            "grep -iE 'zygisk|originzygisk|rezygisk' | tail -n 1000",
+                    ),
+                )
+                add(
+                    "pstore.txt",
+                    runCmd(
+                        shell,
+                        "for f in /sys/fs/pstore/*; do " +
+                            "[ -f \"${'$'}f\" ] && { echo \"--- ${'$'}f\"; cat \"${'$'}f\"; }; " +
+                            "done 2>/dev/null | head -c 262144",
+                    ),
+                )
+                add("dmesg.txt", runCmd(shell, "dmesg 2>/dev/null | tail -n 500"))
+                add(
+                    "policies.txt",
+                    runCmd(
+                        shell,
+                        "for f in skip_packages.txt skip_uids.txt disabled_modules.txt quarantine.txt; do " +
+                            "echo \"--- ${'$'}f\"; cat $ORIGIN_ZYGISK_DIR/${'$'}f 2>/dev/null; done",
+                    ),
+                )
+                appContext.cacheDir.listFiles { f -> f.name.startsWith("originzygisk-crash-") }
+                    ?.sortedBy { it.lastModified() }
+                    ?.forEach { crash ->
+                        add("crash/${crash.name}", runCatching { crash.readText() }.getOrDefault(""))
+                    }
+            }
+            appContext.cacheDir.listFiles { f -> f.name.startsWith("originzygisk-diagnostics-") }
+                ?.sortedBy { it.lastModified() }
+                ?.dropLast(3)
+                ?.forEach { it.delete() }
+            out
+        }.getOrElse {
+            out.delete()
+            null
+        }
+    }
 
     fun addKernelUmountPath(path: String, flags: Int): Boolean {
         val shell = getRootShell()

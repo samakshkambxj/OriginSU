@@ -44,8 +44,23 @@ rewrite, not a port.
   trailing-comma normalization for older payloads.
 - Boot logging is rotated once it exceeds 256 KiB (`boot.log.1`), so a
   failed boot can be diagnosed without unbounded growth.
-- YukiZygisk-inspired follow-ups not in this phase: ZN native modules,
-  per-app skip policy, crash/pstore diagnostics and a module WebUI.
+- ✅ Payload integrity/repair: `manifest.sha256` is verified before deploy;
+  the runtime is staged in `.new`, checked, then atomically swapped with
+  rollback to `.old`. `deployed.sha256` supports on-device integrity checks.
+- ✅ Diagnostics: native manager export bundles state, boot logs, telemetry,
+  policy files, pstore, filtered logcat, dmesg and crash snapshots.
+- ✅ Native control panel: integrity/repair, OriginZygisk Umount, module
+  health, per-app skip picker, pause injection, telemetry and boot log.
+- ✅ Per-app skip policy (`skip_packages.txt`, `skip_uids.txt`) enforced in
+  the hook with `PROCESS_SKIP_ZYGISK`; skipped processes get no module
+  callbacks.
+- ✅ Per-module Zygisk toggle/quarantine (`disabled_modules.txt`,
+  `quarantine.txt`) filtered by the daemon at startup.
+- ✅ Injection telemetry (`telemetry.jsonl`, bounded with one rotation) and
+  module health reporting.
+- ✅ `originzygiskctl` CLI installed as `bin/originzygiskctl`, using the
+  existing monitor datagram control socket.
+- Still not in this phase: ZN native modules and a module WebUI.
 
 ## Phase 4 — Origin Veil ★★★★☆ ✅
 (kernel + UAPI + manager; formerly "Sentinel")

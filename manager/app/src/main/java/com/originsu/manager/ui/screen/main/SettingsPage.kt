@@ -91,6 +91,9 @@ import androidx.core.content.FileProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.originsu.manager.BuildConfig
 import com.originsu.manager.R
+import com.originsu.manager.data.packageinfo.InstalledPackageRepository
+import com.originsu.manager.data.shell.KsuCliRepository
+import com.originsu.manager.data.shell.OriginZygiskAppInfo
 import com.originsu.manager.domain.usecase.GenerateBugreportUseCase
 import com.originsu.manager.ui.component.ConfirmResult
 import com.originsu.manager.ui.component.SearchAppBar
@@ -124,6 +127,7 @@ import top.yukonga.miuix.kmp.utils.scrollEndHaptic
 import com.originsu.manager.ui.util.ActivityResumeEffect
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
+import java.io.File
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
@@ -147,8 +151,17 @@ fun SettingsPage(bottomPadding: Dp) {
     val settingsViewModel = koinViewModel<SettingsViewModel>()
     val homeViewModel = koinViewModel<HomeViewModel>()
     val generateBugreport = koinInject<GenerateBugreportUseCase>()
+    val ksuCliRepository = koinInject<KsuCliRepository>()
+    val installedPackageRepository = koinInject<InstalledPackageRepository>()
     val uiState by settingsViewModel.uiState.collectAsStateWithLifecycle()
     val homeState by homeViewModel.uiState.collectAsStateWithLifecycle()
+
+    var showZygiskModules by remember { mutableStateOf(false) }
+    var showZygiskTelemetry by remember { mutableStateOf(false) }
+    var showZygiskLog by remember { mutableStateOf(false) }
+    var showZygiskSkip by remember { mutableStateOf(false) }
+    var zygiskApps by remember { mutableStateOf<List<OriginZygiskAppInfo>>(emptyList()) }
+    var pendingDiagnosticsFile by remember { mutableStateOf<File?>(null) }
 
     // Searchable titles/descriptions hoisted here so row visibility predicates
     // (evaluated in the non-composable SegmentedColumn DSL) can filter on them.
@@ -218,6 +231,51 @@ fun SettingsPage(bottomPadding: Dp) {
     }
     val zygiskNeedsReboot = stringResource(R.string.origin_zygisk_needs_reboot)
     val zygiskDefault = stringResource(R.string.settings_origin_zygisk_summary)
+    val zygiskStatus = uiState.originZygiskStatus
+    val titleZygiskIntegrity = stringResource(R.string.origin_zygisk_integrity)
+    val titleZygiskUmount = stringResource(R.string.origin_zygisk_umount)
+    val descZygiskUmount = stringResource(R.string.origin_zygisk_umount_summary)
+    val titleZygiskModules = stringResource(R.string.origin_zygisk_modules)
+    val titleZygiskSkipApps = stringResource(R.string.origin_zygisk_skip_apps)
+    val titleZygiskPause = stringResource(R.string.origin_zygisk_pause)
+    val descZygiskPause = stringResource(R.string.origin_zygisk_pause_summary)
+    val titleZygiskTelemetry = stringResource(R.string.origin_zygisk_telemetry)
+    val titleZygiskLog = stringResource(R.string.origin_zygisk_log)
+    val descZygiskLog = stringResource(R.string.origin_zygisk_log_summary)
+    val titleZygiskDiagnostics = stringResource(R.string.origin_zygisk_diagnostics)
+    val descZygiskDiagnostics = stringResource(R.string.origin_zygisk_diagnostics_summary)
+    val diagnosticsFailed = stringResource(R.string.origin_zygisk_diagnostics_failed)
+    val diagnosticsSaved = stringResource(R.string.origin_zygisk_diagnostics_saved)
+    val zygiskIntegritySummary = when {
+        !zygiskStatus.integrityOk -> stringResource(
+            R.string.origin_zygisk_integrity_repair,
+            zygiskStatus.integrityError ?: stringResource(R.string.origin_zygisk_integrity_failed),
+        )
+        zygiskStatus.expectedVersion.isNotBlank() &&
+            zygiskStatus.payloadVersion != zygiskStatus.expectedVersion -> stringResource(
+            R.string.origin_zygisk_payload_mismatch,
+            zygiskStatus.payloadVersion.ifBlank { "?" },
+            zygiskStatus.expectedVersion,
+        )
+        else -> stringResource(
+            R.string.origin_zygisk_integrity_ok,
+            zygiskStatus.payloadVersion.ifBlank { "?" },
+        )
+    }
+    val zygiskModulesSummary = stringResource(
+        R.string.origin_zygisk_modules_summary,
+        zygiskStatus.installedModules.count { it.loaded },
+        zygiskStatus.installedModules.size,
+        zygiskStatus.installedModules.count { it.quarantined || it.zygiskDisabled },
+    )
+    val zygiskSkipSummary = stringResource(
+        R.string.origin_zygisk_skip_apps_summary,
+        zygiskStatus.skippedPackages.size,
+    )
+    val zygiskTelemetrySummary = stringResource(
+        R.string.origin_zygisk_telemetry_summary,
+        zygiskStatus.telemetry.size,
+    )
     val titleVeilSwitch = stringResource(R.string.settings_veil)
     val descVeilDefault = stringResource(R.string.settings_veil_summary)
     val titleVeilManage = stringResource(R.string.veil)
@@ -309,6 +367,7 @@ fun SettingsPage(bottomPadding: Dp) {
     }
     val zygiskSummary = when {
         zygiskIssue != null -> zygiskIssue
+        zygiskStatus.injectionPaused -> stringResource(R.string.origin_zygisk_paused)
         uiState.isOriginZygiskRunning -> zygiskRunningRootModules
             ?: zygiskRunningRoot
             ?: zygiskRunningModules.takeIf { uiState.originZygiskModuleCount > 0 }
@@ -339,6 +398,18 @@ fun SettingsPage(bottomPadding: Dp) {
     val matchUmountDefault = matches(titleUmountDefault, descUmountDefaultSummary, sectionConfiguration)
 
     val matchZygisk = matches(titleZygisk, zygiskSummary, sectionOrigin)
+    val matchZygiskPanel = matches(
+        titleZygisk,
+        titleZygiskIntegrity,
+        titleZygiskUmount,
+        titleZygiskModules,
+        titleZygiskSkipApps,
+        titleZygiskPause,
+        titleZygiskTelemetry,
+        titleZygiskLog,
+        titleZygiskDiagnostics,
+        sectionOrigin,
+    )
     val matchVeilSwitch = matches(titleVeilSwitch, veilSummary, sectionOrigin)
     val matchVeilManage = matches(titleVeilManage, descVeilManage, sectionOrigin)
     val matchGrantToast = matches(titleGrantToast, descGrantToast, sectionOrigin)
@@ -388,6 +459,7 @@ fun SettingsPage(bottomPadding: Dp) {
     ).any { it }
     val showOriginGroup = listOf(
         matchZygisk,
+        matchZygiskPanel,
         matchVeilSwitch,
         matchVeilManage && uiState.veilStatus == "supported" && uiState.isVeilEnabled,
         matchGrantToast,
@@ -423,6 +495,23 @@ fun SettingsPage(bottomPadding: Dp) {
         settingsViewModel.dispatch(SettingsUiAction.LoadFeatureSettings)
         settingsViewModel.dispatch(SettingsUiAction.RefreshOriginZygisk)
         settingsViewModel.dispatch(SettingsUiAction.RefreshBootloop)
+    }
+
+    LaunchedEffect(showZygiskSkip) {
+        if (showZygiskSkip) {
+            val packages = runCatching {
+                installedPackageRepository.refresh()
+                installedPackageRepository.packages.value
+            }.getOrDefault(emptyList())
+            zygiskApps = packages.map { pkg ->
+                OriginZygiskAppInfo(
+                    packageName = pkg.packageName,
+                    label = pkg.appLabel.ifBlank { pkg.packageName },
+                    uid = pkg.uid,
+                    isSystem = pkg.isSystem,
+                )
+            }
+        }
     }
 
     LaunchedEffect(uiState.rootGatePanicUntil) {
@@ -475,6 +564,27 @@ fun SettingsPage(bottomPadding: Dp) {
                 }
                 loadingDialog.hide()
                 snackBarHost.showReplacingSnackbar(logSaved)
+            }
+        }
+        val exportDiagnosticsLauncher = rememberLauncherForActivityResult(
+            ActivityResultContracts.CreateDocument("application/zip")
+        ) { uri: Uri? ->
+            val file = pendingDiagnosticsFile
+            pendingDiagnosticsFile = null
+            if (uri == null || file == null) {
+                file?.delete()
+                return@rememberLauncherForActivityResult
+            }
+            scope.launch(Dispatchers.IO) {
+                runCatching {
+                    context.contentResolver.openOutputStream(uri)?.use { output ->
+                        file.inputStream().use { it.copyTo(output) }
+                    }
+                }
+                file.delete()
+                withContext(Dispatchers.Main) {
+                    snackBarHost.showReplacingSnackbar(diagnosticsSaved)
+                }
             }
         }
 
@@ -753,6 +863,108 @@ fun SettingsPage(bottomPadding: Dp) {
                                             enabled
                                         )
                                     )
+                                },
+                            )
+                        }
+
+                        item(visible = matchZygiskPanel && zygiskStatus.installed) {
+                            SettingsJumpPageWidget(
+                                icon = Icons.TwoTone.Tune,
+                                title = titleZygiskIntegrity,
+                                description = zygiskIntegritySummary,
+                                onClick = {
+                                    settingsViewModel.dispatch(SettingsUiAction.RepairOriginZygisk)
+                                },
+                            )
+                        }
+
+                        item(visible = matchZygiskPanel && zygiskStatus.installed) {
+                            SettingsSwitchWidget(
+                                icon = Icons.TwoTone.FolderOff,
+                                title = titleZygiskUmount,
+                                description = descZygiskUmount,
+                                checked = zygiskStatus.umountEnabled,
+                                onCheckedChange = { enabled ->
+                                    settingsViewModel.dispatch(
+                                        SettingsUiAction.SetOriginZygiskUmount(enabled)
+                                    )
+                                },
+                            )
+                        }
+
+                        item(visible = matchZygiskPanel && zygiskStatus.installed) {
+                            SettingsJumpPageWidget(
+                                icon = Icons.TwoTone.Extension,
+                                title = titleZygiskModules,
+                                description = zygiskModulesSummary,
+                                onClick = { showZygiskModules = true },
+                            )
+                        }
+
+                        item(visible = matchZygiskPanel && zygiskStatus.installed) {
+                            SettingsJumpPageWidget(
+                                icon = Icons.TwoTone.Policy,
+                                title = titleZygiskSkipApps,
+                                description = zygiskSkipSummary,
+                                onClick = { showZygiskSkip = true },
+                            )
+                        }
+
+                        item(
+                            visible = matchZygiskPanel && zygiskStatus.installed &&
+                                uiState.isOriginZygiskEnabled
+                        ) {
+                            SettingsSwitchWidget(
+                                icon = Icons.TwoTone.Visibility,
+                                title = titleZygiskPause,
+                                description = descZygiskPause,
+                                checked = zygiskStatus.injectionPaused,
+                                enabled = zygiskStatus.running,
+                                onCheckedChange = { paused ->
+                                    settingsViewModel.dispatch(
+                                        SettingsUiAction.SetOriginZygiskInjectionPaused(paused)
+                                    )
+                                },
+                            )
+                        }
+
+                        item(visible = matchZygiskPanel && zygiskStatus.installed) {
+                            SettingsJumpPageWidget(
+                                icon = Icons.TwoTone.Dashboard,
+                                title = titleZygiskTelemetry,
+                                description = zygiskTelemetrySummary,
+                                onClick = { showZygiskTelemetry = true },
+                            )
+                        }
+
+                        item(visible = matchZygiskPanel && zygiskStatus.installed) {
+                            SettingsJumpPageWidget(
+                                icon = Icons.AutoMirrored.TwoTone.Article,
+                                title = titleZygiskLog,
+                                description = descZygiskLog,
+                                onClick = { showZygiskLog = true },
+                            )
+                        }
+
+                        item(visible = matchZygiskPanel && zygiskStatus.installed) {
+                            SettingsJumpPageWidget(
+                                icon = Icons.TwoTone.BugReport,
+                                title = titleZygiskDiagnostics,
+                                description = descZygiskDiagnostics,
+                                onClick = {
+                                    scope.launch {
+                                        val file = loadingDialog.withLoading {
+                                            withContext(Dispatchers.IO) {
+                                                ksuCliRepository.buildOriginZygiskDiagnostics()
+                                            }
+                                        }
+                                        if (file == null) {
+                                            snackBarHost.showReplacingSnackbar(diagnosticsFailed)
+                                        } else {
+                                            pendingDiagnosticsFile = file
+                                            exportDiagnosticsLauncher.launch(file.name)
+                                        }
+                                    }
                                 },
                             )
                         }
@@ -1386,6 +1598,50 @@ fun SettingsPage(bottomPadding: Dp) {
             }
             }
         }
+    }
+
+    if (showZygiskModules) {
+        OriginZygiskModulesDialog(
+            status = zygiskStatus,
+            onToggle = { id, enabled ->
+                settingsViewModel.dispatch(
+                    SettingsUiAction.SetOriginZygiskModuleEnabled(id, enabled)
+                )
+            },
+            onQuarantine = { id, quarantined ->
+                settingsViewModel.dispatch(
+                    SettingsUiAction.SetOriginZygiskModuleQuarantined(id, quarantined)
+                )
+            },
+            onDismiss = { showZygiskModules = false },
+        )
+    }
+
+    if (showZygiskTelemetry) {
+        OriginZygiskTelemetryDialog(
+            events = zygiskStatus.telemetry,
+            onDismiss = { showZygiskTelemetry = false },
+        )
+    }
+
+    if (showZygiskLog) {
+        OriginZygiskLogDialog(
+            log = zygiskStatus.bootLog,
+            onDismiss = { showZygiskLog = false },
+        )
+    }
+
+    if (showZygiskSkip) {
+        OriginZygiskSkipDialog(
+            apps = zygiskApps,
+            selected = zygiskStatus.skippedPackages,
+            onToggle = { packageName, skip ->
+                settingsViewModel.dispatch(
+                    SettingsUiAction.SetOriginZygiskSkip(packageName, skip)
+                )
+            },
+            onDismiss = { showZygiskSkip = false },
+        )
     }
 }
 

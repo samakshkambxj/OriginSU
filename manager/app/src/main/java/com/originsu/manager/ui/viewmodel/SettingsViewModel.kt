@@ -151,6 +151,7 @@ data class SettingsUiState(
     val originZygiskModuleCount: Int = 0,
     val originZygiskRoot: String = "",
     val originZygiskError: String? = null,
+    val originZygiskStatus: OriginZygiskStatus = OriginZygiskStatus(),
     val topBarLogo: TopBarLogo = TopBarLogo.YIN_YANG,
     val uiMode: UiMode = UiMode.Material,
     val miuixHomeStyle: MiuixHomeStyle = MiuixHomeStyle.Standard,
@@ -218,6 +219,18 @@ sealed interface SettingsUiAction {
     data class SetMagicMountBackend(val backend: String) : SettingsUiAction
     data class SetThemedShortcutsEnabled(val enabled: Boolean) : SettingsUiAction
     data class SetOriginZygiskEnabled(val enabled: Boolean) : SettingsUiAction
+    data class SetOriginZygiskUmount(val enabled: Boolean) : SettingsUiAction
+    data class SetOriginZygiskSkip(val packageName: String, val skip: Boolean) : SettingsUiAction
+    data class SetOriginZygiskModuleEnabled(
+        val moduleId: String,
+        val enabled: Boolean,
+    ) : SettingsUiAction
+    data class SetOriginZygiskModuleQuarantined(
+        val moduleId: String,
+        val quarantined: Boolean,
+    ) : SettingsUiAction
+    data class SetOriginZygiskInjectionPaused(val paused: Boolean) : SettingsUiAction
+    data object RepairOriginZygisk : SettingsUiAction
     data object RefreshOriginZygisk : SettingsUiAction
     data object RefreshBootloop : SettingsUiAction
     data class SetBootloopEnabled(val enabled: Boolean) : SettingsUiAction
@@ -619,6 +632,7 @@ class SettingsViewModel(
                     originZygiskModuleCount = status.modules.size,
                     originZygiskRoot = status.rootImplementation,
                     originZygiskError = status.error,
+                    originZygiskStatus = status,
                 )
             }
         }
@@ -631,6 +645,79 @@ class SettingsViewModel(
             if (!ok) {
                 mutableEvents.tryEmit(SettingsUiEvent.Message(R.string.origin_zygisk_failed))
             }
+            refreshOriginZygisk()
+        }
+    }
+
+    fun handleOriginZygiskUmountChange(enabled: Boolean) {
+        viewModelScope.launch {
+            val ok = runCatching { ksuCliRepository.setOriginZygiskUmount(enabled) }
+                .getOrDefault(false)
+            if (!ok) {
+                mutableEvents.tryEmit(SettingsUiEvent.Message(R.string.origin_zygisk_policy_failed))
+            }
+            refreshOriginZygisk()
+        }
+    }
+
+    fun handleOriginZygiskSkipChange(packageName: String, skip: Boolean) {
+        viewModelScope.launch {
+            val ok = runCatching {
+                ksuCliRepository.setOriginZygiskSkipPackage(packageName, skip)
+            }.getOrDefault(false)
+            if (!ok) {
+                mutableEvents.tryEmit(SettingsUiEvent.Message(R.string.origin_zygisk_policy_failed))
+            }
+            refreshOriginZygisk()
+        }
+    }
+
+    fun handleOriginZygiskModuleEnabledChange(moduleId: String, enabled: Boolean) {
+        viewModelScope.launch {
+            val ok = runCatching {
+                ksuCliRepository.setOriginZygiskModuleEnabled(moduleId, enabled)
+            }.getOrDefault(false)
+            if (!ok) {
+                mutableEvents.tryEmit(SettingsUiEvent.Message(R.string.origin_zygisk_policy_failed))
+            }
+            refreshOriginZygisk()
+        }
+    }
+
+    fun handleOriginZygiskModuleQuarantineChange(moduleId: String, quarantined: Boolean) {
+        viewModelScope.launch {
+            val ok = runCatching {
+                ksuCliRepository.setOriginZygiskModuleQuarantined(moduleId, quarantined)
+            }.getOrDefault(false)
+            if (!ok) {
+                mutableEvents.tryEmit(SettingsUiEvent.Message(R.string.origin_zygisk_policy_failed))
+            }
+            refreshOriginZygisk()
+        }
+    }
+
+    fun handleOriginZygiskInjectionPausedChange(paused: Boolean) {
+        viewModelScope.launch {
+            val ok = runCatching {
+                ksuCliRepository.setOriginZygiskInjectionPaused(paused)
+            }.getOrDefault(false)
+            if (!ok) {
+                mutableEvents.tryEmit(SettingsUiEvent.Message(R.string.origin_zygisk_policy_failed))
+            }
+            refreshOriginZygisk()
+        }
+    }
+
+    fun repairOriginZygisk() {
+        viewModelScope.launch {
+            val ok = runCatching { ksuCliRepository.repairOriginZygisk() }
+                .getOrDefault(false)
+            mutableEvents.tryEmit(
+                SettingsUiEvent.Message(
+                    if (ok) R.string.origin_zygisk_repair_done
+                    else R.string.origin_zygisk_repair_failed,
+                ),
+            )
             refreshOriginZygisk()
         }
     }
@@ -877,6 +964,17 @@ fun dispatch(action: SettingsUiAction) {
                 handleThemedShortcutsChange(action.enabled)
             is SettingsUiAction.SetOriginZygiskEnabled ->
                 handleOriginZygiskChange(action.enabled)
+            is SettingsUiAction.SetOriginZygiskUmount ->
+                handleOriginZygiskUmountChange(action.enabled)
+            is SettingsUiAction.SetOriginZygiskSkip ->
+                handleOriginZygiskSkipChange(action.packageName, action.skip)
+            is SettingsUiAction.SetOriginZygiskModuleEnabled ->
+                handleOriginZygiskModuleEnabledChange(action.moduleId, action.enabled)
+            is SettingsUiAction.SetOriginZygiskModuleQuarantined ->
+                handleOriginZygiskModuleQuarantineChange(action.moduleId, action.quarantined)
+            is SettingsUiAction.SetOriginZygiskInjectionPaused ->
+                handleOriginZygiskInjectionPausedChange(action.paused)
+            SettingsUiAction.RepairOriginZygisk -> repairOriginZygisk()
             SettingsUiAction.RefreshOriginZygisk -> refreshOriginZygisk()
             SettingsUiAction.RefreshBootloop -> refreshBootloop()
             is SettingsUiAction.SetBootloopEnabled ->
