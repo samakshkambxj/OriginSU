@@ -31,6 +31,7 @@ object Natives {
     // 34967(upstream 32514): allowlist v4 root profile flags
     // 35002: add sync set dynamic-manager api
     // 35189: add Origin Veil ioctls (get-fd, cloak, history) + feature id 5
+    // 35190: Origin Veil 2.0 uses feature id 12 and the veil2 ioctl/ABI
     const val MINIMAL_SUPPORTED_KERNEL = 35189
 
     const val KERNEL_SU_DOMAIN = "u:r:ksu:s0"
@@ -162,6 +163,7 @@ object Natives {
     external fun setVeilAutoCloak(enabled: Boolean): Boolean
     external fun getVeilHistory(): List<VeilHistoryEntry>?
     external fun clearVeilHistory(): Boolean
+    external fun getVeilStats(): VeilStats?
 
     /**
      * Kernel module umount can be disabled temporarily.
@@ -284,7 +286,22 @@ object Natives {
         val uid: Int = 0,
         val count: Int = 0,
         val kinds: Int = 0,
+        val firstNs: Long = 0L,
         val lastNs: Long = 0L
+    ) : Parcelable
+
+    @Immutable
+    @Parcelize
+    @Keep
+    data class VeilStats(
+        val cloaked: Int = 0,
+        val history: Int = 0,
+        val probes: Int = 0,
+        val suppressed: Int = 0,
+        val historyDropped: Int = 0,
+        val queueDropped: Int = 0,
+        val kprobes: Int = 0,
+        val autoCloak: Int = 0,
     ) : Parcelable
 
     @Immutable

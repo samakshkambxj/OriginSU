@@ -226,7 +226,7 @@ class SettingsPlatformRepository(
                 ksuCliRepository.getFeatureStatus("sulog")
             }.getOrDefault(""),
             veilStatus = runCatching {
-                ksuCliRepository.getFeatureStatus("veil")
+                ksuCliRepository.getFeatureStatus("veil2")
             }.getOrDefault(""),
             selinuxHideStatus = runCatching {
                 ksuCliRepository.getFeatureStatus("selinux_hide")

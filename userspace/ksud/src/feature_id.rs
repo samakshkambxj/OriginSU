@@ -19,10 +19,11 @@ pub enum FeatureId {
     SelinuxMode = 9,
     ShellSuAdbOnly = 10,
     RootGate = 11,
+    OriginVeilV2 = 12,
 }
 
 impl FeatureId {
-    pub const ALL: [Self; 12] = [
+    pub const ALL: [Self; 13] = [
         Self::SuCompat,
         Self::KernelUmount,
         Self::Sulog,
@@ -35,6 +36,7 @@ impl FeatureId {
         Self::SelinuxMode,
         Self::ShellSuAdbOnly,
         Self::RootGate,
+        Self::OriginVeilV2,
     ];
 
     pub const fn from_u32(id: u32) -> Option<Self> {
@@ -51,6 +53,7 @@ impl FeatureId {
             9 => Some(Self::SelinuxMode),
             10 => Some(Self::ShellSuAdbOnly),
             11 => Some(Self::RootGate),
+            12 => Some(Self::OriginVeilV2),
             _ => None,
         }
     }
@@ -69,6 +72,7 @@ impl FeatureId {
             Self::SelinuxMode => "selinux",
             Self::ShellSuAdbOnly => "shell_su_adb_only",
             Self::RootGate => "root_gate",
+            Self::OriginVeilV2 => "veil2",
         }
     }
 
@@ -104,6 +108,9 @@ impl FeatureId {
             Self::RootGate => {
                 "Root Gate - master switch that suspends every root grant without touching app profiles; the manager can always resume it"
             }
+            Self::OriginVeilV2 => {
+                "Origin Veil 2.0 - independent root-probe detection, hashed cloak set and bounded per-app history"
+            }
         }
     }
 }
@@ -122,6 +129,7 @@ pub fn parse_feature_id(name: &str) -> Result<FeatureId> {
         "selinux" | "9" => Ok(FeatureId::SelinuxMode),
         "shell_su_adb_only" | "10" => Ok(FeatureId::ShellSuAdbOnly),
         "root_gate" | "11" => Ok(FeatureId::RootGate),
+        "veil2" | "12" => Ok(FeatureId::OriginVeilV2),
         _ => bail!("Unknown feature: {name}"),
     }
 }

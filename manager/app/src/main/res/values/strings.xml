@@ -90,6 +90,10 @@
     <string name="veil_uid_title">UID %1$d</string>
     <string name="veil_probe_count">%1$d probes</string>
     <string name="veil_probe_count_at">%1$d probes · %2$s</string>
+    <string name="veil_stats_title">Kernel state</string>
+    <string name="veil_stats_summary">%1$d cloaked · %2$d watched · %3$d probes · %4$d dropped</string>
+    <string name="veil_stats_hooks">Probe hooks: %1$d</string>
+    <string name="veil_stats_suppressed">%1$d bursts coalesced</string>
     <string name="veil_unsupported_title">Origin Veil is unsupported by this kernel</string>
     <string name="veil_manage_summary">Cloaked apps and probe history</string>
     <string name="veil_kind_su">su binary</string>
@@ -99,6 +103,9 @@
     <string name="veil_kind_pkglist">Package list</string>
     <string name="veil_kind_busybox">BusyBox</string>
     <string name="veil_kind_su_exec">su execution</string>
+    <string name="veil_kind_mountinfo">Mount table</string>
+    <string name="veil_kind_proc_maps">Process maps</string>
+    <string name="veil_kind_kallsyms">Kernel symbols</string>
     <string name="veil_kind_unknown">Unknown probe</string>
     <string name="veil_notify">Notify on root requests</string>
     <string name="veil_notify_summary">Post a Grant / Cloak / Ignore notification when an app probes for su. Mutually exclusive with auto-cloak.</string>

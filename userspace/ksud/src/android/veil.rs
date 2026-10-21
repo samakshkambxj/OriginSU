@@ -1,24 +1,44 @@
-// Origin Veil persistence: snapshot {enabled, auto-cloak, cloak-set} to
-// /data/adb/ksu/veil.json on every change and re-apply at boot, since the
-// kernel state resets on reboot.
+// Origin Veil 2.0 persistence: snapshot {enabled, auto-cloak, cloak-set} to
+// /data/adb/ksu/veil.json on every change and re-apply at boot, since kernel
+// state resets on reboot.
 
 use crate::android::ksucalls::veil_op;
 
 use crate::android::{feature, ksucalls};
 
 const VEIL_CONF: &str = "/data/adb/ksu/veil.json";
+const VEIL2_FEATURE_ID: u32 = 12;
 
-#[derive(serde::Serialize, serde::Deserialize, Default)]
+#[derive(serde::Serialize, serde::Deserialize)]
 struct VeilConf {
+    #[serde(default = "veil_schema_version")]
+    version: u32,
+    #[serde(default)]
     enabled: bool,
+    #[serde(default)]
     auto: bool,
+    #[serde(default)]
     cloaked: Vec<u32>,
+}
+
+fn veil_schema_version() -> u32 {
+    2
+}
+
+impl Default for VeilConf {
+    fn default() -> Self {
+        Self {
+            version: veil_schema_version(),
+            enabled: false,
+            auto: false,
+            cloaked: Vec::new(),
+        }
+    }
 }
 
 /// Snapshot current kernel state to disk so it survives reboot.
 fn save_config() {
-    // Feature id 5 = KSU_FEATURE_ORIGIN_VEIL.
-    let enabled = ksucalls::get_feature(5)
+    let enabled = ksucalls::get_feature(VEIL2_FEATURE_ID)
         .map(|state| state.value != 0)
         .unwrap_or(false);
     let auto = ksucalls::veil_cloak_op(veil_op::GET_AUTO, 0, 0)
@@ -26,6 +46,7 @@ fn save_config() {
         .unwrap_or(false);
     let cloaked = ksucalls::veil_cloak_list().unwrap_or_default();
     let conf = VeilConf {
+        version: veil_schema_version(),
         enabled,
         auto,
         cloaked,
@@ -50,11 +71,14 @@ pub fn restore_config() {
         Ok(c) => c,
         Err(_) => return,
     };
+    if conf.version > veil_schema_version() {
+        return;
+    }
     let _ = ksucalls::veil_cloak_op(veil_op::SET_AUTO, 0, u32::from(conf.auto));
     for uid in conf.cloaked {
         let _ = ksucalls::veil_cloak_op(veil_op::ADD, uid, 0);
     }
     if conf.enabled {
-        let _ = feature::set_feature("veil", 1);
+        let _ = feature::set_feature("veil2", 1);
     }
 }

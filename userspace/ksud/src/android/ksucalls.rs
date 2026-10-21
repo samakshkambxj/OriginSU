@@ -332,7 +332,7 @@ pub fn get_sulog_fd() -> Result<RawFd> {
     Ok(result)
 }
 
-/// Mirror of enum ksu_veil_cloak_op (uapi/supercall.h). Unused variants are
+/// Mirror of enum ksu_veil2_control_op (uapi/supercall.h). Unused variants are
 /// kept so the mapping stays complete.
 #[allow(dead_code)]
 pub mod veil_op {
@@ -343,51 +343,63 @@ pub mod veil_op {
     pub const CLEAR: u32 = 4;
     pub const SET_AUTO: u32 = 5;
     pub const GET_AUTO: u32 = 6;
+    pub const GET_STATS: u32 = 7;
 }
 
-/// Origin Veil: run a cloak-list operation (ADD/REMOVE/QUERY/CLEAR/SET_AUTO/GET_AUTO).
+const VEIL2_ABI: u32 = 2;
+
+/// Origin Veil 2.0: run a control operation (ADD/REMOVE/QUERY/CLEAR/SET_AUTO/GET_AUTO).
 /// Returns the command's out value (QUERY/GET_AUTO result).
 pub fn veil_cloak_op(op: u32, uid: u32, value: u32) -> Result<u32> {
-    let mut cmd = uapi::ksu_veil_cloak_cmd {
+    let mut cmd = uapi::ksu_veil2_control_cmd {
+        version: VEIL2_ABI,
         op,
         uid,
         value,
         count: 0,
+        reserved: 0,
         uids: 0,
+        stats: 0,
     };
-    ksuctl(uapi::KSU_IOCTL_VEIL_CLOAK, &raw mut cmd)?;
+    ksuctl(uapi::KSU_IOCTL_VEIL2_CONTROL, &raw mut cmd)?;
     Ok(cmd.value)
 }
 
-/// Origin Veil: list cloaked uids (two-step: probe count, then fill).
+/// Origin Veil 2.0: list cloaked uids (two-step: probe count, then fill).
 pub fn veil_cloak_list() -> Result<Vec<u32>> {
-    let mut probe = uapi::ksu_veil_cloak_cmd {
+    let mut probe = uapi::ksu_veil2_control_cmd {
+        version: VEIL2_ABI,
         op: veil_op::LIST,
         uid: 0,
         value: 0,
         count: 0,
+        reserved: 0,
         uids: 0,
+        stats: 0,
     };
-    ksuctl(uapi::KSU_IOCTL_VEIL_CLOAK, &raw mut probe)?;
+    ksuctl(uapi::KSU_IOCTL_VEIL2_CONTROL, &raw mut probe)?;
     if probe.count == 0 {
         return Ok(Vec::new());
     }
     let mut uids = vec![0u32; probe.count as usize];
-    let mut cmd = uapi::ksu_veil_cloak_cmd {
+    let mut cmd = uapi::ksu_veil2_control_cmd {
+        version: VEIL2_ABI,
         op: veil_op::LIST,
         uid: 0,
         value: 0,
         count: probe.count,
+        reserved: 0,
         uids: uids.as_mut_ptr() as u64,
+        stats: 0,
     };
-    ksuctl(uapi::KSU_IOCTL_VEIL_CLOAK, &raw mut cmd)?;
+    ksuctl(uapi::KSU_IOCTL_VEIL2_CONTROL, &raw mut cmd)?;
     let got = cmd.count.min(probe.count) as usize;
     uids.truncate(got);
     Ok(uids)
 }
 
 /// One entry of the kernel's per-uid probe history.
-/// Mirrors struct ksu_veil_hist_entry (uapi/supercall.h); `count` is
+/// Mirrors struct ksu_veil2_hist_entry (uapi/supercall.h); `count` is
 /// currently unused by ksud but kept for layout parity.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct VeilHistEntry {
@@ -395,36 +407,43 @@ pub struct VeilHistEntry {
     #[allow(dead_code)]
     pub count: u32,
     pub kinds: u32,
+    #[allow(dead_code)]
+    pub first_ns: u64,
     pub last_ns: u64,
 }
 
-/// Origin Veil: dump the per-uid probe history (two-step: probe count, then fill).
+/// Origin Veil 2.0: dump the per-uid probe history (two-step: probe count, then fill).
 pub fn veil_history() -> Result<Vec<VeilHistEntry>> {
-    let mut probe = uapi::ksu_veil_history_cmd {
+    let mut probe = uapi::ksu_veil2_history_cmd {
+        version: VEIL2_ABI,
+        op: 0,
         count: 0,
-        pad: 0,
+        reserved: 0,
         entries: 0,
     };
-    ksuctl(uapi::KSU_IOCTL_VEIL_HISTORY, &raw mut probe)?;
+    ksuctl(uapi::KSU_IOCTL_VEIL2_HISTORY, &raw mut probe)?;
     if probe.count == 0 {
         return Ok(Vec::new());
     }
     let mut entries = vec![
-        uapi::ksu_veil_hist_entry {
+        uapi::ksu_veil2_hist_entry {
             uid: 0,
             count: 0,
             kinds: 0,
-            pad: 0,
+            flags: 0,
+            first_ns: 0,
             last_ns: 0,
         };
         probe.count as usize
     ];
-    let mut cmd = uapi::ksu_veil_history_cmd {
+    let mut cmd = uapi::ksu_veil2_history_cmd {
+        version: VEIL2_ABI,
+        op: 0,
         count: probe.count,
-        pad: 0,
+        reserved: 0,
         entries: entries.as_mut_ptr() as u64,
     };
-    ksuctl(uapi::KSU_IOCTL_VEIL_HISTORY, &raw mut cmd)?;
+    ksuctl(uapi::KSU_IOCTL_VEIL2_HISTORY, &raw mut cmd)?;
     let got = cmd.count.min(probe.count) as usize;
     Ok(entries[..got]
         .iter()
@@ -432,6 +451,7 @@ pub fn veil_history() -> Result<Vec<VeilHistEntry>> {
             uid: e.uid,
             count: e.count,
             kinds: e.kinds,
+            first_ns: e.first_ns,
             last_ns: e.last_ns,
         })
         .collect())

@@ -659,4 +659,11 @@
     <string name="module_preinit_unsupported">preinit 未生效：当前内核不支持</string>
     <string name="enable_developer_options">启用开发者选项</string>
     <string name="enable_developer_options_summary">显示仅供开发者使用的隐藏设置和调试信息。</string>
+    <string name="veil_stats_title">内核状态</string>
+    <string name="veil_stats_summary">%1$d 个已隐藏 · %2$d 个已记录 · %3$d 次探测 · %4$d 次丢弃</string>
+    <string name="veil_stats_hooks">探测钩子：%1$d</string>
+    <string name="veil_stats_suppressed">%1$d 次合并</string>
+    <string name="veil_kind_mountinfo">挂载信息</string>
+    <string name="veil_kind_proc_maps">进程映射</string>
+    <string name="veil_kind_kallsyms">内核符号</string>
 </resources>

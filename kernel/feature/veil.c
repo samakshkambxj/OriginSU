@@ -1,573 +1,811 @@
+/*
+ * Origin Veil 2.0
+ *
+ * Kernel-side root-probe observation and per-uid mount cloaking.
+ *
+ * The implementation is deliberately split into small, independent pieces:
+ *   - a bounded probe-event queue for the manager's live view;
+ *   - a hashed cloak set consulted by the umount path;
+ *   - a hashed, LRU-bounded per-uid history;
+ *   - a fixed-size open-addressed set for once-per-boot su notifications;
+ *   - a small probe-hash burst limiter so a spinning app cannot flood the
+ *     event queue;
+ *   - kprobes on the path-taking open/access entry points.
+ *
+ * None of the sets allocate on lookup. Writers allocate with GFP_ATOMIC
+ * because the probe path runs in kprobe context.
+ */
+
 #include <linux/anon_inodes.h>
+#include <linux/atomic.h>
 #include <linux/cache.h>
+#include <linux/cred.h>
 #include <linux/err.h>
 #include <linux/fdtable.h>
 #include <linux/file.h>
 #include <linux/fs.h>
+#include <linux/init.h>
 #include <linux/jiffies.h>
+#include <linux/kprobes.h>
+#include <linux/list.h>
 #include <linux/mutex.h>
 #include <linux/poll.h>
+#include <linux/ptrace.h>
 #include <linux/sched.h>
+#include <linux/slab.h>
 #include <linux/spinlock.h>
 #include <linux/string.h>
 #include <linux/timekeeping.h>
+#include <linux/types.h>
 #include <linux/version.h>
-#include <linux/export.h>
-#include <linux/cred.h>
-#include <linux/kprobes.h>
-#include <linux/ptrace.h>
 
-#include "feature/veil.h"
 #include "arch.h"
+#include "compat/kernel_compat.h"
+#include "feature/veil.h"
 #include "infra/event_queue.h"
 #include "klog.h" // IWYU pragma: keep
-#include "policy/feature.h"
 #include "policy/allowlist.h"
-#include "compat/kernel_compat.h"
-#include "uapi/veil.h"
-#include "uapi/supercall.h"
+#include "policy/feature.h"
 #include "sulog/event.h"
+#include "uapi/supercall.h"
+#include "uapi/veil.h"
 
-#define VEIL_MAX_QUEUED 256
-#define VEIL_DEDUP_SLOTS 32
-#define VEIL_DEDUP_WINDOW msecs_to_jiffies(5000)
+#define VEIL2_QUEUE_DEPTH 512
+#define VEIL2_CLOAK_BUCKETS 256
+#define VEIL2_HISTORY_BUCKETS 256
+#define VEIL2_CLOAK_MAX 4096
+#define VEIL2_HISTORY_MAX 4096
+#define VEIL2_DEDUP_SLOTS 256
+#define VEIL2_DEDUP_PROBES 8
+#define VEIL2_DEDUP_WINDOW msecs_to_jiffies(3000)
+#define VEIL2_NOTIFY_SLOTS 2048
+#define VEIL2_NOTIFY_TOMBSTONE ((uid_t)~0U)
 
-static bool ksu_veil_enabled __read_mostly = false;
-static struct ksu_event_queue veil_queue;
+static bool veil2_enabled __read_mostly;
+static bool veil2_auto_cloak __read_mostly;
+static struct ksu_event_queue veil2_queue;
 
-/* Per-uid burst coalescing so a spinning probe can't flood the queue. */
-struct veil_dedup_slot {
-    uid_t uid;
-    __u16 kind;
-    bool used;
-    unsigned long last;
-    __u32 count;
-};
-static struct veil_dedup_slot dedup[VEIL_DEDUP_SLOTS];
-static DEFINE_SPINLOCK(dedup_lock);
+static atomic64_t veil2_probe_count = ATOMIC64_INIT(0);
+static atomic64_t veil2_event_seq = ATOMIC64_INIT(0);
+static atomic_t veil2_suppressed = ATOMIC_INIT(0);
+static atomic_t veil2_history_dropped = ATOMIC_INIT(0);
+static atomic_t veil2_queue_dropped = ATOMIC_INIT(0);
 
-/* ---- fd delivery (mirrors kernel/sulog/fd.c) ---- */
-static DEFINE_MUTEX(veil_fd_lock);
-static bool veil_fd_active;
+static void veil2_notify_reset(uid_t uid);
+static void veil2_notify_clear(void);
 
 bool ksu_veil_is_enabled(void)
 {
-    return ksu_veil_enabled;
+    return READ_ONCE(veil2_enabled);
 }
 
-/*
- * Returns 0 when the probe is coalesced into a recent event (caller should not
- * emit), otherwise the accumulated hit count to put on the emitted event.
- */
-static __u32 veil_dedup_bump(uid_t uid, __u16 kind)
+/* ------------------------------------------------------------------ */
+/* Hash helpers                                                       */
+/* ------------------------------------------------------------------ */
+
+static inline u32 veil2_uid_hash(uid_t uid, u32 buckets)
 {
-    int i, slot = -1, oldest = 0;
-    unsigned long now = jiffies;
-    __u32 emit;
-    unsigned long flags;
+    u32 h = (u32)uid;
 
-    spin_lock_irqsave(&dedup_lock, flags);
-
-    for (i = 0; i < VEIL_DEDUP_SLOTS; i++) {
-        if (dedup[i].used && dedup[i].uid == uid && dedup[i].kind == kind) {
-            slot = i;
-            break;
-        }
-        if (!dedup[i].used && slot < 0)
-            slot = i; /* first free, keep scanning for a real match */
-        if (time_before(dedup[i].last, dedup[oldest].last))
-            oldest = i;
-    }
-
-    if (slot >= 0 && dedup[slot].used && dedup[slot].uid == uid && dedup[slot].kind == kind) {
-        if (time_before(now, dedup[slot].last + VEIL_DEDUP_WINDOW)) {
-            dedup[slot].count++;
-            dedup[slot].last = now;
-            spin_unlock_irqrestore(&dedup_lock, flags);
-            return 0; /* within window: suppress */
-        }
-        emit = dedup[slot].count + 1;
-        dedup[slot].count = 0;
-        dedup[slot].last = now;
-        spin_unlock_irqrestore(&dedup_lock, flags);
-        return emit;
-    }
-
-    /* no match: take the free slot, else evict the oldest */
-    if (slot < 0)
-        slot = oldest;
-    dedup[slot].used = true;
-    dedup[slot].uid = uid;
-    dedup[slot].kind = kind;
-    dedup[slot].last = now;
-    dedup[slot].count = 0;
-    spin_unlock_irqrestore(&dedup_lock, flags);
-    return 1;
+    h ^= h >> 16;
+    h *= 0x7feb352dU;
+    h ^= h >> 15;
+    return h & (buckets - 1);
 }
 
-/* Notify the manager once per uid (per boot) when a non-allowlisted app probes
- * for su, so it can offer to grant root. */
-#define VEIL_SU_NOTIFY_MAX 256
-static uid_t su_notified[VEIL_SU_NOTIFY_MAX];
-static int su_notified_count;
-static DEFINE_SPINLOCK(su_notify_lock);
+/* ------------------------------------------------------------------ */
+/* Cloak set                                                          */
+/* ------------------------------------------------------------------ */
 
-static bool veil_su_notify_once(uid_t uid)
+struct veil2_cloak {
+    struct hlist_node node;
+    uid_t uid;
+};
+
+static struct hlist_head veil2_cloak_buckets[VEIL2_CLOAK_BUCKETS];
+static u32 veil2_cloak_total;
+static DEFINE_SPINLOCK(veil2_cloak_lock);
+
+static struct veil2_cloak *veil2_cloak_find_locked(uid_t uid, u32 bucket)
 {
-    int i;
-    bool first = true;
-    unsigned long flags;
+    struct veil2_cloak *entry;
 
-    spin_lock_irqsave(&su_notify_lock, flags);
-    for (i = 0; i < su_notified_count; i++) {
-        if (su_notified[i] == uid) {
-            first = false;
-            break;
-        }
+    hlist_for_each_entry (entry, &veil2_cloak_buckets[bucket], node) {
+        if (entry->uid == uid)
+            return entry;
     }
-    if (first && su_notified_count < VEIL_SU_NOTIFY_MAX)
-        su_notified[su_notified_count++] = uid;
-    spin_unlock_irqrestore(&su_notify_lock, flags);
-    return first;
+    return NULL;
 }
-
-/* Clear a uid's notify mark so it can raise a fresh root request again - called
- * on uncloak, otherwise the once-per-uid dedup would suppress it forever. */
-static void veil_su_notify_reset(uid_t uid)
-{
-    int i;
-    unsigned long flags;
-
-    spin_lock_irqsave(&su_notify_lock, flags);
-    for (i = 0; i < su_notified_count; i++) {
-        if (su_notified[i] == uid) {
-            su_notified[i] = su_notified[--su_notified_count]; /* swap-remove */
-            break;
-        }
-    }
-    spin_unlock_irqrestore(&su_notify_lock, flags);
-}
-
-void ksu_veil_report(uid_t uid, const char *path, __u16 kind)
-{
-    struct ksu_veil_event ev;
-    __u32 count;
-
-    if (!READ_ONCE(ksu_veil_enabled))
-        return;
-
-    ksu_veil_history_record(uid, kind);
-
-    /* First time a non-allowlisted app probes for su, surface a root request so
-     * the manager can offer to grant it. Gated by sulog being enabled (the
-     * "Notify on root requests" toggle turns that on). */
-    if (kind == KSU_VEIL_KIND_SU && uid >= 10000 && !ksu_is_allow_uid(uid) && veil_su_notify_once(uid))
-        ksu_sulog_emit_grant_root(-EPERM, uid, uid, GFP_ATOMIC);
-
-    count = veil_dedup_bump(uid, kind);
-    if (!count)
-        return;
-
-    pr_info_ratelimited("veil: probe uid=%u pid=%d path=%s x%u\n", uid, current->pid, path ? path : "?", count);
-
-    memset(&ev, 0, sizeof(ev));
-    ev.version = KSU_VEIL_EVENT_VERSION;
-    ev.kind = kind;
-    ev.uid = uid;
-    ev.pid = current->pid;
-    ev.count = count;
-    ev.ts_ns = ktime_get_boottime_ns();
-    if (path)
-        strscpy(ev.path, path, sizeof(ev.path));
-
-    ksu_event_queue_push(&veil_queue, kind, 0, &ev, sizeof(ev), GFP_ATOMIC);
-}
-
-/* ---- cloak set: uids we hide module mounts from ----
- * The umount path (kernel_umount.c) consults ksu_veil_is_cloaked() so a
- * cloaked app uid gets modules unmounted on its next spawn, regardless of the
- * global kernel_umount toggle or its app profile. (su is already hidden from
- * non-allowed apps by sucompat.) In-memory only for now; resets on reboot.
- */
-#define VEIL_CLOAK_MAX 512
-
-static uid_t cloak_set[VEIL_CLOAK_MAX];
-static int cloak_count;
-static DEFINE_SPINLOCK(cloak_lock);
-static bool veil_auto_cloak __read_mostly;
 
 bool ksu_veil_is_cloaked(uid_t uid)
 {
-    int i;
-    bool res = false;
+    u32 bucket = veil2_uid_hash(uid, VEIL2_CLOAK_BUCKETS);
     unsigned long flags;
+    bool found;
 
-    spin_lock_irqsave(&cloak_lock, flags);
-    for (i = 0; i < cloak_count; i++) {
-        if (cloak_set[i] == uid) {
-            res = true;
-            break;
-        }
-    }
-    spin_unlock_irqrestore(&cloak_lock, flags);
-    return res;
+    spin_lock_irqsave(&veil2_cloak_lock, flags);
+    found = veil2_cloak_find_locked(uid, bucket) != NULL;
+    spin_unlock_irqrestore(&veil2_cloak_lock, flags);
+    return found;
 }
 
 int ksu_veil_cloak_add(uid_t uid)
 {
-    int i, ret = 0;
+    u32 bucket = veil2_uid_hash(uid, VEIL2_CLOAK_BUCKETS);
+    struct veil2_cloak *entry;
     unsigned long flags;
+    bool added = false;
+    int ret = 0;
 
-    spin_lock_irqsave(&cloak_lock, flags);
-    for (i = 0; i < cloak_count; i++) {
-        if (cloak_set[i] == uid)
-            goto out; /* already cloaked */
+    entry = kzalloc(sizeof(*entry), GFP_ATOMIC);
+    if (!entry)
+        return -ENOMEM;
+
+    spin_lock_irqsave(&veil2_cloak_lock, flags);
+    if (veil2_cloak_find_locked(uid, bucket)) {
+        ret = 0; /* already cloaked */
+        goto out_unlock;
     }
-    if (cloak_count >= VEIL_CLOAK_MAX) {
+    if (veil2_cloak_total >= VEIL2_CLOAK_MAX) {
         ret = -ENOSPC;
-        goto out;
+        goto out_unlock;
     }
-    cloak_set[cloak_count++] = uid;
-    pr_info("veil: cloaked uid=%u\n", uid);
-out:
-    spin_unlock_irqrestore(&cloak_lock, flags);
+
+    entry->uid = uid;
+    hlist_add_head(&entry->node, &veil2_cloak_buckets[bucket]);
+    veil2_cloak_total++;
+    entry = NULL; /* ownership transferred to the set */
+    added = true;
+
+out_unlock:
+    spin_unlock_irqrestore(&veil2_cloak_lock, flags);
+    kfree(entry);
+    if (!ret && added)
+        pr_info("veil2: cloaked uid=%u\n", uid);
     return ret;
 }
 
 int ksu_veil_cloak_remove(uid_t uid)
 {
-    int i;
+    u32 bucket = veil2_uid_hash(uid, VEIL2_CLOAK_BUCKETS);
+    struct veil2_cloak *entry;
     unsigned long flags;
 
-    spin_lock_irqsave(&cloak_lock, flags);
-    for (i = 0; i < cloak_count; i++) {
-        if (cloak_set[i] == uid) {
-            cloak_set[i] = cloak_set[--cloak_count]; /* swap-remove */
-            pr_info("veil: uncloaked uid=%u\n", uid);
-            break;
-        }
+    spin_lock_irqsave(&veil2_cloak_lock, flags);
+    entry = veil2_cloak_find_locked(uid, bucket);
+    if (entry) {
+        hlist_del(&entry->node);
+        veil2_cloak_total--;
     }
-    spin_unlock_irqrestore(&cloak_lock, flags);
-    /* Uncloaking means "let this app ask again" - clear its notify dedup. */
-    veil_su_notify_reset(uid);
+    spin_unlock_irqrestore(&veil2_cloak_lock, flags);
+
+    if (!entry)
+        return 0;
+
+    kfree(entry);
+    veil2_notify_reset(uid);
+    pr_info("veil2: uncloaked uid=%u\n", uid);
     return 0;
 }
 
 void ksu_veil_cloak_clear(void)
 {
+    HLIST_HEAD(victims);
+    struct veil2_cloak *entry, *tmp;
     unsigned long flags;
+    int i;
 
-    spin_lock_irqsave(&cloak_lock, flags);
-    cloak_count = 0;
-    spin_unlock_irqrestore(&cloak_lock, flags);
+    spin_lock_irqsave(&veil2_cloak_lock, flags);
+    for (i = 0; i < VEIL2_CLOAK_BUCKETS; i++) {
+        hlist_for_each_entry_safe (entry, tmp, &veil2_cloak_buckets[i], node) {
+            hlist_del(&entry->node);
+            hlist_add_head(&entry->node, &victims);
+        }
+    }
+    veil2_cloak_total = 0;
+    spin_unlock_irqrestore(&veil2_cloak_lock, flags);
 
-    /* uncloak-all is a fresh start: let every app raise requests again */
-    spin_lock_irqsave(&su_notify_lock, flags);
-    su_notified_count = 0;
-    spin_unlock_irqrestore(&su_notify_lock, flags);
+    hlist_for_each_entry_safe (entry, tmp, &victims, node) {
+        hlist_del(&entry->node);
+        kfree(entry);
+    }
+
+    veil2_notify_clear();
 }
 
 int ksu_veil_cloak_list(uid_t *out, int capacity)
 {
-    int i, total;
+    struct veil2_cloak *entry;
     unsigned long flags;
+    int total = 0;
+    int i;
 
-    spin_lock_irqsave(&cloak_lock, flags);
-    total = cloak_count;
-    for (i = 0; i < cloak_count && i < capacity; i++)
-        out[i] = cloak_set[i];
-    spin_unlock_irqrestore(&cloak_lock, flags);
+    if (capacity < 0)
+        capacity = 0;
+
+    spin_lock_irqsave(&veil2_cloak_lock, flags);
+    for (i = 0; i < VEIL2_CLOAK_BUCKETS; i++) {
+        hlist_for_each_entry (entry, &veil2_cloak_buckets[i], node) {
+            if (out && total < capacity)
+                out[total] = entry->uid;
+            total++;
+        }
+    }
+    spin_unlock_irqrestore(&veil2_cloak_lock, flags);
     return total;
 }
 
 void ksu_veil_set_auto_cloak(bool on)
 {
-    WRITE_ONCE(veil_auto_cloak, on);
-    pr_info("veil: auto-cloak %d\n", on);
+    WRITE_ONCE(veil2_auto_cloak, on);
+    pr_info("veil2: auto-cloak %d\n", on);
 }
 
 bool ksu_veil_get_auto_cloak(void)
 {
-    return READ_ONCE(veil_auto_cloak);
+    return READ_ONCE(veil2_auto_cloak);
 }
 
-/* ---- watch-list of root / identity artifacts ---- */
-struct veil_watch {
-    const char *path;
-    bool prefix; /* prefix match vs exact */
-    __u16 kind;
-};
+/* ------------------------------------------------------------------ */
+/* Once-per-boot su notification set                                  */
+/* ------------------------------------------------------------------ */
 
-static const struct veil_watch watch_list[] = {
-    { "/system/bin/su", false, KSU_VEIL_KIND_SU },
-    { "/system/xbin/su", false, KSU_VEIL_KIND_SU },
-    { "/sbin/su", false, KSU_VEIL_KIND_SU },
-    { "/su/bin/su", false, KSU_VEIL_KIND_SU },
-    { "/system/bin/magisk", true, KSU_VEIL_KIND_MAGISK },
-    { "/sbin/.magisk", true, KSU_VEIL_KIND_MAGISK },
-    { "/data/adb/magisk", true, KSU_VEIL_KIND_MAGISK },
-    { "/data/adb/ksu", true, KSU_VEIL_KIND_KSU },
-    { "/data/adb/modules", true, KSU_VEIL_KIND_MODULES },
-    { "/data/system/packages.list", false, KSU_VEIL_KIND_PKGLIST },
-    { "/data/system/packages.xml", false, KSU_VEIL_KIND_PKGLIST },
-    { "/system/xbin/busybox", false, KSU_VEIL_KIND_BUSYBOX },
-    { "/system/bin/busybox", false, KSU_VEIL_KIND_BUSYBOX },
-    { NULL, false, 0 }, /* terminator */
-};
+static uid_t veil2_notify_slots[VEIL2_NOTIFY_SLOTS];
+static DEFINE_SPINLOCK(veil2_notify_lock);
 
-static __u16 veil_match(const char *path)
+static bool veil2_notify_once(uid_t uid)
 {
+    u32 start = veil2_uid_hash(uid, VEIL2_NOTIFY_SLOTS);
+    unsigned long flags;
+    bool inserted = false, have_tombstone = false;
+    u32 tombstone = 0;
     int i;
 
-    for (i = 0; watch_list[i].path; i++) {
-        const struct veil_watch *w = &watch_list[i];
+    spin_lock_irqsave(&veil2_notify_lock, flags);
+    for (i = 0; i < VEIL2_NOTIFY_SLOTS; i++) {
+        u32 slot = (start + i) & (VEIL2_NOTIFY_SLOTS - 1);
+        uid_t value = veil2_notify_slots[slot];
 
-        if (w->prefix) {
-            if (!strncmp(path, w->path, strlen(w->path)))
-                return w->kind;
-        } else if (!strcmp(path, w->path)) {
-            return w->kind;
+        if (value == uid)
+            goto out_unlock;
+        if (value == VEIL2_NOTIFY_TOMBSTONE && !have_tombstone) {
+            tombstone = slot;
+            have_tombstone = true;
+            continue;
+        }
+        if (value == 0) {
+            if (have_tombstone)
+                slot = tombstone;
+            veil2_notify_slots[slot] = uid;
+            inserted = true;
+            goto out_unlock;
         }
     }
-    return 0;
+
+    if (have_tombstone) {
+        veil2_notify_slots[tombstone] = uid;
+        inserted = true;
+    }
+
+out_unlock:
+    spin_unlock_irqrestore(&veil2_notify_lock, flags);
+    return inserted;
 }
 
-/* ---- persistent per-uid probe history (resets on reboot) ---- */
-#define VEIL_HIST_MAX 256
+static void veil2_notify_reset(uid_t uid)
+{
+    u32 start = veil2_uid_hash(uid, VEIL2_NOTIFY_SLOTS);
+    unsigned long flags;
+    int i;
 
-struct veil_hist {
-    bool used;
+    spin_lock_irqsave(&veil2_notify_lock, flags);
+    for (i = 0; i < VEIL2_NOTIFY_SLOTS; i++) {
+        u32 slot = (start + i) & (VEIL2_NOTIFY_SLOTS - 1);
+
+        if (veil2_notify_slots[slot] == uid) {
+            veil2_notify_slots[slot] = VEIL2_NOTIFY_TOMBSTONE;
+            break;
+        }
+        if (veil2_notify_slots[slot] == 0)
+            break;
+    }
+    spin_unlock_irqrestore(&veil2_notify_lock, flags);
+}
+
+static void veil2_notify_clear(void)
+{
+    unsigned long flags;
+
+    spin_lock_irqsave(&veil2_notify_lock, flags);
+    memset(veil2_notify_slots, 0, sizeof(veil2_notify_slots));
+    spin_unlock_irqrestore(&veil2_notify_lock, flags);
+}
+
+/* ------------------------------------------------------------------ */
+/* Burst limiter                                                      */
+/* ------------------------------------------------------------------ */
+
+struct veil2_dedup {
     uid_t uid;
-    __u32 count;
-    __u32 kinds; /* bitmap: bit (kind-1) per enum ksu_veil_kind */
+    __u16 kind;
+    __u16 used;
+    u32 count;
+    unsigned long last;
+};
+
+static struct veil2_dedup veil2_dedup[VEIL2_DEDUP_SLOTS];
+static DEFINE_SPINLOCK(veil2_dedup_lock);
+
+static u32 veil2_dedup_bump(uid_t uid, __u16 kind)
+{
+    u32 start = veil2_uid_hash(uid ^ ((u32)kind << 16), VEIL2_DEDUP_SLOTS);
+    unsigned long now = jiffies;
+    unsigned long flags;
+    struct veil2_dedup *slot, *free_slot = NULL, *oldest = NULL;
+    u32 emit = 1;
+    int i;
+
+    spin_lock_irqsave(&veil2_dedup_lock, flags);
+
+    for (i = 0; i < VEIL2_DEDUP_PROBES; i++) {
+        slot = &veil2_dedup[(start + i) & (VEIL2_DEDUP_SLOTS - 1)];
+
+        if (slot->used && slot->uid == uid && slot->kind == kind) {
+            if (time_before(now, slot->last + VEIL2_DEDUP_WINDOW)) {
+                slot->count++;
+                slot->last = now;
+                emit = 0;
+            } else {
+                emit = slot->count + 1;
+                slot->count = 0;
+                slot->last = now;
+            }
+            goto out_unlock;
+        }
+
+        if (!slot->used && !free_slot)
+            free_slot = slot;
+        if (slot->used && (!oldest || time_before(slot->last, oldest->last)))
+            oldest = slot;
+    }
+
+    slot = free_slot ? free_slot : oldest;
+    if (!slot)
+        slot = &veil2_dedup[start];
+
+    slot->used = 1;
+    slot->uid = uid;
+    slot->kind = kind;
+    slot->count = 0;
+    slot->last = now;
+
+out_unlock:
+    spin_unlock_irqrestore(&veil2_dedup_lock, flags);
+    if (!emit)
+        atomic_inc(&veil2_suppressed);
+    return emit;
+}
+
+/* ------------------------------------------------------------------ */
+/* Per-uid history                                                    */
+/* ------------------------------------------------------------------ */
+
+struct veil2_history {
+    struct hlist_node hash;
+    struct list_head lru;
+    uid_t uid;
+    u32 count;
+    u32 kinds;
+    u64 first_ns;
     u64 last_ns;
 };
-static struct veil_hist hist[VEIL_HIST_MAX];
-static DEFINE_SPINLOCK(hist_lock);
+
+static struct hlist_head veil2_history_buckets[VEIL2_HISTORY_BUCKETS];
+static LIST_HEAD(veil2_history_lru);
+static u32 veil2_history_total;
+static DEFINE_SPINLOCK(veil2_history_lock);
+
+static struct veil2_history *veil2_history_find_locked(uid_t uid, u32 bucket)
+{
+    struct veil2_history *entry;
+
+    hlist_for_each_entry (entry, &veil2_history_buckets[bucket], hash) {
+        if (entry->uid == uid)
+            return entry;
+    }
+    return NULL;
+}
 
 void ksu_veil_history_record(uid_t uid, __u16 kind)
 {
-    int i, free_slot = -1, oldest = 0;
+    u32 bucket;
+    struct veil2_history *entry, *victim = NULL;
     unsigned long flags;
+    u64 now;
 
-    if (kind == 0 || kind > KSU_VEIL_KIND_MAX)
+    if (kind == 0 || kind > KSU_VEIL2_PROBE_MAX)
         return;
 
-    spin_lock_irqsave(&hist_lock, flags);
-    for (i = 0; i < VEIL_HIST_MAX; i++) {
-        if (hist[i].used && hist[i].uid == uid) {
-            hist[i].count++;
-            hist[i].kinds |= (1u << (kind - 1));
-            hist[i].last_ns = ktime_get_boottime_ns();
-            goto out;
-        }
-        if (!hist[i].used && free_slot < 0)
-            free_slot = i;
-        if (hist[i].used && hist[oldest].used && hist[i].last_ns < hist[oldest].last_ns)
-            oldest = i;
+    bucket = veil2_uid_hash(uid, VEIL2_HISTORY_BUCKETS);
+    now = ktime_get_boottime_ns();
+
+    entry = kzalloc(sizeof(*entry), GFP_ATOMIC);
+    if (!entry) {
+        atomic_inc(&veil2_history_dropped);
+        return;
     }
-    if (free_slot < 0)
-        free_slot = oldest; /* evict the least-recent */
-    hist[free_slot].used = true;
-    hist[free_slot].uid = uid;
-    hist[free_slot].count = 1;
-    hist[free_slot].kinds = (1u << (kind - 1));
-    hist[free_slot].last_ns = ktime_get_boottime_ns();
-out:
-    spin_unlock_irqrestore(&hist_lock, flags);
+
+    spin_lock_irqsave(&veil2_history_lock, flags);
+
+    {
+        struct veil2_history *existing = veil2_history_find_locked(uid, bucket);
+
+        if (existing) {
+            existing->count++;
+            existing->kinds |= 1u << (kind - 1);
+            existing->last_ns = now;
+            list_move_tail(&existing->lru, &veil2_history_lru);
+            spin_unlock_irqrestore(&veil2_history_lock, flags);
+            kfree(entry);
+            return;
+        }
+    }
+
+    if (veil2_history_total >= VEIL2_HISTORY_MAX) {
+        victim = list_first_entry(&veil2_history_lru, struct veil2_history, lru);
+        list_del(&victim->lru);
+        hlist_del(&victim->hash);
+        veil2_history_total--;
+        atomic_inc(&veil2_history_dropped);
+    }
+
+    entry->uid = uid;
+    entry->count = 1;
+    entry->kinds = 1u << (kind - 1);
+    entry->first_ns = now;
+    entry->last_ns = now;
+    hlist_add_head(&entry->hash, &veil2_history_buckets[bucket]);
+    list_add_tail(&entry->lru, &veil2_history_lru);
+    veil2_history_total++;
+
+    spin_unlock_irqrestore(&veil2_history_lock, flags);
+
+    kfree(victim);
 }
 
-int ksu_veil_history_dump(struct ksu_veil_hist_entry *out, int capacity)
+int ksu_veil_history_dump(struct ksu_veil2_hist_entry *out, int capacity)
 {
-    int i, n = 0;
+    struct veil2_history *entry;
     unsigned long flags;
+    int total = 0;
 
-    spin_lock_irqsave(&hist_lock, flags);
-    for (i = 0; i < VEIL_HIST_MAX; i++) {
-        if (!hist[i].used)
-            continue;
-        if (n < capacity) {
-            out[n].uid = hist[i].uid;
-            out[n].count = hist[i].count;
-            out[n].kinds = hist[i].kinds;
-            out[n].pad = 0;
-            out[n].last_ns = hist[i].last_ns;
+    if (capacity < 0)
+        capacity = 0;
+
+    spin_lock_irqsave(&veil2_history_lock, flags);
+    list_for_each_entry_reverse (entry, &veil2_history_lru, lru) {
+        if (out && total < capacity) {
+            out[total].uid = entry->uid;
+            out[total].count = entry->count;
+            out[total].kinds = entry->kinds;
+            out[total].flags = 0;
+            out[total].first_ns = entry->first_ns;
+            out[total].last_ns = entry->last_ns;
         }
-        n++;
+        total++;
     }
-    spin_unlock_irqrestore(&hist_lock, flags);
-    return n;
+    spin_unlock_irqrestore(&veil2_history_lock, flags);
+    return total;
 }
 
 void ksu_veil_history_clear(void)
 {
+    LIST_HEAD(victims);
+    struct veil2_history *entry, *tmp;
     unsigned long flags;
 
-    spin_lock_irqsave(&hist_lock, flags);
-    memset(hist, 0, sizeof(hist));
-    spin_unlock_irqrestore(&hist_lock, flags);
+    spin_lock_irqsave(&veil2_history_lock, flags);
+    list_for_each_entry_safe (entry, tmp, &veil2_history_lru, lru) {
+        list_del(&entry->lru);
+        hlist_del(&entry->hash);
+        list_add_tail(&entry->lru, &victims);
+    }
+    veil2_history_total = 0;
+    spin_unlock_irqrestore(&veil2_history_lock, flags);
+
+    list_for_each_entry_safe (entry, tmp, &victims, lru) {
+        list_del(&entry->lru);
+        kfree(entry);
+    }
 }
 
-/* ---- probe detection via kprobes ----
- * The inline sucompat hook (fs/open.c) only calls ksu_handle_faccessat for
- * allowlisted uids, so it never sees a non-root app probing. We kprobe the
- * faccessat and openat entry points (covering access/faccessat/faccessat2 and
- * open/openat/openat2) and match the path against the watch-list above.
- * Armed only while Veil is enabled.
- */
-#ifdef CONFIG_KPROBES
-static DEFINE_MUTEX(veil_kp_lock);
-static bool kp_faccessat_ok;
-static bool kp_openat_ok;
+/* ------------------------------------------------------------------ */
+/* Watch list                                                         */
+/* ------------------------------------------------------------------ */
 
-static void veil_check_path(const char __user *filename)
+struct veil2_watch {
+    const char *path;
+    __u16 path_len;
+    __u16 kind;
+    bool prefix;
+};
+
+#define VEIL2_WATCH(_path, _prefix, _kind)                                                                             \
+    { .path = _path, .path_len = sizeof(_path) - 1, .prefix = _prefix, .kind = _kind }
+
+static const struct veil2_watch veil2_watch_list[] = {
+    VEIL2_WATCH("/system/bin/su", false, KSU_VEIL2_PROBE_SU),
+    VEIL2_WATCH("/system/xbin/su", false, KSU_VEIL2_PROBE_SU),
+    VEIL2_WATCH("/sbin/su", false, KSU_VEIL2_PROBE_SU),
+    VEIL2_WATCH("/su/bin/su", false, KSU_VEIL2_PROBE_SU),
+    VEIL2_WATCH("/system/bin/magisk", true, KSU_VEIL2_PROBE_MAGISK),
+    VEIL2_WATCH("/sbin/.magisk", true, KSU_VEIL2_PROBE_MAGISK),
+    VEIL2_WATCH("/data/adb/magisk", true, KSU_VEIL2_PROBE_MAGISK),
+    VEIL2_WATCH("/data/adb/ksu", true, KSU_VEIL2_PROBE_KSU),
+    VEIL2_WATCH("/data/adb/modules", true, KSU_VEIL2_PROBE_MODULES),
+    VEIL2_WATCH("/data/system/packages.list", false, KSU_VEIL2_PROBE_PACKAGE_DB),
+    VEIL2_WATCH("/data/system/packages.xml", false, KSU_VEIL2_PROBE_PACKAGE_DB),
+    VEIL2_WATCH("/system/xbin/busybox", false, KSU_VEIL2_PROBE_BUSYBOX),
+    VEIL2_WATCH("/system/bin/busybox", false, KSU_VEIL2_PROBE_BUSYBOX),
+    VEIL2_WATCH("/proc/self/mountinfo", false, KSU_VEIL2_PROBE_MOUNTINFO),
+    VEIL2_WATCH("/proc/self/maps", false, KSU_VEIL2_PROBE_PROC_MAPS),
+    VEIL2_WATCH("/proc/kallsyms", false, KSU_VEIL2_PROBE_KALLSYMS),
+};
+
+static __u16 veil2_match(const char *path)
 {
-    char path[64] = { 0 };
+    int i;
+
+    for (i = 0; i < ARRAY_SIZE(veil2_watch_list); i++) {
+        const struct veil2_watch *watch = &veil2_watch_list[i];
+
+        if (watch->prefix) {
+            if (!strncmp(path, watch->path, watch->path_len))
+                return watch->kind;
+        } else if (!strcmp(path, watch->path)) {
+            return watch->kind;
+        }
+    }
+    return 0;
+}
+
+/* ------------------------------------------------------------------ */
+/* Event reporting                                                    */
+/* ------------------------------------------------------------------ */
+
+void ksu_veil_report(uid_t uid, const char *path, __u16 kind)
+{
+    struct ksu_veil2_event event;
+    u32 coalesced;
+    u64 now;
+
+    if (!READ_ONCE(veil2_enabled))
+        return;
+
+    atomic64_inc(&veil2_probe_count);
+    ksu_veil_history_record(uid, kind);
+
+    /*
+     * A real su probe from an app that is not allowed yet is also a root
+     * request. Notify once per uid per boot; uncloaking resets the mark.
+     */
+    if (kind == KSU_VEIL2_PROBE_SU && uid >= 10000 && !ksu_is_allow_uid_for_current(uid) && veil2_notify_once(uid))
+        ksu_sulog_emit_grant_root(-EPERM, uid, uid, GFP_ATOMIC);
+
+    coalesced = veil2_dedup_bump(uid, kind);
+    if (!coalesced)
+        return;
+
+    memset(&event, 0, sizeof(event));
+    event.version = KSU_VEIL2_EVENT_VERSION;
+    event.kind = kind;
+    event.uid = uid;
+    event.pid = current->pid;
+    event.count = coalesced;
+    event.seq = (u64)atomic64_inc_return(&veil2_event_seq);
+    now = ktime_get_boottime_ns();
+    event.ts_ns = now;
+    if (path)
+        strscpy(event.path, path, sizeof(event.path));
+
+    pr_info_ratelimited("veil2: probe uid=%u pid=%d kind=%u path=%s x%u\n", uid, current->pid, kind, path ? path : "?",
+                        coalesced);
+
+    if (ksu_event_queue_push(&veil2_queue, kind, 0, &event, sizeof(event), GFP_ATOMIC))
+        atomic_inc(&veil2_queue_dropped);
+}
+
+/* ------------------------------------------------------------------ */
+/* Kprobe-based path observation                                      */
+/* ------------------------------------------------------------------ */
+
+#ifdef CONFIG_KPROBES
+static void veil2_check_path(const char __user *filename)
+{
+    char path[KSU_VEIL2_PATH_MAX];
     uid_t uid;
     __u16 kind;
 
-    if (!READ_ONCE(ksu_veil_enabled))
+    if (!READ_ONCE(veil2_enabled) || !filename)
         return;
 
     uid = current_uid().val;
-    if (uid == 0)
-        return; /* root is not a prober */
+    if (uid == 0 || (uid % 100000) < 10000)
+        return; /* only real app uids are interesting */
     if (ksu_is_allow_uid_for_current(uid))
-        return; /* granted apps go through the sucompat redirect */
+        return; /* granted apps use the sucompat redirect */
 
-    if (!filename)
+    if (ksu_strncpy_from_user_nofault(path, (const void __user *)untagged_addr((unsigned long)filename),
+                                      sizeof(path)) <= 0)
         return;
-    ksu_strncpy_from_user_nofault(path, filename, sizeof(path));
     path[sizeof(path) - 1] = '\0';
+    if (!path[0])
+        return;
 
-    kind = veil_match(path);
+    kind = veil2_match(path);
     if (!kind)
         return;
 
     ksu_veil_report(uid, path, kind);
-    /*
-     * Auto-cloak real apps only. System/native uids (appid < AID_APP_START)
-     * legitimately touch su paths via the framework and must not have their
-     * module mounts stripped. Manual cloak is unaffected (this guards only the
-     * auto path). The modulo handles secondary-user uids (user*100000 + appid).
-     */
-    if (READ_ONCE(veil_auto_cloak) && (uid % 100000) >= 10000)
+
+    if (READ_ONCE(veil2_auto_cloak))
         ksu_veil_cloak_add(uid);
 }
 
-/* do_faccessat(int dfd, const char __user *filename, ...) -> arg index 1.
- * PT_REGS_PARM2 works on arm64 and x86_64 (regs_get_kernel_argument is
- * arm64-only, and OriginSU also builds x86_64 LKM). */
-static int veil_faccessat_pre(struct kprobe *p, struct pt_regs *regs)
+static int veil2_probe_pre(struct kprobe *probe, struct pt_regs *regs)
 {
-    veil_check_path((const char __user *)PT_REGS_PARM2(regs));
+    veil2_check_path((const char __user *)PT_REGS_PARM2(regs));
     return 0;
 }
 
-/* do_sys_openat2(int dfd, const char __user *filename, ...) -> arg index 1 */
-static int veil_openat_pre(struct kprobe *p, struct pt_regs *regs)
-{
-    veil_check_path((const char __user *)PT_REGS_PARM2(regs));
-    return 0;
-}
-
-static struct kprobe veil_faccessat_kp = {
-    .symbol_name = "do_faccessat",
-    .pre_handler = veil_faccessat_pre,
+struct veil2_kprobe {
+    struct kprobe kp;
+    bool armed;
 };
 
-static struct kprobe veil_openat_kp = {
-    .symbol_name = "do_sys_openat2",
-    .pre_handler = veil_openat_pre,
+static struct veil2_kprobe veil2_probes[] = {
+    {
+        .kp = {
+            .symbol_name = "do_faccessat",
+            .pre_handler = veil2_probe_pre,
+        },
+    },
+    {
+        .kp = {
+            .symbol_name = "do_sys_openat2",
+            .pre_handler = veil2_probe_pre,
+        },
+    },
+    {
+        .kp = {
+            .symbol_name = "do_faccessat2",
+            .pre_handler = veil2_probe_pre,
+        },
+    },
 };
 
-static void veil_kprobe_arm(void)
+static DEFINE_MUTEX(veil2_kprobe_lock);
+
+static void veil2_kprobe_arm(void)
 {
-    mutex_lock(&veil_kp_lock);
-    if (!kp_faccessat_ok) {
-        /* unregister_kprobe leaves .addr set (resolved from .symbol_name);
-         * register_kprobe rejects having both, so clear it to re-resolve. */
-        veil_faccessat_kp.addr = NULL;
-        if (register_kprobe(&veil_faccessat_kp))
-            pr_err("veil: register_kprobe(do_faccessat) failed\n");
-        else
-            kp_faccessat_ok = true;
+    int i;
+
+    mutex_lock(&veil2_kprobe_lock);
+    for (i = 0; i < ARRAY_SIZE(veil2_probes); i++) {
+        struct veil2_kprobe *probe = &veil2_probes[i];
+        int ret;
+
+        if (probe->armed)
+            continue;
+
+        /* unregister_kprobe() leaves .addr resolved, so clear it for re-arm. */
+        probe->kp.addr = NULL;
+        ret = register_kprobe(&probe->kp);
+        if (ret) {
+            pr_warn("veil2: probe %s unavailable: %d\n", probe->kp.symbol_name, ret);
+            continue;
+        }
+        probe->armed = true;
     }
-    if (!kp_openat_ok) {
-        veil_openat_kp.addr = NULL;
-        if (register_kprobe(&veil_openat_kp))
-            pr_err("veil: register_kprobe(do_sys_openat2) failed\n");
-        else
-            kp_openat_ok = true;
-    }
-    pr_info("veil: kprobes armed (faccessat=%d openat=%d)\n", kp_faccessat_ok, kp_openat_ok);
-    mutex_unlock(&veil_kp_lock);
+    mutex_unlock(&veil2_kprobe_lock);
+
+    pr_info("veil2: probe hooks armed\n");
 }
 
-static void veil_kprobe_disarm(void)
+static void veil2_kprobe_disarm(void)
 {
-    mutex_lock(&veil_kp_lock);
-    if (kp_faccessat_ok) {
-        unregister_kprobe(&veil_faccessat_kp);
-        kp_faccessat_ok = false;
+    int i;
+
+    mutex_lock(&veil2_kprobe_lock);
+    for (i = 0; i < ARRAY_SIZE(veil2_probes); i++) {
+        struct veil2_kprobe *probe = &veil2_probes[i];
+
+        if (!probe->armed)
+            continue;
+        unregister_kprobe(&probe->kp);
+        probe->armed = false;
     }
-    if (kp_openat_ok) {
-        unregister_kprobe(&veil_openat_kp);
-        kp_openat_ok = false;
+    mutex_unlock(&veil2_kprobe_lock);
+
+    pr_info("veil2: probe hooks disarmed\n");
+}
+
+static u32 veil2_kprobe_count(void)
+{
+    u32 count = 0;
+    int i;
+
+    mutex_lock(&veil2_kprobe_lock);
+    for (i = 0; i < ARRAY_SIZE(veil2_probes); i++) {
+        if (veil2_probes[i].armed)
+            count++;
     }
-    pr_info("veil: kprobes disarmed\n");
-    mutex_unlock(&veil_kp_lock);
+    mutex_unlock(&veil2_kprobe_lock);
+    return count;
 }
 #else
-static void veil_kprobe_arm(void)
+static void veil2_kprobe_arm(void)
 {
-    pr_warn("veil: CONFIG_KPROBES disabled; probe detection unavailable\n");
+    pr_warn("veil2: CONFIG_KPROBES is disabled; path observation unavailable\n");
 }
-static void veil_kprobe_disarm(void)
+
+static void veil2_kprobe_disarm(void)
 {
+}
+
+static u32 veil2_kprobe_count(void)
+{
+    return 0;
 }
 #endif
 
-static ssize_t veil_read(struct file *file, char __user *buf, size_t count, loff_t *ppos)
+/* ------------------------------------------------------------------ */
+/* Event fd                                                           */
+/* ------------------------------------------------------------------ */
+
+static DEFINE_MUTEX(veil2_fd_lock);
+static bool veil2_fd_active;
+
+static ssize_t veil2_read(struct file *file, char __user *buf, size_t count, loff_t *ppos)
 {
-    return ksu_event_queue_read(&veil_queue, buf, count, file->f_flags);
+    return ksu_event_queue_read(&veil2_queue, buf, count, file->f_flags);
 }
 
-static unsigned __bitwise veil_poll(struct file *file, poll_table *wait)
+static unsigned __bitwise veil2_poll(struct file *file, poll_table *wait)
 {
-    return ksu_event_queue_poll(&veil_queue, file, wait);
+    return ksu_event_queue_poll(&veil2_queue, file, wait);
 }
 
-static int veil_release(struct inode *inode, struct file *file)
+static int veil2_release(struct inode *inode, struct file *file)
 {
-    mutex_lock(&veil_fd_lock);
-    veil_fd_active = false;
-    mutex_unlock(&veil_fd_lock);
-    pr_info("veil: fd released\n");
+    mutex_lock(&veil2_fd_lock);
+    veil2_fd_active = false;
+    mutex_unlock(&veil2_fd_lock);
+    pr_info("veil2: event fd released\n");
     return 0;
 }
 
-static const struct file_operations veil_fops = {
+static const struct file_operations veil2_fops = {
     .owner = THIS_MODULE,
-    .read = veil_read,
-    .poll = veil_poll,
-    .release = veil_release,
+    .read = veil2_read,
+    .poll = veil2_poll,
+    .release = veil2_release,
     .llseek = noop_llseek,
 };
 
 int ksu_install_veil_fd(void)
 {
-    struct file *filp;
+    struct file *file;
     int fd;
 
-    mutex_lock(&veil_fd_lock);
+    mutex_lock(&veil2_fd_lock);
 
-    if (veil_fd_active) {
+    if (veil2_fd_active) {
         fd = -EBUSY;
         goto out_unlock;
     }
 
-    if (READ_ONCE(veil_queue.closed)) {
+    if (READ_ONCE(veil2_queue.closed)) {
         fd = -EPIPE;
         goto out_unlock;
     }
@@ -576,82 +814,109 @@ int ksu_install_veil_fd(void)
     if (fd < 0)
         goto out_unlock;
 
-    filp = anon_inode_getfile("[ksu_veil]", &veil_fops, NULL, O_RDONLY | O_CLOEXEC);
-    if (IS_ERR(filp)) {
+    file = anon_inode_getfile("[ksu_veil2]", &veil2_fops, NULL, O_RDONLY | O_CLOEXEC);
+    if (IS_ERR(file)) {
         put_unused_fd(fd);
-        fd = PTR_ERR(filp);
+        fd = PTR_ERR(file);
         goto out_unlock;
     }
 
-    veil_fd_active = true;
-    fd_install(fd, filp);
-    pr_info("veil: fd installed %d for pid %d\n", fd, current->pid);
+    veil2_fd_active = true;
+    fd_install(fd, file);
+    pr_info("veil2: event fd %d installed for pid %d\n", fd, current->pid);
 
 out_unlock:
-    mutex_unlock(&veil_fd_lock);
+    mutex_unlock(&veil2_fd_lock);
     return fd;
 }
 
-/* ---- enable/disable via the feature framework (get/set_feature ioctls) ---- */
-static int veil_feature_get(u64 *value)
+/* ------------------------------------------------------------------ */
+/* Stats and feature wiring                                           */
+/* ------------------------------------------------------------------ */
+
+void ksu_veil_stats(struct ksu_veil2_stats *out)
 {
-    *value = ksu_veil_enabled ? 1 : 0;
+    if (!out)
+        return;
+
+    memset(out, 0, sizeof(*out));
+    out->cloaked = READ_ONCE(veil2_cloak_total);
+    out->history = READ_ONCE(veil2_history_total);
+    out->probes = (u32)atomic64_read(&veil2_probe_count);
+    out->suppressed = (u32)atomic_read(&veil2_suppressed);
+    out->history_dropped = (u32)atomic_read(&veil2_history_dropped);
+    out->queue_dropped = (u32)atomic_read(&veil2_queue_dropped);
+    out->kprobes = veil2_kprobe_count();
+    out->auto_cloak = READ_ONCE(veil2_auto_cloak) ? 1 : 0;
+}
+
+static int veil2_feature_get(u64 *value)
+{
+    *value = READ_ONCE(veil2_enabled) ? 1 : 0;
     return 0;
 }
 
-static int veil_feature_set(u64 value)
+static int veil2_feature_set(u64 value)
 {
     bool enable = value != 0;
 
-    ksu_veil_enabled = enable;
+    if (enable == READ_ONCE(veil2_enabled))
+        return 0;
+
+    WRITE_ONCE(veil2_enabled, enable);
     if (enable)
-        veil_kprobe_arm();
+        veil2_kprobe_arm();
     else
-        veil_kprobe_disarm();
-    pr_info("veil: set to %d\n", enable);
+        veil2_kprobe_disarm();
+
+    pr_info("veil2: %s\n", enable ? "enabled" : "disabled");
     return 0;
 }
 
-static const struct ksu_feature_handler veil_handler = {
-    .feature_id = KSU_FEATURE_ORIGIN_VEIL,
-    .name = "veil",
-    .get_handler = veil_feature_get,
-    .set_handler = veil_feature_set,
+static const struct ksu_feature_handler veil2_handler = {
+    .feature_id = KSU_FEATURE_ORIGIN_VEIL_V2,
+    .name = "veil2",
+    .get_handler = veil2_feature_get,
+    .set_handler = veil2_feature_set,
 };
 
 void __init ksu_veil_init(void)
 {
     int ret;
 
-    ksu_veil_enabled = false;
-    veil_auto_cloak = false;
-    cloak_count = 0;
-    memset(dedup, 0, sizeof(dedup));
+    WRITE_ONCE(veil2_enabled, false);
+    WRITE_ONCE(veil2_auto_cloak, false);
+    veil2_cloak_total = 0;
+    veil2_history_total = 0;
+    memset(veil2_dedup, 0, sizeof(veil2_dedup));
+    memset(veil2_notify_slots, 0, sizeof(veil2_notify_slots));
 
-    ksu_event_queue_init(&veil_queue, VEIL_MAX_QUEUED, sizeof(struct ksu_veil_event));
+    ksu_event_queue_init(&veil2_queue, VEIL2_QUEUE_DEPTH, sizeof(struct ksu_veil2_event));
 
-    ret = ksu_register_feature_handler(&veil_handler);
+    ret = ksu_register_feature_handler(&veil2_handler);
     if (ret)
-        pr_err("veil: failed to register feature handler: %d\n", ret);
+        pr_err("veil2: failed to register feature handler: %d\n", ret);
 
-    mutex_lock(&veil_fd_lock);
-    veil_fd_active = false;
-    mutex_unlock(&veil_fd_lock);
+    mutex_lock(&veil2_fd_lock);
+    veil2_fd_active = false;
+    mutex_unlock(&veil2_fd_lock);
 
-    pr_info("veil: initialized\n");
+    pr_info("veil2: initialized\n");
 }
 
 void __exit ksu_veil_exit(void)
 {
-    veil_kprobe_disarm();
+    WRITE_ONCE(veil2_enabled, false);
+    veil2_kprobe_disarm();
     ksu_veil_cloak_clear();
-    WRITE_ONCE(veil_auto_cloak, false);
-    ksu_unregister_feature_handler(KSU_FEATURE_ORIGIN_VEIL);
+    ksu_veil_history_clear();
+    veil2_notify_clear();
+    ksu_unregister_feature_handler(KSU_FEATURE_ORIGIN_VEIL_V2);
 
-    mutex_lock(&veil_fd_lock);
-    veil_fd_active = false;
-    mutex_unlock(&veil_fd_lock);
+    mutex_lock(&veil2_fd_lock);
+    veil2_fd_active = false;
+    mutex_unlock(&veil2_fd_lock);
 
-    ksu_event_queue_close(&veil_queue);
-    ksu_event_queue_destroy(&veil_queue);
+    ksu_event_queue_close(&veil2_queue);
+    ksu_event_queue_destroy(&veil2_queue);
 }

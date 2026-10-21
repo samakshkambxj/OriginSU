@@ -599,10 +599,11 @@ NativeBridgeNP(getVeilHistory, jobject) {
     for (uint32_t i = 0; i < out.count; i++) {
         jobject entry = CREATE_JAVA_OBJECT_WITH_PARAMS(
                 "com/originsu/manager/Natives$VeilHistoryEntry",
-                "(IIIJ)V",
+                "(IIIJJ)V",
                 (jint) out.entries[i].uid,
                 (jint) out.entries[i].count,
                 (jint) out.entries[i].kinds,
+                (jlong) out.entries[i].first_ns,
                 (jlong) out.entries[i].last_ns
         );
         ADD_TO_LIST(list, entry);
@@ -615,6 +616,25 @@ NativeBridgeNP(getVeilHistory, jobject) {
 
 NativeBridgeNP(clearVeilHistory, jboolean) {
     return clear_veil_history();
+}
+
+NativeBridgeNP(getVeilStats, jobject) {
+    struct ksu_veil2_stats stats = {0};
+    if (!get_veil_stats(&stats)) {
+        return NULL;
+    }
+    return CREATE_JAVA_OBJECT_WITH_PARAMS(
+            "com/originsu/manager/Natives$VeilStats",
+            "(IIIIIIII)V",
+            (jint) stats.cloaked,
+            (jint) stats.history,
+            (jint) stats.probes,
+            (jint) stats.suppressed,
+            (jint) stats.history_dropped,
+            (jint) stats.queue_dropped,
+            (jint) stats.kprobes,
+            (jint) stats.auto_cloak
+    );
 }
 
 NativeBridgeNP(isKernelUmountEnabled, jboolean) {

@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.originsu.manager.R
 import com.originsu.manager.domain.model.VeilCloakedUid
 import com.originsu.manager.domain.model.VeilProbeHistory
+import com.originsu.manager.domain.model.VeilStats
 import com.originsu.manager.domain.usecase.ClearVeilCloakedUseCase
 import com.originsu.manager.domain.usecase.ClearVeilHistoryUseCase
 import com.originsu.manager.domain.usecase.IsSuNotifyEnabledUseCase
@@ -34,6 +35,7 @@ data class VeilUiState(
     val cloakedUids: List<VeilCloakedUid> = emptyList(),
     val excludedUids: Set<Int> = emptySet(),
     val history: List<VeilProbeHistory> = emptyList(),
+    val stats: VeilStats = VeilStats(),
     val isLoading: Boolean = true,
     val isRefreshing: Boolean = false,
     val errorMessage: String? = null,
@@ -83,6 +85,7 @@ class VeilViewModel(
                 cloakedUids = source.cloakedUids,
                 excludedUids = source.excludedUids,
                 history = source.history,
+                stats = source.stats,
                 isLoading = source.isLoading,
                 isRefreshing = source.isRefreshing,
                 errorMessage = source.errorMessage,

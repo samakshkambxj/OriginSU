@@ -4,7 +4,9 @@ import com.originsu.manager.Natives
 import com.originsu.manager.data.shell.KsuCliRepository
 import com.originsu.manager.domain.model.VeilCloakedUid
 import com.originsu.manager.domain.model.VeilState
+import com.originsu.manager.domain.model.VeilStats
 import com.originsu.manager.domain.model.toProbeHistory
+import com.originsu.manager.domain.model.toVeilStats
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -27,7 +29,7 @@ class VeilRepository(
             mutableState.update { it.copy(isRefreshing = !it.isLoading, errorMessage = null) }
             runCatching {
                 val status = runCatching {
-                    ksuCliRepository.getFeatureStatus("veil")
+                    ksuCliRepository.getFeatureStatus("veil2")
                 }.getOrDefault("")
                 val enabled = runCatching { Natives.isVeilEnabled() }.getOrDefault(false)
                 val autoCloak = runCatching { Natives.isVeilAutoCloak() }.getOrDefault(false)
@@ -36,6 +38,8 @@ class VeilRepository(
                 val excluded = manage.getExcludedUids()
                 val history = runCatching { Natives.getVeilHistory().orEmpty() }
                     .getOrDefault(emptyList())
+                val stats = runCatching { Natives.getVeilStats()?.toVeilStats() }
+                    .getOrNull() ?: VeilStats()
                 val visibleCloaked = enforceExclusions(cloaked, excluded)
                 val cloakedUids = visibleCloaked.sorted().map { uid ->
                     VeilCloakedUid(
@@ -55,6 +59,7 @@ class VeilRepository(
                     cloakedUids = cloakedUids,
                     excludedUids = excluded,
                     history = probes,
+                    stats = stats,
                     isLoading = false,
                 )
             }.onFailure { error ->
@@ -125,6 +130,7 @@ class VeilRepository(
         val excluded = manage.getExcludedUids()
         val history = runCatching { Natives.getVeilHistory().orEmpty() }
             .getOrDefault(emptyList())
+        val stats = runCatching { Natives.getVeilStats()?.toVeilStats() }.getOrNull()
         val visibleCloaked = enforceExclusions(cloaked, excluded)
         mutableState.update { current ->
             current.copy(
@@ -142,6 +148,7 @@ class VeilRepository(
                         runCatching { Natives.getUserName(entry.uid) }.getOrNull()
                     )
                 },
+                stats = stats ?: current.stats,
             )
         }
     }

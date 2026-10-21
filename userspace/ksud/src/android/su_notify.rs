@@ -21,7 +21,7 @@ use crate::android::{ksucalls, utils};
 const ENABLED_FLAG: &str = "/data/adb/ksu/su_notify_enabled";
 const MANAGER_PKG: &str = "/data/adb/ksu/manager_package";
 const LOCK_PATH: &str = "/data/adb/ksu/su_notifyd.lock";
-// KSU_VEIL_KIND_SU = 1 -> history bit 0. su EXEC can't be used as the signal:
+// KSU_VEIL2_PROBE_SU = 1 -> history bit 0. su EXEC can't be used as the signal:
 // su is hidden from non-allowlisted apps, so they can never exec it - the only
 // thing the kernel ever sees is the su-path *probe*. So we notify on the probe,
 // but with hard guards (start-time skip + cloak filter + receiver re-check) so a

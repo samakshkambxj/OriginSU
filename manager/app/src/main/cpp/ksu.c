@@ -360,7 +360,7 @@ int get_sulog_fd(void) {
 bool is_veil_enabled() {
     uint64_t value = 0;
     bool supported = false;
-    if (!get_feature(KSU_FEATURE_ORIGIN_VEIL, &value, &supported)) {
+    if (!get_feature(KSU_FEATURE_ORIGIN_VEIL_V2, &value, &supported)) {
         return false;
     }
     if (!supported) {
@@ -370,11 +370,11 @@ bool is_veil_enabled() {
 }
 
 bool set_veil_enabled(bool enabled) {
-    return set_feature(KSU_FEATURE_ORIGIN_VEIL, enabled ? 1 : 0);
+    return set_feature(KSU_FEATURE_ORIGIN_VEIL_V2, enabled ? 1 : 0);
 }
 
-static bool veil_cloak_ioctl(struct ksu_veil_cloak_cmd *cmd) {
-    return ksuctl(KSU_IOCTL_VEIL_CLOAK, cmd) == 0;
+static bool veil2_control_ioctl(struct ksu_veil2_control_cmd *cmd) {
+    return ksuctl(KSU_IOCTL_VEIL2_CONTROL, cmd) == 0;
 }
 
 bool get_veil_cloaked_uids(struct veil_cloaked_uids *out) {
@@ -382,19 +382,24 @@ bool get_veil_cloaked_uids(struct veil_cloaked_uids *out) {
     out->count = 0;
     out->uids = nullptr;
 
-    struct ksu_veil_cloak_cmd probe = {.op = KSU_VEIL_CLOAK_LIST, .count = 0, .uids = 0};
-    if (!veil_cloak_ioctl(&probe)) return false;
+    struct ksu_veil2_control_cmd probe = {
+        .version = KSU_VEIL2_ABI_VERSION,
+        .op = KSU_VEIL2_OP_LIST,
+        .count = 0,
+    };
+    if (!veil2_control_ioctl(&probe)) return false;
     if (probe.count == 0) return true;
 
     uint32_t *uids = malloc((size_t)probe.count * sizeof(uint32_t));
     if (!uids) return false;
 
-    struct ksu_veil_cloak_cmd cmd = {
-        .op = KSU_VEIL_CLOAK_LIST,
+    struct ksu_veil2_control_cmd cmd = {
+        .version = KSU_VEIL2_ABI_VERSION,
+        .op = KSU_VEIL2_OP_LIST,
         .count = probe.count,
         .uids = (uint64_t)(uintptr_t)uids,
     };
-    if (!veil_cloak_ioctl(&cmd)) {
+    if (!veil2_control_ioctl(&cmd)) {
         free(uids);
         return false;
     }
@@ -406,31 +411,39 @@ bool get_veil_cloaked_uids(struct veil_cloaked_uids *out) {
 }
 
 bool set_veil_cloaked(uint32_t uid, bool cloaked) {
-    struct ksu_veil_cloak_cmd cmd = {
-        .op = cloaked ? KSU_VEIL_CLOAK_ADD : KSU_VEIL_CLOAK_REMOVE,
+    struct ksu_veil2_control_cmd cmd = {
+        .version = KSU_VEIL2_ABI_VERSION,
+        .op = cloaked ? KSU_VEIL2_OP_ADD : KSU_VEIL2_OP_REMOVE,
         .uid = uid,
     };
-    return veil_cloak_ioctl(&cmd);
+    return veil2_control_ioctl(&cmd);
 }
 
 bool clear_veil_cloaked(void) {
-    struct ksu_veil_cloak_cmd cmd = {.op = KSU_VEIL_CLOAK_CLEAR};
-    return veil_cloak_ioctl(&cmd);
+    struct ksu_veil2_control_cmd cmd = {
+        .version = KSU_VEIL2_ABI_VERSION,
+        .op = KSU_VEIL2_OP_CLEAR,
+    };
+    return veil2_control_ioctl(&cmd);
 }
 
 bool is_veil_auto_cloak(bool *out_enabled) {
-    struct ksu_veil_cloak_cmd cmd = {.op = KSU_VEIL_CLOAK_GET_AUTO};
-    if (!veil_cloak_ioctl(&cmd)) return false;
+    struct ksu_veil2_control_cmd cmd = {
+        .version = KSU_VEIL2_ABI_VERSION,
+        .op = KSU_VEIL2_OP_GET_AUTO,
+    };
+    if (!veil2_control_ioctl(&cmd)) return false;
     if (out_enabled) *out_enabled = cmd.value != 0;
     return true;
 }
 
 bool set_veil_auto_cloak(bool enabled) {
-    struct ksu_veil_cloak_cmd cmd = {
-        .op = KSU_VEIL_CLOAK_SET_AUTO,
+    struct ksu_veil2_control_cmd cmd = {
+        .version = KSU_VEIL2_ABI_VERSION,
+        .op = KSU_VEIL2_OP_SET_AUTO,
         .value = enabled ? 1 : 0,
     };
-    return veil_cloak_ioctl(&cmd);
+    return veil2_control_ioctl(&cmd);
 }
 
 bool get_veil_history(struct veil_history *out) {
@@ -438,20 +451,25 @@ bool get_veil_history(struct veil_history *out) {
     out->count = 0;
     out->entries = nullptr;
 
-    struct ksu_veil_history_cmd probe = {.count = 0, .pad = 0, .entries = 0};
-    if (ksuctl(KSU_IOCTL_VEIL_HISTORY, &probe) != 0) return false;
+    struct ksu_veil2_history_cmd probe = {
+        .version = KSU_VEIL2_ABI_VERSION,
+        .op = 0,
+        .count = 0,
+    };
+    if (ksuctl(KSU_IOCTL_VEIL2_HISTORY, &probe) != 0) return false;
     if (probe.count == 0) return true;
 
-    struct ksu_veil_hist_entry *entries =
-        malloc((size_t)probe.count * sizeof(struct ksu_veil_hist_entry));
+    struct ksu_veil2_hist_entry *entries =
+        malloc((size_t)probe.count * sizeof(struct ksu_veil2_hist_entry));
     if (!entries) return false;
 
-    struct ksu_veil_history_cmd cmd = {
+    struct ksu_veil2_history_cmd cmd = {
+        .version = KSU_VEIL2_ABI_VERSION,
+        .op = 0,
         .count = probe.count,
-        .pad = 0,
         .entries = (uint64_t)(uintptr_t)entries,
     };
-    if (ksuctl(KSU_IOCTL_VEIL_HISTORY, &cmd) != 0) {
+    if (ksuctl(KSU_IOCTL_VEIL2_HISTORY, &cmd) != 0) {
         free(entries);
         return false;
     }
@@ -463,8 +481,22 @@ bool get_veil_history(struct veil_history *out) {
 }
 
 bool clear_veil_history(void) {
-    struct ksu_veil_history_cmd cmd = {.count = 0, .pad = 1, .entries = 0};
-    return ksuctl(KSU_IOCTL_VEIL_HISTORY, &cmd) == 0;
+    struct ksu_veil2_history_cmd cmd = {
+        .version = KSU_VEIL2_ABI_VERSION,
+        .op = 1,
+    };
+    return ksuctl(KSU_IOCTL_VEIL2_HISTORY, &cmd) == 0;
+}
+
+bool get_veil_stats(struct ksu_veil2_stats *out) {
+    if (!out) return false;
+
+    struct ksu_veil2_control_cmd cmd = {
+        .version = KSU_VEIL2_ABI_VERSION,
+        .op = KSU_VEIL2_OP_GET_STATS,
+        .stats = (uint64_t)(uintptr_t)out,
+    };
+    return veil2_control_ioctl(&cmd);
 }
 
 void get_full_version(char* buff) {

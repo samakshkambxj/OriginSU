@@ -945,56 +945,74 @@ static int do_get_sulog_fd(void __user *arg)
     return ksu_install_sulog_fd();
 }
 
-static int do_veil_get_fd(void __user *arg)
+static int do_veil2_get_fd(void __user *arg)
 {
-    struct ksu_get_veil_fd_cmd cmd;
+    struct ksu_get_veil2_fd_cmd cmd;
 
     if (copy_from_user(&cmd, arg, sizeof(cmd))) {
-        pr_err("veil_get_fd: copy_from_user failed\n");
+        pr_err("veil2_get_fd: copy_from_user failed\n");
         return -EFAULT;
     }
 
-    if (cmd.flags) {
-        pr_err("veil_get_fd: unsupported flags 0x%x\n", cmd.flags);
+    if (cmd.version != KSU_VEIL2_ABI_VERSION || cmd.flags) {
+        pr_err("veil2_get_fd: bad version/flags (%u/0x%x)\n", cmd.version, cmd.flags);
         return -EINVAL;
     }
 
     return ksu_install_veil_fd();
 }
-static int do_veil_cloak(void __user *arg)
+
+static int do_veil2_control(void __user *arg)
 {
-    struct ksu_veil_cloak_cmd cmd;
+    struct ksu_veil2_control_cmd cmd;
     int ret = 0;
 
     if (copy_from_user(&cmd, arg, sizeof(cmd))) {
-        pr_err("veil_cloak: copy_from_user failed\n");
+        pr_err("veil2_control: copy_from_user failed\n");
         return -EFAULT;
     }
 
+    if (cmd.version != KSU_VEIL2_ABI_VERSION || cmd.reserved) {
+        pr_err("veil2_control: bad version/reserved (%u/%u)\n", cmd.version, cmd.reserved);
+        return -EINVAL;
+    }
+
     switch (cmd.op) {
-    case KSU_VEIL_CLOAK_ADD:
+    case KSU_VEIL2_OP_ADD:
         ret = ksu_veil_cloak_add(cmd.uid);
         break;
-    case KSU_VEIL_CLOAK_REMOVE:
+    case KSU_VEIL2_OP_REMOVE:
         ret = ksu_veil_cloak_remove(cmd.uid);
         break;
-    case KSU_VEIL_CLOAK_CLEAR:
+    case KSU_VEIL2_OP_CLEAR:
         ksu_veil_cloak_clear();
         break;
-    case KSU_VEIL_CLOAK_SET_AUTO:
+    case KSU_VEIL2_OP_SET_AUTO:
         ksu_veil_set_auto_cloak(cmd.value != 0);
         break;
-    case KSU_VEIL_CLOAK_QUERY:
+    case KSU_VEIL2_OP_QUERY:
         cmd.value = ksu_veil_is_cloaked(cmd.uid) ? 1 : 0;
         if (copy_to_user(arg, &cmd, sizeof(cmd)))
             return -EFAULT;
         break;
-    case KSU_VEIL_CLOAK_GET_AUTO:
+    case KSU_VEIL2_OP_GET_AUTO:
         cmd.value = ksu_veil_get_auto_cloak() ? 1 : 0;
         if (copy_to_user(arg, &cmd, sizeof(cmd)))
             return -EFAULT;
         break;
-    case KSU_VEIL_CLOAK_LIST: {
+    case KSU_VEIL2_OP_GET_STATS: {
+        struct ksu_veil2_stats stats = { 0 };
+
+        if (!cmd.stats)
+            return -EINVAL;
+        ksu_veil_stats(&stats);
+        if (copy_to_user((void __user *)cmd.stats, &stats, sizeof(stats)))
+            return -EFAULT;
+        if (copy_to_user(arg, &cmd, sizeof(cmd)))
+            return -EFAULT;
+        break;
+    }
+    case KSU_VEIL2_OP_LIST: {
         uid_t *buf;
         int total;
         u32 cap = cmd.count;
@@ -1013,6 +1031,7 @@ static int do_veil_cloak(void __user *arg)
         total = ksu_veil_cloak_list(buf, cap);
         if (cmd.uids) {
             u32 n = ((u32)total < cap) ? (u32)total : cap;
+
             if (copy_to_user((uid_t __user *)cmd.uids, buf, n * sizeof(uid_t))) {
                 kfree(buf);
                 return -EFAULT;
@@ -1030,27 +1049,33 @@ static int do_veil_cloak(void __user *arg)
     return ret;
 }
 
-static int do_veil_history(void __user *arg)
+static int do_veil2_history(void __user *arg)
 {
-    struct ksu_veil_history_cmd cmd;
-    struct ksu_veil_hist_entry *buf;
+    struct ksu_veil2_history_cmd cmd;
+    struct ksu_veil2_hist_entry *buf;
     int total;
     u32 cap;
 
     if (copy_from_user(&cmd, arg, sizeof(cmd))) {
-        pr_err("veil_history: copy_from_user failed\n");
+        pr_err("veil2_history: copy_from_user failed\n");
         return -EFAULT;
     }
 
-    /* flags bit0 in the (otherwise-padding) field: clear the history */
-    if (cmd.pad & 1) {
+    if (cmd.version != KSU_VEIL2_ABI_VERSION || cmd.reserved) {
+        pr_err("veil2_history: bad version/reserved (%u/%u)\n", cmd.version, cmd.reserved);
+        return -EINVAL;
+    }
+
+    if (cmd.op == 1) {
         ksu_veil_history_clear();
         return 0;
     }
+    if (cmd.op != 0)
+        return -EINVAL;
 
     cap = cmd.count;
-    if (cap > 1024)
-        cap = 1024; /* sanity bound */
+    if (cap > 4096)
+        cap = 4096; /* sanity bound */
     if (cap == 0) {
         cmd.count = ksu_veil_history_dump(NULL, 0);
         if (copy_to_user(arg, &cmd, sizeof(cmd)))
@@ -1645,21 +1670,21 @@ static const struct ksu_ioctl_cmd_map ksu_ioctl_handlers[] = {
         .perm_check = only_root
     },
     {
-        .cmd = KSU_IOCTL_VEIL_GET_FD,
-        .name = "VEIL_GET_FD",
-        .handler = do_veil_get_fd,
+        .cmd = KSU_IOCTL_VEIL2_GET_FD,
+        .name = "VEIL2_GET_FD",
+        .handler = do_veil2_get_fd,
         .perm_check = only_root
     },
     {
-        .cmd = KSU_IOCTL_VEIL_CLOAK,
-        .name = "VEIL_CLOAK",
-        .handler = do_veil_cloak,
+        .cmd = KSU_IOCTL_VEIL2_CONTROL,
+        .name = "VEIL2_CONTROL",
+        .handler = do_veil2_control,
         .perm_check = manager_or_root
     },
     {
-        .cmd = KSU_IOCTL_VEIL_HISTORY,
-        .name = "VEIL_HISTORY",
-        .handler = do_veil_history,
+        .cmd = KSU_IOCTL_VEIL2_HISTORY,
+        .name = "VEIL2_HISTORY",
+        .handler = do_veil2_history,
         .perm_check = manager_or_root
     },
     {

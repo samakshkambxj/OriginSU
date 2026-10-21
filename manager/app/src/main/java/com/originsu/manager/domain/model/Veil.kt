@@ -15,6 +15,9 @@ enum class VeilKind(val id: Int) {
     PkgList(5),
     Busybox(6),
     SuExec(7),
+    MountInfo(8),
+    ProcMaps(9),
+    Kallsyms(10),
     Unknown(0),
     ;
 
@@ -37,7 +40,19 @@ data class VeilProbeHistory(
     val userName: String?,
     val count: Int,
     val kinds: Set<VeilKind>,
+    val firstNs: Long,
     val lastNs: Long,
+)
+
+data class VeilStats(
+    val cloaked: Int = 0,
+    val history: Int = 0,
+    val probes: Int = 0,
+    val suppressed: Int = 0,
+    val historyDropped: Int = 0,
+    val queueDropped: Int = 0,
+    val kprobes: Int = 0,
+    val autoCloak: Boolean = false,
 )
 
 data class VeilState(
@@ -47,6 +62,7 @@ data class VeilState(
     val cloakedUids: List<VeilCloakedUid> = emptyList(),
     val excludedUids: Set<Int> = emptySet(),
     val history: List<VeilProbeHistory> = emptyList(),
+    val stats: VeilStats = VeilStats(),
     val isLoading: Boolean = true,
     val isRefreshing: Boolean = false,
     val errorMessage: String? = null,
@@ -58,7 +74,20 @@ fun Natives.VeilHistoryEntry.toProbeHistory(userName: String?): VeilProbeHistory
         userName = userName,
         count = count,
         kinds = kinds.toVeilKinds(),
+        firstNs = firstNs,
         lastNs = lastNs,
+    )
+
+fun Natives.VeilStats.toVeilStats(): VeilStats =
+    VeilStats(
+        cloaked = cloaked,
+        history = history,
+        probes = probes,
+        suppressed = suppressed,
+        historyDropped = historyDropped,
+        queueDropped = queueDropped,
+        kprobes = kprobes,
+        autoCloak = autoCloak != 0,
     )
 
 fun veilTimestampText(

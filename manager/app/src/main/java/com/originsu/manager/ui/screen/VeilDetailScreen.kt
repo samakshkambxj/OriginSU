@@ -347,6 +347,9 @@ private fun VeilKind.labelRes(): Int = when (this) {
     VeilKind.PkgList -> R.string.veil_kind_pkglist
     VeilKind.Busybox -> R.string.veil_kind_busybox
     VeilKind.SuExec -> R.string.veil_kind_su_exec
+    VeilKind.MountInfo -> R.string.veil_kind_mountinfo
+    VeilKind.ProcMaps -> R.string.veil_kind_proc_maps
+    VeilKind.Kallsyms -> R.string.veil_kind_kallsyms
     VeilKind.Unknown -> R.string.veil_kind_unknown
 }
 

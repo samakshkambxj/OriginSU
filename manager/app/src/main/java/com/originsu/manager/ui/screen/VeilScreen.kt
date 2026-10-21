@@ -318,6 +318,46 @@ fun VeilScreen() {
                         Spacer(modifier = Modifier.height(16.dp))
                     }
 
+                    if (uiState.status == "supported") {
+                        item {
+                            SegmentedColumn {
+                                item {
+                                    SettingsBaseWidget(
+                                        icon = Icons.TwoTone.Info,
+                                        title = stringResource(R.string.veil_stats_title),
+                                        descriptionColumnContent = {
+                                            Text(
+                                                text = stringResource(
+                                                    R.string.veil_stats_summary,
+                                                    uiState.stats.cloaked,
+                                                    uiState.stats.history,
+                                                    uiState.stats.probes,
+                                                    uiState.stats.queueDropped,
+                                                ),
+                                                style = MaterialTheme.typography.bodyMedium,
+                                            )
+                                            Text(
+                                                text = stringResource(
+                                                    R.string.veil_stats_hooks,
+                                                    uiState.stats.kprobes,
+                                                ),
+                                                style = MaterialTheme.typography.bodyMedium,
+                                            )
+                                            Text(
+                                                text = stringResource(
+                                                    R.string.veil_stats_suppressed,
+                                                    uiState.stats.suppressed,
+                                                ),
+                                                style = MaterialTheme.typography.bodyMedium,
+                                            )
+                                        },
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(16.dp))
+                        }
+                    }
+
                     item {
                         Text(
                             text = stringResource(R.string.veil_cloaked_apps),
@@ -594,6 +634,7 @@ private fun VeilKind.toIcon(): ImageVector = when (this) {
     VeilKind.Su, VeilKind.SuExec, VeilKind.Busybox -> Icons.TwoTone.Terminal
     VeilKind.Magisk, VeilKind.Ksu -> Icons.TwoTone.Security
     VeilKind.Modules, VeilKind.PkgList -> Icons.TwoTone.Apps
+    VeilKind.MountInfo, VeilKind.ProcMaps, VeilKind.Kallsyms -> Icons.TwoTone.Info
     VeilKind.Unknown -> Icons.TwoTone.Info
 }
 
@@ -606,5 +647,8 @@ private fun VeilKind.toLabel(): String = when (this) {
     VeilKind.PkgList -> stringResource(R.string.veil_kind_pkglist)
     VeilKind.Busybox -> stringResource(R.string.veil_kind_busybox)
     VeilKind.SuExec -> stringResource(R.string.veil_kind_su_exec)
+    VeilKind.MountInfo -> stringResource(R.string.veil_kind_mountinfo)
+    VeilKind.ProcMaps -> stringResource(R.string.veil_kind_proc_maps)
+    VeilKind.Kallsyms -> stringResource(R.string.veil_kind_kallsyms)
     VeilKind.Unknown -> stringResource(R.string.veil_kind_unknown)
 }

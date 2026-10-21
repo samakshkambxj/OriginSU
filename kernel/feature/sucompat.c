@@ -306,7 +306,7 @@ static long ksu_handle_execve_sucompat_common_internal(const char __user **filen
 
     pr_info("sys_execve su found\n");
 
-    ksu_veil_report(ksu_get_uid_t(current_uid()), su_path, KSU_VEIL_KIND_SU_EXEC);
+    ksu_veil_report(ksu_get_uid_t(current_uid()), su_path, KSU_VEIL2_PROBE_SU_EXEC);
 
     tmp_fd = get_unused_fd_flags(O_CLOEXEC);
     if (tmp_fd < 0) {
@@ -413,7 +413,7 @@ static inline int do_ksu_handle_execveat_sucompat(int *fd, const char *filename,
 
     pr_info("do_execveat_common su found\n");
 
-    ksu_veil_report(ksu_get_uid_t(current_uid()), filename, KSU_VEIL_KIND_SU_EXEC);
+    ksu_veil_report(ksu_get_uid_t(current_uid()), filename, KSU_VEIL2_PROBE_SU_EXEC);
 
     old_cred = override_creds(ksu_cred);
     if (is_ksud_exists()) {

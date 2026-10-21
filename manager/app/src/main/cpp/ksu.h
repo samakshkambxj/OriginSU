@@ -69,7 +69,7 @@ bool set_sulog_enabled(bool enabled);
 // Returns the new fd on success, negative errno on failure. Caller owns it.
 int get_sulog_fd(void);
 
-// Origin Veil
+// Origin Veil 2.0
 bool is_veil_enabled();
 
 bool set_veil_enabled(bool enabled);
@@ -81,8 +81,8 @@ struct veil_cloaked_uids {
 
 struct veil_history {
     uint32_t count;
-    // malloc'd array of struct ksu_veil_hist_entry, caller frees with free()
-    struct ksu_veil_hist_entry *entries;
+    // malloc'd array of struct ksu_veil2_hist_entry, caller frees with free()
+    struct ksu_veil2_hist_entry *entries;
 };
 
 bool get_veil_cloaked_uids(struct veil_cloaked_uids *out);
@@ -92,6 +92,7 @@ bool is_veil_auto_cloak(bool *out_enabled);
 bool set_veil_auto_cloak(bool enabled);
 bool get_veil_history(struct veil_history *out);
 bool clear_veil_history(void);
+bool get_veil_stats(struct ksu_veil2_stats *out);
 
 // Kernel umount
 bool set_kernel_umount_enabled(bool enabled);

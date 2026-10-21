@@ -4,23 +4,28 @@
 #include <linux/errno.h>
 #include <linux/types.h>
 
-struct ksu_veil_hist_entry; /* uapi/supercall.h */
+struct ksu_veil2_hist_entry; /* uapi/supercall.h */
+struct ksu_veil2_stats; /* uapi/supercall.h */
 
 #ifdef CONFIG_KSU_ORIGIN_VEIL
 bool ksu_veil_is_enabled(void);
 
-/* Persistent per-uid probe history (resets on reboot). */
+/* Per-uid probe history, bounded and evicted least-recently-used first. */
 void ksu_veil_history_record(uid_t uid, __u16 kind);
-int ksu_veil_history_dump(struct ksu_veil_hist_entry *out, int capacity);
+int ksu_veil_history_dump(struct ksu_veil2_hist_entry *out, int capacity);
 void ksu_veil_history_clear(void);
+
 void ksu_veil_report(uid_t uid, const char *path, __u16 kind);
 int ksu_install_veil_fd(void);
+void ksu_veil_stats(struct ksu_veil2_stats *out);
+
 void ksu_veil_init(void);
 void ksu_veil_exit(void);
 
-/* Cloak set: uids we hide root (module mounts) from. Consulted by the umount
- * path so cloaked app uids get modules unmounted regardless of the global
- * kernel_umount toggle or their app profile. */
+/*
+ * Cloak set: uids whose module/root mounts must be hidden. Consulted by the
+ * umount path regardless of the global kernel_umount toggle or app profile.
+ */
 bool ksu_veil_is_cloaked(uid_t uid);
 int ksu_veil_cloak_add(uid_t uid);
 int ksu_veil_cloak_remove(uid_t uid);
@@ -36,7 +41,7 @@ static inline bool ksu_veil_is_enabled(void)
 static inline void ksu_veil_history_record(uid_t uid, __u16 kind)
 {
 }
-static inline int ksu_veil_history_dump(struct ksu_veil_hist_entry *out, int capacity)
+static inline int ksu_veil_history_dump(struct ksu_veil2_hist_entry *out, int capacity)
 {
     return 0;
 }
@@ -49,6 +54,9 @@ static inline void ksu_veil_report(uid_t uid, const char *path, __u16 kind)
 static inline int ksu_install_veil_fd(void)
 {
     return -ENOSYS;
+}
+static inline void ksu_veil_stats(struct ksu_veil2_stats *out)
+{
 }
 static inline void ksu_veil_init(void)
 {
