@@ -10,6 +10,17 @@
 # sepolicy re-applied each boot.
 ZYGISK_DIR="/data/adb/ksu/originzygisk"
 LOG="$ZYGISK_DIR/boot.log"
+
+# Keep boot diagnostics bounded: one previous generation is enough to debug
+# a failed boot without letting boot.log grow forever.
+if [ -f "$LOG" ]; then
+  LOG_SIZE=$(wc -c < "$LOG" 2>/dev/null || echo 0)
+  if [ "$LOG_SIZE" -gt 262144 ]; then
+    rm -f "$LOG.1"
+    mv -f "$LOG" "$LOG.1"
+  fi
+fi
+
 echo "--- $(date) launch.sh start ---" >> "$LOG" 2>/dev/null
 
 # Off-switch / safety: only run if the engine is present and enabled.

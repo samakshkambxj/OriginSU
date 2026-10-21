@@ -146,7 +146,7 @@ Pre-release tags containing `-rc` are published as GitHub pre-releases.
 | Capability | Notes |
 | --- | --- |
 | **Origin Veil** | Kernel-side root-probe detection with a per-app cloak set, reboot persistence, per-app detail (permissions / freeze / force-stop), Spy live log and su-notify (Grant / Cloak / Ignore). |
-| **OriginZygisk** | BreZygisk-based engine bundled in the manager (`Settings > Origin Lab`): deploy, status, kill-switch. Conflicting provider modules are blocked at install; `ZYGISK_ENABLED=true` is exported to module installers when on. |
+| **OriginZygisk** | BreZygisk-based engine bundled in the manager (`Settings > Origin Lab`): deploy, status, kill-switch. Conflicting provider modules are blocked at install; `ZYGISK_ENABLED=1` is exported to module installers and boot-stage scripts when on. Status reports loaded modules and daemon errors from the engine. |
 | **SuSFS manager** | Built-in manager with a one-tap strong-hiding preset (kernel 4.3+ backport). |
 | **OriginGuard** | Static pre-install audit of module zips — critical findings block the install, high-severity findings ask first. Toggle in `Settings > Origin Lab`. |
 | **KPM** | Kernel `CONFIG_KPM` (64-bit only) with a manager KPM tab: load now or embed to `/data/adb/kpm`. The `Install > KPM` tab patches / un-patches boot images, AnyKernel zips or kernel zips before flashing. |

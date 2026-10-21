@@ -62,6 +62,12 @@ pub fn validate_module_id(module_id: &str) -> Result<()> {
     }
 }
 
+/// Whether the built-in OriginZygisk engine is deployed and armed for boot.
+fn origin_zygisk_enabled() -> bool {
+    Path::new("/data/adb/ksu/originzygisk/enable").exists()
+        && Path::new("/data/adb/post-fs-data.d/originzygisk.sh").exists()
+}
+
 /// Get common environment variables for script execution
 pub fn get_common_script_envs(module_id: Option<&str>) -> Vec<(&'static str, String)> {
     let mut envs = vec![
@@ -95,11 +101,11 @@ pub fn get_common_script_envs(module_id: Option<&str>) -> Vec<(&'static str, Str
         envs.push(("KSU_LATE_LOAD", "1".to_string()));
     }
 
-    // OriginZygisk: advertise Zygisk support to module installers
-    // (Magisk behavior), so Zygisk modules install instead of aborting
-    // with "Zygisk is not installed".
-    if std::path::Path::new("/data/adb/ksu/originzygisk/enable").exists() {
-        envs.push(("ZYGISK_ENABLED", "true".to_string()));
+    // OriginZygisk: advertise Zygisk support the same way Magisk does.
+    // Zygisk-aware modules commonly test for the exact value "1" in both
+    // customize.sh and boot-stage scripts, not a truthy string.
+    if origin_zygisk_enabled() {
+        envs.push(("ZYGISK_ENABLED", "1".to_string()));
     }
 
     envs

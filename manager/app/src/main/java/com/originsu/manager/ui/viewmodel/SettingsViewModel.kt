@@ -6,6 +6,7 @@ import com.materialkolor.PaletteStyle
 import com.materialkolor.dynamiccolor.ColorSpec
 import com.originsu.manager.R
 import com.originsu.manager.data.shell.KsuCliRepository
+import com.originsu.manager.data.shell.OriginZygiskStatus
 import com.originsu.manager.domain.model.AppearanceSetting
 import com.originsu.manager.domain.model.PlatformSetting
 import com.originsu.manager.domain.model.SettingsPlatformSnapshot
@@ -147,6 +148,9 @@ data class SettingsUiState(
     val isThemedShortcutsEnabled: Boolean = false,
     val isOriginZygiskEnabled: Boolean = false,
     val isOriginZygiskRunning: Boolean = false,
+    val originZygiskModuleCount: Int = 0,
+    val originZygiskRoot: String = "",
+    val originZygiskError: String? = null,
     val topBarLogo: TopBarLogo = TopBarLogo.YIN_YANG,
     val uiMode: UiMode = UiMode.Material,
     val miuixHomeStyle: MiuixHomeStyle = MiuixHomeStyle.Standard,
@@ -606,15 +610,16 @@ class SettingsViewModel(
 
     fun refreshOriginZygisk() {
         viewModelScope.launch {
-            val enabled = runCatching { ksuCliRepository.isOriginZygiskEnabled() }
-                .getOrDefault(false)
-            val running = if (enabled) {
-                runCatching { ksuCliRepository.isOriginZygiskRunning() }.getOrDefault(false)
-            } else {
-                false
-            }
+            val status = runCatching { ksuCliRepository.getOriginZygiskStatus() }
+                .getOrDefault(OriginZygiskStatus())
             mutableState.update {
-                it.copy(isOriginZygiskEnabled = enabled, isOriginZygiskRunning = running)
+                it.copy(
+                    isOriginZygiskEnabled = status.deployed,
+                    isOriginZygiskRunning = status.running,
+                    originZygiskModuleCount = status.modules.size,
+                    originZygiskRoot = status.rootImplementation,
+                    originZygiskError = status.error,
+                )
             }
         }
     }

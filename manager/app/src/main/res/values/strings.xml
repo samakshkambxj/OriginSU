@@ -712,6 +712,12 @@
     <string name="settings_origin_zygisk">Origin Zygisk</string>
     <string name="settings_origin_zygisk_summary">Built-in Zygisk engine, no provider module needed</string>
     <string name="origin_zygisk_running">Running</string>
+    <string name="origin_zygisk_running_modules">Running · %1$d loaded module(s)</string>
+    <string name="origin_zygisk_running_root">Running · %1$s</string>
+    <string name="origin_zygisk_running_root_modules">Running · %1$s · %2$d module(s)</string>
+    <string name="origin_zygisk_running_error">Running with issue: %1$s</string>
+    <string name="origin_zygisk_error_monitor_stopped">Monitor stopped</string>
+    <string name="origin_zygisk_error_daemon">%1$s-bit daemon not running</string>
     <string name="origin_zygisk_needs_reboot">Deployed, reboot to activate</string>
     <string name="origin_zygisk_failed">Origin Zygisk change failed</string>
     <string name="magic_mount_failed">Magic Mount change failed</string>

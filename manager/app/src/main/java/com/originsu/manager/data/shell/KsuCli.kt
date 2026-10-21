@@ -30,6 +30,18 @@ import java.util.Properties
 import java.util.zip.ZipFile
 
 /**
+ * Snapshot of the built-in OriginZygisk runtime, derived from the engine's
+ * state.json plus a process liveness check.
+ */
+data class OriginZygiskStatus(
+    val deployed: Boolean = false,
+    val running: Boolean = false,
+    val rootImplementation: String = "",
+    val modules: List<String> = emptyList(),
+    val error: String? = null,
+)
+
+/**
  * @author weishu
  * @date 2023/1/1.
  */
@@ -1357,7 +1369,61 @@ class KsuCliRepository(context: Context) {
             return@withContext false
         }
         val shell = getRootShell()
-        ShellUtils.fastCmdResult(shell, "pgrep -f zygisk-ptrace >/dev/null 2>&1")
+        ShellUtils.fastCmdResult(shell, "pgrep -f '[z]ygisk-ptrace' >/dev/null 2>&1")
+    }
+
+    /**
+     * Read the engine's own state.json so the manager can report loaded
+     * modules and daemon failures instead of only "a process is running".
+     */
+    suspend fun getOriginZygiskStatus(): OriginZygiskStatus = withContext(Dispatchers.IO) {
+        if (!isOriginZygiskDeployed()) {
+            return@withContext OriginZygiskStatus()
+        }
+
+        val shell = getRootShell()
+        val running = ShellUtils.fastCmdResult(shell, "pgrep -f '[z]ygisk-ptrace' >/dev/null 2>&1")
+        val raw = runCatching {
+            runCmd(shell, "cat /data/adb/rezygisk/state.json 2>/dev/null")
+        }.getOrDefault("")
+
+        var rootImplementation = ""
+        var error: String? = null
+        val modules = linkedSetOf<String>()
+
+        runCatching {
+            val state = JSONObject(raw)
+            rootImplementation = state.optString("root")
+
+            val monitor = state.optJSONObject("monitor")
+            if (monitor != null && monitor.optInt("state", 0) != 0) {
+                error = monitor.optString("reason").ifBlank {
+                    appContext.getString(R.string.origin_zygisk_error_monitor_stopped)
+                }
+            }
+
+            val daemons = state.optJSONObject("rezygiskd")
+            for (abi in listOf("64", "32")) {
+                val daemon = daemons?.optJSONObject(abi) ?: continue
+                if (daemon.optInt("state", 0) == 0 && error == null) {
+                    error = daemon.optString("reason").ifBlank {
+                        appContext.getString(R.string.origin_zygisk_error_daemon, abi)
+                    }
+                }
+                val loaded = daemon.optJSONArray("modules") ?: continue
+                for (i in 0 until loaded.length()) {
+                    loaded.optString(i).takeIf { it.isNotBlank() }?.let(modules::add)
+                }
+            }
+        }
+
+        OriginZygiskStatus(
+            deployed = true,
+            running = running,
+            rootImplementation = rootImplementation,
+            modules = modules.toList(),
+            error = error,
+        )
     }
 
     private fun copyAssetToCacheDir(name: String): File? {
@@ -1377,8 +1443,8 @@ class KsuCliRepository(context: Context) {
                 return@withContext ShellUtils.fastCmdResult(
                     shell,
                     "rm -f $ORIGIN_ZYGISK_DIR/enable $ORIGIN_ZYGISK_HOOK; " +
-                        "pkill -f zygisk-ptrace 2>/dev/null; " +
-                        "pkill -f zygiskd 2>/dev/null; true"
+                        "pkill -f '[z]ygisk-ptrace' 2>/dev/null; " +
+                        "pkill -f '[z]ygiskd' 2>/dev/null; true"
                 )
             }
             val payload = copyAssetToCacheDir("originzygisk/payload.zip")

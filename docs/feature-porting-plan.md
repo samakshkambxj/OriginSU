@@ -36,7 +36,14 @@ rewrite, not a port.
   vendored in `manager/.../assets/originzygisk/`.
 - Deploy/toggle/kill-switch/status in Settings > Origin Lab; conflicting
   provider modules are blocked at install; Home shows the implementation.
-- `ZYGISK_ENABLED=true` exported to module installers when enabled.
+- `ZYGISK_ENABLED=1` exported to module installers and boot-stage scripts
+  when enabled, matching Magisk and LSPosed expectations.
+- Manager status reads the engine's `state.json`: loaded-module count,
+  root implementation and daemon/monitor errors are surfaced in Settings.
+- Boot logging is rotated once it exceeds 256 KiB (`boot.log.1`), so a
+  failed boot can be diagnosed without unbounded growth.
+- YukiZygisk-inspired follow-ups not in this phase: ZN native modules,
+  per-app skip policy, crash/pstore diagnostics and a module WebUI.
 
 ## Phase 4 — Origin Veil ★★★★☆ ✅
 (kernel + UAPI + manager; formerly "Sentinel")

@@ -190,6 +190,32 @@ fun SettingsPage(bottomPadding: Dp) {
 
     val titleZygisk = stringResource(R.string.settings_origin_zygisk)
     val zygiskRunning = stringResource(R.string.origin_zygisk_running)
+    val zygiskRunningModules = stringResource(
+        R.string.origin_zygisk_running_modules,
+        uiState.originZygiskModuleCount,
+    )
+    val zygiskRunningRoot = if (uiState.originZygiskRoot.isNotBlank()) {
+        stringResource(R.string.origin_zygisk_running_root, uiState.originZygiskRoot)
+    } else {
+        null
+    }
+    val zygiskRunningRootModules = if (
+        uiState.originZygiskRoot.isNotBlank() && uiState.originZygiskModuleCount > 0
+    ) {
+        stringResource(
+            R.string.origin_zygisk_running_root_modules,
+            uiState.originZygiskRoot,
+            uiState.originZygiskModuleCount,
+        )
+    } else {
+        null
+    }
+    val zygiskError = uiState.originZygiskError
+    val zygiskRunningError = if (zygiskError != null) {
+        stringResource(R.string.origin_zygisk_running_error, zygiskError)
+    } else {
+        null
+    }
     val zygiskNeedsReboot = stringResource(R.string.origin_zygisk_needs_reboot)
     val zygiskDefault = stringResource(R.string.settings_origin_zygisk_summary)
     val titleVeilSwitch = stringResource(R.string.settings_veil)
@@ -282,7 +308,11 @@ fun SettingsPage(bottomPadding: Dp) {
         else -> descSelinuxHideDefault
     }
     val zygiskSummary = when {
-        uiState.isOriginZygiskRunning -> zygiskRunning
+        uiState.isOriginZygiskRunning -> zygiskRunningError
+            ?: zygiskRunningRootModules
+            ?: zygiskRunningRoot
+            ?: zygiskRunningModules.takeIf { uiState.originZygiskModuleCount > 0 }
+            ?: zygiskRunning
         uiState.isOriginZygiskEnabled -> zygiskNeedsReboot
         else -> zygiskDefault
     }
@@ -712,19 +742,6 @@ fun SettingsPage(bottomPadding: Dp) {
                         title = stringResource(R.string.origin_section_title),
                     content = {
                         item(visible = matchZygisk) {
-                            val zygiskSummary = when {
-                                uiState.isOriginZygiskRunning -> stringResource(
-                                    id = R.string.origin_zygisk_running
-                                )
-
-                                uiState.isOriginZygiskEnabled -> stringResource(
-                                    id = R.string.origin_zygisk_needs_reboot
-                                )
-
-                                else -> stringResource(
-                                    id = R.string.settings_origin_zygisk_summary
-                                )
-                            }
                             SettingsSwitchWidget(
                                 icon = Icons.TwoTone.Psychology,
                                 title = stringResource(id = R.string.settings_origin_zygisk),
