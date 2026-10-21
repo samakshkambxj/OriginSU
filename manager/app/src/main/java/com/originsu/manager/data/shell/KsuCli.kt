@@ -1394,8 +1394,9 @@ class KsuCliRepository(context: Context) {
         val modules = linkedSetOf<String>()
 
         runCatching {
-            // The engine writes a trailing comma after monitor.reason when the
-            // monitor stops, so normalize before handing the file to JSONObject.
+            // Older engine builds wrote a trailing comma after monitor.reason
+            // when the monitor stopped. Keep normalizing for payloads built
+            // before the engine started emitting valid, atomic JSON.
             val normalized = raw.replace(Regex(",\\s*([}\\]])"), "$1")
             val state = JSONObject(normalized)
             rootImplementation = state.optString("root")

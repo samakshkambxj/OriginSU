@@ -19,6 +19,7 @@ the toggle in Settings > Origin Lab. If these assets are missing from the
 APK, the toggle reports unavailable.
 
 The manager reads `/data/adb/rezygisk/state.json` for loaded modules,
-root implementation and monitor/daemon errors. Module installers and
-boot-stage scripts receive `ZYGISK_ENABLED=1` while the enable flag and
-boot hook are both present.
+root implementation and monitor/daemon errors. The engine writes that file
+atomically and emits valid JSON; the manager still tolerates trailing commas
+from older payloads. Module installers and boot-stage scripts receive
+`ZYGISK_ENABLED=1` while the enable flag and boot hook are both present.

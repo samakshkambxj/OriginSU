@@ -40,6 +40,8 @@ rewrite, not a port.
   when enabled, matching Magisk and LSPosed expectations.
 - Manager status reads the engine's `state.json`: loaded-module count,
   root implementation and daemon/monitor errors are surfaced in Settings.
+  The engine now writes valid JSON atomically; the manager keeps its
+  trailing-comma normalization for older payloads.
 - Boot logging is rotated once it exceeds 256 KiB (`boot.log.1`), so a
   failed boot can be diagnosed without unbounded growth.
 - YukiZygisk-inspired follow-ups not in this phase: ZN native modules,
