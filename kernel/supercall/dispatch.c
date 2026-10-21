@@ -14,6 +14,7 @@
 
 #include <linux/thread_info.h>
 #include "uapi/supercall.h"
+#include "uapi/veil.h"
 #include "supercall/internal.h"
 #include "arch.h"
 #include "policy/allowlist.h"
