@@ -211,8 +211,8 @@ fun SettingsPage(bottomPadding: Dp) {
         null
     }
     val zygiskError = uiState.originZygiskError
-    val zygiskRunningError = if (zygiskError != null) {
-        stringResource(R.string.origin_zygisk_running_error, zygiskError)
+    val zygiskIssue = if (zygiskError != null) {
+        stringResource(R.string.origin_zygisk_issue, zygiskError)
     } else {
         null
     }
@@ -308,8 +308,8 @@ fun SettingsPage(bottomPadding: Dp) {
         else -> descSelinuxHideDefault
     }
     val zygiskSummary = when {
-        uiState.isOriginZygiskRunning -> zygiskRunningError
-            ?: zygiskRunningRootModules
+        zygiskIssue != null -> zygiskIssue
+        uiState.isOriginZygiskRunning -> zygiskRunningRootModules
             ?: zygiskRunningRoot
             ?: zygiskRunningModules.takeIf { uiState.originZygiskModuleCount > 0 }
             ?: zygiskRunning
