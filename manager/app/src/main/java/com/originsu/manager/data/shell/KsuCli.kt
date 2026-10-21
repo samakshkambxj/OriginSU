@@ -1392,7 +1392,10 @@ class KsuCliRepository(context: Context) {
         val modules = linkedSetOf<String>()
 
         runCatching {
-            val state = JSONObject(raw)
+            // The engine writes a trailing comma after monitor.reason when the
+            // monitor stops, so normalize before handing the file to JSONObject.
+            val normalized = raw.replace(Regex(",\\s*([}\\]])"), "$1")
+            val state = JSONObject(normalized)
             rootImplementation = state.optString("root")
 
             val monitor = state.optJSONObject("monitor")
