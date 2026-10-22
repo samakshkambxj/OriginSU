@@ -4,7 +4,6 @@ import android.annotation.SuppressLint
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
-import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -1721,12 +1720,12 @@ fun UninstallItem(
     val navigator = LocalNavigator.current
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val ksuCliRepository = koinInject<KsuCliRepository>()
+    val snackBarHost = LocalSnackbarHost.current
     val uninstallConfirmDialog = rememberConfirmDialog()
-    val showTodo = {
-        Toast.makeText(context, "TODO", Toast.LENGTH_SHORT).show()
-    }
     val options = remember {
         listOf(
+            UninstallType.TEMPORARY,
             UninstallType.PERMANENT,
             UninstallType.RESTORE_STOCK_IMAGE
         )
@@ -1748,13 +1747,28 @@ fun UninstallItem(
                         content = context.getString(uninstallType.message)
                     )
                     if (result == ConfirmResult.Confirmed) {
-                        withLoading {
-                            when (uninstallType) {
-                                UninstallType.TEMPORARY -> showTodo()
-                                UninstallType.PERMANENT -> navigator.push(Route.Flash.uninstall())
-                                UninstallType.RESTORE_STOCK_IMAGE -> navigator.push(Route.Flash.restore())
-                                UninstallType.NONE -> Unit
+                        when (uninstallType) {
+                            UninstallType.TEMPORARY -> {
+                                val success = withLoading {
+                                    ksuCliRepository.uninstallTemporarily()
+                                }
+                                snackBarHost.showReplacingSnackbar(
+                                    context.getString(
+                                        if (success) {
+                                            R.string.settings_uninstall_temporary_done
+                                        } else {
+                                            R.string.settings_uninstall_temporary_failed
+                                        }
+                                    )
+                                )
                             }
+                            UninstallType.PERMANENT -> withLoading {
+                                navigator.push(Route.Flash.uninstall())
+                            }
+                            UninstallType.RESTORE_STOCK_IMAGE -> withLoading {
+                                navigator.push(Route.Flash.restore())
+                            }
+                            UninstallType.NONE -> Unit
                         }
                     }
                 }

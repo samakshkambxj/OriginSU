@@ -105,8 +105,15 @@ fn close_ksu_fds() {
     }
 }
 
-pub fn unload() -> Result<()> {
+pub fn unload(detach: bool) -> Result<()> {
     info!("unload: starting KernelSU unload sequence");
+
+    // Detach from the caller's root shell so the manager can receive a
+    // successful exit before the shell itself is killed below. The unload
+    // sequence keeps running from init after this returns.
+    if detach {
+        utils::daemonize(false)?;
+    }
 
     // 0. Switch cgroups so we don't get killed along with our parent shell
     utils::switch_cgroups();

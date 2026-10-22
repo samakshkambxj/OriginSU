@@ -113,7 +113,11 @@ enum Commands {
     },
 
     /// Unload KernelSU kernel module (LKM Only)
-    Unload,
+    Unload {
+        /// Detach and return immediately after starting the unload sequence
+        #[arg(long)]
+        detach: bool,
+    },
 
     /// Uninstall KernelSU modules and itself(LKM Only)
     Uninstall {
@@ -924,7 +928,7 @@ pub fn run() -> Result<()> {
             magiskboot,
             data_path,
         } => utils::install(libadbroot, magiskboot, data_path),
-        Commands::Unload => crate::android::unload::unload(),
+        Commands::Unload { detach } => crate::android::unload::unload(detach),
         Commands::Uninstall { package_name } => utils::uninstall(&package_name),
         Commands::Sepolicy { command } => match command {
             Sepolicy::Patch { sepolicy } => sepolicy::live_patch(&sepolicy),

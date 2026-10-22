@@ -965,6 +965,19 @@ class KsuCliRepository(context: Context) {
         return result.isSuccess
     }
 
+    /**
+     * Unload the LKM for the current boot. The reboot loads it again from the
+     * patched boot image, which makes this the "temporary uninstall" flow.
+     *
+     * `--detach` lets ksud acknowledge the command before the unload sequence
+     * kills its own root shell; without it this call would never return.
+     */
+    suspend fun uninstallTemporarily(): Boolean = withContext(Dispatchers.IO) {
+        runCatching {
+            flashWithIO("${getKsuDaemonPath()} unload --detach", {}, {}).isSuccess
+        }.getOrDefault(false)
+    }
+
     fun uninstallPermanently(
         onFinish: (Boolean, Int) -> Unit, onStdout: (String) -> Unit, onStderr: (String) -> Unit
     ): Boolean {

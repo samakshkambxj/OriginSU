@@ -136,6 +136,7 @@ Pre-release tags containing `-rc` are published as GitHub pre-releases.
 ### Core root
 
 - Kernel-based `su` and root access management
+- **Temporary uninstall (LKM)**: unloads the module for the current boot; the patched boot image restores root on the next reboot
 - Module system based on [metamodules](https://kernelsu.org/guide/metamodule.html) for systemless modifications — with batch multi-select actions, update-all multi-flash, `banner=` artwork from `module.prop`, internal backups with restore, shareable bundle zips, and download-script (JSON) batch install
 - [App profiles](https://kernelsu.org/guide/app-profile.html): cage root power per app, with **time-limited grants** (10 min / 30 min / 1 h / 8 h / 24 h) revoked by a persistent waiter plus a sweep on every `ksud` start
 - GKI 2.0, GKI 1.0 and non-GKI (3.4+) kernel support
