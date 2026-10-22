@@ -191,7 +191,8 @@ int ksu_veil_cloak_remove(uid_t uid)
 void ksu_veil_cloak_clear(void)
 {
     HLIST_HEAD(victims);
-    struct veil2_cloak *entry, *tmp;
+    struct veil2_cloak *entry;
+    struct hlist_node *tmp;
     unsigned long flags;
     int i;
 
