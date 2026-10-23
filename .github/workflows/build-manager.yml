@@ -206,6 +206,10 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v6
 
+      - name: Run unit tests
+        if: matrix.manager_type == 'normal' && matrix.build_type == 'debug'
+        run: ./gradlew testDebugUnitTest
+
       - name: Build APK
         run: |
           export BUILD_EXTRA_ARGS=""

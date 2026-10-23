@@ -32,6 +32,7 @@ miuix = "0.9.4-rc01"
 datastore = "1.2.1"
 benchmark = "1.5.0"
 profileinstaller = "1.4.1"
+junit = "4.13.2"
 koin-bom = "4.2.2"
 
 [plugins]
@@ -46,6 +47,7 @@ aboutLibraries = { id = "com.mikepenz.aboutlibraries.plugin", version.ref = "abo
 
 [libraries]
 koin-bom = { module = "io.insert-koin:koin-bom", version.ref = "koin-bom" }
+junit = { module = "junit:junit", version.ref = "junit" }
 koin-core = { module = "io.insert-koin:koin-core" }
 koin-android = { module = "io.insert-koin:koin-android" }
 koin-androidx-compose = { module = "io.insert-koin:koin-androidx-compose" }
