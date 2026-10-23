@@ -100,6 +100,8 @@ fun SuSFSLkmScreen() {
     val pullToRefreshState = rememberPullToRefreshState()
     val loadingDialog = rememberLoadingDialog()
     val removeConfirmDialog = rememberConfirmDialog()
+    val loadConfirmDialog = rememberConfirmDialog()
+    val autoloadConfirmDialog = rememberConfirmDialog()
     val coroutineScope = rememberCoroutineScope()
     var selectedKmi by rememberSaveable { mutableStateOf<String?>(null) }
 
@@ -133,6 +135,22 @@ fun SuSFSLkmScreen() {
     val removeConfirmTitle = stringResource(R.string.susfs_lkm_remove_confirm_title)
     val removeConfirmMessage = stringResource(R.string.susfs_lkm_remove_confirm_message)
     val removeConfirmAction = stringResource(R.string.susfs_lkm_remove_confirm_action)
+    val loadConfirmTitle = stringResource(R.string.susfs_lkm_load_confirm_title)
+    val loadConfirmMessage = stringResource(R.string.susfs_lkm_load_confirm_message)
+    val loadConfirmAction = stringResource(R.string.susfs_lkm_load_confirm_action)
+    val autoloadEnableTitle = stringResource(R.string.susfs_lkm_autoload_enable_confirm_title)
+    val autoloadEnableMessage = stringResource(
+        R.string.susfs_lkm_autoload_enable_confirm_message
+    )
+    val autoloadEnableAction = stringResource(R.string.susfs_lkm_autoload_enable_confirm_action)
+    val autoloadDisableTitle = stringResource(R.string.susfs_lkm_autoload_disable_confirm_title)
+    val autoloadDisableMessage = stringResource(
+        R.string.susfs_lkm_autoload_disable_confirm_message
+    )
+    val autoloadDisableAction = stringResource(R.string.susfs_lkm_autoload_disable_confirm_action)
+    val autoloadUpdateTitle = stringResource(R.string.susfs_lkm_autoload_update_confirm_title)
+    val autoloadUpdateMessage = stringResource(R.string.susfs_lkm_autoload_update_confirm_message)
+    val autoloadUpdateAction = stringResource(R.string.susfs_lkm_autoload_update_confirm_action)
     val cancel = stringResource(R.string.cancel)
     val refreshFailedMsg = stringResource(R.string.susfs_lkm_refresh_failed)
     val noData = stringResource(R.string.susfs_status_no_data)
@@ -411,7 +429,19 @@ fun SuSFSLkmScreen() {
                             enabled = canLoad,
                             isError = !selectedKmiSupported,
                             onClick = {
-                                viewModel.dispatch(SuSFSLkmUiAction.Load(resolvedKmi))
+                                coroutineScope.launch {
+                                    val result = loadConfirmDialog.awaitConfirm(
+                                        title = loadConfirmTitle,
+                                        content = loadConfirmMessage,
+                                        confirm = loadConfirmAction,
+                                        dismiss = cancel,
+                                    )
+                                    if (result == ConfirmResult.Confirmed) {
+                                        viewModel.dispatch(
+                                            SuSFSLkmUiAction.Load(resolvedKmi)
+                                        )
+                                    }
+                                }
                             },
                         )
                     }
@@ -424,9 +454,34 @@ fun SuSFSLkmScreen() {
                             enabled = status?.isArm64 == true && selectedKmiSupported &&
                                 !uiState.isWorking,
                             onCheckedChange = { enabled ->
-                                viewModel.dispatch(
-                                    SuSFSLkmUiAction.SetAutoload(enabled, resolvedKmi)
-                                )
+                                coroutineScope.launch {
+                                    val result = autoloadConfirmDialog.awaitConfirm(
+                                        title = if (enabled) {
+                                            autoloadEnableTitle
+                                        } else {
+                                            autoloadDisableTitle
+                                        },
+                                        content = if (enabled) {
+                                            autoloadEnableMessage
+                                        } else {
+                                            autoloadDisableMessage
+                                        },
+                                        confirm = if (enabled) {
+                                            autoloadEnableAction
+                                        } else {
+                                            autoloadDisableAction
+                                        },
+                                        dismiss = cancel,
+                                    )
+                                    if (result == ConfirmResult.Confirmed) {
+                                        viewModel.dispatch(
+                                            SuSFSLkmUiAction.SetAutoload(
+                                                enabled,
+                                                resolvedKmi,
+                                            )
+                                        )
+                                    }
+                                }
                             },
                         )
                     }
@@ -449,9 +504,19 @@ fun SuSFSLkmScreen() {
                             enabled = canLoad,
                             isError = !selectedKmiSupported,
                             onClick = {
-                                viewModel.dispatch(
-                                    SuSFSLkmUiAction.UpdateAutoloadKmi(resolvedKmi)
-                                )
+                                coroutineScope.launch {
+                                    val result = autoloadConfirmDialog.awaitConfirm(
+                                        title = autoloadUpdateTitle,
+                                        content = autoloadUpdateMessage,
+                                        confirm = autoloadUpdateAction,
+                                        dismiss = cancel,
+                                    )
+                                    if (result == ConfirmResult.Confirmed) {
+                                        viewModel.dispatch(
+                                            SuSFSLkmUiAction.UpdateAutoloadKmi(resolvedKmi)
+                                        )
+                                    }
+                                }
                             },
                         )
                     }
