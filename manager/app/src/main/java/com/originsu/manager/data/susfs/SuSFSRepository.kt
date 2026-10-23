@@ -133,6 +133,7 @@ class SuSFSRepository(
             autoloadEnabled = autoloadEnabled,
             autoloadKmi = autoloadKmi,
             currentKmi = currentKmi,
+            supportedKmis = supportedKmis,
             isLoaded = isLoaded,
             isLkm = isLkm,
             isArm64 = isArm64,

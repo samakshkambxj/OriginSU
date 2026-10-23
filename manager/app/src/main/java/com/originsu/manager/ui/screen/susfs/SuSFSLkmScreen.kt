@@ -4,9 +4,6 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.text.input.TextFieldLineLimits
-import androidx.compose.foundation.text.input.rememberTextFieldState
-import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.twotone.CheckCircle
 import androidx.compose.material.icons.twotone.Delete
@@ -36,6 +33,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -45,16 +43,18 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.originsu.manager.R
 import com.originsu.manager.ui.component.ConfirmResult
+import com.originsu.manager.ui.component.DialogHandle
 import com.originsu.manager.ui.component.SwipeableSnackbarHost
 import com.originsu.manager.ui.component.WarningCard
 import com.originsu.manager.ui.component.rememberConfirmDialog
+import com.originsu.manager.ui.component.rememberCustomDialog
 import com.originsu.manager.ui.component.rememberLoadingDialog
 import com.originsu.manager.ui.component.settings.AppBackButton
 import com.originsu.manager.ui.component.settings.SegmentedColumn
 import com.originsu.manager.ui.component.settings.SettingsBaseWidget
+import com.originsu.manager.ui.component.settings.SettingsChooseDialog
 import com.originsu.manager.ui.component.settings.SettingsJumpPageWidget
 import com.originsu.manager.ui.component.settings.SettingsSwitchWidget
-import com.originsu.manager.ui.component.settings.SettingsTextFieldWidget
 import com.originsu.manager.ui.navigation.LocalNavigator
 import com.originsu.manager.ui.navigation.Route
 import com.originsu.manager.ui.theme.CardConfig
@@ -85,13 +85,25 @@ fun SuSFSLkmScreen() {
     val loadingDialog = rememberLoadingDialog()
     val removeConfirmDialog = rememberConfirmDialog()
     val coroutineScope = rememberCoroutineScope()
-    val kmiState = rememberTextFieldState()
-    var kmiInitialized by remember { mutableStateOf(false) }
+    var selectedKmi by rememberSaveable { mutableStateOf<String?>(null) }
 
     val status = uiState.status
-    val resolvedKmi = kmiState.text.toString().trim()
-        .ifBlank { status?.currentKmi.orEmpty().trim() }
-        .takeIf { it.isNotEmpty() }
+    val currentKmi = status?.currentKmi.orEmpty().trim()
+    val resolvedKmi = selectedKmi?.trim()?.takeIf { it.isNotEmpty() }
+        ?: currentKmi.takeIf { it.isNotEmpty() }
+    val pickerKmis = remember(status?.supportedKmis, currentKmi) {
+        status?.supportedKmis.orEmpty().ifEmpty {
+            listOfNotNull(currentKmi.takeIf { it.isNotEmpty() })
+        }
+    }
+    val kmiDialog = rememberLkmKmiDialog(
+        kmis = pickerKmis,
+        detectedKmi = currentKmi,
+        selectedKmi = resolvedKmi,
+        onSelected = { selectedKmi = it },
+    )
+    val selectedKmiSupported = status?.supportsKmi(resolvedKmi) != false
+    val canLoad = status?.isArm64 == true && selectedKmiSupported && !uiState.isWorking
 
     val loadSuccessMsg = stringResource(R.string.susfs_lkm_load_success)
     val loadFailedMsg = stringResource(R.string.susfs_lkm_load_failed)
@@ -107,17 +119,11 @@ fun SuSFSLkmScreen() {
     val refreshFailedMsg = stringResource(R.string.susfs_lkm_refresh_failed)
     val noData = stringResource(R.string.susfs_status_no_data)
     val unknownKmi = stringResource(R.string.susfs_lkm_kmi_unknown)
+    val unsupportedKmi = stringResource(R.string.susfs_lkm_kmi_unavailable)
+    val noGuardAssets = stringResource(R.string.susfs_lkm_available_kmis_none)
 
     LaunchedEffect(Unit) {
         scrollBehavior.state.heightOffset = scrollBehavior.state.heightOffsetLimit
-    }
-
-    LaunchedEffect(status?.currentKmi) {
-        val detectedKmi = status?.currentKmi.orEmpty()
-        if (!kmiInitialized && detectedKmi.isNotBlank()) {
-            kmiState.setTextAndPlaceCursorAtEnd(detectedKmi)
-            kmiInitialized = true
-        }
     }
 
     LaunchedEffect(uiState.isWorking) {
@@ -284,12 +290,29 @@ fun SuSFSLkmScreen() {
                         )
                     }
                     item(visible = status != null && !status.isBuiltIn) {
-                        SettingsTextFieldWidget(
-                            state = kmiState,
-                            title = stringResource(R.string.susfs_lkm_kmi_override),
-                            useLabelAsPlaceholder = true,
-                            enabled = !uiState.isWorking && status?.isArm64 != false,
-                            lineLimits = TextFieldLineLimits.SingleLine,
+                        SettingsJumpPageWidget(
+                            icon = Icons.TwoTone.Memory,
+                            title = stringResource(R.string.susfs_lkm_load_kmi),
+                            description = when {
+                                resolvedKmi == null -> unknownKmi
+                                !selectedKmiSupported -> unsupportedKmi
+                                else -> resolvedKmi
+                            },
+                            enabled = !uiState.isWorking && pickerKmis.isNotEmpty(),
+                            isError = !selectedKmiSupported,
+                            onClick = { kmiDialog.show() },
+                        )
+                    }
+                    item(visible = status != null && !status.isBuiltIn) {
+                        SettingsBaseWidget(
+                            icon = Icons.TwoTone.Extension,
+                            title = stringResource(R.string.susfs_lkm_available_kmis),
+                            description = if (pickerKmis.isEmpty()) {
+                                noGuardAssets
+                            } else {
+                                pickerKmis.joinToString(", ")
+                            },
+                            isError = pickerKmis.isEmpty(),
                         )
                     }
                 }
@@ -302,11 +325,16 @@ fun SuSFSLkmScreen() {
                             icon = Icons.TwoTone.Download,
                             title = stringResource(R.string.susfs_lkm_load_now),
                             description = if (resolvedKmi != null) {
-                                stringResource(R.string.susfs_lkm_load_now_summary, resolvedKmi)
+                                if (selectedKmiSupported) {
+                                    stringResource(R.string.susfs_lkm_load_now_summary, resolvedKmi)
+                                } else {
+                                    unsupportedKmi
+                                }
                             } else {
                                 stringResource(R.string.susfs_lkm_load_now_no_kmi)
                             },
-                            enabled = status?.isArm64 == true && !uiState.isWorking,
+                            enabled = canLoad,
+                            isError = !selectedKmiSupported,
                             onClick = {
                                 viewModel.dispatch(SuSFSLkmUiAction.Load(resolvedKmi))
                             },
@@ -318,7 +346,8 @@ fun SuSFSLkmScreen() {
                             title = stringResource(R.string.susfs_lkm_autoload),
                             description = autoloadSummary,
                             checked = status?.autoloadEnabled == true,
-                            enabled = status?.isArm64 == true && !uiState.isWorking,
+                            enabled = status?.isArm64 == true && selectedKmiSupported &&
+                                !uiState.isWorking,
                             onCheckedChange = { enabled ->
                                 viewModel.dispatch(
                                     SuSFSLkmUiAction.SetAutoload(enabled, resolvedKmi)
@@ -383,6 +412,21 @@ fun SuSFSLkmScreen() {
                 }
             }
 
+            if (status != null && !status.isBuiltIn && !selectedKmiSupported) {
+                item {
+                    WarningCard(
+                        modifier = Modifier.padding(horizontal = 16.dp),
+                        message = unsupportedKmi,
+                        icon = {
+                            Icon(
+                                imageVector = Icons.TwoTone.Warning,
+                                contentDescription = null,
+                            )
+                        },
+                    )
+                }
+            }
+
             item {
                 SegmentedColumn(title = stringResource(R.string.susfs_lkm_notes_section)) {
                     item {
@@ -402,6 +446,44 @@ fun SuSFSLkmScreen() {
                     }
                 }
             }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun rememberLkmKmiDialog(
+    kmis: List<String>,
+    detectedKmi: String,
+    selectedKmi: String?,
+    onSelected: (String) -> Unit,
+): DialogHandle {
+    return rememberCustomDialog { dismiss ->
+        MaterialTheme(
+            colorScheme = MaterialTheme.colorScheme.copy(
+                surface = MaterialTheme.colorScheme.surfaceBright,
+            )
+        ) {
+            val detectedLabel = stringResource(R.string.susfs_lkm_kmi_detected)
+            SettingsChooseDialog(
+                show = true,
+                title = stringResource(R.string.susfs_lkm_kmi_picker_title),
+                items = kmis,
+                itemDescriptions = kmis.map { kmi ->
+                    if (kmi.equals(detectedKmi, ignoreCase = true)) {
+                        detectedLabel
+                    } else {
+                        null
+                    }
+                },
+                selectedIndex = kmis.indexOfFirst {
+                    it.equals(selectedKmi, ignoreCase = true)
+                },
+                onDismiss = dismiss,
+                onSelectedIndexChange = { index ->
+                    kmis.getOrNull(index)?.let(onSelected)
+                },
+            )
         }
     }
 }

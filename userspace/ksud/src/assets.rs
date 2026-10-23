@@ -137,6 +137,20 @@ pub fn list_supported_kmi() -> std::vec::Vec<std::string::String> {
     list
 }
 
+/// KMI names that have an embedded SUSFS guard LKM asset.
+pub fn list_supported_susfs_guard_kmi() -> std::vec::Vec<std::string::String> {
+    let mut list = Vec::new();
+    for file in Asset::iter() {
+        if let Some(kmi) = file.strip_suffix("_susfs_guard_lkm.ko") {
+            if !list.iter().any(|v| v == kmi) {
+                list.push(kmi.to_string());
+            }
+        }
+    }
+    list.sort();
+    list
+}
+
 pub fn get_asset(name: &str) -> Result<std::borrow::Cow<'static, [u8]>> {
     let asset = Asset::get(name).ok_or_else(|| anyhow::anyhow!("asset not found: {name}"))?;
     Ok(asset.data)

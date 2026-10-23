@@ -226,7 +226,6 @@ pub enum SuSFSSubCommands {
         #[command(subcommand)]
         info_type: ShowType,
     },
-
     /// Read boot slot kernel uname and build-time
     #[command(name = "slot_info")]
     SlotInfo {
@@ -242,6 +241,9 @@ pub enum ShowType {
     #[command(name = "enabled_features")]
     EnabledFeatures,
     Variant,
+    /// List KMI names that have an embedded SUSFS guard LKM asset.
+    #[command(name = "supported_kmis")]
+    SupportedKmis,
 }
 
 #[derive(Debug, Subcommand)]
@@ -394,6 +396,11 @@ pub fn run_main(args: SusfsArgs) -> Result<()> {
             ShowType::Variant => {
                 let variant = api::variant()?;
                 println!("{variant}");
+            }
+            ShowType::SupportedKmis => {
+                for kmi in crate::assets::list_supported_susfs_guard_kmi() {
+                    println!("{kmi}");
+                }
             }
         },
         SuSFSSubCommands::SlotInfo { boot_image } => {

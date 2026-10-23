@@ -1024,8 +1024,13 @@
     <string name="susfs_lkm_builtin">Built into kernel</string>
     <string name="susfs_lkm_builtin_summary">This kernel already includes SuSFS. The guard LKM is not needed.</string>
     <string name="susfs_lkm_current_kmi">Current KMI</string>
+    <string name="susfs_lkm_load_kmi">Load KMI</string>
+    <string name="susfs_lkm_available_kmis">Available guard assets</string>
+    <string name="susfs_lkm_available_kmis_none">No guard KMI assets found. Update ksud.</string>
+    <string name="susfs_lkm_kmi_picker_title">Select guard KMI</string>
+    <string name="susfs_lkm_kmi_detected">Detected on this device</string>
+    <string name="susfs_lkm_kmi_unavailable">No guard asset is packaged for this KMI. Choose another KMI.</string>
     <string name="susfs_lkm_kmi_unknown">Unknown</string>
-    <string name="susfs_lkm_kmi_override">KMI override (optional)</string>
     <string name="susfs_lkm_load_now">Load now</string>
     <string name="susfs_lkm_load_now_summary">Load the SuSFS guard module for KMI %1$s</string>
     <string name="susfs_lkm_load_now_no_kmi">Load the SuSFS guard module using the detected KMI</string>

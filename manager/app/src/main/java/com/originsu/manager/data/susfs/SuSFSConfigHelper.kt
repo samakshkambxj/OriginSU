@@ -227,6 +227,14 @@ class SuSFSConfigHelper(
     suspend fun loadLkmStatus(forceRefresh: Boolean = true): SuSFSLkmStatus {
         val statusInfo = loadStatusInfo(forceRefresh)
         val autoload = executeSusfsCommand("autoload status")
+        val supportedKmis = executeSusfsCommand("show supported_kmis")
+            .stdout
+            .lineSequence()
+            .map { it.trim() }
+            .filter { it.isNotEmpty() }
+            .distinct()
+            .sorted()
+            .toList()
         val currentKmi = runCatching { ksuCliRepository.getCurrentKmi() }
             .getOrDefault("")
             .trim()
@@ -239,6 +247,7 @@ class SuSFSConfigHelper(
                 autoload.stdout.trim().equals("enabled", ignoreCase = true),
             autoloadKmi = readAutoloadKmi(),
             currentKmi = currentKmi,
+            supportedKmis = supportedKmis,
             isLoaded = statusInfo.version.isNotBlank(),
             isLkm = statusInfo.enabledFeatures
                 .lineSequence()
@@ -663,11 +672,18 @@ data class SuSFSLkmStatus(
     val autoloadEnabled: Boolean,
     val autoloadKmi: String,
     val currentKmi: String,
+    val supportedKmis: List<String>,
     val isLoaded: Boolean,
     val isLkm: Boolean,
     val isArm64: Boolean,
 ) {
     val isBuiltIn: Boolean get() = isLoaded && !isLkm
+
+    fun supportsKmi(kmi: String?): Boolean {
+        val normalized = kmi?.trim().orEmpty()
+        if (normalized.isEmpty() || supportedKmis.isEmpty()) return true
+        return supportedKmis.any { it.equals(normalized, ignoreCase = true) }
+    }
 }
 
 data class SuSFSLkmActionResult(
