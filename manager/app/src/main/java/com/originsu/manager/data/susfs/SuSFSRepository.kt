@@ -137,6 +137,8 @@ class SuSFSRepository(
             isLoaded = isLoaded,
             isLkm = isLkm,
             isArm64 = isArm64,
+            isLkmMode = isLkmMode,
+            rootAvailable = rootAvailable,
         )
 
     private fun SuSFSLkmActionResult.toDomain(): DomainSuSFSLkmActionResult =

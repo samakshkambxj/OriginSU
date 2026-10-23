@@ -7,6 +7,7 @@ import android.util.Log
 import androidx.documentfile.provider.DocumentFile
 import com.google.gson.Gson
 import com.google.gson.annotations.SerializedName
+import com.originsu.manager.Natives
 import com.originsu.manager.data.shell.KsuCliRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
@@ -253,6 +254,8 @@ class SuSFSConfigHelper(
                 .lineSequence()
                 .any { it.trim() == LKM_FEATURE },
             isArm64 = Build.SUPPORTED_ABIS.any { it == "arm64-v8a" },
+            isLkmMode = runCatching { Natives.isLkmMode }.getOrDefault(false),
+            rootAvailable = runCatching { ksuCliRepository.rootAvailable() }.getOrDefault(false),
         )
     }
 
@@ -676,6 +679,8 @@ data class SuSFSLkmStatus(
     val isLoaded: Boolean,
     val isLkm: Boolean,
     val isArm64: Boolean,
+    val isLkmMode: Boolean,
+    val rootAvailable: Boolean,
 ) {
     val isBuiltIn: Boolean get() = isLoaded && !isLkm
 

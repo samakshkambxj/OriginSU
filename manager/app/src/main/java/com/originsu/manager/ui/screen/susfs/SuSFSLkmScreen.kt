@@ -42,6 +42,9 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.originsu.manager.R
+import com.originsu.manager.domain.model.SuSFSLkmCheck
+import com.originsu.manager.domain.model.SuSFSLkmCheckResult
+import com.originsu.manager.domain.model.SuSFSLkmCheckState
 import com.originsu.manager.ui.component.ConfirmResult
 import com.originsu.manager.ui.component.DialogHandle
 import com.originsu.manager.ui.component.SwipeableSnackbarHost
@@ -104,6 +107,7 @@ fun SuSFSLkmScreen() {
     )
     val selectedKmiSupported = status?.supportsKmi(resolvedKmi) != false
     val canLoad = status?.isArm64 == true && selectedKmiSupported && !uiState.isWorking
+    val preflight = status?.preflight(resolvedKmi).orEmpty()
 
     val loadSuccessMsg = stringResource(R.string.susfs_lkm_load_success)
     val loadFailedMsg = stringResource(R.string.susfs_lkm_load_failed)
@@ -322,6 +326,23 @@ fun SuSFSLkmScreen() {
                 }
             }
 
+            if (status != null && !status.isBuiltIn) {
+                item {
+                    SegmentedColumn(
+                        title = stringResource(R.string.susfs_lkm_preflight_section)
+                    ) {
+                        preflight.forEach { result ->
+                            item {
+                                PreflightRow(
+                                    result = result,
+                                    targetKmi = resolvedKmi.orEmpty(),
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
             item {
                 SegmentedColumn(title = stringResource(R.string.susfs_lkm_actions_section)) {
                     item(visible = status != null && !status.isLoaded) {
@@ -477,6 +498,106 @@ fun SuSFSLkmScreen() {
             }
         }
     }
+}
+
+@Composable
+private fun PreflightRow(
+    result: SuSFSLkmCheckResult,
+    targetKmi: String,
+) {
+    val unknownKmi = stringResource(R.string.susfs_lkm_kmi_unknown)
+    val checkTitle = when (result.check) {
+        SuSFSLkmCheck.Arm64 -> stringResource(R.string.susfs_lkm_check_arm64)
+        SuSFSLkmCheck.LkmMode -> stringResource(R.string.susfs_lkm_check_lkm_mode)
+        SuSFSLkmCheck.Root -> stringResource(R.string.susfs_lkm_check_root)
+        SuSFSLkmCheck.Kmi -> stringResource(R.string.susfs_lkm_check_kmi)
+        SuSFSLkmCheck.GuardAsset -> stringResource(R.string.susfs_lkm_check_asset)
+        SuSFSLkmCheck.Active -> stringResource(R.string.susfs_lkm_check_active)
+    }
+    val checkDescription = when (result.check) {
+        SuSFSLkmCheck.Arm64 -> stringResource(
+            if (result.state == SuSFSLkmCheckState.Ok) {
+                R.string.susfs_lkm_check_arm64_ok
+            } else {
+                R.string.susfs_lkm_check_arm64_error
+            }
+        )
+
+        SuSFSLkmCheck.LkmMode -> stringResource(
+            if (result.state == SuSFSLkmCheckState.Ok) {
+                R.string.susfs_lkm_check_lkm_mode_ok
+            } else {
+                R.string.susfs_lkm_check_lkm_mode_error
+            }
+        )
+
+        SuSFSLkmCheck.Root -> stringResource(
+            if (result.state == SuSFSLkmCheckState.Ok) {
+                R.string.susfs_lkm_check_root_ok
+            } else {
+                R.string.susfs_lkm_check_root_error
+            }
+        )
+
+        SuSFSLkmCheck.Kmi -> if (result.state == SuSFSLkmCheckState.Ok) {
+            stringResource(R.string.susfs_lkm_check_kmi_ok, targetKmi)
+        } else {
+            stringResource(R.string.susfs_lkm_check_kmi_error)
+        }
+
+        SuSFSLkmCheck.GuardAsset -> when (result.state) {
+            SuSFSLkmCheckState.Ok -> stringResource(
+                R.string.susfs_lkm_check_asset_ok,
+                targetKmi,
+            )
+
+            SuSFSLkmCheckState.Unknown -> stringResource(
+                R.string.susfs_lkm_check_asset_unknown
+            )
+
+            else -> stringResource(
+                R.string.susfs_lkm_check_asset_error,
+                targetKmi.ifBlank { unknownKmi },
+            )
+        }
+
+        SuSFSLkmCheck.Active -> stringResource(
+            if (result.state == SuSFSLkmCheckState.Ok) {
+                R.string.susfs_lkm_check_active_ok
+            } else {
+                R.string.susfs_lkm_check_active_warning
+            }
+        )
+    }
+    val checkIcon = when (result.state) {
+        SuSFSLkmCheckState.Ok -> Icons.TwoTone.CheckCircle
+        SuSFSLkmCheckState.Warning -> Icons.TwoTone.Warning
+        SuSFSLkmCheckState.Error -> Icons.TwoTone.Error
+        SuSFSLkmCheckState.Unknown -> Icons.TwoTone.Info
+    }
+    val stateLabel = stringResource(
+        when (result.state) {
+            SuSFSLkmCheckState.Ok -> R.string.susfs_lkm_check_state_ok
+            SuSFSLkmCheckState.Warning -> R.string.susfs_lkm_check_state_warning
+            SuSFSLkmCheckState.Error -> R.string.susfs_lkm_check_state_error
+            SuSFSLkmCheckState.Unknown -> R.string.susfs_lkm_check_state_unknown
+        }
+    )
+
+    SettingsBaseWidget(
+        icon = checkIcon,
+        title = checkTitle,
+        description = checkDescription,
+        isError = result.state == SuSFSLkmCheckState.Error,
+        selected = result.state == SuSFSLkmCheckState.Ok,
+        descriptionColumnContent = {
+            Text(
+                text = stateLabel,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        },
+    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
