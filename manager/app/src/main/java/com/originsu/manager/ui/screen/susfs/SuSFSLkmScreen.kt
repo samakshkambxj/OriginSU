@@ -48,6 +48,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.originsu.manager.R
@@ -339,6 +342,9 @@ fun SuSFSLkmScreen() {
                 SegmentedColumn(title = stringResource(R.string.susfs_lkm_status_section)) {
                     item {
                         SettingsBaseWidget(
+                            modifier = Modifier.semantics {
+                                liveRegion = LiveRegionMode.Polite
+                            },
                             icon = statusIcon,
                             title = statusTitle,
                             description = statusDescription,

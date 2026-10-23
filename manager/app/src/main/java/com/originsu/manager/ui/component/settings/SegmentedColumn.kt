@@ -33,6 +33,7 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.hideFromAccessibility
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Density
@@ -167,11 +168,13 @@ fun SegmentedColumn(
                 text = title,
                 style = MaterialTheme.typography.titleSmall,
                 color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.padding(
-                    start = PADDING_HORIZONTAL.dp,
-                    top = PADDING_VERTICAL.dp,
-                    bottom = 8.dp
-                )
+                modifier = Modifier
+                    .padding(
+                        start = PADDING_HORIZONTAL.dp,
+                        top = PADDING_VERTICAL.dp,
+                        bottom = 8.dp
+                    )
+                    .semantics { heading() }
             )
         }
 
