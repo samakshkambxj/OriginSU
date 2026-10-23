@@ -1764,8 +1764,9 @@ fun UninstallItem(
                     if (result == ConfirmResult.Confirmed) {
                         when (uninstallType) {
                             UninstallType.TEMPORARY -> {
-                                val success = withLoading {
-                                    ksuCliRepository.uninstallTemporarily()
+                                var success = false
+                                withLoading {
+                                    success = ksuCliRepository.uninstallTemporarily()
                                 }
                                 snackBarHost.showReplacingSnackbar(
                                     context.getString(

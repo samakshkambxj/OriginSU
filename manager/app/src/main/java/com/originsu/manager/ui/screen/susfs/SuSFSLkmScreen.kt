@@ -172,8 +172,10 @@ fun SuSFSLkmScreen() {
         status?.loadedAt
             ?.takeIf { it > 0 }
             ?.let { seconds ->
-                DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT)
-                    .format(Date(seconds * 1000))
+                java.text.DateFormat.getDateTimeInstance(
+                    java.text.DateFormat.MEDIUM,
+                    java.text.DateFormat.SHORT,
+                ).format(Date(seconds * 1000))
             }
             .orEmpty()
     }

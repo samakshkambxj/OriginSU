@@ -142,12 +142,11 @@ pub fn list_supported_susfs_guard_kmi() -> std::vec::Vec<std::string::String> {
     let mut list = Vec::new();
     for file in Asset::iter() {
         if let Some(kmi) = file.strip_suffix("_susfs_guard_lkm.ko") {
-            if !list.iter().any(|v| v == kmi) {
-                list.push(kmi.to_string());
-            }
+            list.push(kmi.to_string());
         }
     }
     list.sort();
+    list.dedup();
     list
 }
 
