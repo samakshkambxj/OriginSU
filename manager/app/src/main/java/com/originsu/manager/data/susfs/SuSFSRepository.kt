@@ -134,6 +134,13 @@ class SuSFSRepository(
             autoloadKmi = autoloadKmi,
             currentKmi = currentKmi,
             supportedKmis = supportedKmis,
+            loadedKmi = loadedKmi,
+            assetName = assetName,
+            assetSha256 = assetSha256,
+            assetSize = assetSize,
+            loadedAt = loadedAt,
+            autoloadAttempts = autoloadAttempts,
+            autoloadDisabledReason = autoloadDisabledReason,
             isLoaded = isLoaded,
             isLkm = isLkm,
             isArm64 = isArm64,
@@ -142,7 +149,13 @@ class SuSFSRepository(
         )
 
     private fun SuSFSLkmActionResult.toDomain(): DomainSuSFSLkmActionResult =
-        DomainSuSFSLkmActionResult(success = success, error = error)
+        DomainSuSFSLkmActionResult(
+            success = success,
+            error = error,
+            command = command,
+            stdout = stdout,
+            stderr = stderr,
+        )
 
     private fun SuSFSSlotInfo.toDomain(): DomainSuSFSSlotInfo =
         DomainSuSFSSlotInfo(slotName, uname, buildTime)

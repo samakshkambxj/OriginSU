@@ -237,6 +237,11 @@ pub fn on_boot_completed() {
     crate::preinit::on_boot_completed();
 
     run_stage("boot-completed", ScriptWait::NoWait);
+    // This boot completed, so reset the SUSFS autoload safety counter before
+    // the boot-completed hook daemonizes.
+    if let Err(e) = crate::android::susfs::lkm::on_boot_completed() {
+        warn!("SUSFS autoload safety reset failed: {e:#}");
+    }
     // Load susfs boot-completed
     if !is_safe_mode() {
         crate::android::susfs::init_event::on_boot_completed();

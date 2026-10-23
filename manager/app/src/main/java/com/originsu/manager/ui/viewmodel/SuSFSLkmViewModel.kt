@@ -17,6 +17,7 @@ data class SuSFSLkmUiState(
     val status: SuSFSLkmStatus? = null,
     val isLoading: Boolean = true,
     val isWorking: Boolean = false,
+    val lastAction: SuSFSLkmActionResult? = null,
 )
 
 sealed interface SuSFSLkmUiAction {
@@ -110,7 +111,10 @@ class SuSFSLkmViewModel(
             mutableState.value = mutableState.value.copy(isWorking = true)
             runCatching { operation() }
                 .onSuccess { result ->
-                    mutableState.value = mutableState.value.copy(isWorking = false)
+                    mutableState.value = mutableState.value.copy(
+                        isWorking = false,
+                        lastAction = result,
+                    )
                     if (result.success) {
                         onSuccess()
                         loadStatus(showLoading = false)
@@ -119,8 +123,15 @@ class SuSFSLkmViewModel(
                     }
                 }
                 .onFailure { error ->
-                    mutableState.value = mutableState.value.copy(isWorking = false)
-                    onFailure(error.message.orEmpty())
+                    val message = error.message.orEmpty()
+                    mutableState.value = mutableState.value.copy(
+                        isWorking = false,
+                        lastAction = SuSFSLkmActionResult(
+                            success = false,
+                            error = message,
+                        ),
+                    )
+                    onFailure(message)
                 }
         }
     }

@@ -41,6 +41,9 @@ pub enum SuSFSSubCommands {
         command: AutoloadCommand,
     },
 
+    /// Show guard LKM, autoload, and asset state as JSON.
+    Info,
+
     /// Added path and all its sub-paths will be hidden for umounted app process from several syscalls.
     ///
     /// Please be reminded that if the target path has upper mounts then make sure the proper layer is added,
@@ -258,6 +261,8 @@ pub enum AutoloadCommand {
     Disable,
     /// Show whether automatic loading is enabled.
     Status,
+    /// Clear the boot-loop safety counter and marker.
+    Reset,
 }
 
 #[derive(Debug, Parser)]
@@ -309,6 +314,7 @@ pub fn run_main(args: SusfsArgs) -> Result<()> {
     match args.command {
         SuSFSSubCommands::Config { command } => run_config(command)?,
         SuSFSSubCommands::Load { kmi } => lkm::load(kmi.as_deref())?,
+        SuSFSSubCommands::Info => lkm::info_json()?,
         SuSFSSubCommands::Autoload { command } => match command {
             AutoloadCommand::Enable { kmi } => lkm::set_autoload(true, kmi.as_deref())?,
             AutoloadCommand::Disable => lkm::set_autoload(false, None)?,
@@ -322,6 +328,7 @@ pub fn run_main(args: SusfsArgs) -> Result<()> {
                     }
                 );
             }
+            AutoloadCommand::Reset => lkm::reset_autoload_guard()?,
         },
         SuSFSSubCommands::AddSusPath { path } => {
             api::add_sus_path(&path, false)?;

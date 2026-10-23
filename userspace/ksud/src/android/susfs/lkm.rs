@@ -9,12 +9,19 @@
 use std::ffi::CString;
 use std::fs;
 use std::path::PathBuf;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use anyhow::{Context, Result, ensure};
 use log::{info, warn};
+use serde::{Deserialize, Serialize};
 
 use crate::android::susfs::api::prelude as api;
 use crate::defs::WORKING_DIR;
+
+const AUTOLOAD_ATTEMPTS_FILE: &str = "susfs_autoload_attempts";
+const AUTOLOAD_DISABLED_FILE: &str = "susfs_autoload_disabled";
+const LOADED_MARKER_FILE: &str = "susfs_loaded_lkm.json";
+const MAX_AUTOLOAD_ATTEMPTS: u32 = 3;
 
 /// Persisted auto-load configuration.  A missing file means disabled.
 struct AutoLoadConfig {
@@ -22,8 +29,87 @@ struct AutoLoadConfig {
     fallback_kmi: Option<String>,
 }
 
+#[derive(Serialize, Deserialize, Default)]
+struct LoadedLkmInfo {
+    kmi: String,
+    asset_name: String,
+    sha256: String,
+    size: u64,
+    loaded_at: u64,
+}
+
+fn working_file(name: &str) -> PathBuf {
+    PathBuf::from(WORKING_DIR).join(name)
+}
+
 fn autoload_config_path() -> PathBuf {
-    PathBuf::from(WORKING_DIR).join("susfs_autoload.conf")
+    working_file("susfs_autoload.conf")
+}
+
+fn unix_now() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|duration| duration.as_secs())
+        .unwrap_or_default()
+}
+
+fn read_autoload_attempts() -> u32 {
+    fs::read_to_string(working_file(AUTOLOAD_ATTEMPTS_FILE))
+        .ok()
+        .and_then(|content| content.trim().parse().ok())
+        .unwrap_or_default()
+}
+
+fn write_autoload_attempts(attempts: u32) -> Result<()> {
+    fs::create_dir_all(WORKING_DIR).context("Failed to create KernelSU working directory")?;
+    fs::write(working_file(AUTOLOAD_ATTEMPTS_FILE), attempts.to_string())
+        .context("Failed to write SUSFS auto-load attempt counter")
+}
+
+fn read_autoload_disabled_reason() -> Option<String> {
+    fs::read_to_string(working_file(AUTOLOAD_DISABLED_FILE))
+        .ok()
+        .map(|content| content.trim().to_owned())
+        .filter(|content| !content.is_empty())
+}
+
+fn write_autoload_disabled_reason(reason: &str) -> Result<()> {
+    fs::create_dir_all(WORKING_DIR).context("Failed to create KernelSU working directory")?;
+    fs::write(working_file(AUTOLOAD_DISABLED_FILE), reason)
+        .context("Failed to write SUSFS auto-load safety marker")
+}
+
+fn clear_autoload_safety_state() -> Result<()> {
+    let _ = fs::remove_file(working_file(AUTOLOAD_DISABLED_FILE));
+    write_autoload_attempts(0)
+}
+
+fn read_loaded_marker() -> Option<LoadedLkmInfo> {
+    fs::read_to_string(working_file(LOADED_MARKER_FILE))
+        .ok()
+        .and_then(|content| serde_json::from_str(&content).ok())
+}
+
+fn write_loaded_marker(kmi: &str, asset_name: &str, module_data: &[u8]) -> Result<()> {
+    fs::create_dir_all(WORKING_DIR).context("Failed to create KernelSU working directory")?;
+    let marker = LoadedLkmInfo {
+        kmi: kmi.to_owned(),
+        asset_name: asset_name.to_owned(),
+        sha256: sha256::digest(module_data),
+        size: module_data.len() as u64,
+        loaded_at: unix_now(),
+    };
+    let content = serde_json::to_string_pretty(&marker)
+        .context("Failed to serialize loaded SUSFS LKM marker")?;
+    fs::write(working_file(LOADED_MARKER_FILE), content)
+        .context("Failed to write loaded SUSFS LKM marker")?;
+    Ok(())
+}
+
+/// Called when the manager unloads KernelSU so stale module metadata is not
+/// shown after a temporary uninstall.
+pub fn clear_loaded_marker() {
+    let _ = fs::remove_file(working_file(LOADED_MARKER_FILE));
 }
 
 fn validate_kmi(kmi: &str) -> Result<()> {
@@ -77,6 +163,7 @@ pub fn set_autoload(enabled: bool, kmi: Option<&str>) -> Result<()> {
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
             Err(error) => return Err(error).context("Failed to disable SUSFS auto-load"),
         }
+        clear_autoload_safety_state()?;
         println!("SUSFS auto-load disabled");
         return Ok(());
     }
@@ -106,6 +193,7 @@ pub fn set_autoload(enabled: bool, kmi: Option<&str>) -> Result<()> {
         return Err(error).context("Failed to save SUSFS auto-load config");
     }
 
+    clear_autoload_safety_state()?;
     println!("SUSFS auto-load enabled (KMI fallback: {kmi})");
     Ok(())
 }
@@ -119,6 +207,9 @@ fn detected_susfs_version() -> Option<String> {
 }
 
 pub fn load_if_autoload_enabled() -> Result<()> {
+    // The guard LKM is loaded fresh by ksud during this boot. Any marker from
+    // a previous boot is stale until load() writes a new one.
+    clear_loaded_marker();
     let config = read_autoload_config()?;
     if !config.enabled {
         return Ok(());
@@ -129,6 +220,20 @@ pub fn load_if_autoload_enabled() -> Result<()> {
     }
     if let Some(version) = detected_susfs_version() {
         info!("SUSFS {version} is already available; skipping guard LKM load");
+        let _ = write_autoload_attempts(0);
+        return Ok(());
+    }
+
+    let attempts = read_autoload_attempts().saturating_add(1);
+    write_autoload_attempts(attempts)?;
+    if attempts >= MAX_AUTOLOAD_ATTEMPTS {
+        warn!(
+            "SUSFS auto-load failed to complete {attempts} boots; disabling it to protect the boot"
+        );
+        set_autoload(false, None)?;
+        write_autoload_disabled_reason(&format!(
+            "Autoload disabled after {attempts} incomplete boots"
+        ))?;
         return Ok(());
     }
 
@@ -143,6 +248,43 @@ pub fn load_if_autoload_enabled() -> Result<()> {
     if let Err(error) = load(Some(&kmi)) {
         warn!("Failed to auto-load SUSFS guard LKM for KMI {kmi}: {error:#}");
     }
+    Ok(())
+}
+
+/// Called from boot-completed: the guard LKM did not stop the boot, so reset
+/// the consecutive-failure counter.
+pub fn on_boot_completed() -> Result<()> {
+    write_autoload_attempts(0)
+}
+
+/// Clear the boot-loop safety marker after the user reviews or re-enables
+/// autoload.
+pub fn reset_autoload_guard() -> Result<()> {
+    clear_autoload_safety_state()?;
+    println!("SUSFS auto-load safety state reset");
+    Ok(())
+}
+
+/// Print guard LKM state as JSON for the manager.
+pub fn info_json() -> Result<()> {
+    let config = read_autoload_config()?;
+    let loaded = read_loaded_marker();
+    let loaded_version = detected_susfs_version();
+    let disabled_reason = read_autoload_disabled_reason();
+    let output = serde_json::json!({
+        "loaded_version": loaded_version,
+        "loaded_kmi": loaded.as_ref().map(|info| info.kmi.as_str()),
+        "asset_name": loaded.as_ref().map(|info| info.asset_name.as_str()),
+        "asset_sha256": loaded.as_ref().map(|info| info.sha256.as_str()),
+        "asset_size": loaded.as_ref().map(|info| info.size),
+        "loaded_at": loaded.as_ref().map(|info| info.loaded_at),
+        "autoload_enabled": config.enabled,
+        "autoload_kmi": config.fallback_kmi,
+        "autoload_attempts": read_autoload_attempts(),
+        "autoload_disabled_reason": disabled_reason,
+        "supported_kmis": crate::assets::list_supported_susfs_guard_kmi(),
+    });
+    println!("{}", serde_json::to_string(&output)?);
     Ok(())
 }
 
@@ -173,6 +315,9 @@ pub fn load(kmi: Option<&str>) -> Result<()> {
 
     info!("Loading SUSFS guard LKM for KMI {kmi}");
     ksuinit::load_module(&module_data, &params).context("Failed to load SUSFS guard LKM")?;
+    if let Err(error) = write_loaded_marker(&kmi, &asset_name, &module_data) {
+        warn!("Failed to record loaded SUSFS guard LKM metadata: {error:#}");
+    }
     println!("Loaded SUSFS guard LKM for KMI {kmi}");
     Ok(())
 }

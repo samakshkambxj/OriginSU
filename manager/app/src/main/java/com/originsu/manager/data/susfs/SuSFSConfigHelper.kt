@@ -227,32 +227,57 @@ class SuSFSConfigHelper(
 
     suspend fun loadLkmStatus(forceRefresh: Boolean = true): SuSFSLkmStatus {
         val statusInfo = loadStatusInfo(forceRefresh)
+        val infoResult = executeSusfsCommand("info")
+        val lkmInfo = infoResult.stdout
+            .takeIf { infoResult.success && it.isNotBlank() }
+            ?.let { runCatching { gson.fromJson(it, SuSFSLkmInfo::class.java) }.getOrNull() }
         val autoload = executeSusfsCommand("autoload status")
-        val supportedKmis = executeSusfsCommand("show supported_kmis")
-            .stdout
-            .lineSequence()
+        val supportedKmis = lkmInfo?.supportedKmis.orEmpty()
             .map { it.trim() }
             .filter { it.isNotEmpty() }
             .distinct()
             .sorted()
-            .toList()
+            .ifEmpty {
+                executeSusfsCommand("show supported_kmis")
+                    .stdout
+                    .lineSequence()
+                    .map { it.trim() }
+                    .filter { it.isNotEmpty() }
+                    .distinct()
+                    .sorted()
+                    .toList()
+            }
         val currentKmi = runCatching { ksuCliRepository.getCurrentKmi() }
             .getOrDefault("")
             .trim()
 
         return SuSFSLkmStatus(
-            version = statusInfo.version,
+            version = statusInfo.version.ifBlank { lkmInfo?.loadedVersion.orEmpty() },
             variant = statusInfo.variant,
             enabledFeatures = statusInfo.enabledFeatures,
-            autoloadEnabled = autoload.success &&
-                autoload.stdout.trim().equals("enabled", ignoreCase = true),
-            autoloadKmi = readAutoloadKmi(),
+            autoloadEnabled = lkmInfo?.autoloadEnabled ?: (
+                autoload.success &&
+                    autoload.stdout.trim().equals("enabled", ignoreCase = true)
+                ),
+            autoloadKmi = lkmInfo?.autoloadKmi?.trim().orEmpty()
+                .ifBlank { readAutoloadKmi() },
             currentKmi = currentKmi,
             supportedKmis = supportedKmis,
-            isLoaded = statusInfo.version.isNotBlank(),
-            isLkm = statusInfo.enabledFeatures
-                .lineSequence()
-                .any { it.trim() == LKM_FEATURE },
+            loadedKmi = lkmInfo?.loadedKmi?.trim().orEmpty(),
+            assetName = lkmInfo?.assetName?.trim().orEmpty(),
+            assetSha256 = lkmInfo?.assetSha256?.trim().orEmpty(),
+            assetSize = lkmInfo?.assetSize ?: 0L,
+            loadedAt = lkmInfo?.loadedAt ?: 0L,
+            autoloadAttempts = lkmInfo?.autoloadAttempts ?: 0,
+            autoloadDisabledReason = lkmInfo?.autoloadDisabledReason?.trim().orEmpty(),
+            isLoaded = statusInfo.version.isNotBlank() ||
+                !lkmInfo?.loadedVersion.isNullOrBlank(),
+            isLkm = (statusInfo.version.isNotBlank() ||
+                !lkmInfo?.loadedVersion.isNullOrBlank()) &&
+                (statusInfo.enabledFeatures
+                    .lineSequence()
+                    .any { it.trim() == LKM_FEATURE } ||
+                    !lkmInfo?.loadedKmi.isNullOrBlank()),
             isArm64 = Build.SUPPORTED_ABIS.any { it == "arm64-v8a" },
             isLkmMode = runCatching { Natives.isLkmMode }.getOrDefault(false),
             rootAvailable = runCatching { ksuCliRepository.rootAvailable() }.getOrDefault(false),
@@ -270,7 +295,13 @@ class SuSFSConfigHelper(
         if (result.success) {
             cachedStatusInfo = null
         }
-        return SuSFSLkmActionResult(result.success, result.errorMessage())
+        return SuSFSLkmActionResult(
+            success = result.success,
+            error = result.errorMessage(),
+            command = "susfs $command",
+            stdout = result.stdout,
+            stderr = result.stderr,
+        )
     }
 
     suspend fun setLkmAutoload(
@@ -288,7 +319,13 @@ class SuSFSConfigHelper(
             "autoload disable"
         }
         val result = executeSusfsCommand(command)
-        return SuSFSLkmActionResult(result.success, result.errorMessage())
+        return SuSFSLkmActionResult(
+            success = result.success,
+            error = result.errorMessage(),
+            command = "susfs $command",
+            stdout = result.stdout,
+            stderr = result.stderr,
+        )
     }
 
     /**
@@ -301,7 +338,11 @@ class SuSFSConfigHelper(
         if (success) {
             cachedStatusInfo = null
         }
-        return SuSFSLkmActionResult(success = success, error = "")
+        return SuSFSLkmActionResult(
+            success = success,
+            error = "",
+            command = "unload --detach",
+        )
     }
 
     private suspend fun readAutoloadKmi(): String = withContext(Dispatchers.IO) {
@@ -676,6 +717,13 @@ data class SuSFSLkmStatus(
     val autoloadKmi: String,
     val currentKmi: String,
     val supportedKmis: List<String>,
+    val loadedKmi: String,
+    val assetName: String,
+    val assetSha256: String,
+    val assetSize: Long,
+    val loadedAt: Long,
+    val autoloadAttempts: Int,
+    val autoloadDisabledReason: String,
     val isLoaded: Boolean,
     val isLkm: Boolean,
     val isArm64: Boolean,
@@ -691,9 +739,37 @@ data class SuSFSLkmStatus(
     }
 }
 
+data class SuSFSLkmInfo(
+    @SerializedName("loaded_version")
+    val loadedVersion: String? = null,
+    @SerializedName("loaded_kmi")
+    val loadedKmi: String? = null,
+    @SerializedName("asset_name")
+    val assetName: String? = null,
+    @SerializedName("asset_sha256")
+    val assetSha256: String? = null,
+    @SerializedName("asset_size")
+    val assetSize: Long? = null,
+    @SerializedName("loaded_at")
+    val loadedAt: Long? = null,
+    @SerializedName("autoload_enabled")
+    val autoloadEnabled: Boolean? = null,
+    @SerializedName("autoload_kmi")
+    val autoloadKmi: String? = null,
+    @SerializedName("autoload_attempts")
+    val autoloadAttempts: Int? = null,
+    @SerializedName("autoload_disabled_reason")
+    val autoloadDisabledReason: String? = null,
+    @SerializedName("supported_kmis")
+    val supportedKmis: List<String>? = null,
+)
+
 data class SuSFSLkmActionResult(
     val success: Boolean,
     val error: String,
+    val command: String = "",
+    val stdout: String = "",
+    val stderr: String = "",
 )
 
 data class SusKstatStatically(

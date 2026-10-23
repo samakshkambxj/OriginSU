@@ -1,11 +1,17 @@
 package com.originsu.manager.ui.screen.susfs
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
+import android.text.format.DateFormat
+import android.text.format.Formatter
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.twotone.CheckCircle
+import androidx.compose.material.icons.twotone.ContentCopy
 import androidx.compose.material.icons.twotone.Delete
 import androidx.compose.material.icons.twotone.Download
 import androidx.compose.material.icons.twotone.Error
@@ -38,6 +44,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -45,6 +52,7 @@ import com.originsu.manager.R
 import com.originsu.manager.domain.model.SuSFSLkmCheck
 import com.originsu.manager.domain.model.SuSFSLkmCheckResult
 import com.originsu.manager.domain.model.SuSFSLkmCheckState
+import com.originsu.manager.domain.model.buildSuSFSLkmDiagnosticsReport
 import com.originsu.manager.ui.component.ConfirmResult
 import com.originsu.manager.ui.component.DialogHandle
 import com.originsu.manager.ui.component.SwipeableSnackbarHost
@@ -74,6 +82,7 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
+import java.util.Date
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -82,6 +91,7 @@ fun SuSFSLkmScreen() {
     val cardConfig: CardConfig = koinInject()
     val viewModel = koinViewModel<SuSFSLkmViewModel>()
     val uiState by viewModel.state.collectAsStateWithLifecycle()
+    val context = LocalContext.current
     val navigator = LocalNavigator.current
     val snackBarHost = LocalSnackbarHost.current
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
@@ -126,6 +136,24 @@ fun SuSFSLkmScreen() {
     val unknownKmi = stringResource(R.string.susfs_lkm_kmi_unknown)
     val unsupportedKmi = stringResource(R.string.susfs_lkm_kmi_unavailable)
     val noGuardAssets = stringResource(R.string.susfs_lkm_available_kmis_none)
+    val diagnosticsCopied = stringResource(R.string.susfs_lkm_diagnostics_copied)
+    val diagnosticsLabel = stringResource(R.string.susfs_lkm_diagnostics_section)
+    val loadedAtText = remember(status?.loadedAt) {
+        status?.loadedAt
+            ?.takeIf { it > 0 }
+            ?.let { seconds ->
+                DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT)
+                    .format(Date(seconds * 1000))
+            }
+            .orEmpty()
+    }
+    val assetSizeText = remember(status?.assetSize) {
+        status?.assetSize
+            ?.takeIf { it > 0 }
+            ?.let { Formatter.formatShortFileSize(context, it) }
+            .orEmpty()
+    }
+    val lastAction = uiState.lastAction
 
     LaunchedEffect(Unit) {
         scrollBehavior.state.heightOffset = scrollBehavior.state.heightOffsetLimit
@@ -474,6 +502,108 @@ fun SuSFSLkmScreen() {
                             )
                         },
                     )
+                }
+            }
+
+            if (status != null && status.isLkm) {
+                item {
+                    SegmentedColumn(
+                        title = stringResource(R.string.susfs_lkm_loaded_module_section)
+                    ) {
+                        item {
+                            SettingsBaseWidget(
+                                icon = Icons.TwoTone.Memory,
+                                title = stringResource(R.string.susfs_lkm_loaded_kmi),
+                                description = status.loadedKmi.ifBlank {
+                                    status.currentKmi
+                                }.ifBlank { noData },
+                            )
+                        }
+                        item {
+                            SettingsBaseWidget(
+                                icon = Icons.TwoTone.Extension,
+                                title = stringResource(R.string.susfs_lkm_asset_name),
+                                description = status.assetName.ifBlank { noData },
+                            )
+                        }
+                        item {
+                            SettingsBaseWidget(
+                                icon = Icons.TwoTone.Security,
+                                title = stringResource(R.string.susfs_lkm_asset_hash),
+                                description = status.assetSha256.ifBlank { noData },
+                            )
+                        }
+                        item {
+                            SettingsBaseWidget(
+                                icon = Icons.TwoTone.Info,
+                                title = stringResource(R.string.susfs_lkm_asset_size),
+                                description = assetSizeText.ifBlank { noData },
+                            )
+                        }
+                        item {
+                            SettingsBaseWidget(
+                                icon = Icons.TwoTone.Info,
+                                title = stringResource(R.string.susfs_lkm_loaded_at),
+                                description = loadedAtText.ifBlank { noData },
+                            )
+                        }
+                    }
+                }
+            }
+
+            item {
+                SegmentedColumn(title = stringResource(R.string.susfs_lkm_diagnostics_section)) {
+                    item {
+                        SettingsJumpPageWidget(
+                            icon = Icons.TwoTone.ContentCopy,
+                            title = stringResource(R.string.susfs_lkm_copy_diagnostics),
+                            description = stringResource(
+                                R.string.susfs_lkm_copy_diagnostics_summary
+                            ),
+                            onClick = {
+                                val report = buildSuSFSLkmDiagnosticsReport(status, lastAction)
+                                val clipboard = context.getSystemService(
+                                    Context.CLIPBOARD_SERVICE
+                                ) as ClipboardManager
+                                clipboard.setPrimaryClip(
+                                    ClipData.newPlainText(diagnosticsLabel, report)
+                                )
+                                coroutineScope.launch {
+                                    snackBarHost.showReplacingSnackbar(diagnosticsCopied)
+                                }
+                            },
+                        )
+                    }
+                    if (lastAction != null) {
+                        item {
+                            SettingsBaseWidget(
+                                icon = Icons.TwoTone.Info,
+                                title = stringResource(R.string.susfs_lkm_last_command),
+                                description = lastAction.command.ifBlank { noData },
+                                isError = !lastAction.success,
+                            )
+                        }
+                        if (lastAction.stdout.isNotBlank()) {
+                            item {
+                                SettingsBaseWidget(
+                                    icon = Icons.TwoTone.Info,
+                                    title = stringResource(R.string.susfs_lkm_command_stdout),
+                                    description = lastAction.stdout,
+                                    selected = lastAction.success,
+                                )
+                            }
+                        }
+                        if (lastAction.stderr.isNotBlank()) {
+                            item {
+                                SettingsBaseWidget(
+                                    icon = Icons.TwoTone.Error,
+                                    title = stringResource(R.string.susfs_lkm_command_stderr),
+                                    description = lastAction.stderr,
+                                    isError = true,
+                                )
+                            }
+                        }
+                    }
                 }
             }
 

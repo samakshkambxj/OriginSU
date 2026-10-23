@@ -8,6 +8,13 @@ data class SuSFSLkmStatus(
     val autoloadKmi: String = "",
     val currentKmi: String = "",
     val supportedKmis: List<String> = emptyList(),
+    val loadedKmi: String = "",
+    val assetName: String = "",
+    val assetSha256: String = "",
+    val assetSize: Long = 0L,
+    val loadedAt: Long = 0L,
+    val autoloadAttempts: Int = 0,
+    val autoloadDisabledReason: String = "",
     val isLoaded: Boolean = false,
     val isLkm: Boolean = false,
     val isArm64: Boolean = true,
@@ -86,4 +93,7 @@ data class SuSFSLkmCheckResult(
 data class SuSFSLkmActionResult(
     val success: Boolean,
     val error: String = "",
+    val command: String = "",
+    val stdout: String = "",
+    val stderr: String = "",
 )

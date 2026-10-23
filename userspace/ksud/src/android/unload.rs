@@ -107,6 +107,7 @@ fn close_ksu_fds() {
 
 pub fn unload(detach: bool) -> Result<()> {
     info!("unload: starting KernelSU unload sequence");
+    crate::android::susfs::lkm::clear_loaded_marker();
 
     // Detach from the caller's root shell so the manager can receive a
     // successful exit before the shell itself is killed below. The unload
