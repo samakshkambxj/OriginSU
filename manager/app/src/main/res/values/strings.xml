@@ -1108,6 +1108,15 @@
     <string name="susfs_lkm_refresh">Refresh status</string>
     <string name="susfs_lkm_last_checked">Last checked</string>
     <string name="susfs_lkm_refresh_failed">Failed to refresh SuSFS LKM status</string>
+    <string name="susfs_lkm_bootloop_summary">Autoload was disabled after %1$d incomplete boots. Check the selected KMI, then reset the safety counter before enabling it again.</string>
+    <string name="susfs_lkm_bootloop_summary_generic">Autoload was disabled after repeated incomplete boots. Check the selected KMI, then reset the safety counter before enabling it again.</string>
+    <string name="susfs_lkm_reset_safety">Reset autoload safety</string>
+    <string name="susfs_lkm_reset_safety_summary">Clear the failed-boot counter and safety marker</string>
+    <string name="susfs_lkm_safety_reset_success">Autoload safety state reset</string>
+    <string name="susfs_lkm_safety_reset_failed">Failed to reset the autoload safety state</string>
+    <string name="susfs_lkm_safety_reset_confirm_title">Reset autoload safety?</string>
+    <string name="susfs_lkm_safety_reset_confirm_message">This clears the failed-boot counter and the safety marker. Autoload stays disabled until you enable it again.</string>
+    <string name="susfs_lkm_safety_reset_confirm_action">Reset</string>
     <string name="susfs_lkm_remove_temp">Remove for this boot</string>
     <string name="susfs_lkm_remove_temp_summary">Unload the guard LKM until the next reboot</string>
     <string name="susfs_lkm_remove_confirm_title">Remove guard LKM?</string>

@@ -102,6 +102,7 @@ fun SuSFSLkmScreen() {
     val removeConfirmDialog = rememberConfirmDialog()
     val loadConfirmDialog = rememberConfirmDialog()
     val autoloadConfirmDialog = rememberConfirmDialog()
+    val safetyConfirmDialog = rememberConfirmDialog()
     val coroutineScope = rememberCoroutineScope()
     var selectedKmi by rememberSaveable { mutableStateOf<String?>(null) }
 
@@ -151,6 +152,11 @@ fun SuSFSLkmScreen() {
     val autoloadUpdateTitle = stringResource(R.string.susfs_lkm_autoload_update_confirm_title)
     val autoloadUpdateMessage = stringResource(R.string.susfs_lkm_autoload_update_confirm_message)
     val autoloadUpdateAction = stringResource(R.string.susfs_lkm_autoload_update_confirm_action)
+    val safetyResetSuccess = stringResource(R.string.susfs_lkm_safety_reset_success)
+    val safetyResetFailed = stringResource(R.string.susfs_lkm_safety_reset_failed)
+    val safetyResetTitle = stringResource(R.string.susfs_lkm_safety_reset_confirm_title)
+    val safetyResetMessage = stringResource(R.string.susfs_lkm_safety_reset_confirm_message)
+    val safetyResetAction = stringResource(R.string.susfs_lkm_safety_reset_confirm_action)
     val cancel = stringResource(R.string.cancel)
     val refreshFailedMsg = stringResource(R.string.susfs_lkm_refresh_failed)
     val noData = stringResource(R.string.susfs_status_no_data)
@@ -212,6 +218,14 @@ fun SuSFSLkmScreen() {
                 is SuSFSLkmUiEvent.AutoloadFailed ->
                     snackBarHost.showReplacingSnackbar(
                         event.message.ifBlank { autoloadFailedMsg }
+                    )
+
+                is SuSFSLkmUiEvent.SafetyReset ->
+                    snackBarHost.showReplacingSnackbar(safetyResetSuccess)
+
+                is SuSFSLkmUiEvent.SafetyResetFailed ->
+                    snackBarHost.showReplacingSnackbar(
+                        event.message.ifBlank { safetyResetFailed }
                     )
 
                 is SuSFSLkmUiEvent.RemoveSucceeded ->
@@ -559,6 +573,30 @@ fun SuSFSLkmScreen() {
                             },
                         )
                     }
+                    item(visible = status?.autoloadDisabledReason?.isNotBlank() == true) {
+                        SettingsJumpPageWidget(
+                            icon = Icons.TwoTone.Warning,
+                            title = stringResource(R.string.susfs_lkm_reset_safety),
+                            description = stringResource(R.string.susfs_lkm_reset_safety_summary),
+                            enabled = !uiState.isWorking,
+                            isError = true,
+                            onClick = {
+                                coroutineScope.launch {
+                                    val result = safetyConfirmDialog.awaitConfirm(
+                                        title = safetyResetTitle,
+                                        content = safetyResetMessage,
+                                        confirm = safetyResetAction,
+                                        dismiss = cancel,
+                                    )
+                                    if (result == ConfirmResult.Confirmed) {
+                                        viewModel.dispatch(
+                                            SuSFSLkmUiAction.ResetAutoloadSafety
+                                        )
+                                    }
+                                }
+                            },
+                        )
+                    }
                 }
             }
 
@@ -582,6 +620,28 @@ fun SuSFSLkmScreen() {
                     WarningCard(
                         modifier = Modifier.padding(horizontal = 16.dp),
                         message = unsupportedKmi,
+                        icon = {
+                            Icon(
+                                imageVector = Icons.TwoTone.Warning,
+                                contentDescription = null,
+                            )
+                        },
+                    )
+                }
+            }
+
+            if (status != null && status.autoloadDisabledReason.isNotBlank()) {
+                item {
+                    WarningCard(
+                        modifier = Modifier.padding(horizontal = 16.dp),
+                        message = if (status.autoloadAttempts > 0) {
+                            stringResource(
+                                R.string.susfs_lkm_bootloop_summary,
+                                status.autoloadAttempts,
+                            )
+                        } else {
+                            stringResource(R.string.susfs_lkm_bootloop_summary_generic)
+                        },
                         icon = {
                             Icon(
                                 imageVector = Icons.TwoTone.Warning,

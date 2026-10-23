@@ -345,6 +345,17 @@ class SuSFSConfigHelper(
         )
     }
 
+    suspend fun resetLkmAutoloadSafety(): SuSFSLkmActionResult {
+        val result = executeSusfsCommand("autoload reset")
+        return SuSFSLkmActionResult(
+            success = result.success,
+            error = result.errorMessage(),
+            command = "susfs autoload reset",
+            stdout = result.stdout,
+            stderr = result.stderr,
+        )
+    }
+
     private suspend fun readAutoloadKmi(): String = withContext(Dispatchers.IO) {
         runCatching {
             val stdout = ArrayList<String>()

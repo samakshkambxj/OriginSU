@@ -23,6 +23,8 @@ class SuSFSConfigUseCase(private val repository: SuSFSRepository) {
 
     suspend fun uninstallLkmTemporarily() = repository.uninstallLkmTemporarily()
 
+    suspend fun resetLkmAutoloadSafety() = repository.resetLkmAutoloadSafety()
+
     suspend fun addSusPath(path: String) = repository.addSusPath(path)
     suspend fun addSusPathLoop(path: String) = repository.addSusPathLoop(path)
     suspend fun removeSusPath(path: String) = repository.removeSusPath(path)

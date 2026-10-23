@@ -29,6 +29,7 @@ sealed interface SuSFSLkmUiAction {
         val kmi: String? = null,
     ) : SuSFSLkmUiAction
     data class UpdateAutoloadKmi(val kmi: String? = null) : SuSFSLkmUiAction
+    data object ResetAutoloadSafety : SuSFSLkmUiAction
     data object RemoveForThisBoot : SuSFSLkmUiAction
 }
 
@@ -39,6 +40,8 @@ sealed interface SuSFSLkmUiEvent {
     data object AutoloadDisabled : SuSFSLkmUiEvent
     data object AutoloadUpdated : SuSFSLkmUiEvent
     data class AutoloadFailed(val message: String) : SuSFSLkmUiEvent
+    data object SafetyReset : SuSFSLkmUiEvent
+    data class SafetyResetFailed(val message: String) : SuSFSLkmUiEvent
     data object RemoveSucceeded : SuSFSLkmUiEvent
     data class RemoveFailed(val message: String) : SuSFSLkmUiEvent
     data object RefreshFailed : SuSFSLkmUiEvent
@@ -84,6 +87,14 @@ class SuSFSLkmViewModel(
                 onSuccess = { mutableEvents.tryEmit(SuSFSLkmUiEvent.AutoloadUpdated) },
                 onFailure = { error ->
                     mutableEvents.tryEmit(SuSFSLkmUiEvent.AutoloadFailed(error))
+                },
+            )
+
+            SuSFSLkmUiAction.ResetAutoloadSafety -> perform(
+                operation = { configUseCase.resetLkmAutoloadSafety() },
+                onSuccess = { mutableEvents.tryEmit(SuSFSLkmUiEvent.SafetyReset) },
+                onFailure = { error ->
+                    mutableEvents.tryEmit(SuSFSLkmUiEvent.SafetyResetFailed(error))
                 },
             )
 
