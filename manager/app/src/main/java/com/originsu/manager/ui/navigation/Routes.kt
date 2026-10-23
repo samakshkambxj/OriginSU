@@ -157,6 +157,10 @@ sealed interface Route : NavKey, Parcelable {
 
     @Parcelize
     @Serializable
+    data object SuSFSLkm : Route
+
+    @Parcelize
+    @Serializable
     data object ThemeSettings : Route
 
     @Parcelize

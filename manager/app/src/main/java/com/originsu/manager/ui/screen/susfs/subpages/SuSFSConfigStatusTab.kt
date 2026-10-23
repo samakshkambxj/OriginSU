@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.twotone.Extension
 import androidx.compose.material.icons.twotone.Info
 import androidx.compose.material.icons.twotone.RestartAlt
 import androidx.compose.material.icons.twotone.Restore
@@ -42,6 +43,8 @@ import com.originsu.manager.ui.component.settings.SegmentedColumn
 import com.originsu.manager.ui.component.settings.SettingsBaseWidget
 import com.originsu.manager.ui.component.settings.SettingsJumpPageWidget
 import com.originsu.manager.ui.component.settings.SettingsSwitchWidget
+import com.originsu.manager.ui.navigation.LocalNavigator
+import com.originsu.manager.ui.navigation.Route
 import com.originsu.manager.ui.screen.susfs.RegisterSuSFSRefresh
 import com.originsu.manager.ui.screen.susfs.SuSFSRefreshRegistrar
 import com.originsu.manager.ui.util.LocalSnackbarHost
@@ -65,6 +68,7 @@ fun StatusTab(
     onConfigRestored: () -> Unit,
 ) {
     val configHelper = koinViewModel<SuSFSViewModel>()
+    val navigator = LocalNavigator.current
     var statusInfo by remember { mutableStateOf(SuSFSStatusInfo("", "", "")) }
 
     RegisterSuSFSRefresh(onRegisterRefresh) { _, forceRefresh ->
@@ -129,6 +133,16 @@ fun StatusTab(
                         description = statusInfo.enabledFeatures.ifBlank {
                             stringResource(R.string.susfs_status_no_data)
                         }
+                    )
+                }
+                item(visible = statusInfo.enabledFeatures.contains("SUSFS_LKM_MODULES")) {
+                    SettingsJumpPageWidget(
+                        icon = Icons.TwoTone.Extension,
+                        title = stringResource(R.string.susfs_lkm_open_from_status),
+                        description = stringResource(R.string.susfs_lkm_open_from_status_summary),
+                        onClick = {
+                            navigator.push(Route.SuSFSLkm)
+                        },
                     )
                 }
             }

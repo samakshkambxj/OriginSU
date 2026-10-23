@@ -306,6 +306,8 @@ fun SettingsPage(bottomPadding: Dp) {
     val descMagicMount = stringResource(R.string.settings_magic_mount_summary)
     val titleMagicBackend = stringResource(R.string.settings_magic_mount_backend)
     val descMagicBackend = stringResource(R.string.settings_magic_mount_backend_summary)
+    val titleSusfsLkm = stringResource(R.string.settings_susfs_lkm)
+    val descSusfsLkm = stringResource(R.string.settings_susfs_lkm_summary)
 
     val titleCheckManagerUpdate = stringResource(R.string.settings_check_manager_update)
     val descCheckManagerUpdate = stringResource(R.string.settings_check_manager_update_summary)
@@ -427,6 +429,7 @@ fun SettingsPage(bottomPadding: Dp) {
     val matchOriginGuard = matches(titleOriginGuard, descOriginGuard, sectionOrigin)
     val matchMagicMount = matches(titleMagicMount, descMagicMount, sectionOrigin)
     val matchMagicBackend = matches(titleMagicBackend, descMagicBackend, sectionOrigin)
+    val matchSusfsLkm = matches(titleSusfsLkm, descSusfsLkm, sectionOrigin)
 
     val matchCheckManager = matches(titleCheckManagerUpdate, descCheckManagerUpdate, sectionApp)
     val matchCheckBeta = matches(titleCheckBeta, descCheckBeta, sectionApp)
@@ -475,6 +478,7 @@ fun SettingsPage(bottomPadding: Dp) {
         matchOriginGuard,
         matchMagicMount,
         matchMagicBackend,
+        matchSusfsLkm,
     ).any { it }
     val showAppGroup = listOf(
         matchCheckManager, matchCheckBeta, matchCheckModule, matchUpdater, matchTheme,
@@ -850,6 +854,17 @@ fun SettingsPage(bottomPadding: Dp) {
                         },
                         title = stringResource(R.string.origin_section_title),
                     content = {
+                        item(visible = matchSusfsLkm) {
+                            SettingsJumpPageWidget(
+                                icon = Icons.TwoTone.Extension,
+                                title = titleSusfsLkm,
+                                description = descSusfsLkm,
+                                onClick = {
+                                    navigator.push(Route.SuSFSLkm)
+                                },
+                            )
+                        }
+
                         item(visible = matchZygisk) {
                             SettingsSwitchWidget(
                                 icon = Icons.TwoTone.Psychology,

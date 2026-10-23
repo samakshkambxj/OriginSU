@@ -89,6 +89,7 @@ import com.originsu.manager.ui.screen.main.MainScreen
 import com.originsu.manager.ui.screen.moduleRepo.ModuleRepoScreen
 import com.originsu.manager.ui.screen.moduleRepo.OnlineModuleDetailScreen
 import com.originsu.manager.ui.screen.susfs.SuSFSConfigScreen
+import com.originsu.manager.ui.screen.susfs.SuSFSLkmScreen
 import com.originsu.manager.ui.screen.themeSettings.ThemeSettingsScreen
 import com.originsu.manager.ui.theme.BackgroundRenderState
 import com.originsu.manager.ui.theme.LocalBackgroundRenderState
@@ -669,6 +670,17 @@ fun NavContainer(
                     useBlur = useBlur,
                 ) {
                     SuSFSConfigScreen()
+                }
+            }
+            entry<Route.SuSFSLkm>(swipeDismiss = swipeBackDirection) {
+                ManagerNavEntry(
+                    interceptPredictiveBack = interceptPredictiveBack,
+                    onBack = onBack,
+                    themeConfig = themeConfig,
+                    backgroundRenderState = backgroundRenderState,
+                    useBlur = useBlur,
+                ) {
+                    SuSFSLkmScreen()
                 }
             }
             entry<Route.UmountManager>(swipeDismiss = swipeBackDirection) {

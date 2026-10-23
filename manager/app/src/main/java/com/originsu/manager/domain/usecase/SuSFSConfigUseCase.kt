@@ -13,6 +13,14 @@ class SuSFSConfigUseCase(private val repository: SuSFSRepository) {
     suspend fun loadStatusInfo(forceRefresh: Boolean = false) =
         repository.loadStatusInfo(forceRefresh)
 
+    suspend fun loadLkmStatus(forceRefresh: Boolean = true) =
+        repository.loadLkmStatus(forceRefresh)
+
+    suspend fun loadLkm(kmi: String? = null) = repository.loadLkm(kmi)
+
+    suspend fun setLkmAutoload(enabled: Boolean, kmi: String? = null) =
+        repository.setLkmAutoload(enabled, kmi)
+
     suspend fun addSusPath(path: String) = repository.addSusPath(path)
     suspend fun addSusPathLoop(path: String) = repository.addSusPathLoop(path)
     suspend fun removeSusPath(path: String) = repository.removeSusPath(path)

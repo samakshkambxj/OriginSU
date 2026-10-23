@@ -220,6 +220,7 @@ import com.originsu.manager.ui.viewmodel.ModuleRepoViewModel
 import com.originsu.manager.ui.viewmodel.ModuleViewModel
 import com.originsu.manager.ui.viewmodel.ModuleBackupViewModel
 import com.originsu.manager.ui.viewmodel.SettingsViewModel
+import com.originsu.manager.ui.viewmodel.SuSFSLkmViewModel
 import com.originsu.manager.ui.viewmodel.SuSFSViewModel
 import com.originsu.manager.ui.viewmodel.SulogViewModel
 import com.originsu.manager.ui.viewmodel.SuperUserViewModel
@@ -570,6 +571,7 @@ val viewModelModule = module {
     viewModelOf(::AppIconViewModel)
     viewModelOf(::UpdaterViewModel)
     viewModelOf(::SuSFSViewModel)
+    viewModelOf(::SuSFSLkmViewModel)
     viewModelOf(::ModuleRepoViewModel)
     viewModel { parameters -> ModuleDetailViewModel(parameters[0], get()) }
     viewModelOf(::TemplateViewModel)

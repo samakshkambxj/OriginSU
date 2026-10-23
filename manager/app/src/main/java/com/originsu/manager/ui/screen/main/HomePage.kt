@@ -622,13 +622,22 @@ private fun TopBar(
                     )
                 }
                 // SuSFS 配置按钮
-                if (uiState.systemInfo.susfsVersionSupported) {
+                val susfsAvailable = uiState.systemInfo.susfsVersionSupported
+                if (susfsAvailable || uiState.systemStatus.lkmMode == true) {
                     IconButton(onClick = {
-                        navigator.push(Route.SuSFSConfig)
+                        navigator.push(
+                            if (susfsAvailable) Route.SuSFSConfig else Route.SuSFSLkm
+                        )
                     }) {
                         Icon(
                             imageVector = Icons.TwoTone.Tune,
-                            contentDescription = stringResource(R.string.susfs_config_setting_title)
+                            contentDescription = stringResource(
+                                if (susfsAvailable) {
+                                    R.string.susfs_config_setting_title
+                                } else {
+                                    R.string.susfs_lkm_title
+                                }
+                            )
                         )
                     }
                 }

@@ -2,6 +2,7 @@ package com.originsu.manager.data.susfs
 
 import android.content.Context
 import android.net.Uri
+import android.os.Build
 import android.util.Log
 import androidx.documentfile.provider.DocumentFile
 import com.google.gson.Gson
@@ -19,6 +20,9 @@ class SuSFSConfigHelper(
     companion object {
         private const val TAG = "SuSFSConfigHelper"
         const val CURRENT_VERSION: Int = 2
+
+        private const val AUTOLOAD_CONFIG_PATH = "/data/adb/ksu/susfs_autoload.conf"
+        private const val LKM_FEATURE = "SUSFS_LKM_MODULES"
 
         // Static, low-risk subset of ReSuSFS's "strong hiding" defaults:
         // standard hide toggles plus well-known root/recovery traces.
@@ -219,6 +223,82 @@ class SuSFSConfigHelper(
             statusInfo
         }
     }
+
+    suspend fun loadLkmStatus(forceRefresh: Boolean = true): SuSFSLkmStatus {
+        val statusInfo = loadStatusInfo(forceRefresh)
+        val autoload = executeSusfsCommand("autoload status")
+        val currentKmi = runCatching { ksuCliRepository.getCurrentKmi() }
+            .getOrDefault("")
+            .trim()
+
+        return SuSFSLkmStatus(
+            version = statusInfo.version,
+            variant = statusInfo.variant,
+            enabledFeatures = statusInfo.enabledFeatures,
+            autoloadEnabled = autoload.success &&
+                autoload.stdout.trim().equals("enabled", ignoreCase = true),
+            autoloadKmi = readAutoloadKmi(),
+            currentKmi = currentKmi,
+            isLoaded = statusInfo.version.isNotBlank(),
+            isLkm = statusInfo.enabledFeatures
+                .lineSequence()
+                .any { it.trim() == LKM_FEATURE },
+            isArm64 = Build.SUPPORTED_ABIS.any { it == "arm64-v8a" },
+        )
+    }
+
+    suspend fun loadLkm(kmi: String? = null): SuSFSLkmActionResult {
+        val command = buildString {
+            append("load")
+            kmi?.trim()?.takeIf { it.isNotEmpty() }?.let {
+                append(" --kmi ${shellQuote(it)}")
+            }
+        }
+        val result = executeSusfsCommand(command)
+        if (result.success) {
+            cachedStatusInfo = null
+        }
+        return SuSFSLkmActionResult(result.success, result.errorMessage())
+    }
+
+    suspend fun setLkmAutoload(
+        enabled: Boolean,
+        kmi: String? = null,
+    ): SuSFSLkmActionResult {
+        val command = if (enabled) {
+            buildString {
+                append("autoload enable")
+                kmi?.trim()?.takeIf { it.isNotEmpty() }?.let {
+                    append(" --kmi ${shellQuote(it)}")
+                }
+            }
+        } else {
+            "autoload disable"
+        }
+        val result = executeSusfsCommand(command)
+        return SuSFSLkmActionResult(result.success, result.errorMessage())
+    }
+
+    private suspend fun readAutoloadKmi(): String = withContext(Dispatchers.IO) {
+        runCatching {
+            val stdout = ArrayList<String>()
+            ksuCliRepository.withNewRootShell {
+                newJob()
+                    .add("cat ${shellQuote(AUTOLOAD_CONFIG_PATH)} 2>/dev/null")
+                    .to(stdout, null)
+                    .exec()
+            }
+            stdout.joinToString("\n")
+                .lineSequence()
+                .map { it.trim() }
+                .firstOrNull { it.startsWith("fallback_kmi=") }
+                ?.substringAfter("fallback_kmi=")
+                ?.trim()
+                .orEmpty()
+        }.getOrDefault("")
+    }
+
+    private fun CommandResult.errorMessage(): String = stderr.ifBlank { stdout }
 
     suspend fun addSusPath(path: String): Boolean {
         return executeConfigMutation(
@@ -561,6 +641,25 @@ data class SuSFSStatusInfo(
     val version: String,
     val enabledFeatures: String,
     val variant: String,
+)
+
+data class SuSFSLkmStatus(
+    val version: String,
+    val variant: String,
+    val enabledFeatures: String,
+    val autoloadEnabled: Boolean,
+    val autoloadKmi: String,
+    val currentKmi: String,
+    val isLoaded: Boolean,
+    val isLkm: Boolean,
+    val isArm64: Boolean,
+) {
+    val isBuiltIn: Boolean get() = isLoaded && !isLkm
+}
+
+data class SuSFSLkmActionResult(
+    val success: Boolean,
+    val error: String,
 )
 
 data class SusKstatStatically(

@@ -3,6 +3,8 @@ package com.originsu.manager.data.susfs
 import android.app.Application
 import com.originsu.manager.domain.model.OpenRedirectItem as DomainOpenRedirectItem
 import com.originsu.manager.domain.model.SuSFSConfig as DomainSuSFSConfig
+import com.originsu.manager.domain.model.SuSFSLkmActionResult as DomainSuSFSLkmActionResult
+import com.originsu.manager.domain.model.SuSFSLkmStatus as DomainSuSFSLkmStatus
 import com.originsu.manager.domain.model.SuSFSSlotInfo as DomainSuSFSSlotInfo
 import com.originsu.manager.domain.model.UidScheme as DomainUidScheme
 import com.originsu.manager.domain.model.SuSFSStatus
@@ -35,6 +37,17 @@ class SuSFSRepository(
     suspend fun setConfigEnabled(enabled: Boolean) = helper.setConfigEnabled(enabled)
     suspend fun loadStatusInfo(forceRefresh: Boolean = false): DomainSuSFSStatusInfo =
         helper.loadStatusInfo(forceRefresh).toDomain()
+
+    suspend fun loadLkmStatus(forceRefresh: Boolean = true): DomainSuSFSLkmStatus =
+        helper.loadLkmStatus(forceRefresh).toDomain()
+
+    suspend fun loadLkm(kmi: String? = null): DomainSuSFSLkmActionResult =
+        helper.loadLkm(kmi).toDomain()
+
+    suspend fun setLkmAutoload(
+        enabled: Boolean,
+        kmi: String? = null,
+    ): DomainSuSFSLkmActionResult = helper.setLkmAutoload(enabled, kmi).toDomain()
 
     suspend fun addSusPath(path: String) = helper.addSusPath(path)
     suspend fun addSusPathLoop(path: String) = helper.addSusPathLoop(path)
@@ -108,6 +121,22 @@ class SuSFSRepository(
 
     private fun SuSFSStatusInfo.toDomain(): DomainSuSFSStatusInfo =
         DomainSuSFSStatusInfo(version, enabledFeatures, variant)
+
+    private fun SuSFSLkmStatus.toDomain(): DomainSuSFSLkmStatus =
+        DomainSuSFSLkmStatus(
+            version = version,
+            variant = variant,
+            enabledFeatures = enabledFeatures,
+            autoloadEnabled = autoloadEnabled,
+            autoloadKmi = autoloadKmi,
+            currentKmi = currentKmi,
+            isLoaded = isLoaded,
+            isLkm = isLkm,
+            isArm64 = isArm64,
+        )
+
+    private fun SuSFSLkmActionResult.toDomain(): DomainSuSFSLkmActionResult =
+        DomainSuSFSLkmActionResult(success = success, error = error)
 
     private fun SuSFSSlotInfo.toDomain(): DomainSuSFSSlotInfo =
         DomainSuSFSSlotInfo(slotName, uname, buildTime)
