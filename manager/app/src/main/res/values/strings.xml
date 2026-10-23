@@ -1040,6 +1040,9 @@
     <string name="susfs_lkm_autoload_enabled">Enabled · fallback KMI %1$s</string>
     <string name="susfs_lkm_autoload_enabled_default">Enabled</string>
     <string name="susfs_lkm_autoload_disabled">Disabled</string>
+    <string name="susfs_lkm_autoload_update">Update fallback KMI</string>
+    <string name="susfs_lkm_autoload_update_summary">Save KMI %1$s for boot-time autoload</string>
+    <string name="susfs_lkm_autoload_update_success">Autoload KMI updated</string>
     <string name="susfs_lkm_autoload_enable_success">Autoload enabled</string>
     <string name="susfs_lkm_autoload_disable_success">Autoload disabled</string>
     <string name="susfs_lkm_autoload_failed">Failed to update autoload</string>

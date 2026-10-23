@@ -26,6 +26,7 @@ sealed interface SuSFSLkmUiAction {
         val enabled: Boolean,
         val kmi: String? = null,
     ) : SuSFSLkmUiAction
+    data class UpdateAutoloadKmi(val kmi: String? = null) : SuSFSLkmUiAction
     data object RemoveForThisBoot : SuSFSLkmUiAction
 }
 
@@ -34,6 +35,7 @@ sealed interface SuSFSLkmUiEvent {
     data class LoadFailed(val message: String) : SuSFSLkmUiEvent
     data object AutoloadEnabled : SuSFSLkmUiEvent
     data object AutoloadDisabled : SuSFSLkmUiEvent
+    data object AutoloadUpdated : SuSFSLkmUiEvent
     data class AutoloadFailed(val message: String) : SuSFSLkmUiEvent
     data object RemoveSucceeded : SuSFSLkmUiEvent
     data class RemoveFailed(val message: String) : SuSFSLkmUiEvent
@@ -72,6 +74,14 @@ class SuSFSLkmViewModel(
                         }
                     )
                 },
+                onFailure = { error ->
+                    mutableEvents.tryEmit(SuSFSLkmUiEvent.AutoloadFailed(error))
+                },
+            )
+
+            is SuSFSLkmUiAction.UpdateAutoloadKmi -> perform(
+                operation = { configUseCase.setLkmAutoload(true, action.kmi) },
+                onSuccess = { mutableEvents.tryEmit(SuSFSLkmUiEvent.AutoloadUpdated) },
                 onFailure = { error ->
                     mutableEvents.tryEmit(SuSFSLkmUiEvent.AutoloadFailed(error))
                 },

@@ -109,6 +109,7 @@ fun SuSFSLkmScreen() {
     val loadFailedMsg = stringResource(R.string.susfs_lkm_load_failed)
     val autoloadEnabledMsg = stringResource(R.string.susfs_lkm_autoload_enable_success)
     val autoloadDisabledMsg = stringResource(R.string.susfs_lkm_autoload_disable_success)
+    val autoloadUpdatedMsg = stringResource(R.string.susfs_lkm_autoload_update_success)
     val autoloadFailedMsg = stringResource(R.string.susfs_lkm_autoload_failed)
     val removeSuccessMsg = stringResource(R.string.susfs_lkm_remove_success)
     val removeFailedMsg = stringResource(R.string.susfs_lkm_remove_failed)
@@ -146,6 +147,9 @@ fun SuSFSLkmScreen() {
 
                 is SuSFSLkmUiEvent.AutoloadDisabled ->
                     snackBarHost.showReplacingSnackbar(autoloadDisabledMsg)
+
+                is SuSFSLkmUiEvent.AutoloadUpdated ->
+                    snackBarHost.showReplacingSnackbar(autoloadUpdatedMsg)
 
                 is SuSFSLkmUiEvent.AutoloadFailed ->
                     snackBarHost.showReplacingSnackbar(
@@ -351,6 +355,31 @@ fun SuSFSLkmScreen() {
                             onCheckedChange = { enabled ->
                                 viewModel.dispatch(
                                     SuSFSLkmUiAction.SetAutoload(enabled, resolvedKmi)
+                                )
+                            },
+                        )
+                    }
+                    item(
+                        visible = status?.autoloadEnabled == true &&
+                            resolvedKmi != null &&
+                            !resolvedKmi.equals(status.autoloadKmi, ignoreCase = true)
+                    ) {
+                        SettingsJumpPageWidget(
+                            icon = Icons.TwoTone.Sync,
+                            title = stringResource(R.string.susfs_lkm_autoload_update),
+                            description = if (selectedKmiSupported) {
+                                stringResource(
+                                    R.string.susfs_lkm_autoload_update_summary,
+                                    resolvedKmi.orEmpty(),
+                                )
+                            } else {
+                                unsupportedKmi
+                            },
+                            enabled = canLoad,
+                            isError = !selectedKmiSupported,
+                            onClick = {
+                                viewModel.dispatch(
+                                    SuSFSLkmUiAction.UpdateAutoloadKmi(resolvedKmi)
                                 )
                             },
                         )
