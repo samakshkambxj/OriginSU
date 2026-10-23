@@ -49,6 +49,8 @@ import androidx.compose.material.icons.twotone.VolunteerActivism
 import androidx.compose.material.icons.twotone.Warning
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.DropdownMenuGroup
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.DropdownMenuPopup
@@ -57,6 +59,7 @@ import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LargeFlexibleTopAppBar
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuDefaults
 import androidx.compose.material3.Scaffold
@@ -623,22 +626,37 @@ private fun TopBar(
                 }
                 // SuSFS 配置按钮
                 val susfsAvailable = uiState.systemInfo.susfsVersionSupported
-                if (susfsAvailable || uiState.systemStatus.lkmMode == true) {
+                val lkmMode = uiState.systemStatus.lkmMode == true
+                if (susfsAvailable || lkmMode) {
+                    val needsAttention = lkmMode && !susfsAvailable
                     IconButton(onClick = {
                         navigator.push(
                             if (susfsAvailable) Route.SuSFSConfig else Route.SuSFSLkm
                         )
                     }) {
-                        Icon(
-                            imageVector = Icons.TwoTone.Tune,
-                            contentDescription = stringResource(
-                                if (susfsAvailable) {
-                                    R.string.susfs_config_setting_title
-                                } else {
-                                    R.string.susfs_lkm_title
+                        BadgedBox(
+                            badge = {
+                                if (needsAttention) {
+                                    Badge()
                                 }
+                            }
+                        ) {
+                            Icon(
+                                imageVector = Icons.TwoTone.Tune,
+                                tint = if (needsAttention) {
+                                    MaterialTheme.colorScheme.error
+                                } else {
+                                    LocalContentColor.current
+                                },
+                                contentDescription = stringResource(
+                                    when {
+                                        susfsAvailable -> R.string.susfs_config_setting_title
+                                        lkmMode -> R.string.susfs_lkm_home_not_loaded
+                                        else -> R.string.susfs_lkm_title
+                                    }
+                                )
                             )
-                        )
+                        }
                     }
                 }
 

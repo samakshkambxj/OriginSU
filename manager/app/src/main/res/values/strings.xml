@@ -1009,6 +1009,7 @@
     <string name="susfs_status_enabled_features">Enabled Features</string>
     <string name="susfs_status_no_data">No data</string>
     <string name="susfs_lkm_title">SuSFS LKM</string>
+    <string name="susfs_lkm_home_not_loaded">SuSFS guard LKM not loaded</string>
     <string name="susfs_lkm_status_section">Status</string>
     <string name="susfs_lkm_actions_section">Actions</string>
     <string name="susfs_lkm_kmi_section">Kernel KMI</string>
@@ -1093,6 +1094,7 @@
     <string name="susfs_lkm_safety_title">Removing the module</string>
     <string name="susfs_lkm_safety_summary">Do not unload kernelsu.ko while the guard LKM is active. Reboot to remove the module safely.</string>
     <string name="susfs_lkm_refresh">Refresh status</string>
+    <string name="susfs_lkm_last_checked">Last checked</string>
     <string name="susfs_lkm_refresh_failed">Failed to refresh SuSFS LKM status</string>
     <string name="susfs_lkm_remove_temp">Remove for this boot</string>
     <string name="susfs_lkm_remove_temp_summary">Unload the guard LKM until the next reboot</string>

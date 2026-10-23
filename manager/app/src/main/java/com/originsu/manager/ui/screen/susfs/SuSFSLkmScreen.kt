@@ -32,6 +32,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -95,6 +97,7 @@ fun SuSFSLkmScreen() {
     val navigator = LocalNavigator.current
     val snackBarHost = LocalSnackbarHost.current
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
+    val pullToRefreshState = rememberPullToRefreshState()
     val loadingDialog = rememberLoadingDialog()
     val removeConfirmDialog = rememberConfirmDialog()
     val coroutineScope = rememberCoroutineScope()
@@ -151,6 +154,11 @@ fun SuSFSLkmScreen() {
         status?.assetSize
             ?.takeIf { it > 0 }
             ?.let { Formatter.formatShortFileSize(context, it) }
+            .orEmpty()
+    }
+    val lastCheckedText = remember(uiState.lastCheckedAt) {
+        uiState.lastCheckedAt
+            ?.let { DateFormat.getTimeFormat(context).format(Date(it)) }
             .orEmpty()
     }
     val lastAction = uiState.lastAction
@@ -281,13 +289,20 @@ fun SuSFSLkmScreen() {
         contentColor = MaterialTheme.colorScheme.onSurface,
         contentWindowInsets = adaptiveScaffoldWindowInsets(),
     ) { innerPadding ->
-        LazyColumn(
+        PullToRefreshBox(
+            state = pullToRefreshState,
+            isRefreshing = uiState.isLoading,
+            onRefresh = { viewModel.dispatch(SuSFSLkmUiAction.Refresh) },
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding)
-                .nestedScroll(scrollBehavior.nestedScrollConnection),
-            contentPadding = PaddingValues(top = 8.dp, bottom = 24.dp),
+                .padding(innerPadding),
         ) {
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .nestedScroll(scrollBehavior.nestedScrollConnection),
+                contentPadding = PaddingValues(top = 8.dp, bottom = 24.dp),
+            ) {
             item {
                 SegmentedColumn(title = stringResource(R.string.susfs_lkm_status_section)) {
                     item {
@@ -311,6 +326,13 @@ fun SuSFSLkmScreen() {
                             icon = Icons.TwoTone.Settings,
                             title = stringResource(R.string.susfs_status_variant),
                             description = status?.variant?.ifBlank { noData } ?: noData,
+                        )
+                    }
+                    item(visible = lastCheckedText.isNotBlank()) {
+                        SettingsBaseWidget(
+                            icon = Icons.TwoTone.Refresh,
+                            title = stringResource(R.string.susfs_lkm_last_checked),
+                            description = lastCheckedText,
                         )
                     }
                 }
@@ -626,6 +648,7 @@ fun SuSFSLkmScreen() {
                     }
                 }
             }
+        }
         }
     }
 }

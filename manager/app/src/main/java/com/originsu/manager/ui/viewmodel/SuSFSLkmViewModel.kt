@@ -18,6 +18,7 @@ data class SuSFSLkmUiState(
     val isLoading: Boolean = true,
     val isWorking: Boolean = false,
     val lastAction: SuSFSLkmActionResult? = null,
+    val lastCheckedAt: Long? = null,
 )
 
 sealed interface SuSFSLkmUiAction {
@@ -54,9 +55,7 @@ class SuSFSLkmViewModel(
 
     fun dispatch(action: SuSFSLkmUiAction) {
         when (action) {
-            SuSFSLkmUiAction.Refresh -> refresh(
-                showLoading = mutableState.value.status == null,
-            )
+            SuSFSLkmUiAction.Refresh -> refresh(showLoading = true)
 
             is SuSFSLkmUiAction.Load -> perform(
                 operation = { configUseCase.loadLkm(action.kmi) },
@@ -145,6 +144,7 @@ class SuSFSLkmViewModel(
                 mutableState.value = mutableState.value.copy(
                     status = status,
                     isLoading = false,
+                    lastCheckedAt = System.currentTimeMillis(),
                 )
             }
             .onFailure {
