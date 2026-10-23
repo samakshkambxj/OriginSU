@@ -26,6 +26,7 @@ sealed interface SuSFSLkmUiAction {
         val enabled: Boolean,
         val kmi: String? = null,
     ) : SuSFSLkmUiAction
+    data object RemoveForThisBoot : SuSFSLkmUiAction
 }
 
 sealed interface SuSFSLkmUiEvent {
@@ -34,6 +35,8 @@ sealed interface SuSFSLkmUiEvent {
     data object AutoloadEnabled : SuSFSLkmUiEvent
     data object AutoloadDisabled : SuSFSLkmUiEvent
     data class AutoloadFailed(val message: String) : SuSFSLkmUiEvent
+    data object RemoveSucceeded : SuSFSLkmUiEvent
+    data class RemoveFailed(val message: String) : SuSFSLkmUiEvent
     data object RefreshFailed : SuSFSLkmUiEvent
 }
 
@@ -72,6 +75,12 @@ class SuSFSLkmViewModel(
                 onFailure = { error ->
                     mutableEvents.tryEmit(SuSFSLkmUiEvent.AutoloadFailed(error))
                 },
+            )
+
+            SuSFSLkmUiAction.RemoveForThisBoot -> perform(
+                operation = { configUseCase.uninstallLkmTemporarily() },
+                onSuccess = { mutableEvents.tryEmit(SuSFSLkmUiEvent.RemoveSucceeded) },
+                onFailure = { error -> mutableEvents.tryEmit(SuSFSLkmUiEvent.RemoveFailed(error)) },
             )
         }
     }

@@ -49,6 +49,9 @@ class SuSFSRepository(
         kmi: String? = null,
     ): DomainSuSFSLkmActionResult = helper.setLkmAutoload(enabled, kmi).toDomain()
 
+    suspend fun uninstallLkmTemporarily(): DomainSuSFSLkmActionResult =
+        helper.uninstallLkmTemporarily().toDomain()
+
     suspend fun addSusPath(path: String) = helper.addSusPath(path)
     suspend fun addSusPathLoop(path: String) = helper.addSusPathLoop(path)
     suspend fun removeSusPath(path: String) = helper.removeSusPath(path)

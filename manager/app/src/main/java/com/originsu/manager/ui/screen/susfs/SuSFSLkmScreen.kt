@@ -9,6 +9,7 @@ import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.twotone.CheckCircle
+import androidx.compose.material.icons.twotone.Delete
 import androidx.compose.material.icons.twotone.Download
 import androidx.compose.material.icons.twotone.Error
 import androidx.compose.material.icons.twotone.Extension
@@ -34,6 +35,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -42,8 +44,10 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.originsu.manager.R
+import com.originsu.manager.ui.component.ConfirmResult
 import com.originsu.manager.ui.component.SwipeableSnackbarHost
 import com.originsu.manager.ui.component.WarningCard
+import com.originsu.manager.ui.component.rememberConfirmDialog
 import com.originsu.manager.ui.component.rememberLoadingDialog
 import com.originsu.manager.ui.component.settings.AppBackButton
 import com.originsu.manager.ui.component.settings.SegmentedColumn
@@ -64,6 +68,7 @@ import com.originsu.manager.ui.viewmodel.SuSFSLkmUiAction
 import com.originsu.manager.ui.viewmodel.SuSFSLkmUiEvent
 import com.originsu.manager.ui.viewmodel.SuSFSLkmViewModel
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -78,6 +83,8 @@ fun SuSFSLkmScreen() {
     val snackBarHost = LocalSnackbarHost.current
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
     val loadingDialog = rememberLoadingDialog()
+    val removeConfirmDialog = rememberConfirmDialog()
+    val coroutineScope = rememberCoroutineScope()
     val kmiState = rememberTextFieldState()
     var kmiInitialized by remember { mutableStateOf(false) }
 
@@ -91,6 +98,12 @@ fun SuSFSLkmScreen() {
     val autoloadEnabledMsg = stringResource(R.string.susfs_lkm_autoload_enable_success)
     val autoloadDisabledMsg = stringResource(R.string.susfs_lkm_autoload_disable_success)
     val autoloadFailedMsg = stringResource(R.string.susfs_lkm_autoload_failed)
+    val removeSuccessMsg = stringResource(R.string.susfs_lkm_remove_success)
+    val removeFailedMsg = stringResource(R.string.susfs_lkm_remove_failed)
+    val removeConfirmTitle = stringResource(R.string.susfs_lkm_remove_confirm_title)
+    val removeConfirmMessage = stringResource(R.string.susfs_lkm_remove_confirm_message)
+    val removeConfirmAction = stringResource(R.string.susfs_lkm_remove_confirm_action)
+    val cancel = stringResource(R.string.cancel)
     val refreshFailedMsg = stringResource(R.string.susfs_lkm_refresh_failed)
     val noData = stringResource(R.string.susfs_status_no_data)
     val unknownKmi = stringResource(R.string.susfs_lkm_kmi_unknown)
@@ -131,6 +144,14 @@ fun SuSFSLkmScreen() {
                 is SuSFSLkmUiEvent.AutoloadFailed ->
                     snackBarHost.showReplacingSnackbar(
                         event.message.ifBlank { autoloadFailedMsg }
+                    )
+
+                is SuSFSLkmUiEvent.RemoveSucceeded ->
+                    snackBarHost.showReplacingSnackbar(removeSuccessMsg)
+
+                is SuSFSLkmUiEvent.RemoveFailed ->
+                    snackBarHost.showReplacingSnackbar(
+                        event.message.ifBlank { removeFailedMsg }
                     )
 
                 is SuSFSLkmUiEvent.RefreshFailed ->
@@ -319,6 +340,29 @@ fun SuSFSLkmScreen() {
                             title = stringResource(R.string.susfs_lkm_open_manager),
                             description = stringResource(R.string.susfs_lkm_open_manager_summary),
                             onClick = { navigator.push(Route.SuSFSConfig) },
+                        )
+                    }
+                    item(visible = status?.isLkm == true) {
+                        SettingsJumpPageWidget(
+                            icon = Icons.TwoTone.Delete,
+                            title = stringResource(R.string.susfs_lkm_remove_temp),
+                            description = stringResource(R.string.susfs_lkm_remove_temp_summary),
+                            enabled = !uiState.isWorking,
+                            onClick = {
+                                coroutineScope.launch {
+                                    val result = removeConfirmDialog.awaitConfirm(
+                                        title = removeConfirmTitle,
+                                        content = removeConfirmMessage,
+                                        confirm = removeConfirmAction,
+                                        dismiss = cancel,
+                                    )
+                                    if (result == ConfirmResult.Confirmed) {
+                                        viewModel.dispatch(
+                                            SuSFSLkmUiAction.RemoveForThisBoot
+                                        )
+                                    }
+                                }
+                            },
                         )
                     }
                 }

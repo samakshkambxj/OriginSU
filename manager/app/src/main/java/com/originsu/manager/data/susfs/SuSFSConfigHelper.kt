@@ -279,6 +279,19 @@ class SuSFSConfigHelper(
         return SuSFSLkmActionResult(result.success, result.errorMessage())
     }
 
+    /**
+     * Unload the guard LKM for the current boot. The module stays in the boot
+     * image, so the next reboot restores it.
+     */
+    suspend fun uninstallLkmTemporarily(): SuSFSLkmActionResult {
+        val success = runCatching { ksuCliRepository.uninstallTemporarily() }
+            .getOrDefault(false)
+        if (success) {
+            cachedStatusInfo = null
+        }
+        return SuSFSLkmActionResult(success = success, error = "")
+    }
+
     private suspend fun readAutoloadKmi(): String = withContext(Dispatchers.IO) {
         runCatching {
             val stdout = ArrayList<String>()

@@ -1049,6 +1049,13 @@
     <string name="susfs_lkm_safety_summary">Do not unload kernelsu.ko while the guard LKM is active. Reboot to remove the module safely.</string>
     <string name="susfs_lkm_refresh">Refresh status</string>
     <string name="susfs_lkm_refresh_failed">Failed to refresh SuSFS LKM status</string>
+    <string name="susfs_lkm_remove_temp">Remove for this boot</string>
+    <string name="susfs_lkm_remove_temp_summary">Unload the guard LKM until the next reboot</string>
+    <string name="susfs_lkm_remove_confirm_title">Remove guard LKM?</string>
+    <string name="susfs_lkm_remove_confirm_message">This unloads the SuSFS guard module for the current boot. Reboot to load it again from the boot image.</string>
+    <string name="susfs_lkm_remove_confirm_action">Remove</string>
+    <string name="susfs_lkm_remove_success">Guard LKM unloaded for this boot</string>
+    <string name="susfs_lkm_remove_failed">Failed to unload the guard LKM</string>
     <string name="susfs_lkm_retry">Retry status check</string>
     <string name="susfs_lkm_retry_summary">Try reading the SuSFS status again.</string>
     <string name="susfs_enable_config">SUSFS manager</string>
