@@ -1,10 +1,13 @@
 # OriginSU
 <img align='right' src='docs/OriginSU-default.png' width='220px' alt="OriginSU Logo">
 
-**A kernel-based root solution for Android — with its own identity.**
+**Root your Android device. Keep control of it.**
 
-Built on [ReSukiSU](https://github.com/ReSukiSU/ReSukiSU) (SukiSU-Ultra → KernelSU lineage)
-with its own kernel + manager signing identity, UAPI baseline and release pipeline.
+OriginSU is a kernel-based root solution with a manager app that brings root access,
+module management, hiding, kernel flashing and performance tuning into one place.
+It is built on [ReSukiSU](https://github.com/ReSukiSU/ReSukiSU) (SukiSU-Ultra →
+KernelSU lineage), with its own kernel and manager signing identity, UAPI baseline
+and release pipeline.
 
 <div align="center">
 
@@ -18,74 +21,220 @@ with its own kernel + manager signing identity, UAPI baseline and release pipeli
 📖 **Documentation: <https://samakshkambxj.github.io/OriginSU/>**
 
 > [!IMPORTANT]
-> Install only the official `Manager-release` APK from the
-> [Releases](https://github.com/samakshkambxj/OriginSU/releases) page.
-> Debug, PR, dev or resigned builds use a different certificate and the
-> kernel will reject them as unofficial.
+> Install only the official manager APK from the
+> [Releases](https://github.com/samakshkambxj/OriginSU/releases) page —
+> the file whose name ends in `-release.apk`. Debug, PR, dev or resigned
+> builds use a different certificate and the kernel will reject them as
+> unofficial.
 
-## Contents
+**Jump to:** [Start here](#start-here) · [What you get](#what-you-get) ·
+[Compatibility](#compatibility) · [Downloads](#downloads-explained) ·
+[Troubleshooting](#troubleshooting) ·
+[For kernel developers](#for-kernel-developers)
 
-- [Why OriginSU](#why-originsu)
-- [Quick start](#quick-start)
-- [Installation](#installation)
-- [Release assets](#release-assets)
-- [Features](#features)
-- [Manager tour](#manager-tour)
-- [Compatibility](#compatibility)
-- [Hook modes](#hook-modes)
-- [Building](#building)
-- [Troubleshooting](#troubleshooting)
-- [Roadmap](#roadmap)
-- [Contributing](#contributing)
-- [License](#license)
-- [Credits](#credits)
+## Why OriginSU?
 
-## Why OriginSU
+- **Hiding is part of the system, not an add-on.** Origin Veil cloaks root from
+  selected apps, the SuSFS manager has a one-tap strong-hiding preset, and
+  OriginGuard audits module zips before installation.
+- **Fewer separate downloads.** OriginZygisk is bundled in the manager, and
+  OriginTune only shows kernel settings your device actually supports.
+- **Flashing that feels like an installer.** Direct install, AnyKernel3 zips,
+  offline `boot.img` patching, LKM/GKI flows and KPM options.
+- **Safety nets included.** Bootloop rescue, a biometric root gate and a
+  first-run setup wizard.
 
-- **Hiding built in, not bolted on**: Origin Veil per-app cloaking, a SuSFS manager with a one-tap strong preset, and an OriginGuard audit on every module zip.
-- **No module hunt**: OriginZygisk ships inside the manager; kernel tuning (OriginTune) shows only knobs your kernel supports.
-- **Installer-grade flashing**: direct install, AnyKernel3, offline `boot.img` patching, Horizon kernels, LKM/GKI flows with KPM options.
-- **Safety nets**: bootloop rescue, biometric root gate, first-run wizard.
+## Start here
 
-## Quick start
+New to OriginSU? Do these three things:
 
-1. Flash an OriginSU-patched kernel (GKI `boot.img`, LKM module, or a manually built kernel for older devices — see [Installation](#installation) and [Release assets](#release-assets)).
-2. Install the official `Manager-release` APK from the
-   [Releases](https://github.com/samakshkambxj/OriginSU/releases) page.
-3. Open the manager and follow the first-run setup wizard (status check, LKM / built-in detection, kernel check).
+1. **Check your device.** GKI 2.0 devices (kernel 5.10+) are officially
+   supported. Older kernels (3.4+) work, but need a manually built kernel.
+   See [Compatibility](#compatibility).
+2. **Download the manager.** Get the official manager APK from the
+   [Releases](https://github.com/samakshkambxj/OriginSU/releases) page —
+   the file whose name ends in `-release.apk`. Use `arm64-v8a` for most
+   modern phones; `universal` works on any device.
+3. **Install root.** Pick the method that matches your situation:
+
+| Your situation | Easiest path |
+| --- | --- |
+| Most phones, no custom kernel | **LKM mode (recommended; root loads as a kernel module):** `fastboot boot` a compatible GKI kernel for temporary root, then use **Install → Direct install / Select a file** in the manager. |
+| You have a GKI `boot.img` | **GKI mode:** flash it with `fastboot flash boot boot.img && fastboot reboot`, a kernel-flasher app, or custom recovery. |
+| You have no root yet | **Offline patching:** the manager patches a `boot.img` into `Downloads/OriginSU/` for you to flash manually. |
+| You build your own kernel | Integrate OriginSU into your kernel tree, enable `CONFIG_KSU`, rebuild and flash. See [For kernel developers](#for-kernel-developers). |
+
+After installing, open the manager and follow the first-run setup wizard. Home
+should show your kernel/LKM status. The
+[install guide](https://samakshkambxj.github.io/OriginSU/guide/install) covers
+the same steps in more detail.
 
 > [!TIP]
-> Coming from KernelSU / RKSU / MKSU / SukiSU? OriginSU's manager also works with those kernels, and its kernel accepts those official managers.
-> On a third-party kernel the manager runs in compat mode: grant it root in
-> your current manager and you keep modules, flashing (including another
-> fork's LKM `.ko` via **Install → Use local LKM file**) and reboot support,
-> while Origin-exclusive features wait for an OriginSU kernel.
+> Coming from KernelSU, RKSU, MKSU or SukiSU? OriginSU's manager also works with
+> those kernels, and its kernel accepts those official managers. On a
+> third-party kernel the manager runs in **compat mode**: grant it root in your
+> current manager and you keep modules, flashing (including another fork's LKM
+> `.ko` via **Install → Use local LKM file**) and reboot support. Origin-exclusive
+> features wait for an OriginSU kernel.
 
-## Installation
+## What you get
 
-### On your phone
+### Root and app control
 
-1. **Check compatibility**: GKI 2.0 devices (kernel 5.10+) are officially
-   supported. Older kernels (3.4+) need a manually built kernel (see below).
-2. **Get the manager**: download the official `Manager-release` APK matching
-   your ABI from the [Releases](https://github.com/samakshkambxj/OriginSU/releases)
-   page (`arm64-v8a` for most modern phones). Optional: the `Spoofed-Manager`
-   build installs side-by-side under a randomized package name when the stock
-   one is detected.
-3. **Get root, pick one**:
-   - **LKM mode (recommended for phones)**: `fastboot boot` a matching GKI
-     kernel for temporary root, open the manager and use **Install → Direct
-     install / Select a file**. The manager patches your stock firmware and
-     flashes it for you.
-   - **GKI mode**: flash the provided `boot.img` with
-     `fastboot flash boot boot.img && fastboot reboot`, with a kernel-flasher
-     app (e.g. Kernel Flasher), or via custom recovery (TWRP).
-   - **Offline patching**: no root at all — the manager can patch a `boot.img`
-     into `Downloads/OriginSU/` for you to flash manually.
-4. **Verify**: reopen the manager — Home should report the kernel / LKM
-   status, then finish the setup wizard.
+- Kernel-based `su` with a clear per-app permission model.
+- **App profiles** that cage root power per app, including time-limited grants
+  (10 min / 30 min / 1 h / 8 h / 24 h) that are revoked automatically when they
+  expire.
+- **Biometric secure root gate** — require confirmation before granting root.
+- **Built-in updater** — stable and beta channels, with normal and spoofed
+  manager variants.
+- **Temporary uninstall (LKM)** — unload the module for the current boot; the
+  patched boot image restores root on the next reboot.
 
-### In your kernel source
+### Hiding and detection
+
+- **Origin Veil** — kernel-side root-probe detection with a per-app cloak set,
+  reboot persistence, per-app detail (permissions / freeze / force-stop), a Spy
+  live log and su-notify actions (Grant / Cloak / Ignore).
+- **SuSFS manager** — built-in control panel with a one-tap strong-hiding
+  preset (kernel 4.3+ backport). On LKM setups, the **SuSFS LKM** screen picks
+  the matching guard module, enables boot autoload, shows the loaded module and
+  can recover from autoload boot loops.
+- **OriginGuard** — static pre-install audit of module zips. Critical findings
+  block the install; high-severity findings ask first.
+
+### Modules
+
+- Module system based on
+  [metamodules](https://kernelsu.org/guide/metamodule.html) for systemless
+  modifications.
+- Batch multi-select actions, update-all multi-flash, internal backups with
+  restore, shareable bundle zips, and download-script (JSON) batch install.
+- `banner=` artwork from `module.prop`, shown as a faded backdrop in the module
+  list.
+
+### OriginZygisk
+
+- Zygisk engine bundled directly in the manager — no separate module to hunt
+  down.
+- Deploy, on/off toggle, status, integrity check/repair and OriginZygisk unmount
+  from **Settings → Origin Lab**.
+- Native control panel with module health, per-app skip choices, pause
+  injection, telemetry and boot log.
+- Per-app skip policies and per-module toggle/quarantine.
+- `ZYGISK_ENABLED=1` is exported to module installers and boot-stage scripts
+  when enabled.
+- Diagnostics export bundles state, boot logs, telemetry, policy files, pstore,
+  filtered logcat, dmesg and crash snapshots.
+
+### Flashing and recovery
+
+- Direct install, AnyKernel3 zips (legacy busybox runner), offline `boot.img`
+  patching, and local LKM files.
+- LKM mode with per-KMI module selection and tracepoint/tamper hook-flavor
+  picker.
+- GKI flows and KPM options for supported kernels.
+- **Bootloop protection** disables modules after consecutive failed boots and
+  tells you what happened.
+- OriginGuard shows what a blocked module zip tripped on.
+
+### Kernel tuning
+
+OriginTune gives you a tuning lab from the Home hero card. Every setting applies
+immediately and can persist across boot; only knobs your running kernel exposes
+are shown.
+
+- CPU frequency: per-cluster governor and min/max frequencies, plus schedutil
+  rate-limit tunables.
+- GPU: governor and min/max clocks across Adreno/kGSL and devfreq (Mali) paths.
+- I/O: per-device scheduler selection and read-ahead size.
+- Memory presets: swappiness, dirty ratios and cache pressure.
+- Scheduler extras: uclamp and energy-aware scheduling where supported.
+- LMK levels: lmkd minfree table and kernel-driver parameters with presets and
+  stock restore.
+- TCP congestion control, BORE scheduler presets, ZRAM size/algorithm/streams
+  and a generic sysctl editor.
+- Profile sharing: export/import tuning setups as JSON, with an automatic backup
+  before applying.
+- Diagnostics: live clocks, load average, ZRAM ratio and PSI stalls.
+
+### Make it yours
+
+Material and MIUIX styles, Standard/Compact layouts, compact working hero card,
+last-flash timeline chip, copy-device-info, Origin Dynamic / Monet / Default
+launcher icons, Yin Yang top-bar logo options, themed shortcuts, a floating
+bottom bar, blurred popups, module banners and MIUI elastic overscroll with
+scroll haptics.
+
+## A quick tour
+
+| Screen | What it is for |
+| --- | --- |
+| **Home** | Root/kernel status, last flash, device info, OriginTune hero card and live status cards. |
+| **SuperUser** | Apps that requested or received root, plus per-app profiles and time-limited grants. |
+| **Modules** | Install, update, back up, share and batch-manage modules. |
+| **Install** (from Home or Modules) | Direct install, local LKM files, AnyKernel3 zips, offline patching and KPM. |
+| **Settings** | Updates, appearance, security, language and developer options. |
+| **Settings → Origin Lab** | Origin Veil, OriginZygisk, SuSFS LKM, OriginGuard, bootloop protection and other advanced tools. |
+
+## Compatibility
+
+| Requirement | Support |
+| --- | --- |
+| GKI 2.0 devices (kernel 5.10+) | ✅ Officially supported |
+| Older kernels (3.4+, including GKI 1.0) | ⚠️ Compatible, but the kernel must be built manually |
+| Architectures | Prebuilt LKMs: `aarch64` (most phones) and `x86_64`. Manager APKs ship `arm64-v8a`, `armeabi-v7a`, `x86_64`, `riscv64` and `universal`. |
+| SuSFS guard LKM | `arm64-v8a` devices running KernelSU in LKM mode |
+| [SuSFS](https://gitlab.com/simonpunk/susfs4ksu) backport | Kernel 4.3+ only |
+| Tracepoint Syscall Redirect hook | GKI2 (5.10+) kernels only |
+| KPM (`CONFIG_KPM`) | 64-bit kernels only |
+
+**Terms:** GKI = Generic Kernel Image (Android's standardized kernel). LKM =
+loadable kernel module (root loads after boot instead of being built into the
+kernel). KPM = Kernel Patch Module.
+
+## Downloads explained
+
+Each `v*` tag publishes a GitHub Release. Pre-release tags containing `-rc` are
+published as GitHub pre-releases.
+
+| Asset | What it is |
+| --- | --- |
+| `OriginSU_<version>_<code>-<abi>-release.apk` | **Install this.** Signed manager build for `arm64-v8a`, `armeabi-v7a`, `x86_64`, `riscv64` or `universal`. Use `arm64-v8a` for most phones; `universal` works on any supported ABI but is larger. |
+| `<arch>-<kmi>-lkm-<kmi>_kernelsu.ko` | Root LKM with the default tracepoint hook. Match `<kmi>` to your kernel — for example `aarch64-android14-6.1-lkm-android14-6.1_kernelsu.ko`. |
+| `<arch>-<kmi>-lkm-tamper-<kmi>_kernelsu.ko` | Same LKM with the stealth syscall-table hook instead of tracepoints. |
+| `aarch64-<kmi>-susfs-lkm-<kmi>_susfs_guard_lkm.ko` | SuSFS guard module for arm64 devices. Load it from **Settings → Origin Lab → SuSFS LKM**. |
+
+**Which file do I need?** Use the manager APK that matches your device ABI. For
+an LKM, match both the `<arch>` prefix and the `<kmi>` segment to your device and
+kernel. `aarch64` is for phones; `x86_64` covers emulators and some tablets.
+`-tamper-` only changes the hook method. The `susfs` file is the guard module,
+not the root LKM.
+
+SuSFS guard modules are built for arm64 only. If your KMI or architecture is
+missing, use GKI or offline patching, or
+[build the kernel yourself](#for-kernel-developers).
+
+> [!NOTE]
+> CI also builds debug and spoofed-package managers. Spoofed builds are official
+> and the in-app updater can install them under a randomized package name. Debug
+> builds are signed with a different certificate and the kernel rejects them as
+> unofficial.
+
+## Troubleshooting
+
+| Symptom | Fix |
+| --- | --- |
+| Kernel reports manager as **unofficial** | You installed a debug / dev / PR / resigned APK. Install the official `*-release.apk` manager from Releases. |
+| No root after flashing | Reopen the manager and run the setup wizard; check kernel / LKM status on Home. For LKM, confirm the `.ko` KMI matches your kernel and the `arch-` prefix matches your device. |
+| Bootloop after installing a module | Wait for the bootloop protector to disable all modules, reboot, then re-enable modules one by one. OriginGuard shows what a blocked zip tripped on. |
+| Root-detecting app still sees root | Add it to the Origin Veil cloak set, check per-app detail + Spy log, and apply the SuSFS strong-hiding preset. |
+| KPM tab is hidden | Expected on 32-bit or non-KPM kernels — the tab only appears when the kernel reports KPM support. |
+| OriginZygisk shows an error | Open **Settings → Origin Lab** and check the engine status, integrity/repair and boot log. Conflicting provider modules are blocked at install. |
+
+## For kernel developers
+
+### Add OriginSU to a kernel tree
 
 Run this in the **root of your kernel source**, just like the other
 KernelSU-family forks:
@@ -101,8 +250,8 @@ curl -LSs "https://raw.githubusercontent.com/samakshkambxj/OriginSU/main/kernel/
 curl -LSs "https://raw.githubusercontent.com/samakshkambxj/OriginSU/main/kernel/setup.sh" | bash -s v4.2.5
 ```
 
-Then enable `CONFIG_KSU` (plus `CONFIG_KPM` on 64-bit kernels if you want KPM
-support), rebuild, and flash. Extras:
+Then enable `CONFIG_KSU` — plus `CONFIG_KPM` on 64-bit kernels if you want KPM
+support — rebuild and flash.
 
 ```bash
 # Remove a previous integration
@@ -118,106 +267,28 @@ Prefer manual integration? Clone the repo, symlink `kernel/` to
 `drivers/Makefile`, and source `drivers/kernelsu/Kconfig` from
 `drivers/Kconfig`.
 
-## Release assets
-
-Each `v*` tag publishes a GitHub Release with:
-
-| Asset | What it is |
-| --- | --- |
-| `Manager-release` APKs (`arm64-v8a`, `armeabi-v7a`, `universal`) | The only manager builds the OriginSU kernel trusts. Pick the APK matching your ABI (`arm64-v8a` for most modern phones). |
-| `Spoofed-Manager-release` APK | Same manager with a randomized package name — installs side-by-side, useful when the stock package name is detected. |
-| `Manager-debug` APK | Debug build for development. The kernel rejects it as unofficial — do not use for daily root. |
-| `<arch>-<kmi>-lkm[-tamper]-<kmi>_kernelsu.ko` | Loadable kernel modules per KMI and architecture (`aarch64-*` for phones, `x86_64-*` for emulator/x86 tablets). Match `<kmi>` to your kernel (e.g. `android14-6.1`); the `arch-` prefix tells the two same-KMI files apart. `-tamper-` variants use the stealth syscall-table hook instead of the tracepoint default. |
-
-Pre-release tags containing `-rc` are published as GitHub pre-releases.
-
-## Features
-
-### Core root
-
-- Kernel-based `su` and root access management
-- **Temporary uninstall (LKM)**: unloads the module for the current boot; the patched boot image restores root on the next reboot
-- Module system based on [metamodules](https://kernelsu.org/guide/metamodule.html) for systemless modifications — with batch multi-select actions, update-all multi-flash, `banner=` artwork from `module.prop`, internal backups with restore, shareable bundle zips, and download-script (JSON) batch install
-- [App profiles](https://kernelsu.org/guide/app-profile.html): cage root power per app, with **time-limited grants** (10 min / 30 min / 1 h / 8 h / 24 h) revoked by a persistent waiter plus a sweep on every `ksud` start
-- GKI 2.0, GKI 1.0 and non-GKI (3.4+) kernel support
-- Manager interop: works with official [KernelSU](https://github.com/tiann/KernelSU), [RKSU](https://github.com/rsuntk/KernelSU), [MKSU](https://github.com/5ec1cff/KernelSU) and [SukiSU](https://github.com/SukiSU-Ultra/SukiSU-Ultra) kernels (built-in or LKM) in compat mode once root is granted, and other forks' LKM `.ko` files can be flashed from the Install screen
-
-### Origin Lab (Settings)
-
-| Capability | Notes |
-| --- | --- |
-| **Origin Veil** | Kernel-side root-probe detection with a per-app cloak set, reboot persistence, per-app detail (permissions / freeze / force-stop), Spy live log and su-notify (Grant / Cloak / Ignore). |
-| **OriginZygisk** | BreZygisk-based engine bundled in the manager (`Settings > Origin Lab`): deploy, status, kill-switch. Conflicting provider modules are blocked at install; `ZYGISK_ENABLED=1` is exported to module installers and boot-stage scripts when on. Status reports loaded modules and daemon errors from the engine. |
-| **SuSFS manager** | Built-in manager with a one-tap strong-hiding preset (kernel 4.3+ backport). |
-| **OriginGuard** | Static pre-install audit of module zips — critical findings block the install, high-severity findings ask first. Toggle in `Settings > Origin Lab`. |
-| **KPM** | Kernel `CONFIG_KPM` (64-bit only) with a manager KPM tab: load now or embed to `/data/adb/kpm`. The `Install > KPM` tab patches / un-patches boot images, AnyKernel zips or kernel zips before flashing. |
-| **Bootloop protection** | Disables all modules after consecutive failed boots and tells you about the rescue. |
-| **Magic Mount** | Magisk-style module mounting with a backend selector (Auto / Overlayfs / Bind); temporarily unavailable — the `Settings` toggle is disabled until the feature stabilizes (takes effect on next boot). |
-| **Kernel flasher** | Direct install, AnyKernel3 zips (legacy busybox runner), offline `boot.img` patching to `Downloads/OriginSU/` without root, Horizon kernels; LKM (per-KMI module plus tracepoint/tamper hook-flavor picker) and GKI flows. |
-| **Updater** | Stable / beta channels with dynamic-manager support. |
-| **Secure root gate** | Biometric confirmation before granting root, with a Settings toggle. |
-
-### OriginTune (home hero card → tuning lab)
-
-Kernel tuning from a home hero card — every knob applies immediately and can persist across boot, and only knobs the running kernel exposes are shown:
-
-- CPU frequency: per-cluster governor and min/max frequencies, plus schedutil rate-limit tunables
-- GPU: governor and min/max clocks across Adreno/kGSL and devfreq (Mali) paths
-- I/O: per-device scheduler selection and read-ahead size
-- Memory preset profiles: curated VM presets (swappiness, dirty ratios, cache pressure) in the style of the BORE profiles
-- Scheduler extras: uclamp and energy-aware scheduling tunables where the kernel exposes them
-- LMK levels: lmkd minfree table and kernel-driver params with per-level presets and stock restore
-- Profile sharing: export/import tuning setups as JSON, with automatic backup before applying
-- Diagnostics: visible effect per tuning (live clocks, load average, ZRAM ratio and PSI stalls)
-- TCP congestion control
-- BORE scheduler presets (Balanced / Responsive / Throughput / Battery saver) plus manual knobs
-- ZRAM size / algorithm / streams / swappiness with live compression stats
-- Generic sysctl editor
-
-### Manager tour
-
-- **Home your way**: Material and MIUIX styles, Standard / Compact layouts, compact working hero card, last-flash timeline chip, copy-device-info.
-- **Live status cards**: KPM, BasebandGuard and ZeroMount versions right on Home.
-- **Make it yours**: Origin Dynamic / Monet / Default launcher icons (plus upstream marks), Yin Yang top-bar logo options, themed shortcuts toggle, floating Apple-style bottom bar, blurred popups, module banners, MIUI elastic overscroll with scroll haptics.
-
-## Compatibility
-
-| Requirement | Support |
-| --- | --- |
-| GKI 2.0 devices (kernel 5.10+) | ✅ Officially supported |
-| Older kernels (3.4+) | ⚠️ Compatible, but the kernel has to be built manually |
-| Architectures | `arm64-v8a`, `armeabi-v7a`, `x86_64` |
-| [SuSFS](https://gitlab.com/simonpunk/susfs4ksu) backport | Kernel 4.3+ only |
-| Tracepoint Syscall Redirect hook | GKI2 (5.10+) kernels only |
-| KPM (`CONFIG_KPM`) | 64-bit kernels only |
-
-## Hook modes
+### Hook modes
 
 | Mode | Description |
 | --- | --- |
-| `Tracepoint Syscall Redirect hook` | Default mode, from [upstream](https://github.com/tiann/KernelSU); GKI2 kernels with `arm64-v8a` or `x86_64` ABI only |
-| `Syscall Table Tampering` (`CONFIG_KSU_TAMPER_SYSCALL_TABLE`) | Stealth mode: patches the hooked entries directly in `sys_call_table`, registers no `sys_enter` tracepoint; GKI2 `arm64-v8a`/`x86_64` only. CI builds both LKM flavors per KMI and releases ship them side by side; pick one in the Install screen's hook-flavor selector |
-| `Manual Hook` | Most compatible; supports Linux kernels 3.4 – 6.18 |
-| `SuSFS Inline Hook` | From [SuSFS](https://github.com/simonpunk/susfs4ksu), like `Manual Hook` but provided by the SuSFS project |
+| `Tracepoint Syscall Redirect hook` | Default mode, from [upstream](https://github.com/tiann/KernelSU). GKI2 kernels with `arm64-v8a` or `x86_64` ABI only. |
+| `Syscall Table Tampering` (`CONFIG_KSU_TAMPER_SYSCALL_TABLE`) | Stealth mode: patches hooked entries directly in `sys_call_table` and registers no `sys_enter` tracepoint. GKI2 `arm64-v8a`/`x86_64` only. CI builds both LKM flavors per KMI, and releases ship them side by side; pick one in the Install screen's hook-flavor selector. |
+| `Manual Hook` | Most compatible; supports Linux kernels 3.4 – 6.18. |
+| `SuSFS Inline Hook` | From [SuSFS](https://github.com/simonpunk/susfs4ksu), like `Manual Hook` but provided by the SuSFS project. |
 
-## Building
+### Build and release
 
-Releases are built by CI (`.github/workflows/`), signed with the project release key.
-Pushing a `v*` tag publishes a GitHub Release with the manager APKs and LKM modules.
+Releases are built by CI (`.github/workflows/`) and signed with the project
+release key. Pushing a `v*` tag publishes a GitHub Release with the manager APKs
+and LKM modules.
 
-Required Actions secrets: `KEYSTORE`, `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD`.
+Required Actions secrets: `KEYSTORE`, `KEYSTORE_PASSWORD`, `KEY_ALIAS`,
+`KEY_PASSWORD`.
 
 ```bash
 # tag a release (maintainers)
 git tag -a vX.Y.Z -m "OriginSU vX.Y.Z"
 git push origin vX.Y.Z
-```
-
-Integrating OriginSU into a kernel tree uses the same one-liner as the other
-forks — see [In your kernel source](#in-your-kernel-source):
-
-```bash
-curl -LSs "https://raw.githubusercontent.com/samakshkambxj/OriginSU/main/kernel/setup.sh" | bash -
 ```
 
 Local iteration:
@@ -227,27 +298,21 @@ just build_manager   # ksud (aarch64) + manager debug APK
 just build_ksud      # ksud only
 ```
 
-## Troubleshooting
-
-| Symptom | Fix |
-| --- | --- |
-| Kernel reports manager as **unofficial** | You installed a debug / dev / PR / resigned APK. Install the official `Manager-release` APK from Releases. |
-| No root after flashing | Reopen the manager and run the setup wizard; check kernel / LKM status on Home. For LKM, confirm the `.ko` KMI matches your kernel and the `arch-` prefix matches your device. |
-| Bootloop after installing a module | Wait for the bootloop protector to disable all modules, reboot, then re-enable modules one by one. OriginGuard audit logs explain what a blocked zip tripped on. |
-| Root-detecting app still sees root | Add it to the Origin Veil cloak set, check per-app detail + Spy log, and apply the SuSFS strong-hiding preset. |
-| KPM tab is hidden | Expected on 32-bit or non-KPM kernels — the tab only appears when the kernel reports KPM support. |
-| Which LKM file do I need | `aarch64-*` for phones, `x86_64-*` for x86 devices; the `<kmi>` segment (e.g. `android14-6.1`) must match your kernel. |
-
 ## Roadmap
 
-- Extensive manager customization support
+- Magic Mount (Magisk-style module mounting)
 - GKI OTA survival polish
+- Broader KPM support
+- OriginZygisk ZN native modules and module WebUI
+- More manager customization
 
 ## Contributing
 
 Bug reports and pull requests are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md).
-Manager translations live on Weblate; kernel changes must stay GPL-2.0-compatible.
-Please report security issues privately (see [SECURITY.md](SECURITY.md)) rather than in public issues.
+Manager translations are managed on
+[Weblate](https://hosted.weblate.org/engage/ReSukiSU); kernel changes must stay
+GPL-2.0-compatible. Please report security issues privately (see
+[SECURITY.md](SECURITY.md)) rather than in public issues.
 
 ## License
 
@@ -255,7 +320,8 @@ Please report security issues privately (see [SECURITY.md](SECURITY.md)) rather 
   [GPL-2.0-only](https://www.gnu.org/licenses/old-licenses/gpl-2.0.en.html).
 - The OriginSU logo (`docs/OriginSU*.svg`, launcher icons) is original work
   for this project, under the same terms as the manager (GPL-3.0-or-later).
-- Everything else is under [GPL-3.0-or-later](https://www.gnu.org/licenses/gpl-3.0.html).
+- Everything else is under
+  [GPL-3.0-or-later](https://www.gnu.org/licenses/gpl-3.0.html).
 
 ## Credits
 
