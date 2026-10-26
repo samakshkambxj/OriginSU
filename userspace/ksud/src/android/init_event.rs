@@ -134,6 +134,14 @@ pub fn on_post_fs_data() -> Result<()> {
         warn!("exec metamodule post-fs-data script failed: {e}");
     }
 
+    // Magic Mount: userspace Magisk-style mounting of module system trees.
+    // Runs before module post-fs-data scripts, matching Magisk: scripts must
+    // already see their module's system/ files. Stands down when an enabled
+    // metamodule owns mounting.
+    if let Err(e) = module::magic_mount::run_magic_mount() {
+        warn!("magic mount failed: {e:#}");
+    }
+
     // exec modules post-fs-data scripts
     if let Err(e) = module::exec_stage_script("post-fs-data", wait) {
         warn!("exec post-fs-data scripts failed: {e}");
@@ -147,12 +155,6 @@ pub fn on_post_fs_data() -> Result<()> {
     // execute metamodule mount script
     if let Err(e) = metamodule::exec_mount_script(module_dir) {
         warn!("execute metamodule mount failed: {e}");
-    }
-
-    // Magic Mount: userspace Magisk-style mounting of module system trees.
-    // Stands down when an enabled metamodule owns mounting.
-    if let Err(e) = module::magic_mount::run_magic_mount() {
-        warn!("magic mount failed: {e:#}");
     }
 
     // Load umount config and apply to kernel
