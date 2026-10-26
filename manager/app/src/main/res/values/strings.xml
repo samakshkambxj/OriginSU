@@ -1137,6 +1137,11 @@
     <string name="susfs_enable_config">SUSFS manager</string>
     <string name="susfs_enable_config_summary">Enable built-in SUSFS manager. May conflict with third-party modules.</string>
     <string name="susfs_config_disable_warning">Built-in SUSFS manager is disabled. Enable it or install a third-party module to use SUSFS features.</string>
+    <string name="susfs_manager_enabled">SUSFS manager enabled</string>
+    <string name="susfs_manager_disabled">SUSFS manager disabled</string>
+    <string name="susfs_manager_section">Manager</string>
+    <string name="susfs_backup_section">Backup and restore</string>
+    <string name="susfs_presets_section">Presets and reset</string>
     <string name="susfs_standard_logging">Logging</string>
     <string name="susfs_standard_logging_desc">Enables SUSFS kernel log. Enable it before reporting bugs related to SUSFS.</string>
     <string name="susfs_standard_avc_log_spoofing">AVC Log Spoofing</string>
