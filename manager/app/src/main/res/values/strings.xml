@@ -503,8 +503,15 @@
     <string name="kernel_tuning_diag_stall_ms">%1$d ms</string>
     <string name="settings_magic_mount">Magic Mount</string>
     <string name="settings_magic_mount_summary">Mount module system files Magisk-style (takes effect on next boot)</string>
+    <string name="settings_magic_mount_handoff_summary">%1$s owns module mounting, so Magic Mount is disabled</string>
     <string name="settings_magic_mount_backend">Mount backend</string>
     <string name="settings_magic_mount_backend_summary">Auto prefers overlayfs and falls back to bind mounts</string>
+    <string name="settings_mount_engine">Mount engine</string>
+    <string name="settings_mount_engine_metamodule">%1$s owns module mounting (%2$s). Magic Mount stands down.</string>
+    <string name="settings_mount_engine_magic_mount">Magic Mount · %1$s backend</string>
+    <string name="settings_mount_engine_none">No engine is mounting modules. Enable Magic Mount or install a metamodule.</string>
+    <string name="settings_mount_engine_unknown">Engine status unavailable</string>
+    <string name="settings_mount_engine_kernel_support">Kernel VFS drivers: %1$s</string>
     <string name="magic_mount_backend_auto">Auto</string>
     <string name="magic_mount_backend_overlay">Overlayfs</string>
     <string name="magic_mount_backend_bind">Bind</string>
@@ -779,6 +786,7 @@
     <string name="origin_zygisk_payload_ok">payload %1$s</string>
     <string name="origin_zygisk_enable_first">Enable Origin Zygisk to manage its engine</string>
     <string name="magic_mount_failed">Magic Mount change failed</string>
+    <string name="magic_mount_handoff_blocked">A metamodule owns module mounting</string>
     <string name="zygisk_provider_blocked">Conflicting Zygisk provider blocked while Origin Zygisk is on</string>
     <string name="onboarding_title_welcome">Welcome to OriginSU</string>
     <string name="onboarding_desc_welcome">Kernel-based root, modules and app profiles, all managed from here.</string>
@@ -859,8 +867,8 @@
     <string name="installing_module">Module being installed %1$d/%2$d</string>
     <string name="module_failed_count">%d Failed to install a new module</string>
     <string name="kernel_flashing">Kernel Flashing</string>
-    <string name="warning_of_meta_module_title">Require Meta module</string>
-    <string name="warning_of_meta_module_summary">This module wants to mount /system, which is handled by the meta module. Without it, the module might not work</string>
+    <string name="warning_of_meta_module_title">Mount provider required</string>
+    <string name="warning_of_meta_module_summary">This module wants to mount /system. Install a metamodule or enable Magic Mount first, otherwise the module might not work.</string>
     <string name="sort_name">Name</string>
     <string name="sort_install_time">Install time</string>
     <string name="sort_update_time">Update time</string>
@@ -948,9 +956,9 @@
     <string name="operation_failed">Operation failed</string>
     <string name="changes_take_effect_immediately">All changes will take effect immediately.</string>
     <string name="group_contains_apps">Contains %d apps</string>
-    <string name="meta_module_disabled">module is not mounted, because the metamodule is disabled</string>
-    <string name="meta_module_removed">module is not mounted, because the metamodule is being deleted</string>
-    <string name="no_meta_module_installed">module is not mounted, because the metamodule is not installed</string>
+    <string name="meta_module_disabled">module is not mounted, because the metamodule is disabled and Magic Mount is off</string>
+    <string name="meta_module_removed">module is not mounted, because the metamodule is being deleted and Magic Mount is off</string>
+    <string name="no_meta_module_installed">module is not mounted: install a metamodule or enable Magic Mount</string>
     <string name="network_offline">You are offline</string>
     <string name="network_retry">Retry</string>
     <string name="please_check_network">Please check your internet connection and try again</string>

@@ -13,6 +13,7 @@ import com.originsu.manager.Natives
 import com.originsu.manager.R
 import com.originsu.manager.data.kernel.VeilManageRepository
 import com.originsu.manager.domain.model.LkmSelection
+import com.originsu.manager.domain.model.MountEngineInfo
 import com.originsu.manager.domain.model.TempGrantRecord
 import com.topjohnwu.superuser.CallbackList
 import com.topjohnwu.superuser.Shell
@@ -1469,6 +1470,53 @@ class KsuCliRepository(context: Context) {
             runCatching { execKsud("module magic-mount backend $backend") }
                 .getOrDefault(false)
         }
+
+    /**
+     * Ask ksud which engine owns module mounting. ksud is the source of truth
+     * for the Magic Mount handoff, so the manager does not duplicate the
+     * marker/metamount.sh checks.
+     */
+    suspend fun getMountEngineInfo(): MountEngineInfo = withContext(Dispatchers.IO) {
+        if (!rootAvailable()) {
+            return@withContext MountEngineInfo()
+        }
+        val shell = getRootShell()
+        val output = runCatching {
+            runCmd(shell, "${getKsuDaemonPath()} module magic-mount engine")
+        }.getOrDefault("")
+        parseMountEngineInfo(output)
+    }
+
+    private fun parseMountEngineInfo(output: String): MountEngineInfo {
+        if (output.isBlank()) {
+            return MountEngineInfo()
+        }
+        val values = output.lineSequence()
+            .mapNotNull { line ->
+                val separator = line.indexOf('=')
+                if (separator <= 0) {
+                    null
+                } else {
+                    line.substring(0, separator).trim() to line.substring(separator + 1).trim()
+                }
+            }
+            .toMap()
+        if (values.isEmpty()) {
+            return MountEngineInfo()
+        }
+        return MountEngineInfo(
+            owner = values["owner"]?.takeIf { it.isNotEmpty() } ?: "unknown",
+            engine = values["engine"].orEmpty(),
+            name = values["name"].orEmpty(),
+            metamoduleId = values["metamodule"].orEmpty(),
+            backend = values["backend"]?.takeIf { it in MAGIC_MOUNT_BACKENDS } ?: "auto",
+            magicMountEnabled = values["magic_mount"] == "enabled",
+            kernelEngines = values["kernel"].orEmpty()
+                .split(',')
+                .map { it.trim() }
+                .filter { it.isNotEmpty() },
+        )
+    }
 
     suspend fun isOriginZygiskRunning(): Boolean = withContext(Dispatchers.IO) {
         if (!rootAvailable()) {

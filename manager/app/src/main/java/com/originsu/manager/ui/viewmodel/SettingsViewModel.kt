@@ -8,6 +8,7 @@ import com.originsu.manager.R
 import com.originsu.manager.data.shell.KsuCliRepository
 import com.originsu.manager.data.shell.OriginZygiskStatus
 import com.originsu.manager.domain.model.AppearanceSetting
+import com.originsu.manager.domain.model.MountEngineInfo
 import com.originsu.manager.domain.model.PlatformSetting
 import com.originsu.manager.domain.model.SettingsPlatformSnapshot
 import com.originsu.manager.domain.model.coerceCompatibleWith
@@ -145,6 +146,7 @@ data class SettingsUiState(
     val isOriginGuardEnabled: Boolean = true,
     val isMagicMountEnabled: Boolean = false,
     val magicMountBackend: String = "auto",
+    val mountEngine: MountEngineInfo = MountEngineInfo(),
     val isThemedShortcutsEnabled: Boolean = false,
     val isOriginZygiskEnabled: Boolean = false,
     val isOriginZygiskRunning: Boolean = false,
@@ -217,6 +219,7 @@ sealed interface SettingsUiAction {
     data class SetOriginGuardEnabled(val enabled: Boolean) : SettingsUiAction
     data class SetMagicMountEnabled(val enabled: Boolean) : SettingsUiAction
     data class SetMagicMountBackend(val backend: String) : SettingsUiAction
+    data object RefreshMagicMount : SettingsUiAction
     data class SetThemedShortcutsEnabled(val enabled: Boolean) : SettingsUiAction
     data class SetOriginZygiskEnabled(val enabled: Boolean) : SettingsUiAction
     data class SetOriginZygiskUmount(val enabled: Boolean) : SettingsUiAction
@@ -583,15 +586,37 @@ class SettingsViewModel(
 
     fun refreshMagicMount() {
         viewModelScope.launch {
-            val enabled = runCatching { ksuCliRepository.isMagicMountEnabled() }
-                .getOrDefault(false)
-            val backend = runCatching { ksuCliRepository.getMagicMountBackend() }
-                .getOrDefault("auto")
-            mutableState.update { it.copy(isMagicMountEnabled = enabled, magicMountBackend = backend) }
+            val engine = runCatching { ksuCliRepository.getMountEngineInfo() }
+                .getOrDefault(MountEngineInfo())
+            val enabled = if (engine.isKnown) {
+                engine.magicMountEnabled
+            } else {
+                runCatching { ksuCliRepository.isMagicMountEnabled() }
+                    .getOrDefault(false)
+            }
+            val backend = if (engine.isKnown) {
+                engine.backend
+            } else {
+                runCatching { ksuCliRepository.getMagicMountBackend() }
+                    .getOrDefault("auto")
+            }
+            mutableState.update {
+                it.copy(
+                    isMagicMountEnabled = enabled,
+                    magicMountBackend = backend,
+                    mountEngine = engine,
+                )
+            }
         }
     }
 
     fun handleMagicMountChange(enabled: Boolean) {
+        if (mutableState.value.mountEngine.metamoduleOwnsMounting) {
+            mutableEvents.tryEmit(
+                SettingsUiEvent.Message(R.string.magic_mount_handoff_blocked)
+            )
+            return
+        }
         viewModelScope.launch {
             val ok = runCatching { ksuCliRepository.setMagicMountEnabled(enabled) }
                 .getOrDefault(false)
@@ -603,6 +628,12 @@ class SettingsViewModel(
     }
 
     fun handleMagicMountBackendChange(backend: String) {
+        if (mutableState.value.mountEngine.metamoduleOwnsMounting) {
+            mutableEvents.tryEmit(
+                SettingsUiEvent.Message(R.string.magic_mount_handoff_blocked)
+            )
+            return
+        }
         viewModelScope.launch {
             val ok = runCatching { ksuCliRepository.setMagicMountBackend(backend) }
                 .getOrDefault(false)
@@ -898,6 +929,7 @@ fun dispatch(action: SettingsUiAction) {
             SettingsUiAction.Initialize -> initialize()
             SettingsUiAction.InitializeFirstRun -> initializeFirstRunSettings()
             SettingsUiAction.LoadFeatureSettings -> loadFeatureSettings()
+            SettingsUiAction.RefreshMagicMount -> refreshMagicMount()
             is SettingsUiAction.SetThemeMode -> handleThemeModeChange(action.index)
             is SettingsUiAction.SetThemeColor -> handleThemeColorChange(action.color)
             is SettingsUiAction.SetThemeColorDialogVisible ->

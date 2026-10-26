@@ -489,6 +489,9 @@ enum MagicMountCmd {
         /// backend to use (omit to print the current one)
         mode: Option<String>,
     },
+
+    /// show which engine owns module mounting (magic-mount/nomount/zeromount/...)
+    Engine,
 }
 
 #[derive(clap::Subcommand, Debug)]
@@ -823,6 +826,10 @@ pub fn run() -> Result<()> {
                         Some(mode) => module::magic_mount::set_backend(&mode),
                         None => module::magic_mount::print_backend(),
                     },
+                    MagicMountCmd::Engine => {
+                        module::mount_engine::Status::detect().print();
+                        Ok(())
+                    }
                 },
                 Module::Preinit { command } => match command {
                     PreinitCmd::Status => {

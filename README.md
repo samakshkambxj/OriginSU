@@ -109,8 +109,9 @@ the same steps in more detail.
   [metamodules](https://kernelsu.org/guide/metamodule.html) for systemless
   modifications.
 - **Magic Mount** for modules that ship a `system/` tree instead of a
-  metamodule mount script — overlayfs by default, with a bind-mount fallback
-  and a backend selector in **Settings → Origin Lab**.
+  metamodule mount script — overlayfs by default, with a bind-mount fallback,
+  a backend selector in **Settings → Origin Lab**, and active mount-engine
+  detection for NoMount, ZeroMount, Kagami/Kasumi and Hybrid Mount.
 - Batch multi-select actions, update-all multi-flash, internal backups with
   restore, shareable bundle zips, and download-script (JSON) batch install.
 - `banner=` artwork from `module.prop`, shown as a faded backdrop in the module

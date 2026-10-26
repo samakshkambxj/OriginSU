@@ -90,7 +90,9 @@ rewrite, not a port.
 - ✅ (a) Magic Mount (MKSU `magic_mount.rs` lineage, userspace-only) ★★☆☆☆.
   Merged module tree with overlayfs (Auto/Overlay) and Magisk-style tmpfs
   bind mounts (Auto/Bind), `.replace` and whiteout support; toggle lives in
-  Settings → Origin Lab and takes effect on the next boot.
+  Settings → Origin Lab and takes effect on the next boot. Also detects the
+  active mount engine (NoMount, ZeroMount, Kagami/Kasumi, Hybrid Mount, other
+  metamodules) and keeps Magic Mount standing down while one owns mounting.
 - (b) GKI OTA survival polish ★☆☆☆☆.
 
 Order: 1 → 1b → 3 → 4 → 5 (+ UI/UX interleaved).

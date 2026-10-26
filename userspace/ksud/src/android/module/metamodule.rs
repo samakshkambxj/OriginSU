@@ -84,6 +84,28 @@ pub fn has_metamodule() -> bool {
     get_metamodule_path().is_some()
 }
 
+/// Return the enabled metamodule that owns module mounting, if any.
+///
+/// A metamodule that ships `metamount.sh` takes over mounting for every
+/// regular module (NoMount, ZeroMount, Kagami, Hybrid Mount, ...).
+pub fn mounting_metamodule() -> Option<PathBuf> {
+    let meta = get_metamodule_path()?;
+    if meta.join(defs::DISABLE_FILE_NAME).exists() {
+        return None;
+    }
+    meta.join(defs::METAMODULE_MOUNT_SCRIPT)
+        .exists()
+        .then_some(meta)
+}
+
+/// Whether an enabled metamodule owns module mounting.
+///
+/// When it does, OriginSU's built-in Magic Mount must stand down so the two
+/// engines do not fight over the same paths.
+pub fn owns_mounting() -> bool {
+    mounting_metamodule().is_some()
+}
+
 /// Check if it's safe to install a regular module
 /// Returns Ok(()) if safe, Err(is_disabled) if blocked
 /// - Err(true) means metamodule is disabled

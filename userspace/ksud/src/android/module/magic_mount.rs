@@ -103,7 +103,7 @@ pub enum MountBackend {
 }
 
 impl MountBackend {
-    fn as_str(self) -> &'static str {
+    pub fn as_str(self) -> &'static str {
         match self {
             Self::Auto => "auto",
             Self::Overlay => "overlay",
@@ -148,18 +148,6 @@ pub fn set_backend(mode: &str) -> Result<()> {
 pub fn print_backend() -> Result<()> {
     println!("{}", backend().as_str());
     Ok(())
-}
-
-/// Whether an enabled metamodule provides its own mount script. When it
-/// does, the metamodule owns mounting and Magic Mount stands down.
-fn metamodule_owns_mounting() -> bool {
-    let Some(meta) = module::metamodule::get_metamodule_path() else {
-        return false;
-    };
-    if meta.join(defs::DISABLE_FILE_NAME).exists() {
-        return false;
-    }
-    meta.join(defs::METAMODULE_MOUNT_SCRIPT).exists()
 }
 
 fn overlay_supported() -> bool {
@@ -1072,7 +1060,7 @@ pub fn run_magic_mount() -> Result<()> {
         info!("Magic Mount disabled, skipping");
         return Ok(());
     }
-    if metamodule_owns_mounting() {
+    if module::metamodule::owns_mounting() {
         info!("Metamodule owns mounting, Magic Mount stands down");
         return Ok(());
     }

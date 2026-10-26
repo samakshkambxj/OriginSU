@@ -304,6 +304,7 @@ fun SettingsPage(bottomPadding: Dp) {
     val descOriginGuard = stringResource(R.string.settings_originguard_summary)
     val titleMagicMount = stringResource(R.string.settings_magic_mount)
     val descMagicMount = stringResource(R.string.settings_magic_mount_summary)
+    val titleMountEngine = stringResource(R.string.settings_mount_engine)
     val titleMagicBackend = stringResource(R.string.settings_magic_mount_backend)
     val descMagicBackend = stringResource(R.string.settings_magic_mount_backend_summary)
     val titleSusfsLkm = stringResource(R.string.settings_susfs_lkm)
@@ -428,6 +429,7 @@ fun SettingsPage(bottomPadding: Dp) {
     val matchRootGatePanic = matches(titleRootGatePanic, descRootGatePanic, sectionOrigin)
     val matchOriginGuard = matches(titleOriginGuard, descOriginGuard, sectionOrigin)
     val matchMagicMount = matches(titleMagicMount, descMagicMount, sectionOrigin)
+    val matchMountEngine = matches(titleMountEngine, sectionOrigin)
     val matchMagicBackend = matches(titleMagicBackend, descMagicBackend, sectionOrigin)
     val matchSusfsLkm = matches(titleSusfsLkm, descSusfsLkm, sectionOrigin)
 
@@ -476,6 +478,7 @@ fun SettingsPage(bottomPadding: Dp) {
         matchLockBoundRoot,
         matchRootGatePanic,
         matchOriginGuard,
+        matchMountEngine,
         matchMagicMount,
         matchMagicBackend,
         matchSusfsLkm,
@@ -496,6 +499,7 @@ fun SettingsPage(bottomPadding: Dp) {
 
     LaunchedEffect(Unit) {
         settingsViewModel.dispatch(SettingsUiAction.LoadFeatureSettings)
+        settingsViewModel.dispatch(SettingsUiAction.RefreshMagicMount)
         settingsViewModel.dispatch(SettingsUiAction.RefreshOriginZygisk)
         settingsViewModel.dispatch(SettingsUiAction.RefreshBootloop)
     }
@@ -527,6 +531,7 @@ fun SettingsPage(bottomPadding: Dp) {
 
     ActivityResumeEffect {
         settingsViewModel.dispatch(SettingsUiAction.RefreshOverlayPermission)
+        settingsViewModel.dispatch(SettingsUiAction.RefreshMagicMount)
     }
 
     Scaffold(
@@ -1267,11 +1272,70 @@ fun SettingsPage(bottomPadding: Dp) {
                             )
                         }
 
+                        item(visible = matchMountEngine) {
+                            val mountEngine = uiState.mountEngine
+                            val backendLabel = when (uiState.magicMountBackend) {
+                                "overlay" -> stringResource(R.string.magic_mount_backend_overlay)
+                                "bind" -> stringResource(R.string.magic_mount_backend_bind)
+                                else -> stringResource(R.string.magic_mount_backend_auto)
+                            }
+                            val engineSummary = when (mountEngine.owner) {
+                                "metamodule" -> stringResource(
+                                    R.string.settings_mount_engine_metamodule,
+                                    mountEngine.name.ifBlank {
+                                        mountEngine.metamoduleId.ifBlank { mountEngine.engine }
+                                    },
+                                    mountEngine.metamoduleId,
+                                )
+                                "magic_mount" -> stringResource(
+                                    R.string.settings_mount_engine_magic_mount,
+                                    backendLabel,
+                                )
+                                "none" -> stringResource(R.string.settings_mount_engine_none)
+                                else -> stringResource(R.string.settings_mount_engine_unknown)
+                            }
+                            val kernelLabels = mountEngine.kernelEngines.map { engine ->
+                                when (engine) {
+                                    "zeromount" -> "ZeroMount"
+                                    "kasumi" -> "Kasumi"
+                                    "nomount" -> "NoMount"
+                                    else -> engine
+                                }
+                            }
+                            val engineDescription =
+                                if (kernelLabels.isEmpty()) {
+                                    engineSummary
+                                } else {
+                                    engineSummary + "\n" + stringResource(
+                                        R.string.settings_mount_engine_kernel_support,
+                                        kernelLabels.joinToString(", "),
+                                    )
+                                }
+                            SettingsBaseWidget(
+                                icon = Icons.TwoTone.Dashboard,
+                                title = titleMountEngine,
+                                description = engineDescription,
+                            )
+                        }
+
                         item(visible = matchMagicMount) {
+                            val metamoduleOwnsMounting = uiState.mountEngine.metamoduleOwnsMounting
+                            val magicMountSummary =
+                                if (metamoduleOwnsMounting) {
+                                    stringResource(
+                                        R.string.settings_magic_mount_handoff_summary,
+                                        uiState.mountEngine.name.ifBlank {
+                                            uiState.mountEngine.engine
+                                        },
+                                    )
+                                } else {
+                                    descMagicMount
+                                }
                             SettingsSwitchWidget(
                                 icon = Icons.TwoTone.Extension,
                                 title = stringResource(R.string.settings_magic_mount),
-                                description = stringResource(R.string.settings_magic_mount_summary),
+                                description = magicMountSummary,
+                                enabled = !metamoduleOwnsMounting,
                                 checked = uiState.isMagicMountEnabled,
                                 onCheckedChange = { enabled ->
                                     settingsViewModel.dispatch(
@@ -1296,6 +1360,7 @@ fun SettingsPage(bottomPadding: Dp) {
                                 icon = Icons.TwoTone.Dashboard,
                                 title = stringResource(R.string.settings_magic_mount_backend),
                                 description = stringResource(R.string.settings_magic_mount_backend_summary),
+                                enabled = !uiState.mountEngine.metamoduleOwnsMounting,
                                 items = backendItems,
                                 selectedIndex = selectedBackend,
                                 onSelectedIndexChange = { index ->

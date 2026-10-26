@@ -34,3 +34,9 @@ metamodule mount script. Enable it in `Settings → Origin Lab`; changes take ef
 
 Magic Mount supports regular files, directories, symlinks, whiteouts and `.replace` directories.
 It stands down automatically when an enabled metamodule owns mounting.
+
+`Settings → Origin Lab` also shows the **Mount engine**: Magic Mount, NoMount, ZeroMount,
+Kagami/Kasumi, Hybrid Mount, or another metamodule. Detection covers the active metamodule plus
+kernel driver markers (`/dev/zeromount`, `/sys/module/kasumi_lkm`, `/sys/module/nomount`), and
+OriginSU never runs Magic Mount while a metamodule owns the mount pipeline. To switch engines,
+install the desired metamodule, reboot, then reinstall your modules as that metamodule requires.

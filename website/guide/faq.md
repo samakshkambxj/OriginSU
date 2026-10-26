@@ -9,6 +9,7 @@
 | KPM tab is hidden | Expected on 32-bit or non-KPM kernels — the tab only appears when the kernel reports KPM support. |
 | Which LKM file do I need | `aarch64-*` for phones, `x86_64-*` for x86 devices; the `<kmi>` segment (e.g. `android14-6.1`) must match your kernel. |
 | Magic Mount changes do not apply immediately | Magic Mount is applied during boot, so toggling it or changing its backend takes effect on the next reboot. |
+| Magic Mount toggle is disabled | A metamodule (NoMount, ZeroMount, Kagami/Kasumi, Hybrid Mount, ...) owns module mounting. **Settings → Origin Lab → Mount engine** shows which one; Magic Mount stands down until that metamodule is disabled or removed. |
 
 Still stuck? Open an issue on
 [GitHub](https://github.com/samakshkambxj/OriginSU/issues) with your device info (copy it from

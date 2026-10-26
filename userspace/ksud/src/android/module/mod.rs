@@ -2,6 +2,7 @@ pub mod audit;
 pub mod magic_mount;
 pub mod metamodule;
 pub mod module_config;
+pub mod mount_engine;
 pub mod transaction;
 
 use std::os::unix::{prelude::PermissionsExt, process::CommandExt};
