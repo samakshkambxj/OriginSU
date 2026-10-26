@@ -87,7 +87,10 @@ rewrite, not a port.
 9. Last-flash timeline chip on Home
 
 ## Suggested extras ⏳
-- (a) Magic Mount (MKSU `magic_mount.rs`, userspace-only) ★★☆☆☆.
+- ✅ (a) Magic Mount (MKSU `magic_mount.rs` lineage, userspace-only) ★★☆☆☆.
+  Merged module tree with overlayfs (Auto/Overlay) and Magisk-style tmpfs
+  bind mounts (Auto/Bind), `.replace` and whiteout support; toggle lives in
+  Settings → Origin Lab and takes effect on the next boot.
 - (b) GKI OTA survival polish ★☆☆☆☆.
 
 Order: 1 → 1b → 3 → 4 → 5 (+ UI/UX interleaved).

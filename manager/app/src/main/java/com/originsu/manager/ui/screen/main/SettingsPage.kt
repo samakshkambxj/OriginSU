@@ -1272,9 +1272,6 @@ fun SettingsPage(bottomPadding: Dp) {
                                 icon = Icons.TwoTone.Extension,
                                 title = stringResource(R.string.settings_magic_mount),
                                 description = stringResource(R.string.settings_magic_mount_summary),
-                                // Magic Mount is currently unstable: keep the switch visible but
-                                // disabled so it cannot be turned on.
-                                enabled = false,
                                 checked = uiState.isMagicMountEnabled,
                                 onCheckedChange = { enabled ->
                                     settingsViewModel.dispatch(
@@ -1299,8 +1296,6 @@ fun SettingsPage(bottomPadding: Dp) {
                                 icon = Icons.TwoTone.Dashboard,
                                 title = stringResource(R.string.settings_magic_mount_backend),
                                 description = stringResource(R.string.settings_magic_mount_backend_summary),
-                                // Backend selector is WIP alongside Magic Mount: keep visible but disabled.
-                                enabled = false,
                                 items = backendItems,
                                 selectedIndex = selectedBackend,
                                 onSelectedIndexChange = { index ->

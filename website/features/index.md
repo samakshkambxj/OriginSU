@@ -26,7 +26,7 @@
 | **Updater** — stable / beta channels | [KPM & flashing](/features/kpm-flasher) |
 | **Secure root gate** — biometric confirmation before granting root | [Manager tour](/features/manager) |
 | **Bootloop protection** — disables all modules after consecutive failed boots | [KPM & flashing](/features/kpm-flasher) |
-| **Magic Mount** — backend selector (Auto / Overlayfs / Bind), temporarily unavailable | [KPM & flashing](/features/kpm-flasher) |
+| **Magic Mount** — Magisk-style module mounting with an Auto / Overlayfs / Bind backend selector | [KPM & flashing](/features/kpm-flasher) |
 
 ## OriginTune
 

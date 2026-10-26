@@ -24,6 +24,13 @@ kernels.
 
 ## Magic Mount
 
-Magisk-style module mounting with a backend selector (Auto / Overlayfs / Bind). Temporarily
-unavailable — the `Settings` toggle is disabled until the feature stabilizes (takes effect on next
-boot).
+Magisk-style userspace module mounting, for modules that ship a `system/` tree instead of a
+metamodule mount script. Enable it in `Settings → Origin Lab`; changes take effect on the next boot.
+
+- **Auto** (default) uses overlayfs when the kernel supports it and falls back to bind mounts.
+- **Overlayfs** merges directories into one read-only view.
+- **Bind** uses Magisk-style tmpfs skeletons and bind mounts, without copying module payloads into
+  RAM.
+
+Magic Mount supports regular files, directories, symlinks, whiteouts and `.replace` directories.
+It stands down automatically when an enabled metamodule owns mounting.
