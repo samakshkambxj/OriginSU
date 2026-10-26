@@ -636,6 +636,7 @@ fun ModulePage(bottomPadding: Dp) {
 
     LaunchedEffect(Unit) {
         viewModel.dispatch(ModuleUiAction.Search(""))
+        viewModel.dispatch(ModuleUiAction.RefreshMountProvider)
         if (uiState.moduleList.isEmpty() || uiState.isNeedRefresh) {
             viewModel.dispatch(ModuleUiAction.Refresh())
         }
@@ -1188,9 +1189,13 @@ private fun getMetaModuleWarningText(
     showWarning: Boolean,
     context: Context,
     status: MetaModuleStatus,
+    magicMountEnabled: Boolean,
 ) : String? {
     if (!showWarning) return null
     if (!hasModuleRequireMount) return null
+    // Magic Mount can mount the module tree without a metamodule, so the
+    // missing/disabled-metamodule warning would be misleading.
+    if (magicMountEnabled) return null
 
     return when (status) {
         MetaModuleStatus.MISSING -> context.getString(R.string.no_meta_module_installed)
@@ -1575,7 +1580,7 @@ private fun ModuleList(
             initialValue = null,
             uiState.hasModuleRequireMount,
             showMetaModuleWarning,
-            uiState.metaModuleStatus,
+            uiState.metaModuleStatus to uiState.isMagicMountEnabled,
         ) {
             value = withContext(Dispatchers.IO) {
                 getMetaModuleWarningText(
@@ -1583,6 +1588,7 @@ private fun ModuleList(
                     showMetaModuleWarning,
                     context,
                     uiState.metaModuleStatus,
+                    uiState.isMagicMountEnabled,
                 )
             }
         }

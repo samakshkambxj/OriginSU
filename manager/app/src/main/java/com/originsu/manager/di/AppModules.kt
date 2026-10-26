@@ -151,6 +151,7 @@ import com.originsu.manager.domain.usecase.RebootUseCase
 import com.originsu.manager.domain.usecase.RefreshDynamicManagerUseCase
 import com.originsu.manager.domain.usecase.RefreshInstalledModulesUseCase
 import com.originsu.manager.domain.usecase.RefreshModuleCatalogUseCase
+import com.originsu.manager.domain.usecase.RefreshModuleMountProviderUseCase
 import com.originsu.manager.domain.usecase.RefreshProfileTemplatesUseCase
 import com.originsu.manager.domain.usecase.RefreshSulogUseCase
 import com.originsu.manager.domain.usecase.RefreshSuperUsersUseCase
@@ -514,6 +515,7 @@ val useCaseModule = module {
     factoryOf(::AuditModuleUseCase)
     factoryOf(::ObserveInstalledModulesUseCase)
     factoryOf(::RefreshInstalledModulesUseCase)
+    factoryOf(::RefreshModuleMountProviderUseCase)
     factoryOf(::CalculateInstalledModuleSizeUseCase)
     factoryOf(::UpdateCachedModuleEnabledUseCase)
     factoryOf(::ExecuteModuleActionUseCase)

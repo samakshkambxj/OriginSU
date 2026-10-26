@@ -16,6 +16,10 @@ class RefreshInstalledModulesUseCase(private val repository: ModuleRepository) {
         repository.refreshInstalledModules(manual, checkUpdates)
 }
 
+class RefreshModuleMountProviderUseCase(private val repository: ModuleRepository) {
+    suspend operator fun invoke() = repository.refreshMountProvider()
+}
+
 class CalculateInstalledModuleSizeUseCase(private val repository: ModuleRepository) {
     suspend operator fun invoke(moduleId: String) =
         repository.calculateInstalledModuleSize(moduleId)

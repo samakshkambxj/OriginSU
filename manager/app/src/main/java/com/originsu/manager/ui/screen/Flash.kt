@@ -172,7 +172,8 @@ fun FlashScreen(flashIt: FlashIt) {
     val flashViewModel: FlashViewModel = koinViewModel()
     val moduleUiState by viewModel.state.collectAsStateWithLifecycle()
     val flashUiState by flashViewModel.state.collectAsStateWithLifecycle()
-    val hasMetaModule = moduleUiState.metaModuleStatus == MetaModuleStatus.ACTIVE
+    val hasMountProvider = moduleUiState.metaModuleStatus == MetaModuleStatus.ACTIVE ||
+        moduleUiState.isMagicMountEnabled
     val isLateLoadMode = koinInject<IsLateLoadModeUseCase>()
     val auditModule = koinInject<AuditModuleUseCase>()
     val getBooleanPreference = koinInject<GetBooleanPreferenceUseCase>()
@@ -220,6 +221,7 @@ fun FlashScreen(flashIt: FlashIt) {
     val currentStatus = flashUiState.moduleInstallStatus
 
     LaunchedEffect(Unit) {
+        viewModel.dispatch(ModuleUiAction.RefreshMountProvider)
         scrollBehavior.state.heightOffset = scrollBehavior.state.heightOffsetLimit
     }
 
@@ -313,7 +315,7 @@ fun FlashScreen(flashIt: FlashIt) {
                 }
                 hasUpdateCompleted = true
 
-                if (!hasMetaModule && code == 0) {
+                if (!hasMountProvider && code == 0) {
                     // 如果没安装 MetaModule，且此模块需要挂载，并且当前模块安装成功，警告用户
                     scope.launch {
                         if (!checkFlashModuleMount(flashIt.uri)) return@launch
@@ -471,7 +473,7 @@ fun FlashScreen(flashIt: FlashIt) {
                 }
 
                 hasFlashCompleted = true
-                if (!hasMetaModule && code == 0) {
+                if (!hasMountProvider && code == 0) {
                     // 没有 MetaModule，且安装成功，检查此模块是否有自动挂载
                     scope.launch {
                         val mountUri = when (flashIt) {

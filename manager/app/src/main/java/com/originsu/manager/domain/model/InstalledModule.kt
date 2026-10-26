@@ -31,6 +31,7 @@ data class InstalledModulesState(
     val hasModuleRequireMount: Boolean = false,
     val hasMagisk: Boolean = false,
     val metaModuleStatus: MetaModuleStatus = MetaModuleStatus.MISSING,
+    val isMagicMountEnabled: Boolean = false,
 )
 
 data class ModulePreferences(

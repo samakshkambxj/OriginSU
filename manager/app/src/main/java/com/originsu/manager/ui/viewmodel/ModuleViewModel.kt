@@ -11,6 +11,7 @@ import com.originsu.manager.domain.usecase.IsSoftRebootPreferredUseCase
 import com.originsu.manager.domain.usecase.ObserveInstalledModulesUseCase
 import com.originsu.manager.domain.usecase.RebootUseCase
 import com.originsu.manager.domain.usecase.RefreshInstalledModulesUseCase
+import com.originsu.manager.domain.usecase.RefreshModuleMountProviderUseCase
 import com.originsu.manager.domain.usecase.SetModuleEnabledUseCase
 import com.originsu.manager.domain.usecase.SetModuleRemovedUseCase
 import com.originsu.manager.domain.usecase.TransliterateTextUseCase
@@ -38,6 +39,7 @@ data class ModuleUiState(
     val hasModuleRequireMount: Boolean = false,
     val hasMagisk: Boolean = false,
     val metaModuleStatus: MetaModuleStatus = MetaModuleStatus.MISSING,
+    val isMagicMountEnabled: Boolean = false,
     val isNeedRefresh: Boolean = false,
     val showMoreModuleInfo: Boolean = false,
     val showBanners: Boolean = true,
@@ -46,6 +48,7 @@ data class ModuleUiState(
 
 sealed interface ModuleUiAction {
     data class Refresh(val manual: Boolean = false) : ModuleUiAction
+    data object RefreshMountProvider : ModuleUiAction
     data object ReloadSettings : ModuleUiAction
     data class Search(val query: String) : ModuleUiAction
     data class Sort(val enabledFirst: Boolean, val actionFirst: Boolean) : ModuleUiAction
@@ -96,6 +99,7 @@ class ModuleViewModel(
     observeInstalledModules: ObserveInstalledModulesUseCase,
     private val modulePreferences: ModulePreferencesRepository,
     private val refreshInstalledModules: RefreshInstalledModulesUseCase,
+    private val refreshModuleMountProvider: RefreshModuleMountProviderUseCase,
     private val calculateModuleSize: CalculateInstalledModuleSizeUseCase,
     private val updateCachedModuleEnabledUseCase: UpdateCachedModuleEnabledUseCase,
     private val getBooleanPreference: GetBooleanPreferenceUseCase,
@@ -129,6 +133,7 @@ class ModuleViewModel(
             hasModuleRequireMount = source.hasModuleRequireMount,
             hasMagisk = source.hasMagisk,
             metaModuleStatus = source.metaModuleStatus,
+            isMagicMountEnabled = source.isMagicMountEnabled,
             isNeedRefresh = local.isNeedRefresh,
             showMoreModuleInfo = preferences.showMoreModuleInfo,
             showBanners = preferences.showBanners,
@@ -140,6 +145,9 @@ class ModuleViewModel(
     fun dispatch(action: ModuleUiAction) {
         when (action) {
             is ModuleUiAction.Refresh -> refresh(action.manual)
+            ModuleUiAction.RefreshMountProvider -> viewModelScope.launch {
+                refreshModuleMountProvider()
+            }
             ModuleUiAction.ReloadSettings -> modulePreferences.reload()
             is ModuleUiAction.Search -> controls.update { it.copy(search = action.query) }
             is ModuleUiAction.Sort -> {

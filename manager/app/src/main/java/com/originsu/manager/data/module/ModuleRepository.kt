@@ -63,6 +63,7 @@ class ModuleRepository(
                     hasModuleRequireMount = requiresMount,
                     hasMagisk = ksuCliRepository.hasMagisk(),
                     metaModuleStatus = getMetaModuleStatus(),
+                    isMagicMountEnabled = ksuCliRepository.isMagicMountEnabled(),
                 )
 
                 if (checkUpdates && networkStatusRepository.isAvailable()) {
@@ -134,6 +135,22 @@ class ModuleRepository(
                 )
             }
         }
+
+    /**
+     * Refresh only the mount-provider flags used by the warning banner.
+     * Keeps Settings (Magic Mount) changes visible without reparsing every
+     * module or checking for updates.
+     */
+    suspend fun refreshMountProvider() = withContext(Dispatchers.IO) {
+        val magicMountEnabled = ksuCliRepository.isMagicMountEnabled()
+        val status = getMetaModuleStatus()
+        mutableInstalledModules.update {
+            it.copy(
+                isMagicMountEnabled = magicMountEnabled,
+                metaModuleStatus = status,
+            )
+        }
+    }
 
     suspend fun checkUpdate(
         url: String,
