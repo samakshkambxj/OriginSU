@@ -998,6 +998,7 @@ class KsuCliRepository(context: Context) {
         lkm: LkmSelection,
         ota: Boolean,
         partition: String?,
+        hook: String? = null,
         allowShell: Boolean = false,
         enableAdb: Boolean = false,
         forceBackup: Boolean = false,
@@ -1052,14 +1053,17 @@ class KsuCliRepository(context: Context) {
 
             is LkmSelection.KmiString -> {
                 cmd += " --kmi ${lkm.value}"
-                if (lkm.hook == "tamper") {
-                    cmd += " --hook tamper"
-                }
             }
 
             LkmSelection.KmiNone -> {
                 // do nothing
             }
+        }
+
+        if (!noInstall && lkm !is LkmSelection.LkmUri && hook == "tamper") {
+            // The hook flavor selects the built-in LKM build even when ksud
+            // auto-detects the KMI, so it must not depend on KmiString.
+            cmd += " --hook tamper"
         }
 
         // output dir

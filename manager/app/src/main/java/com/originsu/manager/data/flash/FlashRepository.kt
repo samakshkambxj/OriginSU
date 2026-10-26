@@ -148,6 +148,7 @@ class FlashRepository(
                         operation.lkm,
                         operation.ota,
                         operation.partition,
+                        operation.hook,
                         operation.allowShell,
                         operation.enableAdb,
                         operation.forceBackup,

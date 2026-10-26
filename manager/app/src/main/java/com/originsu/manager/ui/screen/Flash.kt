@@ -1030,12 +1030,10 @@ private suspend fun flashIt(
             bootUri = flashIt.boot,
             lkm = when {
                 flashIt.lkmUri != null -> LkmSelection.LkmUri(flashIt.lkmUri)
-                flashIt.kmi != null -> LkmSelection.KmiString(
-                    flashIt.kmi,
-                    flashIt.hook ?: "tracepoint"
-                )
+                flashIt.kmi != null -> LkmSelection.KmiString(flashIt.kmi)
                 else -> LkmSelection.KmiNone
             },
+            hook = flashIt.hook,
             ota = flashIt.ota,
             partition = flashIt.partition,
             allowShell = flashIt.allowShell,
