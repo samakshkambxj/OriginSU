@@ -177,6 +177,8 @@ fun FlashScreen(flashIt: FlashIt) {
         TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
     val viewModel: ModuleViewModel = koinViewModel()
     val flashViewModel: FlashViewModel = koinViewModel()
+    val themeConfig: ThemeConfig = koinInject()
+    val cardConfig: CardConfig = koinInject()
     val moduleUiState by viewModel.state.collectAsStateWithLifecycle()
     val flashUiState by flashViewModel.state.collectAsStateWithLifecycle()
     val hasMountProvider = moduleUiState.metaModuleStatus == MetaModuleStatus.ACTIVE ||
@@ -655,13 +657,39 @@ fun FlashScreen(flashIt: FlashIt) {
                     scrollState.animateScrollTo(scrollState.maxValue)
                 }
                 Column(modifier = Modifier.fillMaxWidth()) {
-                    Text(
-                        modifier = Modifier.padding(16.dp),
-                        text = text,
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontFamily = MonospaceFontFamily(),
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(start = 16.dp, end = 16.dp, top = 8.dp)
+                            .then(
+                                if (cardConfig.flashCardBackgroundEnabled) {
+                                    Modifier.renderBackgroundBlur(MaterialTheme.colorScheme.surfaceBright)
+                                } else {
+                                    Modifier
+                                },
+                            ),
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (
+                                themeConfig.isEnableBlurExp || !cardConfig.flashCardBackgroundEnabled
+                            ) {
+                                Color.Transparent
+                            } else {
+                                MaterialTheme.colorScheme.surfaceBright.copy(
+                                    alpha = cardConfig.cardAlpha
+                                )
+                            }
+                        )
+                    ) {
+                        Text(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 12.dp),
+                            text = text,
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontFamily = MonospaceFontFamily(),
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
                     AnimatedVisibility(
                         visible = flashUiState.flashingStatus != FlashingStatus.FLASHING,
                         enter = fadeIn() + expandVertically() + slideInVertically { it / 3 },
@@ -673,7 +701,8 @@ fun FlashScreen(flashIt: FlashIt) {
                             modifier = Modifier.padding(
                                 start = 16.dp,
                                 end = 16.dp,
-                                bottom = 16.dp,
+                                top = 8.dp,
+                                bottom = 8.dp,
                             )
                         )
                     }
@@ -756,10 +785,16 @@ fun ModuleInstallProgressBar(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(16.dp)
-            .renderBackgroundBlur(MaterialTheme.colorScheme.surfaceBright),
+            .padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 8.dp)
+            .then(
+                if (cardConfig.flashCardBackgroundEnabled) {
+                    Modifier.renderBackgroundBlur(MaterialTheme.colorScheme.surfaceBright)
+                } else {
+                    Modifier
+                },
+            ),
         colors = CardDefaults.cardColors(
-            containerColor = if (themeConfig.isEnableBlurExp) Color.Transparent else MaterialTheme.colorScheme.surfaceBright.copy(
+            containerColor = if (themeConfig.isEnableBlurExp || !cardConfig.flashCardBackgroundEnabled) Color.Transparent else MaterialTheme.colorScheme.surfaceBright.copy(
                 alpha = cardConfig.cardAlpha
             )
         )
@@ -767,7 +802,7 @@ fun ModuleInstallProgressBar(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp)
+                .padding(horizontal = 16.dp, vertical = 12.dp),
         ) {
             // 模块名称和进度
             Row(
@@ -974,9 +1009,17 @@ private fun FlashCompletionCard(
     Card(
         modifier = modifier
             .fillMaxWidth()
-            .renderBackgroundBlur(MaterialTheme.colorScheme.surfaceBright),
+            .then(
+                if (cardConfig.flashCardBackgroundEnabled) {
+                    Modifier.renderBackgroundBlur(MaterialTheme.colorScheme.surfaceBright)
+                } else {
+                    Modifier
+                },
+            ),
         colors = CardDefaults.cardColors(
-            containerColor = if (themeConfig.isEnableBlurExp) {
+            containerColor = if (
+                themeConfig.isEnableBlurExp || !cardConfig.flashCardBackgroundEnabled
+            ) {
                 Color.Transparent
             } else {
                 MaterialTheme.colorScheme.surfaceBright.copy(alpha = cardConfig.cardAlpha)

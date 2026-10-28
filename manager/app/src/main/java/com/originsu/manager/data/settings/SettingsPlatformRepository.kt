@@ -73,6 +73,7 @@ class SettingsPlatformRepository(
             cardAlpha = cardConfig.cardAlpha,
             backgroundDim = themeConfig.backgroundDim,
             customBackgroundEnabled = customBackground,
+            flashCardBackgroundEnabled = cardConfig.flashCardBackgroundEnabled,
             systemDpi = systemDpi,
             currentDpi = currentDpi,
             checkManagerUpdate = settings.getBoolean("check_update", true),
@@ -141,6 +142,13 @@ class SettingsPlatformRepository(
 
             is AppearanceSetting.BackgroundDim ->
                 backgroundManager.saveBackgroundDim(setting.value)
+
+            is AppearanceSetting.FlashCardBackground -> {
+                cardConfig.isFlashCardBackgroundEnabled = setting.enabled
+                // Persist only this flag: CardConfig.save() rewrites cardAlpha with the resolved
+                // value and would clobber a stored custom alpha.
+                settings.putBoolean("flash_card_background_enabled", setting.enabled)
+            }
 
             AppearanceSetting.SaveCardConfig -> cardConfig.save()
         }
