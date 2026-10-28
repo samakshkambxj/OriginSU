@@ -446,14 +446,14 @@ jobs:
         run: |
           if [ "${{ matrix.manager_type }}" == "spoofed" ]; then
             echo "title=Spoofed-Manager" >> $GITHUB_OUTPUT
-            echo "topicid=${{ vars.MESSAGE_SPOOFED_THREAD_ID }}" >> $GITHUB_OUTPUT
+            echo "topicid=${{ vars.MANAGER_TOPIC_SPOOFED || '3' }}" >> $GITHUB_OUTPUT
           else
             echo "title=Manager" >> $GITHUB_OUTPUT
-            echo "topicid=${{ vars.MESSAGE_THREAD_ID }}" >> $GITHUB_OUTPUT
+            echo "topicid=${{ vars.MANAGER_TOPIC_NORMAL || '2' }}" >> $GITHUB_OUTPUT
           fi
 
           if [[ "${{ github.ref }}" != "refs/heads/main" && "${{ github.ref_type }}" != "tag" ]]; then
-            echo "topicid=${{ vars.MESSAGE_DEVELOPING_MANAGER_THREAD_ID }}" >> $GITHUB_OUTPUT
+            echo "topicid=${{ vars.MANAGER_TOPIC_DEV || '4' }}" >> $GITHUB_OUTPUT
           fi
 
       - name: Download Release artifact
@@ -471,10 +471,10 @@ jobs:
       - name: Upload to Telegram
         if: steps.need_upload.outputs.UPLOAD == 'true'
         env:
-          CHAT_ID: ${{ vars.CHAT_ID }}
+          CHAT_ID: ${{ vars.MANAGER_CHAT_ID || '@OriginKSU' }}
           BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
           MESSAGE_THREAD_ID: ${{ steps.determine.outputs.topicid }}
-          DEVELOPING_THREAD_ID: ${{ vars.MESSAGE_DEVELOPING_MANAGER_THREAD_ID }}
+          DEVELOPING_THREAD_ID: ${{ vars.MANAGER_TOPIC_DEV || '4' }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           TITLE: ${{ steps.determine.outputs.title }}
           BRANCH: ${{ github.ref_name }}

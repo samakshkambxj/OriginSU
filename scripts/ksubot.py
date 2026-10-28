@@ -78,21 +78,21 @@ elif 'head_commit' in GITHUB_EVENT:
 else:
     commit_line = ''
 
-MSG_TEMPLATE = """
-<b>{title}</b>
-Branch: {branch}
-#ci_{version}
-<pre>
-{commit_message}
-</pre>
-{commit_line}
-<a href="{run_url}">Workflow run</a>
-<a href="https://nightly.link/samakshkambxj/OriginSU/workflows/build-manager/main/Manager-debug.zip">Get latest main Debug build</a>
-""".strip()
+DEBUG_LINK = "https://nightly.link/samakshkambxj/OriginSU/workflows/build-manager/main/Manager-debug.zip"
 
-MAIN_UPDATED_MSG ="""
-main branch updated, manager in there may outdated 
-main 分支已更新，此 topic 的管理器可能已过时
+DISPLAY_TITLES = {
+    "manager": "OriginSU Manager",
+    "spoofed-manager": "OriginSU Manager · Spoofed",
+}
+
+DEV_WARNING = (
+    "⚠️ <b>Development build</b>\n"
+    "Back up before installing. This is not a stable main or tag build."
+)
+
+MAIN_UPDATED_MSG = """
+<b>OriginSU Manager · main updated</b>
+Builds in this development topic may be out of date now. The latest main build is in the normal manager topic.
 """.strip()
 
 def escape_telegram_html(text: str) -> str:
@@ -128,33 +128,39 @@ async def wait_for_bot_api():
         return 
         
 
+def is_development_build() -> bool:
+    return BRANCH != "main" and GITHUB_REF_TYPE != "tag"
+
+
+def display_title(debug: bool = False) -> str:
+    base = DISPLAY_TITLES.get((TITLE or "").lower(), TITLE or "OriginSU Manager")
+    return f"{base} · Debug" if debug else base
+
+
+def build_caption(debug: bool = False) -> str:
+    lines = [
+        f"<b>{display_title(debug)}</b>",
+        f'Branch: <code>{escape_telegram_html(BRANCH or "")}</code> · '
+        f'Build <code>#ci_{VERSION}</code>',
+    ]
+    if is_development_build():
+        lines.append("")
+        lines.append(DEV_WARNING)
+    lines.append("")
+    lines.append(f"<pre>{escape_telegram_html(commit_message)}</pre>")
+    lines.append("")
+    links = [part for part in (commit_line, f'<a href="{RUN_URL}">Workflow run</a>') if part]
+    lines.append(" · ".join(links))
+    lines.append(f'<a href="{DEBUG_LINK}">Latest main debug build</a>')
+    return "\n".join(lines)
+
+
 def get_caption():
-    msg = MSG_TEMPLATE.format(
-        title=TITLE,
-        branch=BRANCH,
-        version=VERSION,
-        commit_message=escape_telegram_html(commit_message),
-        commit_line=commit_line,
-        run_url=RUN_URL,
-    )
-    if BRANCH != "main" and GITHUB_REF_TYPE != "tag":
-        msg += "\n⚠️⚠️<b>DEV VERSION, PLEASE BACKUP BEFORE INSTALLATION</b>⚠️⚠️"
-        msg += "\n⚠️⚠️<b>测试版，安装前请备份</b>⚠️⚠️"
-    return msg
+    return build_caption()
+
 
 def get_caption_for_debug():
-    msg = MSG_TEMPLATE.format(
-        title=f"{TITLE}-Debug",
-        branch=BRANCH,
-        version=VERSION,
-        commit_message=escape_telegram_html(commit_message),
-        commit_line=commit_line,
-        run_url=RUN_URL,
-    )
-    if BRANCH != "main" and GITHUB_REF_TYPE != "tag":
-        msg += "\n⚠️⚠️<b>DEV VERSION, PLEASE BACKUP BEFORE INSTALLATION</b>⚠️⚠️"
-        msg += "\n⚠️⚠️<b>测试版，安装前请备份</b>⚠️⚠️"
-    return msg
+    return build_caption(debug=True)
 
 def check_environ():
     global CHAT_ID, MESSAGE_THREAD_ID, DEVELOPING_THREAD_ID
