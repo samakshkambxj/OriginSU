@@ -563,6 +563,9 @@
     <string name="flashing">Flashing</string>
     <string name="flash_success">Flash success</string>
     <string name="flash_failed">Flash failed</string>
+    <string name="module_flash_complete">Module flashed</string>
+    <string name="kernel_flash_complete">Kernel flashed</string>
+    <string name="patch_complete">Patch completed</string>
     <string name="selected_lkm">Selected LKM: %s</string>
     <string name="save_log">Save logs</string>
     <string name="log_saved">Logs saved</string>

@@ -6,11 +6,16 @@ import android.os.Parcelable
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -28,6 +33,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.twotone.CheckCircle
 import androidx.compose.material.icons.twotone.Error
 import androidx.compose.material.icons.twotone.Info
 import androidx.compose.material.icons.twotone.Refresh
@@ -63,6 +69,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -544,12 +551,31 @@ fun FlashScreen(flashIt: FlashIt) {
         onBack()
     }
 
+    // The terminal title depends on which flow produced this screen.
+    val successTitleRes: Int? = when (flashIt) {
+        is FlashIt.FlashModule,
+        is FlashIt.FlashModules,
+        is FlashIt.FlashModuleUpdate,
+        -> R.string.module_flash_complete
+
+        is FlashIt.FlashBoot,
+        is FlashIt.FlashAnyKernelZip,
+        -> R.string.kernel_flash_complete
+
+        is FlashIt.FlashPatchBootImage -> R.string.patch_complete
+
+        is FlashIt.FlashRestore,
+        is FlashIt.FlashUninstall,
+        -> null
+    }
+
     Scaffold(
         contentWindowInsets = adaptiveScaffoldWindowInsets(),
         topBar = {
             TopBar(
                 flashUiState.flashingStatus,
                 currentStatus,
+                successTitleRes = successTitleRes,
                 onBack = onBack,
                 onSave = {
                     scope.launch {
@@ -625,16 +651,33 @@ fun FlashScreen(flashIt: FlashIt) {
                     .weight(1f)
                     .verticalScroll(scrollState)
             ) {
-                LaunchedEffect(text) {
+                LaunchedEffect(text, flashUiState.flashingStatus) {
                     scrollState.animateScrollTo(scrollState.maxValue)
                 }
-                Text(
-                    modifier = Modifier.padding(16.dp),
-                    text = text,
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontFamily = MonospaceFontFamily(),
-                    color = MaterialTheme.colorScheme.onSurface
-                )
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Text(
+                        modifier = Modifier.padding(16.dp),
+                        text = text,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontFamily = MonospaceFontFamily(),
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    AnimatedVisibility(
+                        visible = flashUiState.flashingStatus != FlashingStatus.FLASHING,
+                        enter = fadeIn() + expandVertically() + slideInVertically { it / 3 },
+                        exit = fadeOut() + shrinkVertically(),
+                    ) {
+                        FlashCompletionCard(
+                            status = flashUiState.flashingStatus,
+                            successTitleRes = successTitleRes,
+                            modifier = Modifier.padding(
+                                start = 16.dp,
+                                end = 16.dp,
+                                bottom = 16.dp,
+                            )
+                        )
+                    }
+                }
             }
             Spacer(modifier = Modifier.height(innerPadding.calculateBottomPadding()))
         }
@@ -815,16 +858,29 @@ fun ModuleInstallProgressBar(
 private fun TopBar(
     status: FlashingStatus,
     moduleStatus: ModuleInstallStatus = ModuleInstallStatus(),
+    successTitleRes: Int? = null,
     onBack: () -> Unit,
     onSave: () -> Unit = {},
     scrollBehavior: TopAppBarScrollBehavior
 ) {
     val themeConfig: ThemeConfig = koinInject()
     val cardConfig: CardConfig = koinInject()
-    val statusColor = when(status) {
-        FlashingStatus.FLASHING -> MaterialTheme.colorScheme.primary
-        FlashingStatus.SUCCESS -> MaterialTheme.colorScheme.tertiary
-        FlashingStatus.FAILED -> MaterialTheme.colorScheme.error
+    val statusColor by animateColorAsState(
+        targetValue = when (status) {
+            FlashingStatus.FLASHING -> MaterialTheme.colorScheme.primary
+            FlashingStatus.SUCCESS -> MaterialTheme.colorScheme.tertiary
+            FlashingStatus.FAILED -> MaterialTheme.colorScheme.error
+        },
+        label = "FlashTopBarStatusColor"
+    )
+    val titleRes = if (status == FlashingStatus.SUCCESS) {
+        successTitleRes ?: R.string.flash_success
+    } else {
+        when (status) {
+            FlashingStatus.FLASHING -> R.string.flashing
+            FlashingStatus.FAILED -> R.string.flash_failed
+            FlashingStatus.SUCCESS -> R.string.flash_success
+        }
     }
 
     LargeFlexibleTopAppBar(
@@ -832,13 +888,7 @@ private fun TopBar(
         ),
         title = {
             Text(
-                text = stringResource(
-                    when (status) {
-                        FlashingStatus.FLASHING -> R.string.flashing
-                        FlashingStatus.SUCCESS -> R.string.flash_success
-                        FlashingStatus.FAILED -> R.string.flash_failed
-                    }
-                ),
+                text = stringResource(titleRes),
                 color = statusColor
             )
         },
@@ -881,6 +931,85 @@ private fun TopBar(
         windowInsets = TopAppBarDefaults.windowInsets.add(WindowInsets(left = 12.dp)),
         scrollBehavior = scrollBehavior
     )
+}
+
+/**
+ * Result card shown under the log once flashing reached a terminal state.
+ * A short bounce on the icon and a colour transition on the accent make the
+ * success/failure state read without having to parse the log.
+ */
+@Composable
+private fun FlashCompletionCard(
+    status: FlashingStatus,
+    successTitleRes: Int?,
+    modifier: Modifier = Modifier,
+) {
+    val themeConfig: ThemeConfig = koinInject()
+    val cardConfig: CardConfig = koinInject()
+    val succeeded = status == FlashingStatus.SUCCESS
+    val titleRes = when (status) {
+        FlashingStatus.SUCCESS -> successTitleRes ?: R.string.flash_success
+        FlashingStatus.FAILED -> R.string.flash_failed
+        FlashingStatus.FLASHING -> return
+    }
+    val accent by animateColorAsState(
+        targetValue = if (succeeded) {
+            MaterialTheme.colorScheme.tertiary
+        } else {
+            MaterialTheme.colorScheme.error
+        },
+        label = "FlashCompletionAccent"
+    )
+    val iconScale = remember { Animatable(0.4f) }
+    LaunchedEffect(titleRes) {
+        iconScale.animateTo(
+            targetValue = 1f,
+            animationSpec = spring(
+                dampingRatio = Spring.DampingRatioMediumBouncy,
+                stiffness = Spring.StiffnessMediumLow,
+            ),
+        )
+    }
+
+    Card(
+        modifier = modifier
+            .fillMaxWidth()
+            .renderBackgroundBlur(MaterialTheme.colorScheme.surfaceBright),
+        colors = CardDefaults.cardColors(
+            containerColor = if (themeConfig.isEnableBlurExp) {
+                Color.Transparent
+            } else {
+                MaterialTheme.colorScheme.surfaceBright.copy(alpha = cardConfig.cardAlpha)
+            }
+        )
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 14.dp, horizontal = 16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center,
+        ) {
+            Icon(
+                imageVector = if (succeeded) Icons.TwoTone.CheckCircle else Icons.TwoTone.Error,
+                contentDescription = null,
+                tint = accent,
+                modifier = Modifier
+                    .size(22.dp)
+                    .graphicsLayer {
+                        scaleX = iconScale.value
+                        scaleY = iconScale.value
+                    },
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = stringResource(titleRes),
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.SemiBold,
+                color = accent,
+            )
+        }
+    }
 }
 
 suspend fun getModuleNameFromUri(
