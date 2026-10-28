@@ -185,12 +185,26 @@ def _git(*args):
 
 
 def changelog_since_tag():
-    """Return (base_tag, [(group, scope, text), ...]) for commits since the last tag."""
+    """Return (base_tag, [(group, scope, text), ...]) for commits in the pushed tag.
+
+    The changelog is only posted for a release tag push, where HEAD *is* the
+    new tag, so the base must be the previous tag rather than the one being
+    released (otherwise the range is empty).
+    """
     try:
-        base = _git("describe", "--tags", "--abbrev=0").strip()
+        base = _git("describe", "--tags", "--abbrev=0", "HEAD~1").strip()
     except Exception as e:
-        print(f"[!] Could not resolve the last tag: {e}")
+        print(f"[!] Could not resolve the previous tag: {e}")
         base = ""
+    if not base:
+        # Older tag whose commit is not HEAD~1 (e.g. release from a merge
+        # commit): take the newest tag that is not the one being pushed.
+        try:
+            tags = _git("tag", "--list", "v*", "--sort=-v:refname").splitlines()
+            base = next((tag for tag in tags if tag and tag != BRANCH), "")
+        except Exception as e:
+            print(f"[!] Could not list tags for the changelog: {e}")
+            base = ""
     revision_range = f"{base}..HEAD" if base else "HEAD"
     try:
         raw = _git(
@@ -411,6 +425,10 @@ async def main():
         if TITLE.lower() == "manager" and (BRANCH == "main" or GITHUB_REF_TYPE == "tag"):
             print("[+] Sending main branch updated message")
             await send_message(bot=bot,chat_id=CHAT_ID, text=MAIN_UPDATED_MSG, message_thread_id=DEVELOPING_THREAD_ID)
+        # Announce the changelog only for a pushed release tag. Branch builds
+        # (main or otherwise) update the APK topic but stay out of the
+        # changelog topic.
+        if TITLE.lower() == "manager" and GITHUB_REF_TYPE == "tag":
             try:
                 await send_changelog(bot)
             except Exception as e:
