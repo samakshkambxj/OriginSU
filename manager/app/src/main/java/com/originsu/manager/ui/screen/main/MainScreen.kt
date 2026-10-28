@@ -37,6 +37,7 @@ import com.originsu.manager.ui.activity.component.NavigationBar
 import com.originsu.manager.ui.component.springAnimateToPage
 import com.originsu.manager.ui.rememberMaterial3BlurBackdrop
 import com.originsu.manager.ui.screen.BottomBarDestination
+import com.originsu.manager.ui.theme.LocalBackgroundRenderState
 import com.originsu.manager.ui.theme.ThemeConfig
 import com.originsu.manager.ui.theme.blurSource
 import com.originsu.manager.ui.util.LocalBlurState
@@ -80,6 +81,12 @@ fun MainScreen() {
         initialPage = uiSelectedPage,
         pageCount = { pages.size }
     )
+    val backgroundRenderState = LocalBackgroundRenderState.current
+    LaunchedEffect(pagerState) {
+        snapshotFlow { pagerState.isScrollInProgress }.collect {
+            backgroundRenderState.pagerScrollActive = it
+        }
+    }
     var userScrollEnabled by remember { mutableStateOf(true) }
     var animating by remember { mutableStateOf(false) }
     var animateJob by remember { mutableStateOf<Job?>(null) }
