@@ -475,7 +475,7 @@ jobs:
           BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
           MESSAGE_THREAD_ID: ${{ steps.determine.outputs.topicid }}
           DEVELOPING_THREAD_ID: ${{ vars.MANAGER_TOPIC_DEV || '4' }}
-          CHANGELOG_THREAD_ID: ${{ vars.MANAGER_TOPIC_CHANGELOG }}
+          CHANGELOG_THREAD_ID: ${{ vars.MANAGER_TOPIC_CHANGELOG || '112' }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           TITLE: ${{ steps.determine.outputs.title }}
           BRANCH: ${{ github.ref_name }}
