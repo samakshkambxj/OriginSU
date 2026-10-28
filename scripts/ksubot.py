@@ -1,6 +1,7 @@
 import asyncio
 import os,re
 import random
+import subprocess
 import sys,json
 from telegram import Bot
 from telegram.error import RetryAfter
@@ -10,6 +11,7 @@ BOT_TOKEN = os.environ.get("BOT_TOKEN")
 CHAT_ID = os.environ.get("CHAT_ID")
 MESSAGE_THREAD_ID = os.environ.get("MESSAGE_THREAD_ID")
 DEVELOPING_THREAD_ID = os.environ.get("DEVELOPING_THREAD_ID")
+CHANGELOG_THREAD_ID = os.environ.get("CHANGELOG_THREAD_ID")
 RUN_URL = os.environ.get("RUN_URL")
 TITLE = os.environ.get("TITLE")
 VERSION = os.environ.get("VERSION")
@@ -162,8 +164,122 @@ def get_caption():
 def get_caption_for_debug():
     return build_caption(debug=True)
 
+
+COMMIT_RE = re.compile(r"^(?P<type>[a-zA-Z]+)(?:\((?P<scope>[^)]*)\))?!?:\s*(?P<text>.+)$")
+CHANGELOG_GROUPS = (
+    ("feat", "New"),
+    ("fix", "Fixes"),
+)
+CHANGELOG_MAX_ENTRIES = 120
+CHANGELOG_CHUNK_LIMIT = 3800
+CHANGELOG_CONTINUED = "<b>OriginSU Manager · changelog · continued</b>"
+
+
+def _git(*args):
+    return subprocess.run(
+        ["git", *args],
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout
+
+
+def changelog_since_tag():
+    """Return (base_tag, [(group, scope, text), ...]) for commits since the last tag."""
+    try:
+        base = _git("describe", "--tags", "--abbrev=0").strip()
+    except Exception as e:
+        print(f"[!] Could not resolve the last tag: {e}")
+        base = ""
+    revision_range = f"{base}..HEAD" if base else "HEAD"
+    try:
+        raw = _git(
+            "log", revision_range, "--no-merges", "--reverse",
+            "--pretty=format:%s",
+        )
+    except Exception as e:
+        print(f"[-] Could not read git history for the changelog: {e}")
+        return base, []
+
+    groups = {prefix: name for prefix, name in CHANGELOG_GROUPS}
+    entries = []
+    for subject in raw.splitlines():
+        subject = subject.strip()
+        if not subject:
+            continue
+        match = COMMIT_RE.match(subject)
+        if match:
+            group = groups.get(match.group("type").lower(), "Other")
+            entries.append((group, match.group("scope") or "", match.group("text").strip()))
+        else:
+            entries.append(("Other", "", subject))
+    return base, entries
+
+
+def build_changelog_messages():
+    base, entries = changelog_since_tag()
+    if not entries:
+        print("[!] No commits to announce in the changelog")
+        return []
+
+    total = len(entries)
+    entries = entries[:CHANGELOG_MAX_ENTRIES]
+
+    header = [
+        "<b>OriginSU Manager · changelog</b>",
+        (f"Since <code>{escape_telegram_html(base)}</code>" if base else "Full history")
+        + f" · <a href=\"{RUN_URL}\">Workflow run</a>",
+    ]
+
+    body = []
+    group_order = [name for _, name in CHANGELOG_GROUPS] + ["Other"]
+    grouped = {name: [] for name in group_order}
+    for group, scope, text in entries:
+        grouped.setdefault(group, []).append((scope, text))
+
+    for group in group_order:
+        items = grouped.get(group) or []
+        if not items:
+            continue
+        if body:
+            body.append("")
+        body.append(f"<b>{group}</b>")
+        for scope, text in items:
+            prefix = f"<b>{escape_telegram_html(scope)}</b> — " if scope else ""
+            body.append(f"• {prefix}{escape_telegram_html(text)}")
+
+    if total > len(entries):
+        body.append("")
+        body.append(f"…and {total - len(entries)} more commits")
+
+    messages = []
+    header_lines = header + [""]
+    chunk = list(header_lines)
+    keep = len(header_lines)
+    for line in body:
+        candidate = "\n".join(chunk + [line])
+        if len(candidate) > CHANGELOG_CHUNK_LIMIT and len(chunk) > keep:
+            messages.append("\n".join(chunk))
+            chunk = [CHANGELOG_CONTINUED, ""]
+            keep = len(chunk)
+        chunk.append(line)
+    if chunk:
+        messages.append("\n".join(chunk))
+    return [message.strip() for message in messages if message.strip()]
+
+
+async def send_changelog(bot: Bot):
+    if not CHANGELOG_THREAD_ID:
+        print("[!] CHANGELOG_THREAD_ID is not set, skipping the changelog post")
+        return
+    messages = build_changelog_messages()
+    for index, message in enumerate(messages):
+        print(f"[+] Sending changelog part {index + 1}/{len(messages)}")
+        await send_message(bot, CHAT_ID, message, CHANGELOG_THREAD_ID)
+
+
 def check_environ():
-    global CHAT_ID, MESSAGE_THREAD_ID, DEVELOPING_THREAD_ID
+    global CHAT_ID, MESSAGE_THREAD_ID, DEVELOPING_THREAD_ID, CHANGELOG_THREAD_ID
     if BOT_TOKEN is None:
         print("[-] Invalid BOT_TOKEN")
         exit(1)
@@ -203,7 +319,16 @@ def check_environ():
             exit(1)
     else:
         DEVELOPING_THREAD_ID = None
-        
+
+    if CHANGELOG_THREAD_ID and CHANGELOG_THREAD_ID != "":
+        try:
+            CHANGELOG_THREAD_ID = int(CHANGELOG_THREAD_ID)
+        except:
+            print("[-] Invalid CHANGELOG_THREAD_ID")
+            exit(1)
+    else:
+        CHANGELOG_THREAD_ID = None
+
 async def send_message(bot: Bot, chat_id: int, text: str, message_thread_id=None):
     try:
         await asyncio.sleep(random.uniform(0.2, 0.8))
@@ -286,6 +411,12 @@ async def main():
         if TITLE.lower() == "manager" and (BRANCH == "main" or GITHUB_REF_TYPE == "tag"):
             print("[+] Sending main branch updated message")
             await send_message(bot=bot,chat_id=CHAT_ID, text=MAIN_UPDATED_MSG, message_thread_id=DEVELOPING_THREAD_ID)
+            try:
+                await send_changelog(bot)
+            except Exception as e:
+                # The APKs are already delivered; a changelog failure should not
+                # fail the whole upload job.
+                print(f"[-] Failed to post the changelog: {e}")
     print("[+] Done!")
     process.kill()
 
