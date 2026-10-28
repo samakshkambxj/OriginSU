@@ -235,6 +235,7 @@ fun HomePage(
                                     )
                                 },
                                 onClick = {
+                                    if (uiState.systemStatus.isLateLoadMode) return@WarningCard
                                     navigator.push(Route.Install(preselectedKernelUri = null))
                                 }
                             )
@@ -253,6 +254,7 @@ fun HomePage(
                                     )
                                 },
                                 onClick = {
+                                    if (uiState.systemStatus.isLateLoadMode) return@WarningCard
                                     navigator.push(Route.Install(preselectedKernelUri = null))
                                 }
                             )
@@ -352,6 +354,7 @@ fun HomePage(
                     StatusCard(
                         uiState = uiState,
                         onClickInstall = {
+                            if (uiState.systemStatus.isLateLoadMode) return@StatusCard
                             navigator.push(Route.Install(preselectedKernelUri = null))
                         },                        onClickJailbreak = {
                             loadingDialog.showLoading()
