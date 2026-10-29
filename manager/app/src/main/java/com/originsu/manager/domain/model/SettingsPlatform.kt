@@ -16,6 +16,7 @@ data class SettingsPlatformSnapshot(
     val backgroundDim: Float = 0f,
     val customBackgroundEnabled: Boolean = false,
     val flashCardBackgroundEnabled: Boolean = true,
+    val originTuneEnabled: Boolean = true,
     val systemDpi: Int = 0,
     val currentDpi: Int = 0,
     val checkManagerUpdate: Boolean = true,
@@ -52,6 +53,7 @@ sealed interface AppearanceSetting {
     data class CardAlpha(val value: Float) : AppearanceSetting
     data class BackgroundDim(val value: Float) : AppearanceSetting
     data class FlashCardBackground(val enabled: Boolean) : AppearanceSetting
+    data class OriginTune(val enabled: Boolean) : AppearanceSetting
     data object SaveCardConfig : AppearanceSetting
 }
 

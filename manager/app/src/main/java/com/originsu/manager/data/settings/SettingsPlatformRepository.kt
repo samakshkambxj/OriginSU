@@ -74,6 +74,7 @@ class SettingsPlatformRepository(
             backgroundDim = themeConfig.backgroundDim,
             customBackgroundEnabled = customBackground,
             flashCardBackgroundEnabled = cardConfig.flashCardBackgroundEnabled,
+            originTuneEnabled = settings.getBoolean("origin_tune_enabled", true),
             systemDpi = systemDpi,
             currentDpi = currentDpi,
             checkManagerUpdate = settings.getBoolean("check_update", true),
@@ -148,6 +149,10 @@ class SettingsPlatformRepository(
                 // Persist only this flag: CardConfig.save() rewrites cardAlpha with the resolved
                 // value and would clobber a stored custom alpha.
                 settings.putBoolean("flash_card_background_enabled", setting.enabled)
+            }
+
+            is AppearanceSetting.OriginTune -> {
+                settings.putBoolean("origin_tune_enabled", setting.enabled)
             }
 
             AppearanceSetting.SaveCardConfig -> cardConfig.save()

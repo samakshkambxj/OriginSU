@@ -333,6 +333,7 @@ class HomeViewModel(
                     PREF_SHOW_UPDATE_MANAGER_CARD,
                     true,
                 ),
+                showOriginTuneCard = getBooleanPreference(PREF_SHOW_ORIGINTUNE_CARD, true),
             )
         }
     }
@@ -365,5 +366,6 @@ class HomeViewModel(
         const val PREF_HIDDEN_NAVIGATION_BAR_TABS = "hidden_navigation_bar_tabs"
         const val PREF_SHOW_HOME_CARD_ICONS = "show_home_card_icons"
         const val PREF_SHOW_UPDATE_MANAGER_CARD = "show_update_manager_card"
+        const val PREF_SHOW_ORIGINTUNE_CARD = "show_origintune_card"
     }
 }

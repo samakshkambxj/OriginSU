@@ -377,19 +377,21 @@ fun HomePage(
                     TimelineRow(
                         lastFlashTime = uiState.systemInfo.lastFlashTime,
                     )
-                    if (uiState.systemStatus.isRootAvailable) {
-                        Spacer(modifier = Modifier.height(10.dp))
-                        OriginTuneCard(
-                            onClick = { navigator.push(Route.KernelTuning) },
-                        )
-                    } else {
-                        Spacer(modifier = Modifier.height(10.dp))
-                        OriginTuneCard(
-                            locked = true,
-                            onClick = {
-                                navigator.push(Route.Install(preselectedKernelUri = null))
-                            },
-                        )
+                    if (uiState.showOriginTuneCard) {
+                        if (uiState.systemStatus.isRootAvailable) {
+                            Spacer(modifier = Modifier.height(10.dp))
+                            OriginTuneCard(
+                                onClick = { navigator.push(Route.KernelTuning) },
+                            )
+                        } else {
+                            Spacer(modifier = Modifier.height(10.dp))
+                            OriginTuneCard(
+                                locked = true,
+                                onClick = {
+                                    navigator.push(Route.Install(preselectedKernelUri = null))
+                                },
+                            )
+                        }
                     }
                 }
                 Spacer(modifier = Modifier.height(10.dp))

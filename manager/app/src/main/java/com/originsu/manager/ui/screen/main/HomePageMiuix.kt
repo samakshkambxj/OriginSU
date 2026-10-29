@@ -264,6 +264,7 @@ private fun HomePagerMiuix(
                             state = state,
                             actions = actions,
                         )
+                        if (state.showOriginTuneCard) {
                         if (status.isRootAvailable) {
                             OriginTuneCard(onClick = actions.onOriginTuneClick)
                         } else {
@@ -272,7 +273,8 @@ private fun HomePagerMiuix(
                                 onClick = actions.onInstallClick,
                             )
                         }
-                        if (state.showUpdateManagerCard) {
+                    }
+                    if (state.showUpdateManagerCard) {
                             ManagerUpdateCardMiuix(
                                 stableUpdate = state.stableManagerUpdate,
                                 betaUpdate = state.betaManagerUpdate,

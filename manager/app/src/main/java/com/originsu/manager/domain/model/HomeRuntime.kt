@@ -57,6 +57,7 @@ data class HomeDashboardState(
     val hiddenNavigationBarTabs: Set<String> = emptySet(),
     val showHomeCardIcons: Boolean = false,
     val showUpdateManagerCard: Boolean = true,
+    val showOriginTuneCard: Boolean = true,
     val isInitialDataLoaded: Boolean = false,
     val isCoreDataLoaded: Boolean = false,
     val isExtendedDataLoaded: Boolean = false,

@@ -584,6 +584,8 @@
     <string name="settings_custom_background_summary">Select an image as background</string>
     <string name="settings_flash_card_background">Flash Card Background</string>
     <string name="settings_flash_card_background_summary">Draw a card behind the flash log and result</string>
+    <string name="settings_origintune_visibility">OriginTune</string>
+    <string name="settings_origintune_visibility_summary">Show OriginTune card on home screen</string>
     <string name="background_crop_method_title">Select crop method</string>
     <string name="background_crop_method_in_app">In-app crop</string>
     <string name="background_crop_method_external">External crop</string>

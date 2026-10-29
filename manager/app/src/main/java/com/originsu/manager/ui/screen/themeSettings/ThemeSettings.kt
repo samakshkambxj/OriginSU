@@ -1083,6 +1083,18 @@ private fun SegmentedColumnScope.backgroundAdjustmentControls(
         )
     }
 
+    item(topPadding = 1.dp) {
+        SettingsSwitchWidget(
+            icon = Icons.TwoTone.Tune,
+            title = stringResource(id = R.string.settings_origintune_visibility),
+            description = stringResource(id = R.string.settings_origintune_visibility_summary),
+            checked = state.isOriginTuneEnabled,
+            onCheckedChange = { isChecked ->
+                viewModel.dispatch(SettingsUiAction.SetOriginTuneEnabled(isChecked))
+            },
+        )
+    }
+
     item(visible = themeConfig.isEnableBlur, topPadding = 1.dp) {
         SettingsSwitchWidget(
             icon = Icons.TwoTone.Draw,

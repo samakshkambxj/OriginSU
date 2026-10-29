@@ -105,6 +105,7 @@ data class SettingsUiState(
     val backgroundDim: Float = 0f,
     val isCustomBackgroundEnabled: Boolean = false,
     val isFlashCardBackgroundEnabled: Boolean = true,
+    val isOriginTuneEnabled: Boolean = true,
     val systemDpi: Int = 0,
     val currentDpi: Int = 0,
     val tempDpi: Int = 0,
@@ -186,6 +187,7 @@ sealed interface SettingsUiAction {
     data class SetCardAlpha(val value: Float) : SettingsUiAction
     data class SetBackgroundDim(val value: Float) : SettingsUiAction
     data class SetFlashCardBackground(val enabled: Boolean) : SettingsUiAction
+    data class SetOriginTuneEnabled(val enabled: Boolean) : SettingsUiAction
     data object SaveCardConfig : SettingsUiAction
     data class SetLanguageDialogVisible(val visible: Boolean) : SettingsUiAction
     data class SetLanguage(val localeTag: String) : SettingsUiAction
@@ -466,6 +468,11 @@ class SettingsViewModel(
     fun handleFlashCardBackgroundChange(enabled: Boolean) {
         mutableState.update { it.copy(isFlashCardBackgroundEnabled = enabled) }
         updateAppearanceAsync(AppearanceSetting.FlashCardBackground(enabled))
+    }
+
+    fun handleOriginTuneChange(enabled: Boolean) {
+        mutableState.update { it.copy(isOriginTuneEnabled = enabled) }
+        updateAppearanceAsync(AppearanceSetting.OriginTune(enabled))
     }
 
     fun saveCardConfig() = updateAppearanceAsync(AppearanceSetting.SaveCardConfig)
@@ -957,6 +964,8 @@ fun dispatch(action: SettingsUiAction) {
             is SettingsUiAction.SetBackgroundDim -> handleBackgroundDimChange(action.value)
             is SettingsUiAction.SetFlashCardBackground ->
                 handleFlashCardBackgroundChange(action.enabled)
+            is SettingsUiAction.SetOriginTuneEnabled ->
+                handleOriginTuneChange(action.enabled)
             SettingsUiAction.SaveCardConfig -> saveCardConfig()
             is SettingsUiAction.SetLanguageDialogVisible -> setLanguageDialogVisible(action.visible)
             is SettingsUiAction.SetLanguage -> handleLanguageChange(action.localeTag)
@@ -1076,6 +1085,7 @@ fun dispatch(action: SettingsUiAction) {
                 backgroundDim = snapshot.backgroundDim,
                 isCustomBackgroundEnabled = snapshot.customBackgroundEnabled,
                 isFlashCardBackgroundEnabled = snapshot.flashCardBackgroundEnabled,
+                isOriginTuneEnabled = snapshot.originTuneEnabled,
                 systemDpi = snapshot.systemDpi,
                 currentDpi = snapshot.currentDpi,
                 tempDpi = if (resetTempDpi) snapshot.currentDpi else current.tempDpi,
