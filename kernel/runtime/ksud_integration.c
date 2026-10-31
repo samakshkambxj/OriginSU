@@ -95,8 +95,7 @@ static void stop_execve_hook(void);
 
     static inline void stop_input_hook(void)
     {
-        bool ret = schedule_work(&stop_input_hook_work);
-        pr_info("unregister input kprobe: %d!\n", ret);
+        schedule_work(&stop_input_hook_work);
     }
 #elif defined(CONFIG_KSU_SUSFS)
     DEFINE_STATIC_KEY_TRUE(ksu_is_init_rc_hook_enabled);
@@ -809,7 +808,6 @@ int ksu_handle_input_handle_event(unsigned int *type, unsigned int *code, int *v
 
     if (*type == EV_KEY && *code == KEY_VOLUMEDOWN) {
         int val = *value;
-        pr_info("KEY_VOLUMEDOWN val: %d\n", val);
         if (val) {
             // key pressed, count it
             volumedown_pressed_count += 1;

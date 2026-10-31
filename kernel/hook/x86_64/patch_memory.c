@@ -55,16 +55,13 @@ unsigned long phys_from_virt(unsigned long addr, int *err)
     pgd = pgd_offset(mm, addr);
     if (pgd_none(*pgd) || pgd_bad(*pgd))
         goto fail;
-    pr_info("pgd of 0x%lx p=0x%lx v=0x%lx", addr, (uintptr_t)pgd, (uintptr_t)pgd_val(*pgd));
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 11, 0)
     p4d = p4d_offset(pgd, addr);
     if (p4d_none(*p4d) || p4d_bad(*p4d))
         goto fail;
-    pr_info("p4d of 0x%lx p=0x%lx v=0x%lx", addr, (uintptr_t)p4d, (uintptr_t)p4d_val(*p4d));
 #if defined(p4d_leaf)
     if (p4d_leaf(*p4d)) {
-        pr_info("Address 0x%lx maps to a P4D-level huge page\n", addr);
         return KSU_P4D_TO_PHYS(*p4d) + ((addr & ~P4D_MASK));
     }
 #elif defined(p4d_large)
@@ -79,10 +76,8 @@ unsigned long phys_from_virt(unsigned long addr, int *err)
 #endif
     if (pud_none(*pud) || pud_bad(*pud))
         goto fail;
-    pr_info("pud of 0x%lx p=0x%lx v=0x%lx", addr, (uintptr_t)pud, (uintptr_t)pud_val(*pud));
 #if defined(pud_leaf)
     if (pud_leaf(*pud)) {
-        pr_info("Address 0x%lx maps to a PUD-level huge page\n", addr);
         return KSU_PUD_TO_PHYS(*pud) + ((addr & ~PUD_MASK));
     }
 #elif defined(pud_large)
@@ -92,10 +87,8 @@ unsigned long phys_from_virt(unsigned long addr, int *err)
 #endif
 
     pmd = pmd_offset(pud, addr);
-    pr_info("pmd of 0x%lx p=0x%lx v=0x%lx", addr, (uintptr_t)pmd, (uintptr_t)pmd_val(*pmd));
 #if defined(pmd_leaf)
     if (pmd_leaf(*pmd)) {
-        pr_info("Address 0x%lx maps to a PMD-level huge page\n", addr);
         return KSU_PMD_TO_PHYS(*pmd) + ((addr & ~PMD_MASK));
     }
 #elif defined(pmd_large)
@@ -139,8 +132,6 @@ struct patch_text_info {
 
 static int ksu_patch_text_nosync(void *dst, void *src, size_t len, int flags)
 {
-    pr_info("patch dst=0x%lx src=0x%lx len=%ld\n", (unsigned long)dst, (unsigned long)src, len);
-
     unsigned long p = (unsigned long)dst;
     int ret = 0;
 
@@ -151,13 +142,10 @@ static int ksu_patch_text_nosync(void *dst, void *src, size_t len, int flags)
         pr_err("failed to find phy addr for patch dst addr 0x%lx\n", p);
         goto err;
     }
-    pr_info("phy addr for patch 0x%lx: 0x%lx\n", p, phy);
 
     // Modern x86 removes FIX_TEXT_POKE0. FIX_BTMAP_BEGIN is universal and safe here.
     set_fixmap(FIX_BTMAP_BEGIN, phy & PAGE_MASK);
     void *map = (void *)(fix_to_virt(FIX_BTMAP_BEGIN) + (phy & ~PAGE_MASK));
-
-    pr_info("fixmap addr for patch 0x%lx: 0x%lx\n", p, (unsigned long)map);
 
     memcpy(map, src, len);
 
@@ -175,7 +163,6 @@ static int ksu_patch_text_nosync(void *dst, void *src, size_t len, int flags)
         ksu_flush_dcache(dst, len);
 
 err:
-    pr_info("patch result=%d\n", ret);
     return ret;
 }
 

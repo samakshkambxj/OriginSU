@@ -146,10 +146,6 @@ int ksu_handle_setuid(uid_t new_uid, uid_t old_uid)
         return 0;
     }
 
-    if (old_uid != new_uid) {
-        pr_info("handle_setresuid from %d to %d\n", old_uid, new_uid);
-    }
-
     if (ksu_is_allow_uid_for_current(new_uid)) {
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0)
         if (current->seccomp.mode == SECCOMP_MODE_FILTER && current->seccomp.filter) {

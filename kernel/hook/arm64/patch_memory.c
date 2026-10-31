@@ -75,16 +75,13 @@ unsigned long phys_from_virt(unsigned long addr, int *err)
     pgd = pgd_offset(mm, addr);
     if (pgd_none(*pgd) || pgd_bad(*pgd))
         goto fail;
-    pr_info("pgd of 0x%lx p=0x%lx v=0x%lx", addr, (uintptr_t)pgd, (uintptr_t)pgd_val(*pgd));
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 11, 0)
     p4d = p4d_offset(pgd, addr);
     if (p4d_none(*p4d) || p4d_bad(*p4d))
         goto fail;
-    pr_info("p4d of 0x%lx p=0x%lx v=0x%lx", addr, (uintptr_t)p4d, (uintptr_t)p4d_val(*p4d));
 #if defined(p4d_leaf)
     if (p4d_leaf(*p4d)) {
-        pr_info("Address 0x%lx maps to a P4D-level huge page\n", addr);
         return __p4d_to_phys(*p4d) + ((addr & ~P4D_MASK));
     }
 #endif
@@ -94,29 +91,23 @@ unsigned long phys_from_virt(unsigned long addr, int *err)
 #endif
     if (pud_none(*pud) || pud_bad(*pud))
         goto fail;
-    pr_info("pud of 0x%lx p=0x%lx v=0x%lx", addr, (uintptr_t)pud, (uintptr_t)pud_val(*pud));
 #if defined(pud_leaf)
     if (pud_leaf(*pud)) {
-        pr_info("Address 0x%lx maps to a PUD-level huge page\n", addr);
         return __pud_to_phys(*pud) + ((addr & ~PUD_MASK));
     }
 #elif defined(pud_sect)
     if (pud_sect(*pud)) {
-        pr_info("Address 0x%lx maps to a PUD-level huge page\n", addr);
         return __pud_to_phys(*pud) + ((addr & ~PUD_MASK));
     }
 #endif
 
     pmd = pmd_offset(pud, addr);
-    pr_info("pmd of 0x%lx p=0x%lx v=0x%lx", addr, (uintptr_t)pmd, (uintptr_t)pmd_val(*pmd));
 #if defined(pmd_leaf)
     if (pmd_leaf(*pmd)) {
-        pr_info("Address 0x%lx maps to a PMD-level huge page\n", addr);
         return __pmd_to_phys(*pmd) + ((addr & ~PMD_MASK));
     }
 #elif defined(pmd_sect)
     if (pmd_sect(*pmd)) {
-        pr_info("Address 0x%lx maps to a PMD-level huge page\n", addr);
         return __pmd_to_phys(*pmd) + ((addr & ~PMD_MASK));
     }
 #endif
@@ -188,8 +179,6 @@ static int ksu_prepare_patch_vmap(struct patch_text_info *info)
         return phy_err;
     }
 
-    pr_info("phy addr for patch 0x%lx: 0x%lx\n", addr, phy);
-
     offset = phy & ~PAGE_MASK;
 
     if (offset + info->len > PAGE_SIZE) {
@@ -213,9 +202,6 @@ static int ksu_prepare_patch_vmap(struct patch_text_info *info)
 
     info->writable_addr = (void *)((unsigned long)info->vmap_base + offset);
 
-    pr_info("vmap addr for patch 0x%lx: base=0x%lx writable=0x%lx\n", addr, (unsigned long)info->vmap_base,
-            (unsigned long)info->writable_addr);
-
     return 0;
 }
 #endif
@@ -229,8 +215,6 @@ static int ksu_patch_text_nosync_vmap(struct patch_text_info *info)
     int flags = info->flags;
     void *map = info->writable_addr;
     int ret;
-
-    pr_info("patch dst=0x%lx src=0x%lx len=%zd via vmap\n", (unsigned long)dst, (unsigned long)src, len);
 
     memcpy(map, src, len);
 
@@ -247,7 +231,6 @@ static int ksu_patch_text_nosync_vmap(struct patch_text_info *info)
     if (flags & KSU_PATCH_TEXT_FLUSH_DCACHE)
         ksu_flush_dcache(dst, len);
 
-    pr_info("patch result=%d\n", ret);
     return ret;
 }
 #else
@@ -272,8 +255,6 @@ static int ksu_patch_text_nosync_vmap(struct patch_text_info *info)
 // ^2: https://github.com/torvalds/linux/commit/c0eb315ad9719e41ce44708455cc69df7ac9f3f8
 static int ksu_patch_text_nosync(void *dst, void *src, size_t len, int flags)
 {
-    pr_info("patch dst=0x%lx src=0x%lx len=%ld\n", (unsigned long)dst, (unsigned long)src, len);
-
     unsigned long p = (unsigned long)dst;
     int ret = 0;
 
@@ -284,10 +265,8 @@ static int ksu_patch_text_nosync(void *dst, void *src, size_t len, int flags)
         pr_err("failed to find phy addr for patch dst addr 0x%lx\n", p);
         goto err;
     }
-    pr_info("phy addr for patch 0x%lx: 0x%lx\n", p, phy);
 
     void *map = set_fixmap_offset(FIX_TEXT_POKE0, phy);
-    pr_info("fixmap addr for patch 0x%lx: 0x%lx\n", p, (unsigned long)map);
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0)
     // bypass some stupid GKI kernel's self protection
@@ -310,7 +289,6 @@ static int ksu_patch_text_nosync(void *dst, void *src, size_t len, int flags)
         ksu_flush_dcache(dst, len);
 
 err:
-    pr_info("patch result=%d\n", ret);
     return ret;
 }
 
