@@ -103,10 +103,7 @@ class MainActivity : FragmentActivity() {
             }
 
             splashScreen.setKeepOnScreenCondition {
-                shouldKeepStartupSplash(
-                    startupState = startupState.value,
-                    homeInitialDataLoaded = homeViewModel.homeStateRepository.state.value.isInitialDataLoaded,
-                )
+                shouldKeepStartupSplash(startupState = startupState.value)
             }
 
             lifecycleScope.launch { ensureManagerInstalled() }

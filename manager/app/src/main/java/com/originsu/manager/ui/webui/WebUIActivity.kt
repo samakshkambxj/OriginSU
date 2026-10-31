@@ -31,7 +31,6 @@ import com.originsu.manager.domain.usecase.APP_LOCK_TIMEOUT_PREF_KEY
 import com.originsu.manager.ui.component.AppLockOverlay
 import com.originsu.manager.ui.theme.KernelSUTheme
 import com.originsu.manager.ui.util.AppLockManager
-import com.originsu.manager.ui.viewmodel.ModuleViewModel
 import com.originsu.manager.ui.viewmodel.SuperUserViewModel
 import org.koin.android.ext.android.inject
 import org.koin.compose.koinInject
@@ -105,7 +104,6 @@ class WebUIActivity : FragmentActivity() {
 private fun MainContent(activity: FragmentActivity, onFinish: () -> Unit) {
     val moduleId = remember { activity.intent.getStringExtra("id") }
     val webUIState = remember { WebUIState() }
-    val moduleViewModel = koinViewModel<ModuleViewModel>()
     val superUserViewModel = koinViewModel<SuperUserViewModel>()
     val settingsRepository = koinInject<AppSettingsRepository>()
     val packageRepository = koinInject<InstalledPackageRepository>()
@@ -124,7 +122,6 @@ private fun MainContent(activity: FragmentActivity, onFinish: () -> Unit) {
             activity,
             moduleId,
             webUIState,
-            moduleViewModel,
             superUserViewModel,
             settingsRepository,
             packageRepository,
