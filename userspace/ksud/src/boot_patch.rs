@@ -519,7 +519,7 @@ pub struct BootPatchArgs {
     #[arg(
         long,
         value_name = "NAMES",
-        default_value = "vr,vklp,oplus_secure_guard,oplus_secure_guard_new,mkp"
+        default_value = "vr,vklp,vklp_smaps_rollup,oplus_secure_guard,oplus_secure_guard_new,mkp"
     )]
     block_modules: Option<String>,
 
@@ -713,14 +713,11 @@ pub fn patch(args: BootPatchArgs) -> Result<()> {
 
         let kmi = kmi.map_or_else(
             || -> Result<_> {
-                if kmod.is_some() || (no_install && image.is_some()) {
-                    return Ok(String::new());
-                }
                 // The KMI only selects the built-in LKM and the automatic boot
                 // partition. With an explicit image and no install neither
                 // applies, so don't fail here (e.g. the KPM repack flow feeds
                 // its own kernel and never needs the KMI).
-                if no_install && image.is_some() {
+                if kmod.is_some() || (no_install && image.is_some()) {
                     return Ok(String::new());
                 }
                 #[cfg(target_os = "android")]
