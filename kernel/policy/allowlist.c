@@ -92,18 +92,6 @@ static u16 allow_list_count = 0;
 
 void ksu_persistent_allow_list(void);
 
-void ksu_show_allow_list(void)
-{
-    int i;
-    struct perm_data *p = NULL;
-    pr_info("ksu_show_allow_list\n");
-    rcu_read_lock();
-    hash_for_each_rcu (allow_list, i, p, list) {
-        pr_info("uid :%d, allow: %d\n", p->profile.curr_uid, p->profile.allow_su);
-    }
-    rcu_read_unlock();
-}
-
 struct app_profile *ksu_get_app_profile(uid_t uid)
 {
     struct perm_data *p = NULL;
@@ -504,9 +492,6 @@ void do_persistent_allow_list(void *unused)
 
     mutex_lock(&allowlist_mutex);
     hash_for_each (allow_list, i, p, list) {
-        pr_info("save allow list, name: %s uid :%d, allow: %d\n", p->profile.key, p->profile.curr_uid,
-                p->profile.allow_su);
-
         ksu_kernel_write_compat(fp, &p->profile, sizeof(p->profile), &off);
     }
     mutex_unlock(&allowlist_mutex);
@@ -571,7 +556,6 @@ void do_ksu_load_allow_list(void *unused)
         pr_info("load_allow_uid, name: %s, uid: %d, allow: %d\n", profile.key, profile.curr_uid, profile.allow_su);
         ksu_set_app_profile(&profile);
     }
-    ksu_show_allow_list();
     filp_close(fp, 0);
     revert_creds(saved);
     if (version < KSU_APP_PROFILE_VER)
@@ -579,7 +563,6 @@ void do_ksu_load_allow_list(void *unused)
     return;
 
 exit:
-    ksu_show_allow_list();
     filp_close(fp, 0);
 revert_creds:
     revert_creds(saved);
@@ -619,7 +602,6 @@ void ksu_prune_allowlist(bool (*is_uid_valid)(uid_t, char *, void *), void *data
         bool is_preserved_uid = uid == KSU_APP_PROFILE_PRESERVE_UID;
         if (!is_preserved_uid && !is_uid_valid(uid, package, data)) {
             modified = true;
-            pr_info("prune uid: %d, package: %s\n", uid, package);
             hlist_del_rcu(&np->list);
             put_perm_data(np);
             --allow_list_count;
