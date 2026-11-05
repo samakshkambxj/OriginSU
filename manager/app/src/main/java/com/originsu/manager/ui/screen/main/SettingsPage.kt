@@ -11,56 +11,50 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.twotone.Article
 import androidx.compose.material.icons.automirrored.twotone.Undo
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Vibration
 import androidx.compose.material.icons.twotone.Adb
 import androidx.compose.material.icons.twotone.BugReport
+import androidx.compose.material.icons.twotone.Close
 import androidx.compose.material.icons.twotone.Dashboard
 import androidx.compose.material.icons.twotone.Delete
 import androidx.compose.material.icons.twotone.DeleteForever
-import androidx.compose.material.icons.twotone.ElectricalServices
 import androidx.compose.material.icons.twotone.Extension
-import androidx.compose.material.icons.twotone.Fence
-import androidx.compose.material.icons.twotone.FolderDelete
 import androidx.compose.material.icons.twotone.FolderOff
-import androidx.compose.material.icons.twotone.Fingerprint
 import androidx.compose.material.icons.twotone.Info
 import androidx.compose.material.icons.twotone.Lock
-import androidx.compose.material.icons.twotone.Notifications
 import androidx.compose.material.icons.twotone.Policy
 import androidx.compose.material.icons.twotone.Psychology
-import androidx.compose.material.icons.twotone.RestartAlt
 import androidx.compose.material.icons.twotone.RemoveCircle
-import androidx.compose.material.icons.twotone.RemoveModerator
 import androidx.compose.material.icons.twotone.RestartAlt
 import androidx.compose.material.icons.twotone.Save
 import androidx.compose.material.icons.twotone.Science
-import androidx.compose.material.icons.twotone.SearchOff
-import androidx.compose.material.icons.twotone.Security
 import androidx.compose.material.icons.twotone.Settings
 import androidx.compose.material.icons.twotone.Share
-import androidx.compose.material.icons.twotone.Shield
-import androidx.compose.material.icons.twotone.Timer
 import androidx.compose.material.icons.twotone.Tune
 import androidx.compose.material.icons.twotone.Update
-import androidx.compose.material.icons.twotone.Visibility
+import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridItemSpan
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberTopAppBarState
@@ -82,7 +76,6 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -90,29 +83,30 @@ import androidx.core.content.FileProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.originsu.manager.BuildConfig
 import com.originsu.manager.R
-import com.originsu.manager.data.packageinfo.InstalledPackageRepository
 import com.originsu.manager.data.shell.KsuCliRepository
-import com.originsu.manager.data.shell.OriginZygiskAppInfo
 import com.originsu.manager.domain.usecase.GenerateBugreportUseCase
 import com.originsu.manager.ui.component.ConfirmResult
 import com.originsu.manager.ui.component.SearchAppBar
+import com.originsu.manager.ui.component.SearchNoMatch
 import com.originsu.manager.ui.component.SwipeableSnackbarHost
 import com.originsu.manager.ui.component.popupBlur
-import com.originsu.manager.ui.component.rememberSearchAppBarScrollBehavior
 import com.originsu.manager.ui.component.popupContainerColor
 import com.originsu.manager.ui.component.rememberConfirmDialog
 import com.originsu.manager.ui.component.rememberLoadingDialog
-import com.originsu.manager.ui.component.settings.SegmentedColumn
-import com.originsu.manager.ui.component.settings.SettingsBaseWidget
-import com.originsu.manager.ui.component.settings.SettingsChooseWidget
-import com.originsu.manager.ui.component.settings.SettingsJumpPageWidget
-import com.originsu.manager.ui.component.settings.SettingsSwitchWidget
+import com.originsu.manager.ui.component.rememberSearchAppBarScrollBehavior
+import com.originsu.manager.ui.component.settings.BentoCaption
+import com.originsu.manager.ui.component.settings.BentoCard
+import com.originsu.manager.ui.component.settings.BentoGrid
+import com.originsu.manager.ui.component.settings.BentoHeader
+import com.originsu.manager.ui.component.settings.BentoJumpRow
+import com.originsu.manager.ui.component.settings.BentoStatusChip
+import com.originsu.manager.ui.component.settings.BentoToggleRow
+import com.originsu.manager.ui.component.settings.SettingsChooseDialog
 import com.originsu.manager.ui.navigation.LocalNavigator
 import com.originsu.manager.ui.navigation.Route
 import com.originsu.manager.ui.theme.blurSource
 import com.originsu.manager.ui.util.LocalSnackbarHost
 import com.originsu.manager.ui.util.adaptiveScaffoldWindowInsets
-import com.originsu.manager.ui.util.canAuthenticateSecureRoot
 import com.originsu.manager.ui.util.showReplacingSnackbar
 import com.originsu.manager.ui.viewmodel.HomeViewModel
 import com.originsu.manager.ui.viewmodel.SettingsUiAction
@@ -121,12 +115,11 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.koin.compose.koinInject
+import org.koin.compose.viewmodel.koinViewModel
 import top.yukonga.miuix.kmp.utils.overScrollVertical
 import top.yukonga.miuix.kmp.utils.scrollEndHaptic
 import com.originsu.manager.ui.util.ActivityResumeEffect
-import org.koin.compose.koinInject
-import org.koin.compose.viewmodel.koinViewModel
-import java.io.File
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
@@ -138,7 +131,7 @@ import java.time.format.DateTimeFormatter
 private val SPACING_MEDIUM = 8.dp
 private val SPACING_LARGE = 16.dp
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun SettingsPage(bottomPadding: Dp) {
     val navigator = LocalNavigator.current
@@ -150,178 +143,78 @@ fun SettingsPage(bottomPadding: Dp) {
     val settingsViewModel = koinViewModel<SettingsViewModel>()
     val homeViewModel = koinViewModel<HomeViewModel>()
     val generateBugreport = koinInject<GenerateBugreportUseCase>()
-    val ksuCliRepository = koinInject<KsuCliRepository>()
-    val installedPackageRepository = koinInject<InstalledPackageRepository>()
     val uiState by settingsViewModel.uiState.collectAsStateWithLifecycle()
     val homeState by homeViewModel.uiState.collectAsStateWithLifecycle()
 
-    var showZygiskModules by remember { mutableStateOf(false) }
-    var showZygiskTelemetry by remember { mutableStateOf(false) }
-    var showZygiskLog by remember { mutableStateOf(false) }
-    var showZygiskSkip by remember { mutableStateOf(false) }
-    var zygiskApps by remember { mutableStateOf<List<OriginZygiskAppInfo>>(emptyList()) }
-    var pendingDiagnosticsFile by remember { mutableStateOf<File?>(null) }
+    var showBottomsheet by remember { mutableStateOf(false) }
+    var showUninstallDialog by remember { mutableStateOf(false) }
 
-    // Searchable titles/descriptions hoisted here so row visibility predicates
-    // (evaluated in the non-composable SegmentedColumn DSL) can filter on them.
     val query = searchQuery.trim()
     fun matches(vararg texts: String): Boolean {
         if (query.isBlank()) return true
         return texts.any { it.contains(query, ignoreCase = true) }
     }
-    val sectionConfiguration = stringResource(R.string.configuration)
-    val sectionOrigin = stringResource(R.string.origin_section_title)
-    val sectionApp = stringResource(R.string.app_settings)
-    val sectionTools = stringResource(R.string.tools)
-    val sectionAbout = stringResource(R.string.about)
 
+    // ----- Tile labels --------------------------------------------------------
+    val sectionOrigin = stringResource(R.string.origin_section_title)
+    val originTileSummary = stringResource(R.string.settings_bento_origin_summary)
+    val coreTileTitle = stringResource(R.string.settings_bento_core_title)
+    val updatesTileTitle = stringResource(R.string.settings_bento_updates_title)
+    val toolsTileTitle = stringResource(R.string.tools)
+    val aboutTitle = stringResource(R.string.about)
+    val advancedConfigTitle = stringResource(R.string.settings_advanced_config)
+    val themeTitle = stringResource(R.string.theme_settings)
+    val themeSummary = stringResource(R.string.settings_bento_theme_summary)
+    val updaterTitle = stringResource(R.string.updater)
+    val updaterSummary = stringResource(R.string.updater_summary)
+
+    // ----- Search keywords (all rows, including subpage rows) -----------------
     val titleProfileTemplate = stringResource(R.string.settings_profile_template)
     val descProfileTemplate = stringResource(R.string.settings_profile_template_summary)
     val titleSuCompat = stringResource(R.string.settings_sucompat)
-    val suSummaryUnsupported = stringResource(R.string.feature_status_unsupported_summary)
-    val suSummaryManaged = stringResource(R.string.feature_status_managed_summary)
-    val suSummaryDefault = stringResource(R.string.settings_sucompat_summary)
     val titleUmount = stringResource(R.string.settings_kernel_umount)
-    val descUmountDefault = stringResource(R.string.settings_kernel_umount_summary)
+    val descUmount = stringResource(R.string.settings_kernel_umount_summary)
     val titleAutoJailbreak = stringResource(R.string.settings_auto_jailbreak)
     val descAutoJailbreak = stringResource(R.string.settings_auto_jailbreak_summary)
     val titleAdbRoot = stringResource(R.string.settings_adb_root)
-    val descAdbRootDefault = stringResource(R.string.settings_adb_root_summary)
     val titleShellSuAdbOnly = stringResource(R.string.settings_shell_su_adb_only)
-    val descShellSuAdbOnlyDefault = stringResource(R.string.settings_shell_su_adb_only_summary)
     val titleSelinux = stringResource(R.string.settings_selinux_permissive)
-    val descSelinuxDefault = stringResource(R.string.settings_selinux_permissive_summary)
     val titleSoftReboot = stringResource(R.string.settings_soft_reboot)
-    val descSoftReboot = stringResource(R.string.settings_soft_reboot_summary)
     val titleSulog = stringResource(R.string.settings_sulog)
-    val descSulogDefault = stringResource(R.string.settings_sulog_summary)
     val titleSelinuxHide = stringResource(R.string.settings_selinux_hide)
-    val descSelinuxHideDefault = stringResource(R.string.settings_selinux_hide_summary)
     val titleUmountDefault = stringResource(R.string.settings_umount_modules_default)
-    val descUmountDefaultSummary = stringResource(R.string.settings_umount_modules_default_summary)
-
     val titleZygisk = stringResource(R.string.settings_origin_zygisk)
-    val zygiskRunning = stringResource(R.string.origin_zygisk_running)
-    val zygiskRunningModules = stringResource(
-        R.string.origin_zygisk_running_modules,
-        uiState.originZygiskModuleCount,
-    )
-    val zygiskRunningRoot = if (uiState.originZygiskRoot.isNotBlank()) {
-        stringResource(R.string.origin_zygisk_running_root, uiState.originZygiskRoot)
-    } else {
-        null
-    }
-    val zygiskRunningRootModules = if (
-        uiState.originZygiskRoot.isNotBlank() && uiState.originZygiskModuleCount > 0
-    ) {
-        stringResource(
-            R.string.origin_zygisk_running_root_modules,
-            uiState.originZygiskRoot,
-            uiState.originZygiskModuleCount,
-        )
-    } else {
-        null
-    }
-    val zygiskError = uiState.originZygiskError
-    val zygiskIssue = if (zygiskError != null) {
-        stringResource(R.string.origin_zygisk_issue, zygiskError)
-    } else {
-        null
-    }
-    val zygiskNeedsReboot = stringResource(R.string.origin_zygisk_needs_reboot)
-    val zygiskDefault = stringResource(R.string.settings_origin_zygisk_summary)
-    val zygiskStatus = uiState.originZygiskStatus
     val titleZygiskIntegrity = stringResource(R.string.origin_zygisk_integrity)
-    val titleZygiskUmount = stringResource(R.string.origin_zygisk_umount)
-    val descZygiskUmount = stringResource(R.string.origin_zygisk_umount_summary)
     val titleZygiskModules = stringResource(R.string.origin_zygisk_modules)
     val titleZygiskSkipApps = stringResource(R.string.origin_zygisk_skip_apps)
-    val titleZygiskPause = stringResource(R.string.origin_zygisk_pause)
-    val descZygiskPause = stringResource(R.string.origin_zygisk_pause_summary)
     val titleZygiskTelemetry = stringResource(R.string.origin_zygisk_telemetry)
     val titleZygiskLog = stringResource(R.string.origin_zygisk_log)
-    val descZygiskLog = stringResource(R.string.origin_zygisk_log_summary)
     val titleZygiskDiagnostics = stringResource(R.string.origin_zygisk_diagnostics)
-    val descZygiskDiagnostics = stringResource(R.string.origin_zygisk_diagnostics_summary)
-    val diagnosticsFailed = stringResource(R.string.origin_zygisk_diagnostics_failed)
-    val diagnosticsSaved = stringResource(R.string.origin_zygisk_diagnostics_saved)
-    val zygiskIntegritySummary = when {
-        !zygiskStatus.integrityOk -> stringResource(
-            R.string.origin_zygisk_integrity_repair,
-            zygiskStatus.integrityError ?: stringResource(R.string.origin_zygisk_integrity_failed),
-        )
-        zygiskStatus.expectedVersion.isNotBlank() &&
-            zygiskStatus.payloadVersion != zygiskStatus.expectedVersion -> stringResource(
-            R.string.origin_zygisk_payload_mismatch,
-            zygiskStatus.payloadVersion.ifBlank { "?" },
-            zygiskStatus.expectedVersion,
-        )
-        else -> stringResource(
-            R.string.origin_zygisk_integrity_ok,
-            zygiskStatus.payloadVersion.ifBlank { "?" },
-        )
-    }
-    val zygiskModulesSummary = stringResource(
-        R.string.origin_zygisk_modules_summary,
-        zygiskStatus.installedModules.count { it.loaded },
-        zygiskStatus.installedModules.size,
-        zygiskStatus.installedModules.count { it.quarantined || it.zygiskDisabled },
-    )
-    val zygiskSkipSummary = stringResource(
-        R.string.origin_zygisk_skip_apps_summary,
-        zygiskStatus.skippedPackages.size,
-    )
-    val zygiskTelemetrySummary = stringResource(
-        R.string.origin_zygisk_telemetry_summary,
-        zygiskStatus.telemetry.size,
-    )
     val titleVeilSwitch = stringResource(R.string.settings_veil)
-    val descVeilDefault = stringResource(R.string.settings_veil_summary)
     val titleVeilManage = stringResource(R.string.veil)
-    val descVeilManage = stringResource(R.string.veil_manage_summary)
     val titleGrantToast = stringResource(R.string.settings_grant_toast)
-    val descGrantToast = stringResource(R.string.settings_grant_toast_summary)
     val titleSuPrompt = stringResource(R.string.settings_su_prompt)
-    val descSuPrompt = stringResource(R.string.settings_su_prompt_summary)
-    val descSuPromptUnsupported = stringResource(R.string.settings_su_prompt_unsupported)
     val titleTempGrant = stringResource(R.string.settings_temp_grant)
-    val descTempGrant = stringResource(R.string.settings_temp_grant_summary)
-    val titleBootloopRescued = stringResource(R.string.settings_bootloop_rescued_title)
     val titleBootloop = stringResource(R.string.settings_bootloop_protection)
     val titleBootloopThreshold = stringResource(R.string.settings_bootloop_threshold)
     val titleSecureRoot = stringResource(R.string.settings_secure_root)
-    val descSecureRoot = stringResource(R.string.settings_secure_root_summary)
     val titleAppLock = stringResource(R.string.settings_app_lock)
     val titleRootGate = stringResource(R.string.settings_root_gate)
-    val descRootGate = stringResource(R.string.settings_root_gate_summary)
     val titleLockBoundRoot = stringResource(R.string.settings_lock_bound_root)
-    val descLockBoundRoot = stringResource(R.string.settings_lock_bound_root_summary)
     val titleRootGatePanic = stringResource(R.string.settings_root_gate_panic)
-    val descRootGatePanic = stringResource(R.string.settings_root_gate_panic_summary)
-    val descAppLock = stringResource(R.string.settings_app_lock_summary)
-    val titleAppLockTimeout = stringResource(R.string.settings_app_lock_timeout)
     val titleOriginGuard = stringResource(R.string.settings_originguard)
-    val descOriginGuard = stringResource(R.string.settings_originguard_summary)
     val titleMagicMount = stringResource(R.string.settings_magic_mount)
-    val descMagicMount = stringResource(R.string.settings_magic_mount_summary)
     val titleMountEngine = stringResource(R.string.settings_mount_engine)
     val titleMagicBackend = stringResource(R.string.settings_magic_mount_backend)
-    val descMagicBackend = stringResource(R.string.settings_magic_mount_backend_summary)
     val titleSusfsLkm = stringResource(R.string.settings_susfs_lkm)
-    val descSusfsLkm = stringResource(R.string.settings_susfs_lkm_summary)
-
     val titleCheckManagerUpdate = stringResource(R.string.settings_check_manager_update)
     val descCheckManagerUpdate = stringResource(R.string.settings_check_manager_update_summary)
     val titleCheckBeta = stringResource(R.string.settings_check_beta_update)
     val descCheckBeta = stringResource(R.string.settings_check_beta_update_summary)
     val titleCheckModule = stringResource(R.string.settings_check_module_update)
     val descCheckModule = stringResource(R.string.settings_check_module_update_summary)
-    val titleUpdater = stringResource(R.string.updater)
-    val descUpdater = stringResource(R.string.updater_summary)
     val titleHaptics = stringResource(R.string.settings_haptics)
     val descHaptics = stringResource(R.string.settings_haptics_summary)
-    val titleTheme = stringResource(R.string.theme_settings)
-
     val titleSendLog = stringResource(R.string.send_log)
     val titleDynamicManager = stringResource(R.string.dynamic_manager_title)
     val descDynamicManager = stringResource(R.string.dynamic_manager_settings_summary)
@@ -330,195 +223,74 @@ fun SettingsPage(bottomPadding: Dp) {
     val titleTuning = stringResource(R.string.kernel_tuning)
     val descTuning = stringResource(R.string.kernel_tuning_summary)
     val titleUninstall = stringResource(R.string.settings_uninstall)
-    val titleAboutRow = stringResource(R.string.about)
 
-    val suSummary = when (uiState.suStatus) {
-        "unsupported" -> suSummaryUnsupported
-        "managed" -> suSummaryManaged
-        else -> suSummaryDefault
-    }
-    val umountSummary = when (uiState.kernelUmountStatus) {
-        "unsupported" -> suSummaryUnsupported
-        "managed" -> suSummaryManaged
-        else -> descUmountDefault
-    }
-    val adbSummary = when (uiState.adbRootStatus) {
-        "unsupported" -> suSummaryUnsupported
-        "managed" -> suSummaryManaged
-        else -> descAdbRootDefault
-    }
-    val shellSuAdbOnlySummary = when (uiState.shellSuAdbOnlyStatus) {
-        "unsupported" -> suSummaryUnsupported
-        "managed" -> suSummaryManaged
-        else -> descShellSuAdbOnlyDefault
-    }
-    val selinuxSummary = when (uiState.selinuxStatus) {
-        "unsupported" -> suSummaryUnsupported
-        "managed" -> suSummaryManaged
-        else -> descSelinuxDefault
-    }
-    val sulogSummary = when (uiState.sulogStatus) {
-        "unsupported" -> suSummaryUnsupported
-        "managed" -> suSummaryManaged
-        else -> descSulogDefault
-    }
-    val selinuxHideSummary = when (uiState.selinuxHideStatus) {
-        "unsupported" -> suSummaryUnsupported
-        "managed" -> suSummaryManaged
-        else -> descSelinuxHideDefault
-    }
-    val zygiskSummary = when {
-        zygiskIssue != null -> zygiskIssue
-        zygiskStatus.injectionPaused -> stringResource(R.string.origin_zygisk_paused)
-        uiState.isOriginZygiskRunning -> zygiskRunningRootModules
-            ?: zygiskRunningRoot
-            ?: zygiskRunningModules.takeIf { uiState.originZygiskModuleCount > 0 }
-            ?: zygiskRunning
-        uiState.isOriginZygiskEnabled -> zygiskNeedsReboot
-        else -> zygiskDefault
-    }
-    val veilSummary = when (uiState.veilStatus) {
-        "unsupported" -> suSummaryUnsupported
-        "managed" -> suSummaryManaged
-        else -> descVeilDefault
-    }
-    val suPromptSummary =
-        if (uiState.isSuPromptSupported) descSuPrompt else descSuPromptUnsupported
+    // Description-only keywords keep search parity with the pre-bento page.
+    val originSearchKeywords = listOf(
+        stringResource(R.string.settings_veil_summary),
+        stringResource(R.string.veil_manage_summary),
+        stringResource(R.string.settings_grant_toast_summary),
+        stringResource(R.string.settings_su_prompt_summary),
+        stringResource(R.string.settings_temp_grant_summary),
+        stringResource(R.string.settings_secure_root_summary),
+        stringResource(R.string.settings_app_lock_summary),
+        stringResource(R.string.settings_root_gate_summary),
+        stringResource(R.string.settings_lock_bound_root_summary),
+        stringResource(R.string.settings_root_gate_panic_summary),
+        stringResource(R.string.settings_originguard_summary),
+        stringResource(R.string.settings_magic_mount_summary),
+        stringResource(R.string.settings_magic_mount_backend_summary),
+        stringResource(R.string.settings_susfs_lkm_summary),
+    )
+    val coreSearchKeywords = listOf(
+        stringResource(R.string.settings_sucompat_summary),
+        stringResource(R.string.settings_adb_root_summary),
+        stringResource(R.string.settings_selinux_permissive_summary),
+        stringResource(R.string.settings_shell_su_adb_only_summary),
+        stringResource(R.string.settings_soft_reboot_summary),
+        stringResource(R.string.settings_sulog_summary),
+        stringResource(R.string.settings_selinux_hide_summary),
+        stringResource(R.string.settings_umount_modules_default_summary),
+    )
 
-    // Per-row search matches (AND-ed with the existing availability flags below).
-    val matchProfileTemplate = matches(titleProfileTemplate, descProfileTemplate, sectionConfiguration)
-    val matchSuCompat = matches(titleSuCompat, suSummary, sectionConfiguration)
-    val matchUmount = matches(titleUmount, umountSummary, sectionConfiguration)
-    val matchAutoJailbreak = matches(titleAutoJailbreak, descAutoJailbreak, sectionConfiguration)
-    val matchAdbRoot = matches(titleAdbRoot, adbSummary, sectionConfiguration)
-    val matchShellSuAdbOnly =
-        matches(titleShellSuAdbOnly, shellSuAdbOnlySummary, sectionConfiguration)
-    val matchSelinux = matches(titleSelinux, selinuxSummary, sectionConfiguration)
-    val matchSoftReboot = matches(titleSoftReboot, descSoftReboot, sectionConfiguration)
-    val matchSulog = matches(titleSulog, sulogSummary, sectionConfiguration)
-    val matchSelinuxHide = matches(titleSelinuxHide, selinuxHideSummary, sectionConfiguration)
-    val matchUmountDefault = matches(titleUmountDefault, descUmountDefaultSummary, sectionConfiguration)
-
-    val matchZygisk = matches(titleZygisk, zygiskSummary, sectionOrigin)
-    val matchZygiskPanel = matches(
-        titleZygisk,
-        titleZygiskIntegrity,
-        titleZygiskUmount,
-        titleZygiskModules,
-        titleZygiskSkipApps,
-        titleZygiskPause,
-        titleZygiskTelemetry,
-        titleZygiskLog,
-        titleZygiskDiagnostics,
+    val matchOriginTile = matches(
+        sectionOrigin, originTileSummary, titleZygisk, titleZygiskIntegrity, titleZygiskModules,
+        titleZygiskSkipApps, titleZygiskTelemetry, titleZygiskLog, titleZygiskDiagnostics,
+        titleVeilSwitch, titleVeilManage, titleGrantToast, titleSuPrompt, titleTempGrant,
+        titleBootloop, titleBootloopThreshold, titleSecureRoot, titleAppLock, titleRootGate,
+        titleLockBoundRoot, titleRootGatePanic, titleOriginGuard, titleMagicMount,
+        titleMountEngine, titleMagicBackend, titleSusfsLkm, *originSearchKeywords.toTypedArray(),
+    )
+    val matchCoreTile = matches(
+        coreTileTitle, titleProfileTemplate, descProfileTemplate, titleSuCompat, titleUmount,
+        descUmount, titleAutoJailbreak, descAutoJailbreak, titleAdbRoot, titleShellSuAdbOnly,
+        titleSelinux, titleSoftReboot, titleSulog, titleSelinuxHide, titleUmountDefault,
+        advancedConfigTitle, *coreSearchKeywords.toTypedArray(),
+    )
+    val matchUpdatesTile = matches(
+        updatesTileTitle, titleCheckManagerUpdate, descCheckManagerUpdate, titleCheckBeta,
+        descCheckBeta, titleCheckModule, descCheckModule, updaterTitle, updaterSummary,
+        themeTitle, themeSummary, titleHaptics, descHaptics,
+    )
+    val matchToolsTile = matches(
+        toolsTileTitle, titleSendLog, titleDynamicManager, descDynamicManager, titleUmountManager,
+        descUmountManager, titleTuning, descTuning, titleUninstall,
+    )
+    val matchAboutTile = matches(aboutTitle)
+    val matchBootloopAlert = matches(
+        stringResource(R.string.settings_bootloop_rescued_title),
         sectionOrigin,
     )
-    val matchVeilSwitch = matches(titleVeilSwitch, veilSummary, sectionOrigin)
-    val matchVeilManage = matches(titleVeilManage, descVeilManage, sectionOrigin)
-    val matchGrantToast = matches(titleGrantToast, descGrantToast, sectionOrigin)
-    val matchSuPrompt = matches(titleSuPrompt, suPromptSummary, sectionOrigin)
-    val matchTempGrant = matches(titleTempGrant, descTempGrant, sectionOrigin)
-    val matchBootloopRescued = matches(titleBootloopRescued, sectionOrigin)
-    val matchBootloop = matches(titleBootloop, sectionOrigin)
-    val matchBootloopThreshold = matches(titleBootloopThreshold, sectionOrigin)
-    val matchSecureRoot = matches(titleSecureRoot, descSecureRoot, sectionOrigin)
-    val matchAppLock = matches(
-        titleAppLock, descAppLock, titleAppLockTimeout, sectionOrigin
-    )
-    val matchRootGate = matches(titleRootGate, descRootGate, sectionOrigin)
-    val matchLockBoundRoot = matches(titleLockBoundRoot, descLockBoundRoot, sectionOrigin)
-    val matchRootGatePanic = matches(titleRootGatePanic, descRootGatePanic, sectionOrigin)
-    val matchOriginGuard = matches(titleOriginGuard, descOriginGuard, sectionOrigin)
-    val matchMagicMount = matches(titleMagicMount, descMagicMount, sectionOrigin)
-    val matchMountEngine = matches(titleMountEngine, sectionOrigin)
-    val matchMagicBackend = matches(titleMagicBackend, descMagicBackend, sectionOrigin)
-    val matchSusfsLkm = matches(titleSusfsLkm, descSusfsLkm, sectionOrigin)
 
-    val matchCheckManager = matches(titleCheckManagerUpdate, descCheckManagerUpdate, sectionApp)
-    val matchCheckBeta = matches(titleCheckBeta, descCheckBeta, sectionApp)
-    val matchCheckModule = matches(titleCheckModule, descCheckModule, sectionApp)
-    val matchUpdater = matches(titleUpdater, descUpdater, sectionApp)
-    val matchHaptics = matches(titleHaptics, descHaptics, sectionApp)
-    val matchTheme = matches(titleTheme, sectionApp)
-
-    val matchSendLog = matches(titleSendLog, sectionTools)
-    val matchDynamicManager = matches(titleDynamicManager, descDynamicManager, sectionTools)
-    val matchUmountManager = matches(titleUmountManager, descUmountManager, sectionTools)
-    val matchTuning = matches(titleTuning, descTuning, sectionTools)
-    val matchUninstall = matches(titleUninstall, sectionTools)
-    val matchAboutRow = matches(titleAboutRow, sectionAbout)
-
-    val isFullFeatured = homeState.systemStatus.isFullFeatured
-    val showConfigGroup = isFullFeatured && listOf(
-        matchProfileTemplate,
-        matchSuCompat,
-        matchUmount,
-        matchAutoJailbreak && homeState.systemStatus.isLateLoadMode,
-        matchAdbRoot,
-        matchShellSuAdbOnly,
-        matchSelinux,
-        matchSoftReboot,
-        matchSulog,
-        matchSelinuxHide,
-        matchUmountDefault,
-    ).any { it }
-    val showOriginGroup = listOf(
-        matchZygisk,
-        matchZygiskPanel,
-        matchVeilSwitch,
-        matchVeilManage && uiState.veilStatus == "supported" && uiState.isVeilEnabled,
-        matchGrantToast,
-        matchSuPrompt,
-        matchTempGrant,
-        matchBootloopRescued && uiState.bootloopRescued,
-        matchBootloop && isFullFeatured,
-        matchBootloopThreshold && isFullFeatured && uiState.isBootloopEnabled,
-        matchSecureRoot,
-        matchAppLock,
-        matchRootGate,
-        matchLockBoundRoot,
-        matchRootGatePanic,
-        matchOriginGuard,
-        matchMountEngine,
-        matchMagicMount,
-        matchMagicBackend,
-        matchSusfsLkm,
-    ).any { it }
-    val showAppGroup = listOf(
-        matchCheckManager, matchCheckBeta, matchCheckModule, matchUpdater, matchTheme,
-        matchHaptics,
-    ).any { it }
-    val showToolsGroup = isFullFeatured && listOf(
-        matchSendLog,
-        matchDynamicManager,
-        matchUmountManager && uiState.isKernelUmountEnabled,
-        matchTuning,
-        matchUninstall && homeState.systemStatus.lkmMode == true && !homeState.systemStatus.isLateLoadMode,
-    ).any { it } || (!isFullFeatured && matchSendLog)
-    val hasAnyMatch = showConfigGroup || showOriginGroup || showAppGroup || showToolsGroup ||
-        (query.isBlank() || matchAboutRow)
+    val hasAnyMatch = matchOriginTile ||
+        (homeState.systemStatus.isFullFeatured && matchCoreTile) ||
+        matchUpdatesTile || matchToolsTile || matchAboutTile ||
+        (uiState.bootloopRescued && matchBootloopAlert)
 
     LaunchedEffect(Unit) {
         settingsViewModel.dispatch(SettingsUiAction.LoadFeatureSettings)
         settingsViewModel.dispatch(SettingsUiAction.RefreshMagicMount)
         settingsViewModel.dispatch(SettingsUiAction.RefreshOriginZygisk)
         settingsViewModel.dispatch(SettingsUiAction.RefreshBootloop)
-    }
-
-    LaunchedEffect(showZygiskSkip) {
-        if (showZygiskSkip) {
-            val packages = runCatching {
-                installedPackageRepository.refresh()
-                installedPackageRepository.packages.value
-            }.getOrDefault(emptyList())
-            zygiskApps = packages.map { pkg ->
-                OriginZygiskAppInfo(
-                    packageName = pkg.packageName,
-                    label = pkg.appLabel.ifBlank { pkg.packageName },
-                    uid = pkg.uid,
-                    isSystem = pkg.isSystem,
-                )
-            }
-        }
     }
 
     LaunchedEffect(uiState.rootGatePanicUntil) {
@@ -555,10 +327,9 @@ fun SettingsPage(bottomPadding: Dp) {
         contentWindowInsets = adaptiveScaffoldWindowInsets(includeBottom = false)
     ) { innerPadding ->
         val loadingDialog = rememberLoadingDialog()
-        var showBottomsheet by remember { mutableStateOf(false) }
-        val logSaved = stringResource(R.string.log_saved)
         val context = LocalContext.current
         val scope = rememberCoroutineScope()
+        val logSaved = stringResource(R.string.log_saved)
         val exportBugreportLauncher = rememberLauncherForActivityResult(
             ActivityResultContracts.CreateDocument("application/gzip")
         ) { uri: Uri? ->
@@ -574,1148 +345,583 @@ fun SettingsPage(bottomPadding: Dp) {
                 snackBarHost.showReplacingSnackbar(logSaved)
             }
         }
-        val exportDiagnosticsLauncher = rememberLauncherForActivityResult(
-            ActivityResultContracts.CreateDocument("application/zip")
-        ) { uri: Uri? ->
-            val file = pendingDiagnosticsFile
-            pendingDiagnosticsFile = null
-            if (uri == null || file == null) {
-                file?.delete()
-                return@rememberLauncherForActivityResult
-            }
-            scope.launch(Dispatchers.IO) {
-                runCatching {
-                    context.contentResolver.openOutputStream(uri)?.use { output ->
-                        file.inputStream().use { it.copyTo(output) }
-                    }
-                }
-                file.delete()
-                withContext(Dispatchers.Main) {
-                    snackBarHost.showReplacingSnackbar(diagnosticsSaved)
-                }
-            }
-        }
 
-        LazyColumn(
-            modifier =
-                Modifier
+        Box {
+            BentoGrid(
+                modifier = Modifier
                     .nestedScroll(scrollBehavior.nestedScrollConnection)
                     .scrollEndHaptic()
                     .overScrollVertical()
                     .blurSource(),
-            overscrollEffect = null,
-            contentPadding = PaddingValues(
-                top = innerPadding.calculateTopPadding() + 5.dp,
-                start = 0.dp,
-                end = 0.dp,
-                bottom = innerPadding.calculateBottomPadding() + bottomPadding + 15.dp
-            )
-        ) {
-            // 配置卡片
-            if (showConfigGroup) {
-                item {
-                    val modeItems = listOf(
-                        stringResource(id = R.string.settings_mode_default),
-                        stringResource(id = R.string.settings_mode_disable_until_reboot),
-                        stringResource(id = R.string.settings_mode_disable_always),
-                    )
-
-                    SegmentedColumn(
-                        title = stringResource(R.string.configuration),
-                        content = {
-                            item(visible = matchProfileTemplate) {
-                                // 配置文件模板入口
-                                SettingsJumpPageWidget(
-                                    icon = Icons.TwoTone.Fence,
-                                    title = stringResource(R.string.settings_profile_template),
-                                    description = stringResource(R.string.settings_profile_template_summary),
-                                    onClick = {
-                                        navigator.push(Route.AppProfileTemplate)
-                                    }
+                contentPadding = PaddingValues(
+                    top = innerPadding.calculateTopPadding() + 5.dp,
+                    start = 16.dp,
+                    end = 16.dp,
+                    bottom = innerPadding.calculateBottomPadding() + bottomPadding + 15.dp,
+                ),
+            ) {
+                // ----- Origin Lab hub --------------------------------------------
+                if (matchOriginTile) {
+                    item(
+                        key = "origin-lab",
+                        span = StaggeredGridItemSpan.FullLine,
+                    ) {
+                        OriginLabTile(
+                            uiState = uiState,
+                            isRootAvailable = homeState.systemStatus.isRootAvailable,
+                            labLocked = !homeState.systemStatus.isRootAvailable && query.isBlank(),
+                            onToggleZygisk = { enabled ->
+                                settingsViewModel.dispatch(
+                                    SettingsUiAction.SetOriginZygiskEnabled(enabled)
                                 )
-                            }
-
-                            item(visible = matchSuCompat) {
-                                val suSummary = when (uiState.suStatus) {
-                                    "unsupported" -> stringResource(id = R.string.feature_status_unsupported_summary)
-                                    "managed" -> stringResource(id = R.string.feature_status_managed_summary)
-                                    else -> stringResource(id = R.string.settings_sucompat_summary)
-                                }
-                                SettingsChooseWidget(
-                                    icon = Icons.TwoTone.RemoveModerator,
-                                    title = stringResource(id = R.string.settings_sucompat),
-                                    description = suSummary,
-                                    items = modeItems,
-                                    enabled = uiState.suStatus == "supported",
-                                    selectedIndex = uiState.suCompatMode,
-                                    onSelectedIndexChange = { index ->
-                                        settingsViewModel.dispatch(
-                                            SettingsUiAction.SetSuCompatMode(
-                                                index
-                                            )
-                                        )
-                                    },
-                                )
-                            }
-
-                            item(visible = matchUmount) {
-                                val umountSummary = when (uiState.kernelUmountStatus) {
-                                    "unsupported" -> stringResource(id = R.string.feature_status_unsupported_summary)
-                                    "managed" -> stringResource(id = R.string.feature_status_managed_summary)
-                                    else -> stringResource(id = R.string.settings_kernel_umount_summary)
-                                }
-                                SettingsSwitchWidget(
-                                    icon = Icons.TwoTone.RemoveCircle,
-                                    title = stringResource(id = R.string.settings_kernel_umount),
-                                    description = umountSummary,
-                                    enabled = uiState.kernelUmountStatus == "supported",
-                                    checked = uiState.isKernelUmountEnabled,
-                                    onCheckedChange = { enabled ->
-                                        settingsViewModel.dispatch(
-                                            SettingsUiAction.SetKernelUmount(
-                                                enabled
-                                            )
-                                        )
-                                    },
-                                )
-                            }
-
-                            item(
-                                visible = homeState.systemStatus.isLateLoadMode && matchAutoJailbreak
-                            ) {
-                                SettingsSwitchWidget(
-                                    icon = Icons.TwoTone.ElectricalServices,
-                                    title = stringResource(id = R.string.settings_auto_jailbreak),
-                                    description = stringResource(id = R.string.settings_auto_jailbreak_summary),
-                                    checked = uiState.autoJailbreakEnabled,
-                                    onCheckedChange = { value ->
-                                        settingsViewModel.dispatch(
-                                            SettingsUiAction.SetAutoJailbreak(
-                                                value
-                                            )
-                                        )
-                                    }
-                                )
-                            }
-
-                            item(
-                                visible = Build.VERSION.SDK_INT > Build.VERSION_CODES.Q && matchAdbRoot
-                            ) {
-                                val adbRootSummary = when (uiState.adbRootStatus) {
-                                    "unsupported" -> stringResource(id = R.string.feature_status_unsupported_summary)
-                                    "managed" -> stringResource(id = R.string.feature_status_managed_summary)
-                                    else -> stringResource(id = R.string.settings_adb_root_summary)
-                                }
-
-                                SettingsSwitchWidget(
-                                    icon = Icons.TwoTone.Adb,
-                                    title = stringResource(id = R.string.settings_adb_root),
-                                    description = adbRootSummary,
-                                    checked = uiState.isAdbRootEnabled,
-                                    enabled = uiState.adbRootStatus == "supported",
-                                    onCheckedChange = { enabled ->
-                                        settingsViewModel.dispatch(
-                                            SettingsUiAction.SetAdbRoot(
-                                                enabled
-                                            )
-                                        )
-                                    },
-                                )
-                            }
-
-                            item(visible = matchShellSuAdbOnly) {
-                                SettingsSwitchWidget(
-                                    icon = Icons.TwoTone.Security,
-                                    title = stringResource(id = R.string.settings_shell_su_adb_only),
-                                    description = shellSuAdbOnlySummary,
-                                    checked = uiState.isShellSuAdbOnlyEnabled,
-                                    enabled = uiState.shellSuAdbOnlyStatus == "supported",
-                                    onCheckedChange = { enabled ->
-                                        settingsViewModel.dispatch(
-                                            SettingsUiAction.SetShellSuAdbOnly(
-                                                enabled
-                                            )
-                                        )
-                                    },
-                                )
-                            }
-
-                            item(visible = matchSelinux) {
-                                val selinuxSummary = when (uiState.selinuxStatus) {
-                                    "unsupported" -> stringResource(id = R.string.feature_status_unsupported_summary)
-                                    "managed" -> stringResource(id = R.string.feature_status_managed_summary)
-                                    else -> stringResource(id = R.string.settings_selinux_permissive_summary)
-                                }
-
-                                SettingsSwitchWidget(
-                                    icon = Icons.TwoTone.Policy,
-                                    title = stringResource(id = R.string.settings_selinux_permissive),
-                                    description = selinuxSummary,
-                                    checked = uiState.isSelinuxPermissive,
-                                    enabled = uiState.selinuxStatus == "supported",
-                                    onCheckedChange = { enabled ->
-                                        settingsViewModel.dispatch(
-                                            SettingsUiAction.SetSelinuxPermissive(
-                                                enabled
-                                            )
-                                        )
-                                    },
-                                )
-                            }
-
-                            item(visible = matchSoftReboot) {
-                                SettingsSwitchWidget(
-                                    icon = Icons.TwoTone.RestartAlt,
-                                    title = stringResource(id = R.string.settings_soft_reboot),
-                                    description = stringResource(id = R.string.settings_soft_reboot_summary),
-                                    enabled = homeState.systemStatus.isFullFeatured &&
-                                        !homeState.systemStatus.isLateLoadMode,
-                                    checked = homeState.systemStatus.isLateLoadMode || uiState.useSoftReboot,
-                                    onCheckedChange = { enabled ->
-                                        settingsViewModel.dispatch(
-                                            SettingsUiAction.SetUseSoftReboot(
-                                                enabled
-                                            )
-                                        )
-                                    },
-                                )
-                            }
-
-                            item(visible = matchSulog) {
-                                val sulogSummary = when (uiState.sulogStatus) {
-                                    "unsupported" -> stringResource(id = R.string.feature_status_unsupported_summary)
-                                    "managed" -> stringResource(id = R.string.feature_status_managed_summary)
-                                    else -> stringResource(id = R.string.settings_sulog_summary)
-                                }
-                                SettingsSwitchWidget(
-                                    icon = Icons.AutoMirrored.TwoTone.Article,
-                                    title = stringResource(id = R.string.settings_sulog),
-                                    description = sulogSummary,
-                                    enabled = uiState.sulogStatus == "supported",
-                                    checked = uiState.isSuLogEnabled,
-                                    onCheckedChange = { enabled ->
-                                        settingsViewModel.dispatch(SettingsUiAction.SetSuLog(enabled))
-                                    },
-                                )
-                            }
-
-                            item(visible = matchSelinuxHide) {
-                                val selinuxHideSummary = when (uiState.selinuxHideStatus) {
-                                    "unsupported" -> stringResource(id = R.string.feature_status_unsupported_summary)
-                                    "managed" -> stringResource(id = R.string.feature_status_managed_summary)
-                                    else -> stringResource(id = R.string.settings_selinux_hide_summary)
-                                }
-                                SettingsSwitchWidget(
-                                    icon = Icons.TwoTone.Policy,
-                                    title = stringResource(id = R.string.settings_selinux_hide),
-                                    description = selinuxHideSummary,
-                                    enabled = uiState.selinuxHideStatus == "supported",
-                                    checked = uiState.isSelinuxHideEnabled,
-                                    onCheckedChange = { checked ->
-                                        settingsViewModel.dispatch(
-                                            SettingsUiAction.SetSelinuxHide(
-                                                checked
-                                            )
-                                        )
-                                    },
-                                )
-                            }
-
-                            item(visible = matchUmountDefault) {
-                                // 卸载模块开关
-                                SettingsSwitchWidget(
-                                    icon = Icons.TwoTone.FolderDelete,
-                                    title = stringResource(id = R.string.settings_umount_modules_default),
-                                    description = stringResource(id = R.string.settings_umount_modules_default_summary),
-                                    checked = uiState.defaultUmountModules,
-                                    onCheckedChange = { enabled ->
-                                        settingsViewModel.dispatch(
-                                            SettingsUiAction.SetDefaultUmountModules(
-                                                enabled
-                                            )
-                                        )
-                                    },
-                                )
-                            }
-                        }
-                    )
+                            },
+                            onOpen = { navigator.push(Route.OriginLab(query)) },
+                            onUnlock = {
+                                navigator.push(Route.Install(preselectedKernelUri = null))
+                            },
+                        )
+                    }
                 }
-            }
 
-            if (showOriginGroup) {
-            item {
-                // Origin features. Without root/driver the whole group becomes
-                // a blurred teaser that routes to the installer. While searching
-                // the teaser is lifted so matches stay visible and tappable.
-                val labLocked = !homeState.systemStatus.isRootAvailable && query.isBlank()
-                Box(modifier = Modifier.fillMaxWidth()) {
-                    SegmentedColumn(
-                        modifier = if (!labLocked) {
-                            Modifier
-                        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                            Modifier.blur(14.dp)
-                        } else {
-                            Modifier.alpha(0.35f)
-                        },
-                        title = stringResource(R.string.origin_section_title),
-                    content = {
-                        item(visible = matchSusfsLkm) {
-                            SettingsJumpPageWidget(
-                                icon = Icons.TwoTone.Extension,
-                                title = titleSusfsLkm,
-                                description = descSusfsLkm,
-                                onClick = {
-                                    navigator.push(Route.SuSFSLkm)
-                                },
-                            )
-                        }
-
-                        item(visible = matchZygisk) {
-                            SettingsSwitchWidget(
-                                icon = Icons.TwoTone.Psychology,
-                                title = stringResource(id = R.string.settings_origin_zygisk),
-                                description = zygiskSummary,
-                                checked = uiState.isOriginZygiskEnabled,
-                                onCheckedChange = { enabled ->
-                                    settingsViewModel.dispatch(
-                                        SettingsUiAction.SetOriginZygiskEnabled(
-                                            enabled
-                                        )
+                // ----- Compact tiles ---------------------------------------------
+                if (matchUpdatesTile) {
+                    item(key = "updater") {
+                        BentoCard(
+                            modifier = Modifier.heightIn(min = 118.dp),
+                            onClick = { navigator.push(Route.Updater()) },
+                        ) {
+                            BentoHeader(
+                                icon = Icons.TwoTone.Update,
+                                title = updaterTitle,
+                                trailingContent = {
+                                    Icon(
+                                        imageVector = Icons.Filled.ChevronRight,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(20.dp),
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
                                 },
                             )
+                            Spacer(Modifier.height(8.dp))
+                            BentoCaption(updaterSummary)
                         }
+                    }
+                }
 
-                        item(visible = matchZygiskPanel && zygiskStatus.installed) {
-                            SettingsJumpPageWidget(
+                if (matchUpdatesTile) {
+                    item(key = "appearance") {
+                        BentoCard(
+                            modifier = Modifier.heightIn(min = 118.dp),
+                            onClick = { navigator.push(Route.ThemeSettings) },
+                        ) {
+                            BentoHeader(
                                 icon = Icons.TwoTone.Tune,
-                                title = titleZygiskIntegrity,
-                                description = zygiskIntegritySummary,
-                                onClick = {
-                                    settingsViewModel.dispatch(SettingsUiAction.RepairOriginZygisk)
-                                },
-                            )
-                        }
-
-                        item(visible = matchZygiskPanel && zygiskStatus.installed) {
-                            SettingsSwitchWidget(
-                                icon = Icons.TwoTone.FolderOff,
-                                title = titleZygiskUmount,
-                                description = descZygiskUmount,
-                                checked = zygiskStatus.umountEnabled,
-                                onCheckedChange = { enabled ->
-                                    settingsViewModel.dispatch(
-                                        SettingsUiAction.SetOriginZygiskUmount(enabled)
+                                title = themeTitle,
+                                trailingContent = {
+                                    Icon(
+                                        imageVector = Icons.Filled.ChevronRight,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(20.dp),
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
                                 },
                             )
+                            Spacer(Modifier.height(8.dp))
+                            BentoCaption(themeSummary)
                         }
+                    }
+                }
 
-                        item(visible = matchZygiskPanel && zygiskStatus.installed) {
-                            SettingsJumpPageWidget(
-                                icon = Icons.TwoTone.Extension,
-                                title = titleZygiskModules,
-                                description = zygiskModulesSummary,
-                                onClick = { showZygiskModules = true },
-                            )
-                        }
+                // ----- SU & kernel band ------------------------------------------
+                if (homeState.systemStatus.isFullFeatured && matchCoreTile) {
+                    item(
+                        key = "core",
+                        span = StaggeredGridItemSpan.FullLine,
+                    ) {
+                        CoreBandTile(
+                            uiState = uiState,
+                            onSetSuCompatMode = { index ->
+                                settingsViewModel.dispatch(SettingsUiAction.SetSuCompatMode(index))
+                            },
+                            onSetKernelUmount = { enabled ->
+                                settingsViewModel.dispatch(SettingsUiAction.SetKernelUmount(enabled))
+                            },
+                            onSetAdbRoot = { enabled ->
+                                settingsViewModel.dispatch(SettingsUiAction.SetAdbRoot(enabled))
+                            },
+                            onSetSelinux = { enabled ->
+                                settingsViewModel.dispatch(
+                                    SettingsUiAction.SetSelinuxPermissive(enabled)
+                                )
+                            },
+                            onOpenAdvanced = { navigator.push(Route.AdvancedConfig(query)) },
+                        )
+                    }
+                }
 
-                        item(visible = matchZygiskPanel && zygiskStatus.installed) {
-                            SettingsJumpPageWidget(
-                                icon = Icons.TwoTone.Policy,
-                                title = titleZygiskSkipApps,
-                                description = zygiskSkipSummary,
-                                onClick = { showZygiskSkip = true },
-                            )
-                        }
+                // ----- Updates & app band ----------------------------------------
+                if (matchUpdatesTile) {
+                    item(
+                        key = "updates-app",
+                        span = StaggeredGridItemSpan.FullLine,
+                    ) {
+                        UpdatesBandTile(
+                            uiState = uiState,
+                            showBeta = uiState.checkManagerUpdate || query.isNotBlank(),
+                            onSetManagerUpdate = { enabled ->
+                                settingsViewModel.dispatch(
+                                    SettingsUiAction.SetManagerUpdateCheck(enabled)
+                                )
+                            },
+                            onSetBetaUpdate = { enabled ->
+                                settingsViewModel.dispatch(
+                                    SettingsUiAction.SetBetaUpdateCheck(enabled)
+                                )
+                            },
+                            onSetModuleUpdate = { enabled ->
+                                settingsViewModel.dispatch(
+                                    SettingsUiAction.SetModuleUpdateCheck(enabled)
+                                )
+                            },
+                            onSetHaptics = { enabled ->
+                                settingsViewModel.dispatch(
+                                    SettingsUiAction.SetHapticsEnabled(enabled)
+                                )
+                            },
+                        )
+                    }
+                }
 
-                        item(
-                            visible = matchZygiskPanel && zygiskStatus.installed &&
-                                uiState.isOriginZygiskEnabled
+                // ----- Tools band -------------------------------------------------
+                if (matchToolsTile) {
+                    item(
+                        key = "tools",
+                        span = StaggeredGridItemSpan.FullLine,
+                    ) {
+                        ToolsBandTile(
+                            showFullFeatured = homeState.systemStatus.isFullFeatured,
+                            isKernelUmountEnabled = uiState.isKernelUmountEnabled,
+                            showUninstall = homeState.systemStatus.lkmMode == true &&
+                                !homeState.systemStatus.isLateLoadMode,
+                            onSendLog = { showBottomsheet = true },
+                            onDynamicManager = { navigator.push(Route.DynamicManager) },
+                            onUmountManager = { navigator.push(Route.UmountManager) },
+                            onKernelTuning = { navigator.push(Route.KernelTuning) },
+                            onUninstall = { showUninstallDialog = true },
+                        )
+                    }
+                }
+
+                // ----- Bootloop rescue alert --------------------------------------
+                if (uiState.bootloopRescued && matchBootloopAlert) {
+                    item(
+                        key = "bootloop-alert",
+                        span = StaggeredGridItemSpan.FullLine,
+                    ) {
+                        BentoCard(
+                            containerColor = MaterialTheme.colorScheme.errorContainer,
+                            onClick = {
+                                settingsViewModel.dispatch(SettingsUiAction.DismissBootloopNotice)
+                            },
                         ) {
-                            SettingsSwitchWidget(
-                                icon = Icons.TwoTone.Visibility,
-                                title = titleZygiskPause,
-                                description = descZygiskPause,
-                                checked = zygiskStatus.injectionPaused,
-                                enabled = zygiskStatus.running,
-                                onCheckedChange = { paused ->
-                                    settingsViewModel.dispatch(
-                                        SettingsUiAction.SetOriginZygiskInjectionPaused(paused)
-                                    )
-                                },
-                            )
-                        }
-
-                        item(visible = matchZygiskPanel && zygiskStatus.installed) {
-                            SettingsJumpPageWidget(
-                                icon = Icons.TwoTone.Dashboard,
-                                title = titleZygiskTelemetry,
-                                description = zygiskTelemetrySummary,
-                                onClick = { showZygiskTelemetry = true },
-                            )
-                        }
-
-                        item(visible = matchZygiskPanel && zygiskStatus.installed) {
-                            SettingsJumpPageWidget(
-                                icon = Icons.AutoMirrored.TwoTone.Article,
-                                title = titleZygiskLog,
-                                description = descZygiskLog,
-                                onClick = { showZygiskLog = true },
-                            )
-                        }
-
-                        item(visible = matchZygiskPanel && zygiskStatus.installed) {
-                            SettingsJumpPageWidget(
-                                icon = Icons.TwoTone.BugReport,
-                                title = titleZygiskDiagnostics,
-                                description = descZygiskDiagnostics,
-                                onClick = {
-                                    scope.launch {
-                                        val file = loadingDialog.withLoading {
-                                            withContext(Dispatchers.IO) {
-                                                ksuCliRepository.buildOriginZygiskDiagnostics()
-                                            }
-                                        }
-                                        if (file == null) {
-                                            snackBarHost.showReplacingSnackbar(diagnosticsFailed)
-                                        } else {
-                                            pendingDiagnosticsFile = file
-                                            exportDiagnosticsLauncher.launch(file.name)
-                                        }
-                                    }
-                                },
-                            )
-                        }
-
-                        item(visible = matchVeilSwitch) {
-                            val veilSummary = when (uiState.veilStatus) {
-                                "unsupported" -> stringResource(id = R.string.feature_status_unsupported_summary)
-                                "managed" -> stringResource(id = R.string.feature_status_managed_summary)
-                                else -> stringResource(id = R.string.settings_veil_summary)
-                            }
-                            SettingsSwitchWidget(
-                                icon = Icons.TwoTone.Shield,
-                                title = stringResource(id = R.string.settings_veil),
-                                description = veilSummary,
-                                enabled = uiState.veilStatus == "supported",
-                                checked = uiState.isVeilEnabled,
-                                onCheckedChange = { enabled ->
-                                    settingsViewModel.dispatch(SettingsUiAction.SetVeil(enabled))
-                                },
-                            )
-                        }
-
-                        item(
-                            visible = uiState.veilStatus == "supported" && uiState.isVeilEnabled && matchVeilManage
-                        ) {
-                            SettingsJumpPageWidget(
-                                icon = Icons.TwoTone.Visibility,
-                                title = stringResource(id = R.string.veil),
-                                description = stringResource(id = R.string.veil_manage_summary),
-                                onClick = {
-                                    navigator.push(Route.Veil)
-                                }
-                            )
-                        }
-
-                        item(visible = matchGrantToast) {
-                            SettingsSwitchWidget(
-                                icon = Icons.TwoTone.Notifications,
-                                title = stringResource(id = R.string.settings_grant_toast),
-                                description = stringResource(id = R.string.settings_grant_toast_summary),
-                                checked = uiState.isGrantToastEnabled,
-                                enabled = uiState.sulogStatus == "supported",
-                                onCheckedChange = { enabled ->
-                                    settingsViewModel.dispatch(
-                                        SettingsUiAction.SetGrantToast(enabled)
-                                    )
-                                },
-                            )
-                        }
-
-                        item(visible = matchSuPrompt) {
-                            SettingsSwitchWidget(
-                                icon = Icons.TwoTone.Security,
-                                title = stringResource(id = R.string.settings_su_prompt),
-                                description = stringResource(
-                                    id = if (uiState.isSuPromptSupported)
-                                        R.string.settings_su_prompt_summary
-                                    else
-                                        R.string.settings_su_prompt_unsupported
-                                ),
-                                checked = uiState.isSuPromptEnabled,
-                                enabled = uiState.isSuPromptSupported,
-                                onCheckedChange = { enabled ->
-                                    settingsViewModel.dispatch(
-                                        SettingsUiAction.SetSuPrompt(enabled)
-                                    )
-                                },
-                            )
-                        }
-
-                        item(visible = matchTempGrant) {
-                            SettingsSwitchWidget(
-                                icon = Icons.TwoTone.Timer,
-                                title = stringResource(id = R.string.settings_temp_grant),
-                                description = stringResource(id = R.string.settings_temp_grant_summary),
-                                checked = uiState.isTempGrantEnabled,
-                                onCheckedChange = { enabled ->
-                                    settingsViewModel.dispatch(
-                                        SettingsUiAction.SetTempGrant(enabled)
-                                    )
-                                },
-                            )
-                        }
-
-                        item(visible = uiState.bootloopRescued && matchBootloopRescued) {
-                            SettingsBaseWidget(
+                            BentoHeader(
                                 icon = Icons.TwoTone.RestartAlt,
                                 title = stringResource(R.string.settings_bootloop_rescued_title),
-                                description = stringResource(
+                                trailingContent = {
+                                    Icon(
+                                        imageVector = Icons.TwoTone.Close,
+                                        contentDescription = stringResource(R.string.close),
+                                        modifier = Modifier.size(20.dp),
+                                    )
+                                },
+                            )
+                            Spacer(Modifier.height(6.dp))
+                            BentoCaption(
+                                stringResource(
                                     R.string.settings_bootloop_rescued_summary,
                                     uiState.bootloopRescuedBoots ?: uiState.bootloopMax,
-                                ),
-                                isError = true,
-                                onClick = {
-                                    settingsViewModel.dispatch(
-                                        SettingsUiAction.DismissBootloopNotice
-                                    )
-                                },
-                            )
-                        }
-
-                        item(visible = homeState.systemStatus.isFullFeatured && matchBootloop) {
-                            // 自动 bootloop 保护
-                            SettingsSwitchWidget(
-                                icon = Icons.TwoTone.RestartAlt,
-                                title = stringResource(id = R.string.settings_bootloop_protection),
-                                description = stringResource(
-                                    id = R.string.settings_bootloop_protection_summary,
-                                    uiState.bootloopMax,
-                                ),
-                                checked = uiState.isBootloopEnabled,
-                                onCheckedChange = { enabled ->
-                                    settingsViewModel.dispatch(
-                                        SettingsUiAction.SetBootloopEnabled(
-                                            enabled
-                                        )
-                                    )
-                                },
-                            )
-                        }
-
-                        item(
-                            visible = homeState.systemStatus.isFullFeatured &&
-                                uiState.isBootloopEnabled && matchBootloopThreshold
-                        ) {
-                            val thresholdItems = (2..10).map { it.toString() }
-                            SettingsChooseWidget(
-                                icon = Icons.TwoTone.Timer,
-                                title = stringResource(id = R.string.settings_bootloop_threshold),
-                                description = stringResource(
-                                    id = R.string.settings_bootloop_threshold_summary,
-                                    uiState.bootloopMax,
-                                ),
-                                items = thresholdItems,
-                                selectedIndex = (uiState.bootloopMax - 2)
-                                    .coerceIn(0, thresholdItems.lastIndex),
-                                onSelectedIndexChange = { index ->
-                                    settingsViewModel.dispatch(
-                                        SettingsUiAction.SetBootloopMax(index + 2)
-                                    )
-                                },
-                            )
-                        }
-
-                        item(visible = matchSecureRoot) {
-                            val biometricsAvailable = remember {
-                                canAuthenticateSecureRoot(context)
-                            }
-                            SettingsSwitchWidget(
-                                icon = Icons.TwoTone.Fingerprint,
-                                title = stringResource(id = R.string.settings_secure_root),
-                                description = stringResource(id = R.string.settings_secure_root_summary),
-                                enabled = biometricsAvailable,
-                                checked = uiState.isSecureRootEnabled && biometricsAvailable,
-                                onCheckedChange = { enabled ->
-                                    settingsViewModel.dispatch(
-                                        SettingsUiAction.SetSecureRootEnabled(
-                                            enabled
-                                        )
-                                    )
-                                },
-                            )
-                        }
-
-                        item(visible = matchAppLock) {
-                            val biometricsAvailable = remember {
-                                canAuthenticateSecureRoot(context)
-                            }
-                            SettingsSwitchWidget(
-                                icon = Icons.TwoTone.Lock,
-                                title = stringResource(id = R.string.settings_app_lock),
-                                description = stringResource(id = R.string.settings_app_lock_summary),
-                                enabled = biometricsAvailable,
-                                checked = uiState.isAppLockEnabled && biometricsAvailable,
-                                onCheckedChange = { enabled ->
-                                    settingsViewModel.dispatch(
-                                        SettingsUiAction.SetAppLockEnabled(
-                                            enabled
-                                        )
-                                    )
-                                },
-                            )
-                        }
-
-                        item(visible = matchAppLock && uiState.isAppLockEnabled) {
-                            val timeoutValues = listOf(0L, 60000L, 300000L)
-                            val timeoutItems = listOf(
-                                stringResource(R.string.settings_app_lock_timeout_immediate),
-                                stringResource(R.string.settings_app_lock_timeout_1m),
-                                stringResource(R.string.settings_app_lock_timeout_5m),
-                            )
-                            SettingsChooseWidget(
-                                icon = Icons.TwoTone.Timer,
-                                title = stringResource(id = R.string.settings_app_lock_timeout),
-                                description = timeoutItems[
-                                    timeoutValues.indexOf(uiState.appLockTimeout)
-                                        .takeIf { it >= 0 } ?: 1
-                                ],
-                                items = timeoutItems,
-                                selectedIndex = timeoutValues.indexOf(uiState.appLockTimeout)
-                                    .takeIf { it >= 0 } ?: 1,
-                                onSelectedIndexChange = { index ->
-                                    settingsViewModel.dispatch(
-                                        SettingsUiAction.SetAppLockTimeout(timeoutValues[index])
-                                    )
-                                },
-                            )
-                        }
-
-                        item(visible = matchRootGate) {
-                            SettingsSwitchWidget(
-                                icon = Icons.TwoTone.Security,
-                                title = titleRootGate,
-                                description = descRootGate,
-                                checked = uiState.isRootGateEnabled,
-                                onCheckedChange = { enabled ->
-                                    settingsViewModel.dispatch(
-                                        SettingsUiAction.SetRootGateEnabled(enabled)
-                                    )
-                                },
-                            )
-                        }
-
-                        item(visible = matchLockBoundRoot) {
-                            SettingsSwitchWidget(
-                                icon = Icons.TwoTone.Lock,
-                                title = titleLockBoundRoot,
-                                description = descLockBoundRoot,
-                                checked = uiState.isLockBoundRootEnabled,
-                                onCheckedChange = { enabled ->
-                                    settingsViewModel.dispatch(
-                                        SettingsUiAction.SetLockBoundRootEnabled(enabled)
-                                    )
-                                },
-                            )
-                        }
-
-                        item(visible = matchRootGatePanic) {
-                            val panicRemainingMillis =
-                                uiState.rootGatePanicUntil - System.currentTimeMillis()
-                            val panicActive = panicRemainingMillis > 0L
-                            val panicMinutes =
-                                ((panicRemainingMillis + 59_999L) / 60_000L)
-                                    .coerceAtLeast(1L)
-                            SettingsJumpPageWidget(
-                                icon = Icons.TwoTone.Timer,
-                                title = if (panicActive) {
-                                    stringResource(R.string.settings_root_gate_panic_active)
-                                } else {
-                                    titleRootGatePanic
-                                },
-                                description = if (panicActive) {
-                                    stringResource(
-                                        R.string.settings_root_gate_panic_remaining,
-                                        panicMinutes,
-                                    )
-                                } else {
-                                    descRootGatePanic
-                                },
-                                enabled = panicActive || uiState.isRootGateEnabled,
-                                onClick = {
-                                    settingsViewModel.dispatch(
-                                        if (panicActive) {
-                                            SettingsUiAction.EndRootGatePanic
-                                        } else {
-                                            SettingsUiAction.StartRootGatePanic
-                                        }
-                                    )
-                                },
-                            )
-                        }
-
-                        item(visible = matchOriginGuard) {
-                            SettingsSwitchWidget(
-                                icon = Icons.TwoTone.Policy,
-                                title = stringResource(R.string.settings_originguard),
-                                description = stringResource(R.string.settings_originguard_summary),
-                                checked = uiState.isOriginGuardEnabled,
-                                onCheckedChange = { enabled ->
-                                    settingsViewModel.dispatch(
-                                        SettingsUiAction.SetOriginGuardEnabled(
-                                            enabled
-                                        )
-                                    )
-                                }
-                            )
-                        }
-
-                        item(visible = matchMountEngine) {
-                            val mountEngine = uiState.mountEngine
-                            val backendLabel = when (uiState.magicMountBackend) {
-                                "overlay" -> stringResource(R.string.magic_mount_backend_overlay)
-                                "bind" -> stringResource(R.string.magic_mount_backend_bind)
-                                else -> stringResource(R.string.magic_mount_backend_auto)
-                            }
-                            val engineSummary = when (mountEngine.owner) {
-                                "metamodule" -> stringResource(
-                                    R.string.settings_mount_engine_metamodule,
-                                    mountEngine.name.ifBlank {
-                                        mountEngine.metamoduleId.ifBlank { mountEngine.engine }
-                                    },
-                                    mountEngine.metamoduleId,
                                 )
-                                "magic_mount" -> stringResource(
-                                    R.string.settings_mount_engine_magic_mount,
-                                    backendLabel,
-                                )
-                                "none" -> stringResource(R.string.settings_mount_engine_none)
-                                else -> stringResource(R.string.settings_mount_engine_unknown)
-                            }
-                            val kernelLabels = mountEngine.kernelEngines.map { engine ->
-                                when (engine) {
-                                    "zeromount" -> "ZeroMount"
-                                    "kasumi" -> "Kasumi"
-                                    "nomount" -> "NoMount"
-                                    else -> engine
-                                }
-                            }
-                            val engineDescription =
-                                if (kernelLabels.isEmpty()) {
-                                    engineSummary
-                                } else {
-                                    engineSummary + "\n" + stringResource(
-                                        R.string.settings_mount_engine_kernel_support,
-                                        kernelLabels.joinToString(", "),
-                                    )
-                                }
-                            SettingsBaseWidget(
-                                icon = Icons.TwoTone.Dashboard,
-                                title = titleMountEngine,
-                                description = engineDescription,
                             )
-                        }
-
-                        item(visible = matchMagicMount) {
-                            val metamoduleOwnsMounting = uiState.mountEngine.metamoduleOwnsMounting
-                            val magicMountSummary =
-                                if (metamoduleOwnsMounting) {
-                                    stringResource(
-                                        R.string.settings_magic_mount_handoff_summary,
-                                        uiState.mountEngine.name.ifBlank {
-                                            uiState.mountEngine.engine
-                                        },
-                                    )
-                                } else {
-                                    descMagicMount
-                                }
-                            SettingsSwitchWidget(
-                                icon = Icons.TwoTone.Extension,
-                                title = stringResource(R.string.settings_magic_mount),
-                                description = magicMountSummary,
-                                enabled = !metamoduleOwnsMounting,
-                                checked = uiState.isMagicMountEnabled,
-                                onCheckedChange = { enabled ->
-                                    settingsViewModel.dispatch(
-                                        SettingsUiAction.SetMagicMountEnabled(
-                                            enabled
-                                        )
-                                    )
-                                }
-                            )
-                        }
-
-                        item(visible = matchMagicBackend) {
-                            val backendItems = listOf(
-                                stringResource(R.string.magic_mount_backend_auto),
-                                stringResource(R.string.magic_mount_backend_overlay),
-                                stringResource(R.string.magic_mount_backend_bind),
-                            )
-                            val backendIds = listOf("auto", "overlay", "bind")
-                            val selectedBackend =
-                                backendIds.indexOf(uiState.magicMountBackend).takeIf { it >= 0 } ?: 0
-                            SettingsChooseWidget(
-                                icon = Icons.TwoTone.Dashboard,
-                                title = stringResource(R.string.settings_magic_mount_backend),
-                                description = stringResource(R.string.settings_magic_mount_backend_summary),
-                                enabled = !uiState.mountEngine.metamoduleOwnsMounting,
-                                items = backendItems,
-                                selectedIndex = selectedBackend,
-                                onSelectedIndexChange = { index ->
-                                    backendIds.getOrNull(index)?.let { backend ->
-                                        settingsViewModel.dispatch(
-                                            SettingsUiAction.SetMagicMountBackend(
-                                                backend
-                                            )
-                                        )
-                                    }
-                                }
-                            )
-                        }
-                    }
-                    )
-                    if (labLocked) {
-                        Box(
-                            modifier = Modifier
-                                .matchParentSize()
-                                .clickable {
-                                    navigator.push(Route.Install(preselectedKernelUri = null))
-                                },
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(
-                                    horizontal = 24.dp,
-                                    vertical = 12.dp
-                                ),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                Icon(
-                                    imageVector = Icons.TwoTone.Lock,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(28.dp),
-                                )
-                                Spacer(Modifier.width(10.dp))
-                                Column {
-                                    Text(
-                                        text = stringResource(R.string.origin_section_title),
-                                        fontSize = 17.sp,
-                                        fontWeight = FontWeight.SemiBold,
-                                    )
-                                    Text(
-                                        text = stringResource(R.string.origin_lab_locked_summary),
-                                        fontSize = 13.sp,
-                                    )
-                                }
-                            }
                         }
                     }
                 }
-            }
-            }
 
-            if (showAppGroup) {
-            item {
-                // 应用设置卡片
-                SegmentedColumn(
-                    title = stringResource(R.string.app_settings),
-                    content = {
-                        expandableItem(
-                            animatedVisibility = matchCheckManager || matchCheckBeta,
-                            expanded = uiState.checkManagerUpdate || query.isNotBlank(),
-                            topContent = {
-                                SettingsSwitchWidget(
-                                    icon = Icons.TwoTone.Update,
-                                    title = stringResource(R.string.settings_check_manager_update),
-                                    description = stringResource(R.string.settings_check_manager_update_summary),
-                                    checked = uiState.checkManagerUpdate,
-                                    onCheckedChange = { enabled ->
-                                        settingsViewModel.dispatch(
-                                            SettingsUiAction.SetManagerUpdateCheck(
-                                                enabled
-                                            )
-                                        )
-                                    }
-                                )
-                            }
-                        ) {
-                            item(
-                                topPadding = 1.dp,
-                                visible = matchCheckBeta
-                            ) {
-                                SettingsSwitchWidget(
-                                    icon = Icons.TwoTone.Science,
-                                    title = stringResource(R.string.settings_check_beta_update),
-                                    description = stringResource(R.string.settings_check_beta_update_summary),
-                                    checked = uiState.checkBetaUpdate,
-                                    onCheckedChange = { enabled ->
-                                        settingsViewModel.dispatch(
-                                            SettingsUiAction.SetBetaUpdateCheck(
-                                                enabled
-                                            )
-                                        )
-                                    }
-                                )
-                            }
-                        }
-
-                        item(visible = matchCheckModule) {
-                            SettingsSwitchWidget(
-                                icon = Icons.TwoTone.Extension,
-                                title = stringResource(R.string.settings_check_module_update),
-                                description = stringResource(R.string.settings_check_module_update_summary),
-                                checked = uiState.checkModuleUpdate,
-                                onCheckedChange = { enabled ->
-                                    settingsViewModel.dispatch(
-                                        SettingsUiAction.SetModuleUpdateCheck(
-                                            enabled
-                                        )
-                                    )
-                                }
-                            )
-                        }
-
-                        item(visible = matchUpdater) {
-                            SettingsJumpPageWidget(
-                                icon = Icons.TwoTone.Update,
-                                title = stringResource(R.string.updater),
-                                description = stringResource(R.string.updater_summary),
-                                onClick = {
-                                    navigator.push(Route.Updater())
-                                }
-                            )
-                        }
-
-
-
-                        item(visible = matchTheme) {
-                            // 更多设置
-                            SettingsJumpPageWidget(
-                                icon = Icons.TwoTone.Settings,
-                                title = stringResource(R.string.theme_settings),
-                                description = stringResource(R.string.theme_settings),
-                                onClick = {
-                                    navigator.push(Route.ThemeSettings)
-                                }
-                            )
-                        }
-
-                        item(visible = matchHaptics) {
-                            SettingsSwitchWidget(
-                                icon = Icons.Filled.Vibration,
-                                title = stringResource(R.string.settings_haptics),
-                                description = stringResource(R.string.settings_haptics_summary),
-                                checked = uiState.isHapticsEnabled,
-                                onCheckedChange = { enabled ->
-                                    settingsViewModel.dispatch(
-                                        SettingsUiAction.SetHapticsEnabled(
-                                            enabled
-                                        )
-                                    )
-                                }
-                            )
-                        }
-                    }
-                )
-            }
-            }
-
-            if (showToolsGroup) {
-            item {
-                // 工具卡片
-                SegmentedColumn(
-                    title = stringResource(R.string.tools),
-                    content = {
-                        item(visible = matchSendLog) {
-                            SettingsBaseWidget(
-                                icon = Icons.TwoTone.BugReport,
-                                title = stringResource(R.string.send_log),
-                                onClick = {
-                                    showBottomsheet = true
-                                }
-                            )
-                        }
-
-                        if (homeState.systemStatus.isFullFeatured) {
-                            item(visible = matchDynamicManager) {
-                                SettingsJumpPageWidget(
-                                    icon = Icons.TwoTone.Security,
-                                    title = stringResource(R.string.dynamic_manager_title),
-                                    description = stringResource(R.string.dynamic_manager_settings_summary),
-                                    onClick = {
-                                        navigator.push(Route.DynamicManager)
-                                    }
-                                )
-                            }
-
-                            item(visible = uiState.isKernelUmountEnabled && matchUmountManager) {
-                                SettingsJumpPageWidget(
-                                    icon = Icons.TwoTone.FolderOff,
-                                    title = stringResource(R.string.umount_path_manager),
-                                    description = stringResource(R.string.umount_path_manager_summary),
-                                    onClick = {
-                                        navigator.push(Route.UmountManager)
-                                    }
-                                )
-                            }
-
-                            item(visible = matchTuning) {
-                                SettingsJumpPageWidget(
-                                    icon = Icons.TwoTone.Tune,
-                                    title = stringResource(R.string.kernel_tuning),
-                                    description = stringResource(R.string.kernel_tuning_summary),
-                                    onClick = {
-                                        navigator.push(Route.KernelTuning)
-                                    }
-                                )
-                            }
-                        }
-                        item(visible = homeState.systemStatus.lkmMode == true && !homeState.systemStatus.isLateLoadMode && matchUninstall) {
-                            UninstallItem {
-                                loadingDialog.withLoading(it)
-                            }
-                        }
-                    }
-                )
-            }
-            }
-
-            if (query.isNotBlank() && !hasAnyMatch) {
-                item {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 48.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
+                // ----- About ------------------------------------------------------
+                if (matchAboutTile) {
+                    item(
+                        key = "about",
+                        span = StaggeredGridItemSpan.FullLine,
                     ) {
-                        Icon(
-                            imageVector = Icons.TwoTone.SearchOff,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier
-                                .size(96.dp)
-                                .padding(bottom = 16.dp)
-                        )
-                        Text(
-                            text = stringResource(R.string.search_no_any_match),
-                            textAlign = TextAlign.Center,
-                            style = MaterialTheme.typography.bodyLarge,
-                        )
+                        BentoCard(onClick = { navigator.push(Route.About) }) {
+                            BentoHeader(
+                                icon = Icons.TwoTone.Info,
+                                title = aboutTitle,
+                                trailingContent = {
+                                    Icon(
+                                        imageVector = Icons.Filled.ChevronRight,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(20.dp),
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                },
+                            )
+                            Spacer(Modifier.height(6.dp))
+                            BentoCaption(
+                                stringResource(
+                                    R.string.settings_bento_version,
+                                    BuildConfig.VERSION_NAME,
+                                )
+                            )
+                        }
+                    }
+                }
+
+                if (query.isNotBlank() && !hasAnyMatch) {
+                    item(
+                        key = "no-match",
+                        span = StaggeredGridItemSpan.FullLine,
+                    ) {
+                        SearchNoMatch()
                     }
                 }
             }
 
             if (showBottomsheet) {
-                item {
-                    val sendLog = stringResource(R.string.send_log)
-                    LogBottomSheet(
-                        onDismiss = { showBottomsheet = false },
-                        onSaveLog = {
-                            val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd_HH_mm")
-                            val current = LocalDateTime.now().format(formatter)
-                            exportBugreportLauncher.launch("KernelSU_bugreport_${current}.tar.gz")
-                            showBottomsheet = false
-                        },
-                        onShareLog = {
-                            scope.launch {
-                                val bugreport = loadingDialog.withLoading {
-                                    withContext(Dispatchers.IO) {
-                                        generateBugreport()
-                                    }
+                val sendLog = stringResource(R.string.send_log)
+                LogBottomSheet(
+                    onDismiss = { showBottomsheet = false },
+                    onSaveLog = {
+                        val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd_HH_mm")
+                        val current = LocalDateTime.now().format(formatter)
+                        exportBugreportLauncher.launch("KernelSU_bugreport_${current}.tar.gz")
+                        showBottomsheet = false
+                    },
+                    onShareLog = {
+                        scope.launch {
+                            val bugreport = loadingDialog.withLoading {
+                                withContext(Dispatchers.IO) {
+                                    generateBugreport()
                                 }
-
-                                val uri = FileProvider.getUriForFile(
-                                    context,
-                                    "${BuildConfig.APPLICATION_ID}.fileprovider",
-                                    bugreport
-                                )
-
-                                val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                                    putExtra(Intent.EXTRA_STREAM, uri)
-                                    setDataAndType(uri, "application/gzip")
-                                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                                }
-
-                                context.startActivity(
-                                    Intent.createChooser(
-                                        shareIntent,
-                                        sendLog
-                                    )
-                                )
-
-                                showBottomsheet = false
                             }
-                        }
-                    )
-                }
-            }
 
-            // 关于卡片
-            if (query.isBlank() || matchAboutRow) {
-            item {
-                SegmentedColumn(
-                    title = stringResource(R.string.about),
-                    content = {
-                        item {
-                            SettingsJumpPageWidget(
-                                icon = Icons.TwoTone.Info,
-                                title = stringResource(R.string.about),
-                                onClick = {
-                                    navigator.push(Route.About)
-                                }
+                            val uri = FileProvider.getUriForFile(
+                                context,
+                                "${BuildConfig.APPLICATION_ID}.fileprovider",
+                                bugreport
                             )
+
+                            val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                                putExtra(Intent.EXTRA_STREAM, uri)
+                                setDataAndType(uri, "application/gzip")
+                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                            }
+
+                            context.startActivity(
+                                Intent.createChooser(
+                                    shareIntent,
+                                    sendLog
+                                )
+                            )
+
+                            showBottomsheet = false
                         }
                     }
                 )
             }
+        }
+
+        UninstallChooseDialog(
+            show = showUninstallDialog,
+            onDismiss = { showUninstallDialog = false },
+            withLoading = { block -> loadingDialog.withLoading(block) },
+        )
+    }
+}
+
+/**
+ * Hub tile for Origin-exclusive features. Shows the master Zygisk switch plus
+ * live status chips and routes to the full [OriginLabScreen].
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun OriginLabTile(
+    uiState: com.originsu.manager.ui.viewmodel.SettingsUiState,
+    isRootAvailable: Boolean,
+    labLocked: Boolean,
+    onToggleZygisk: (Boolean) -> Unit,
+    onOpen: () -> Unit,
+    onUnlock: () -> Unit,
+) {
+    val zygiskStatus = uiState.originZygiskStatus
+    val zygiskChip = when {
+        uiState.originZygiskError != null -> stringResource(R.string.settings_origin_zygisk)
+        zygiskStatus.injectionPaused -> stringResource(R.string.origin_zygisk_paused)
+        uiState.isOriginZygiskRunning && uiState.originZygiskModuleCount > 0 ->
+            stringResource(
+                R.string.origin_zygisk_running_modules,
+                uiState.originZygiskModuleCount,
+            )
+        uiState.isOriginZygiskRunning -> stringResource(R.string.origin_zygisk_running)
+        uiState.isOriginZygiskEnabled -> stringResource(R.string.origin_zygisk_needs_reboot)
+        else -> stringResource(R.string.settings_origin_zygisk)
+    }
+    val veilChip = stringResource(R.string.settings_veil)
+    val rootGateChip = stringResource(R.string.settings_bento_root_gate_chip)
+    val panicRemainingMillis = uiState.rootGatePanicUntil - System.currentTimeMillis()
+    val panicActive = panicRemainingMillis > 0L
+    val panicMinutes = ((panicRemainingMillis + 59_999L) / 60_000L).coerceAtLeast(1L)
+
+    Box(modifier = Modifier.fillMaxWidth()) {
+        BentoCard(
+            modifier = when {
+                !labLocked -> Modifier
+                Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> Modifier.blur(14.dp)
+                else -> Modifier.alpha(0.35f)
+            },
+            onClick = { if (labLocked) onUnlock() else onOpen() },
+        ) {
+            BentoHeader(
+                icon = Icons.TwoTone.Psychology,
+                title = stringResource(R.string.origin_section_title),
+                trailingContent = {
+                    Switch(
+                        checked = uiState.isOriginZygiskEnabled,
+                        enabled = isRootAvailable,
+                        onCheckedChange = onToggleZygisk,
+                    )
+                },
+            )
+            Spacer(Modifier.height(8.dp))
+            BentoCaption(stringResource(R.string.settings_bento_origin_summary))
+            Spacer(Modifier.height(12.dp))
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                BentoStatusChip(
+                    text = zygiskChip,
+                    active = uiState.isOriginZygiskRunning,
+                )
+                BentoStatusChip(
+                    text = veilChip,
+                    active = uiState.isVeilEnabled,
+                )
+                BentoStatusChip(
+                    text = if (panicActive) {
+                        stringResource(R.string.settings_bento_panic_chip, panicMinutes)
+                    } else {
+                        rootGateChip
+                    },
+                    active = uiState.isRootGateEnabled || panicActive,
+                    isWarning = panicActive,
+                )
+            }
+        }
+
+        if (labLocked) {
+            Box(
+                modifier = Modifier
+                    .matchParentSize()
+                    .clip(MaterialTheme.shapes.extraLarge),
+            ) {
+                Column(
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .padding(horizontal = 24.dp, vertical = 12.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Icon(
+                        imageVector = Icons.TwoTone.Lock,
+                        contentDescription = null,
+                        modifier = Modifier.size(28.dp),
+                    )
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        text = stringResource(R.string.origin_section_title),
+                        fontSize = 17.sp,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(
+                        text = stringResource(R.string.origin_lab_locked_summary),
+                        fontSize = 13.sp,
+                    )
+                }
             }
         }
     }
+}
 
-    if (showZygiskModules) {
-        OriginZygiskModulesDialog(
-            status = zygiskStatus,
-            onToggle = { id, enabled ->
-                settingsViewModel.dispatch(
-                    SettingsUiAction.SetOriginZygiskModuleEnabled(id, enabled)
+/** SU compatibility and kernel behavior controls, kept on the landing page. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun CoreBandTile(
+    uiState: com.originsu.manager.ui.viewmodel.SettingsUiState,
+    onSetSuCompatMode: (Int) -> Unit,
+    onSetKernelUmount: (Boolean) -> Unit,
+    onSetAdbRoot: (Boolean) -> Unit,
+    onSetSelinux: (Boolean) -> Unit,
+    onOpenAdvanced: () -> Unit,
+) {
+    val modeItems = listOf(
+        stringResource(R.string.settings_mode_default),
+        stringResource(R.string.settings_mode_disable_until_reboot),
+        stringResource(R.string.settings_mode_disable_always),
+    )
+    val suEnabled = uiState.suStatus == "supported"
+
+    BentoCard {
+        BentoHeader(
+            icon = Icons.TwoTone.Tune,
+            title = stringResource(R.string.settings_bento_core_title),
+        )
+        Spacer(Modifier.height(12.dp))
+        Text(
+            text = stringResource(R.string.settings_sucompat),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(Modifier.height(4.dp))
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            modeItems.forEachIndexed { index, label ->
+                FilterChip(
+                    selected = uiState.suCompatMode == index,
+                    enabled = suEnabled,
+                    onClick = { onSetSuCompatMode(index) },
+                    label = { Text(label) },
                 )
-            },
-            onQuarantine = { id, quarantined ->
-                settingsViewModel.dispatch(
-                    SettingsUiAction.SetOriginZygiskModuleQuarantined(id, quarantined)
-                )
-            },
-            onDismiss = { showZygiskModules = false },
+            }
+        }
+        Spacer(Modifier.height(4.dp))
+        BentoToggleRow(
+            icon = Icons.TwoTone.RemoveCircle,
+            title = stringResource(R.string.settings_kernel_umount),
+            enabled = uiState.kernelUmountStatus == "supported",
+            checked = uiState.isKernelUmountEnabled,
+            onCheckedChange = onSetKernelUmount,
+        )
+        if (Build.VERSION.SDK_INT > Build.VERSION_CODES.Q) {
+            BentoToggleRow(
+                icon = Icons.TwoTone.Adb,
+                title = stringResource(R.string.settings_adb_root),
+                enabled = uiState.adbRootStatus == "supported",
+                checked = uiState.isAdbRootEnabled,
+                onCheckedChange = onSetAdbRoot,
+            )
+        }
+        BentoToggleRow(
+            icon = Icons.TwoTone.Policy,
+            title = stringResource(R.string.settings_selinux_permissive),
+            enabled = uiState.selinuxStatus == "supported",
+            checked = uiState.isSelinuxPermissive,
+            onCheckedChange = onSetSelinux,
+        )
+        Spacer(Modifier.height(4.dp))
+        BentoJumpRow(
+            icon = Icons.TwoTone.Settings,
+            title = stringResource(R.string.settings_advanced_config),
+            onClick = onOpenAdvanced,
         )
     }
+}
 
-    if (showZygiskTelemetry) {
-        OriginZygiskTelemetryDialog(
-            events = zygiskStatus.telemetry,
-            onDismiss = { showZygiskTelemetry = false },
+/** Update checks and haptics. */
+@Composable
+private fun UpdatesBandTile(
+    uiState: com.originsu.manager.ui.viewmodel.SettingsUiState,
+    showBeta: Boolean,
+    onSetManagerUpdate: (Boolean) -> Unit,
+    onSetBetaUpdate: (Boolean) -> Unit,
+    onSetModuleUpdate: (Boolean) -> Unit,
+    onSetHaptics: (Boolean) -> Unit,
+) {
+    BentoCard {
+        BentoHeader(
+            icon = Icons.TwoTone.Update,
+            title = stringResource(R.string.settings_bento_updates_title),
+        )
+        Spacer(Modifier.height(8.dp))
+        BentoToggleRow(
+            icon = Icons.TwoTone.Update,
+            title = stringResource(R.string.settings_check_manager_update),
+            checked = uiState.checkManagerUpdate,
+            onCheckedChange = onSetManagerUpdate,
+        )
+        if (showBeta) {
+            BentoToggleRow(
+                icon = Icons.TwoTone.Science,
+                title = stringResource(R.string.settings_check_beta_update),
+                checked = uiState.checkBetaUpdate,
+                onCheckedChange = onSetBetaUpdate,
+            )
+        }
+        BentoToggleRow(
+            icon = Icons.TwoTone.Extension,
+            title = stringResource(R.string.settings_check_module_update),
+            checked = uiState.checkModuleUpdate,
+            onCheckedChange = onSetModuleUpdate,
+        )
+        BentoToggleRow(
+            icon = Icons.Filled.Vibration,
+            title = stringResource(R.string.settings_haptics),
+            checked = uiState.isHapticsEnabled,
+            onCheckedChange = onSetHaptics,
         )
     }
+}
 
-    if (showZygiskLog) {
-        OriginZygiskLogDialog(
-            log = zygiskStatus.bootLog,
-            onDismiss = { showZygiskLog = false },
+/** Diagnostics and maintenance actions. */
+@Composable
+private fun ToolsBandTile(
+    showFullFeatured: Boolean,
+    isKernelUmountEnabled: Boolean,
+    showUninstall: Boolean,
+    onSendLog: () -> Unit,
+    onDynamicManager: () -> Unit,
+    onUmountManager: () -> Unit,
+    onKernelTuning: () -> Unit,
+    onUninstall: () -> Unit,
+) {
+    BentoCard {
+        BentoHeader(
+            icon = Icons.TwoTone.Extension,
+            title = stringResource(R.string.tools),
         )
-    }
-
-    if (showZygiskSkip) {
-        OriginZygiskSkipDialog(
-            apps = zygiskApps,
-            selected = zygiskStatus.skippedPackages,
-            onToggle = { packageName, skip ->
-                settingsViewModel.dispatch(
-                    SettingsUiAction.SetOriginZygiskSkip(packageName, skip)
+        Spacer(Modifier.height(8.dp))
+        BentoJumpRow(
+            icon = Icons.TwoTone.BugReport,
+            title = stringResource(R.string.send_log),
+            onClick = onSendLog,
+        )
+        if (showFullFeatured) {
+            BentoJumpRow(
+                icon = Icons.TwoTone.Dashboard,
+                title = stringResource(R.string.dynamic_manager_title),
+                onClick = onDynamicManager,
+            )
+            if (isKernelUmountEnabled) {
+                BentoJumpRow(
+                    icon = Icons.TwoTone.FolderOff,
+                    title = stringResource(R.string.umount_path_manager),
+                    onClick = onUmountManager,
                 )
-            },
-            onDismiss = { showZygiskSkip = false },
-        )
+            }
+            BentoJumpRow(
+                icon = Icons.TwoTone.Tune,
+                title = stringResource(R.string.kernel_tuning),
+                onClick = onKernelTuning,
+            )
+        }
+        if (showUninstall) {
+            BentoJumpRow(
+                icon = Icons.TwoTone.Delete,
+                title = stringResource(R.string.settings_uninstall),
+                trailingIcon = Icons.TwoTone.DeleteForever,
+                onClick = onUninstall,
+            )
+        }
     }
 }
 
@@ -1731,7 +937,7 @@ private fun LogBottomSheet(
         modifier = Modifier.popupBlur(),
         containerColor = popupContainerColor(),
     ) {
-        Row(
+        androidx.compose.foundation.layout.Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(SPACING_LARGE),
@@ -1787,39 +993,47 @@ fun LogActionButton(
     }
 }
 
+/**
+ * Uninstall chooser rendered from the Tools band. Mirrors the previous
+ * in-list uninstall widget but uses the dialog form so it fits inside a tile.
+ */
 @SuppressLint("LocalContextGetResourceValueCall")
 @Composable
-fun UninstallItem(
-    withLoading: suspend (suspend () -> Unit) -> Unit
+private fun UninstallChooseDialog(
+    show: Boolean,
+    onDismiss: () -> Unit,
+    withLoading: suspend (suspend () -> Unit) -> Unit,
 ) {
     val navigator = LocalNavigator.current
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val ksuCliRepository = koinInject<KsuCliRepository>()
     val snackBarHost = LocalSnackbarHost.current
-    val uninstallConfirmDialog = rememberConfirmDialog()
+    val confirmDialog = rememberConfirmDialog()
     val options = remember {
         listOf(
             UninstallType.TEMPORARY,
             UninstallType.PERMANENT,
-            UninstallType.RESTORE_STOCK_IMAGE
+            UninstallType.RESTORE_STOCK_IMAGE,
         )
     }
 
-    SettingsChooseWidget(
-        icon = Icons.TwoTone.Delete,
-        title = stringResource(id = R.string.settings_uninstall),
+    SettingsChooseDialog(
+        show = show,
+        title = stringResource(R.string.settings_uninstall),
         items = options.map { stringResource(it.title) },
         itemDescriptions = options.map {
             if (it.message != 0) stringResource(it.message) else null
         },
         selectedIndex = -1,
+        onDismiss = onDismiss,
         onSelectedIndexChange = { index ->
             options.getOrNull(index)?.let { uninstallType ->
                 scope.launch {
-                    val result = uninstallConfirmDialog.awaitConfirm(
-                        title = context.getString(uninstallType.title),
-                        content = context.getString(uninstallType.message)
+                    val result = uninstallConfirm(
+                        confirmDialog = confirmDialog,
+                        context = context,
+                        uninstallType = uninstallType,
                     )
                     if (result == ConfirmResult.Confirmed) {
                         when (uninstallType) {
@@ -1849,9 +1063,18 @@ fun UninstallItem(
                     }
                 }
             }
-        }
+        },
     )
 }
+
+private suspend fun uninstallConfirm(
+    confirmDialog: com.originsu.manager.ui.component.ConfirmDialogHandle,
+    context: android.content.Context,
+    uninstallType: UninstallType,
+): ConfirmResult = confirmDialog.awaitConfirm(
+    title = context.getString(uninstallType.title),
+    content = context.getString(uninstallType.message),
+)
 
 enum class UninstallType(val title: Int, val message: Int, val icon: ImageVector) {
     TEMPORARY(

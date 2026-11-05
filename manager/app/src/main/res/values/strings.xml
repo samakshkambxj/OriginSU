@@ -1367,4 +1367,16 @@
     <string name="install_lkm_fork_hint">This can be an OriginSU LKM or an LKM (.ko) built by another KernelSU fork.</string>
     <string name="skip_ksud">Do not install ksud</string>
     <string name="skip_ksud_summary">Cancel ksud installation. Do not enable this unless absolutely necessary.</string>
+
+    <!-- Settings bento grid -->
+    <string name="settings_bento_origin_summary">Zygisk, Veil, mount and security tools</string>
+    <string name="settings_bento_root_gate_chip">Root gate</string>
+    <string name="settings_bento_panic_chip">Panic · %1$d min</string>
+    <string name="settings_bento_core_title">SU &amp; kernel</string>
+    <string name="settings_bento_updates_title">Updates &amp; app</string>
+    <string name="settings_bento_theme_summary">Colors, background and appearance</string>
+    <string name="settings_bento_version">Version %1$s</string>
+    <string name="settings_advanced_config">Advanced configuration</string>
+    <string name="search_origin_lab">Search Origin Lab</string>
+    <string name="search_advanced_config">Search advanced configuration</string>
 </resources>

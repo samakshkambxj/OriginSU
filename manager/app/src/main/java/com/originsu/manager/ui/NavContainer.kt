@@ -86,6 +86,8 @@ import com.originsu.manager.ui.screen.about.AboutScreen
 import com.originsu.manager.ui.screen.about.OpenSourceLicenseScreen
 import com.originsu.manager.ui.screen.kernelFlash.KernelFlashScreen
 import com.originsu.manager.ui.screen.main.MainScreen
+import com.originsu.manager.ui.screen.main.AdvancedConfigScreen
+import com.originsu.manager.ui.screen.main.OriginLabScreen
 import com.originsu.manager.ui.screen.moduleRepo.ModuleRepoScreen
 import com.originsu.manager.ui.screen.moduleRepo.OnlineModuleDetailScreen
 import com.originsu.manager.ui.screen.susfs.SuSFSConfigScreen
@@ -670,6 +672,34 @@ fun NavContainer(
                     useBlur = useBlur,
                 ) {
                     SuSFSConfigScreen()
+                }
+            }
+            entry<Route.OriginLab>(swipeDismiss = swipeBackDirection) { key ->
+                ManagerNavEntry(
+                    interceptPredictiveBack = interceptPredictiveBack,
+                    onBack = onBack,
+                    themeConfig = themeConfig,
+                    backgroundRenderState = backgroundRenderState,
+                    useBlur = useBlur,
+                ) {
+                    OriginLabScreen(
+                        settingsViewModel = settingsViewModel,
+                        initialQuery = key.initialQuery,
+                    )
+                }
+            }
+            entry<Route.AdvancedConfig>(swipeDismiss = swipeBackDirection) { key ->
+                ManagerNavEntry(
+                    interceptPredictiveBack = interceptPredictiveBack,
+                    onBack = onBack,
+                    themeConfig = themeConfig,
+                    backgroundRenderState = backgroundRenderState,
+                    useBlur = useBlur,
+                ) {
+                    AdvancedConfigScreen(
+                        settingsViewModel = settingsViewModel,
+                        initialQuery = key.initialQuery,
+                    )
                 }
             }
             entry<Route.SuSFSLkm>(swipeDismiss = swipeBackDirection) {

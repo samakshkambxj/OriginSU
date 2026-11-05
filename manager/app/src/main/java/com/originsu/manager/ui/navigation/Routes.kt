@@ -153,6 +153,14 @@ sealed interface Route : NavKey, Parcelable {
 
     @Parcelize
     @Serializable
+    data class OriginLab(val initialQuery: String = "") : Route
+
+    @Parcelize
+    @Serializable
+    data class AdvancedConfig(val initialQuery: String = "") : Route
+
+    @Parcelize
+    @Serializable
     data object SuSFSConfig : Route
 
     @Parcelize
