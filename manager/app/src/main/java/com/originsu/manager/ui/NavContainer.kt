@@ -60,6 +60,7 @@ import com.originsu.manager.ui.component.InstallConfirmationDialog
 import com.originsu.manager.ui.component.ZipFileDetector
 import com.originsu.manager.ui.component.ZipFileInfo
 import com.originsu.manager.ui.component.ZipType
+import com.originsu.manager.ui.component.SuiPermissionRequestDialog
 import com.originsu.manager.ui.navigation.HandleDeepLink
 import com.originsu.manager.ui.navigation.LocalNavigator
 import com.originsu.manager.ui.navigation.Navigator
@@ -75,6 +76,7 @@ import com.originsu.manager.ui.screen.FlashScreen
 import com.originsu.manager.ui.screen.InstallScreen
 import com.originsu.manager.ui.screen.AppIconScreen
 import com.originsu.manager.ui.screen.SulogScreen
+import com.originsu.manager.ui.screen.SuiPermissionsScreen
 import com.originsu.manager.ui.screen.UpdaterScreen
 import com.originsu.manager.ui.screen.VeilDetailScreen
 import com.originsu.manager.ui.screen.VeilScreen
@@ -447,6 +449,17 @@ fun NavContainer(
                     SulogScreen()
                 }
             }
+            entry<Route.SuiPermissions>(swipeDismiss = swipeBackDirection) {
+                ManagerNavEntry(
+                    interceptPredictiveBack = interceptPredictiveBack,
+                    onBack = onBack,
+                    themeConfig = themeConfig,
+                    backgroundRenderState = backgroundRenderState,
+                    useBlur = useBlur,
+                ) {
+                    SuiPermissionsScreen()
+                }
+            }
             entry<Route.AppIcon>(swipeDismiss = swipeBackDirection) {
                 ManagerNavEntry(
                     interceptPredictiveBack = interceptPredictiveBack,
@@ -764,6 +777,10 @@ fun NavContainer(
                 }
             }
         }
+
+        // Sui hands permission prompts to its registered manager; show them over
+        // whatever screen is open.
+        SuiPermissionRequestDialog()
         }
     }
 }

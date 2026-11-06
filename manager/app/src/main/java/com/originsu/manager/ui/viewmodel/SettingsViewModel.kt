@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.materialkolor.PaletteStyle
 import com.materialkolor.dynamiccolor.ColorSpec
 import com.originsu.manager.R
+import com.originsu.manager.data.model.SuiStatus
 import com.originsu.manager.data.shell.KsuCliRepository
 import com.originsu.manager.data.shell.OriginZygiskStatus
 import com.originsu.manager.data.curtain.OriginCurtainRepository
@@ -158,6 +159,8 @@ data class SettingsUiState(
     val originZygiskError: String? = null,
     val originZygiskStatus: OriginZygiskStatus = OriginZygiskStatus(),
     val originCurtainStatus: OriginCurtainStatus = OriginCurtainStatus(),
+    /** Null until `ksud sui status` answers; absent means the feature is not built in. */
+    val suiStatus: SuiStatus? = null,
     val topBarLogo: TopBarLogo = TopBarLogo.YIN_YANG,
     val uiMode: UiMode = UiMode.Material,
     val miuixHomeStyle: MiuixHomeStyle = MiuixHomeStyle.Standard,
@@ -240,6 +243,9 @@ sealed interface SettingsUiAction {
     data class SetOriginZygiskInjectionPaused(val paused: Boolean) : SettingsUiAction
     data object RepairOriginZygisk : SettingsUiAction
     data object RefreshOriginZygisk : SettingsUiAction
+    data class SetSuiEnabled(val enabled: Boolean) : SettingsUiAction
+    data object RepairSui : SettingsUiAction
+    data object RefreshSui : SettingsUiAction
     data object RefreshOriginCurtain : SettingsUiAction
     data object RefreshBootloop : SettingsUiAction
     data class SetBootloopEnabled(val enabled: Boolean) : SettingsUiAction
@@ -689,6 +695,34 @@ class SettingsViewModel(
         }
     }
 
+    fun refreshSui() {
+        viewModelScope.launch {
+            // Null (not a default instance) so an absent payload never reads as "disabled".
+            val status = ksuCliRepository.getSuiStatus()
+            mutableState.update { it.copy(suiStatus = status) }
+        }
+    }
+
+    fun handleSuiChange(enabled: Boolean) {
+        viewModelScope.launch {
+            val ok = ksuCliRepository.setSuiEnabled(enabled)
+            if (!ok) {
+                mutableEvents.tryEmit(SettingsUiEvent.Message(R.string.sui_failed))
+            }
+            refreshSui()
+        }
+    }
+
+    fun repairSui() {
+        viewModelScope.launch {
+            val ok = ksuCliRepository.repairSui()
+            if (!ok) {
+                mutableEvents.tryEmit(SettingsUiEvent.Message(R.string.sui_repair_failed))
+            }
+            refreshSui()
+        }
+    }
+
     fun handleOriginZygiskChange(enabled: Boolean) {
         viewModelScope.launch {
             val ok = runCatching { ksuCliRepository.setOriginZygiskEnabled(enabled) }
@@ -1031,6 +1065,9 @@ fun dispatch(action: SettingsUiAction) {
                 handleOriginZygiskInjectionPausedChange(action.paused)
             SettingsUiAction.RepairOriginZygisk -> repairOriginZygisk()
             SettingsUiAction.RefreshOriginZygisk -> refreshOriginZygisk()
+            is SettingsUiAction.SetSuiEnabled -> handleSuiChange(action.enabled)
+            SettingsUiAction.RepairSui -> repairSui()
+            SettingsUiAction.RefreshSui -> refreshSui()
             SettingsUiAction.RefreshOriginCurtain -> refreshOriginCurtain()
             SettingsUiAction.RefreshBootloop -> refreshBootloop()
             is SettingsUiAction.SetBootloopEnabled ->

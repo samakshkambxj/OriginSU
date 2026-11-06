@@ -2,6 +2,7 @@ package com.originsu.manager
 
 import android.app.Application
 import android.os.Build
+import com.originsu.manager.data.sui.SuiPermissionHost
 import com.originsu.manager.di.appModules
 import com.originsu.manager.domain.usecase.InitializeApplicationUseCase
 import kotlinx.coroutines.Dispatchers
@@ -33,5 +34,13 @@ class KernelSUApplication : Application() {
             val rootGate = koin.get<com.originsu.manager.data.grant.RootGateRepository>()
             if (rootGate.isLockBoundEnabled()) rootGate.startService()
         }
+
+        // Sui hands permission prompts to its registered manager. Registering can
+        // touch the binder, so keep it off the main thread; failures are fine and
+        // just mean Sui is not running yet.
+        SuiPermissionHost.attach(this)
+        Thread {
+            runCatching { SuiPermissionHost.register() }
+        }.start()
     }
 }

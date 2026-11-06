@@ -25,6 +25,7 @@ import androidx.compose.material.icons.twotone.Shield
 import androidx.compose.material.icons.twotone.Timer
 import androidx.compose.material.icons.twotone.Tune
 import androidx.compose.material.icons.twotone.Visibility
+import androidx.compose.material.icons.twotone.WaterDrop
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -45,6 +46,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.originsu.manager.R
+import com.originsu.manager.data.model.SuiStatus
 import com.originsu.manager.data.packageinfo.InstalledPackageRepository
 import com.originsu.manager.data.curtain.OriginCurtainRepository
 import com.originsu.manager.data.shell.KsuCliRepository
@@ -168,6 +170,33 @@ fun OriginLabScreen(
     val diagnosticsFailed = stringResource(R.string.origin_zygisk_diagnostics_failed)
     val diagnosticsSaved = stringResource(R.string.origin_zygisk_diagnostics_saved)
 
+    // Origin Sui: built-in Shizuku API provider. Its switch stays off until ksud
+    // reports both a usable Zygisk provider and the engine, mirroring ksud's gate.
+    val titleSui = stringResource(R.string.settings_sui)
+    val suiStatus = uiState.suiStatus
+    val suiProviderReady = suiStatus?.let { it.zygiskEnabled && it.engineAvailable } == true
+    val suiSummary = when {
+        suiStatus == null -> stringResource(R.string.sui_unavailable)
+        suiStatus.state == SuiStatus.STATE_ENABLED -> stringResource(
+            R.string.sui_active,
+            suiStatus.payloadVersion,
+        )
+        suiStatus.state == SuiStatus.STATE_PENDING_REBOOT ->
+            stringResource(R.string.sui_pending_reboot)
+        suiStatus.state == SuiStatus.STATE_EXTERNAL_UNVERIFIED ->
+            stringResource(R.string.sui_external_provider)
+        suiStatus.state == SuiStatus.STATE_ERROR ||
+            suiStatus.state == SuiStatus.STATE_UNAVAILABLE -> suiStatus.detail
+        else -> stringResource(R.string.settings_sui_summary)
+    }
+    val titleSuiPermissions = stringResource(R.string.sui_manage_permissions)
+    val descSuiPermissions = stringResource(R.string.sui_manage_permissions_summary)
+    val titleSuiRepair = stringResource(R.string.sui_repair)
+    val descSuiRepair = stringResource(R.string.sui_repair_summary)
+    val titleSuiConflicts = stringResource(R.string.sui_conflicts)
+    val suiConflicts = suiStatus?.conflicts.orEmpty()
+
+
     val zygiskIntegritySummary = when {
         !zygiskStatus.integrityOk -> stringResource(
             R.string.origin_zygisk_integrity_repair,
@@ -207,6 +236,15 @@ fun OriginLabScreen(
             ?: zygiskRunning
         uiState.isOriginZygiskEnabled -> zygiskNeedsReboot
         else -> zygiskDefault
+    }
+    val titleZygiskBootGuard = stringResource(R.string.origin_zygisk_bootguard_reset)
+    val zygiskBootGuardSummary = if (zygiskStatus.bootGuardLatched) {
+        stringResource(R.string.origin_zygisk_bootguard_latched)
+    } else {
+        stringResource(
+            R.string.origin_zygisk_bootguard_failures,
+            zygiskStatus.bootGuardFailures,
+        )
     }
 
     val titleCurtain = stringResource(R.string.origin_curtain)
@@ -301,6 +339,7 @@ fun OriginLabScreen(
         titleZygiskTelemetry,
         titleZygiskLog,
         titleZygiskDiagnostics,
+        titleZygiskBootGuard,
     )
     val matchZygisk = matches(titleZygisk, zygiskSummary)
     val matchVeilSwitch = matches(titleVeilSwitch, veilSummary)
@@ -321,12 +360,16 @@ fun OriginLabScreen(
     val matchMagicBackend = matches(titleMagicBackend, descMagicBackend)
     val matchSusfsLkm = matches(titleSusfsLkm, descSusfsLkm)
     val matchCurtain = matches(titleCurtain, curtainSummary)
+    val matchSui = matches(titleSui, suiSummary)
+    val matchSuiPermissions = matches(titleSuiPermissions, descSuiPermissions)
+    val matchSuiRepair = matches(titleSuiRepair, descSuiRepair)
 
     val hasAnyMatch = listOf(
         matchZygisk, matchZygiskPanel, matchVeilSwitch, matchVeilManage, matchGrantToast,
         matchSuPrompt, matchTempGrant, matchBootloop, matchBootloopThreshold, matchSecureRoot,
         matchAppLock, matchRootGate, matchLockBoundRoot, matchRootGatePanic, matchOriginGuard,
         matchMagicMount, matchMountEngine, matchMagicBackend, matchSusfsLkm, matchCurtain,
+        matchSui, matchSuiPermissions, matchSuiRepair,
     ).any { it }
 
     LaunchedEffect(Unit) {
@@ -334,6 +377,7 @@ fun OriginLabScreen(
         settingsViewModel.dispatch(SettingsUiAction.RefreshMagicMount)
         settingsViewModel.dispatch(SettingsUiAction.RefreshOriginZygisk)
         settingsViewModel.dispatch(SettingsUiAction.RefreshOriginCurtain)
+        settingsViewModel.dispatch(SettingsUiAction.RefreshSui)
         settingsViewModel.dispatch(SettingsUiAction.RefreshBootloop)
     }
 
@@ -562,6 +606,93 @@ fun OriginLabScreen(
                                         }
                                     }
                                 },
+                            )
+                        }
+
+                        item(
+                            visible = matchZygiskPanel && zygiskStatus.installed &&
+                                (zygiskStatus.bootGuardLatched || zygiskStatus.bootGuardFailures > 0)
+                        ) {
+                            SettingsJumpPageWidget(
+                                icon = Icons.TwoTone.RestartAlt,
+                                title = titleZygiskBootGuard,
+                                description = zygiskBootGuardSummary,
+                                onClick = {
+                                    scope.launch {
+                                        val reset = withContext(Dispatchers.IO) {
+                                            ksuCliRepository.resetOriginZygiskBootGuard()
+                                        }
+                                        if (reset) {
+                                            settingsViewModel.dispatch(
+                                                SettingsUiAction.RefreshOriginZygisk
+                                            )
+                                            snackBarHost.showReplacingSnackbar(
+                                                context.getString(
+                                                    R.string.origin_zygisk_bootguard_reset_done
+                                                )
+                                            )
+                                        } else {
+                                            snackBarHost.showReplacingSnackbar(
+                                                context.getString(
+                                                    R.string.origin_zygisk_bootguard_reset_failed
+                                                )
+                                            )
+                                        }
+                                    }
+                                },
+                            )
+                        }
+
+                        item(visible = matchSui) {
+                            SettingsSwitchWidget(
+                                icon = Icons.TwoTone.WaterDrop,
+                                title = titleSui,
+                                description = suiSummary,
+                                enabled = suiStatus != null,
+                                checked = suiStatus?.selected == true,
+                                onCheckedChange = { enabled ->
+                                    settingsViewModel.dispatch(
+                                        SettingsUiAction.SetSuiEnabled(enabled)
+                                    )
+                                },
+                            )
+                        }
+
+                        item(
+                            visible = matchSuiPermissions &&
+                                suiStatus != null && suiStatus.installed && suiProviderReady
+                        ) {
+                            SettingsJumpPageWidget(
+                                icon = Icons.TwoTone.Policy,
+                                title = titleSuiPermissions,
+                                description = descSuiPermissions,
+                                onClick = {
+                                    navigator.push(Route.SuiPermissions)
+                                },
+                            )
+                        }
+
+                        item(
+                            visible = matchSuiRepair && suiStatus != null &&
+                                (!suiStatus.payloadCurrent || suiStatus.moduleDisabled)
+                        ) {
+                            SettingsJumpPageWidget(
+                                icon = Icons.TwoTone.RestartAlt,
+                                title = titleSuiRepair,
+                                description = descSuiRepair,
+                                onClick = {
+                                    settingsViewModel.dispatch(SettingsUiAction.RepairSui)
+                                },
+                            )
+                        }
+
+                        item(
+                            visible = matchSui && suiStatus != null && suiConflicts.isNotEmpty()
+                        ) {
+                            SettingsBaseWidget(
+                                icon = Icons.TwoTone.BugReport,
+                                title = titleSuiConflicts,
+                                description = suiConflicts.joinToString(", "),
                             )
                         }
 

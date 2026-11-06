@@ -1,6 +1,8 @@
 package com.originsu.manager.data.shell
 
 import android.content.Context
+import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Environment
@@ -12,6 +14,9 @@ import com.originsu.manager.BuildConfig
 import com.originsu.manager.Natives
 import com.originsu.manager.R
 import com.originsu.manager.data.kernel.VeilManageRepository
+import com.originsu.manager.data.model.SuiApp
+import com.originsu.manager.data.model.SuiStatus
+import com.originsu.manager.data.sui.SuiBridge
 import com.originsu.manager.domain.model.LkmSelection
 import com.originsu.manager.domain.model.MountEngineInfo
 import com.originsu.manager.domain.model.TempGrantRecord
@@ -105,6 +110,10 @@ data class OriginZygiskStatus(
     val quarantinedModules: Set<String> = emptySet(),
     val telemetry: List<OriginZygiskTelemetryEvent> = emptyList(),
     val bootLog: String = "",
+    val bootGuardFailures: Int = 0,
+    val bootGuardLatched: Boolean = false,
+    val bootGuardAttempted: String = "",
+    val bootGuardConfirmed: String = "",
 ) {
     val injectionPaused: Boolean get() = monitorState != 0
     val moduleHealth: String
@@ -1605,6 +1614,25 @@ class KsuCliRepository(context: Context) {
         val disabledModules = readOriginZygiskPolicy(shell, "disabled_modules.txt").toSet()
         val quarantinedModules = readOriginZygiskPolicy(shell, "quarantine.txt").toSet()
 
+        // Boot guard: a boot that never confirmed readiness counts as a failure
+        // and three consecutive failures latch the engine off.
+        val bootGuard = runCmd(
+            shell,
+            "if [ -d $ORIGIN_ZYGISK_DIR/bootguard ]; then " +
+                "echo BG_FAILURES=$(cat $ORIGIN_ZYGISK_DIR/bootguard/failures 2>/dev/null); " +
+                "[ -f $ORIGIN_ZYGISK_DIR/bootguard/latched ] && echo BG_LATCHED=1; " +
+                "echo BG_ATTEMPTED=$(cat $ORIGIN_ZYGISK_DIR/bootguard/attempted 2>/dev/null); " +
+                "echo BG_CONFIRMED=$(cat $ORIGIN_ZYGISK_DIR/bootguard/confirmed 2>/dev/null); " +
+                "fi",
+        ).lineSequence().mapNotNull { line ->
+            val index = line.indexOf('=')
+            if (index <= 0) null else line.take(index) to line.substring(index + 1).trim()
+        }.toMap()
+        val bootGuardFailures = bootGuard["BG_FAILURES"]?.toIntOrNull() ?: 0
+        val bootGuardLatched = bootGuard["BG_LATCHED"] == "1"
+        val bootGuardAttempted = bootGuard["BG_ATTEMPTED"].orEmpty()
+        val bootGuardConfirmed = bootGuard["BG_CONFIRMED"].orEmpty()
+
         val manifest = "$ORIGIN_ZYGISK_DIR/deployed.sha256"
         val hasManifest = ShellUtils.fastCmdResult(shell, "[ -f $manifest ]")
         var integrityOk = false
@@ -1693,6 +1721,10 @@ class KsuCliRepository(context: Context) {
             quarantinedModules = quarantinedModules,
             telemetry = telemetry,
             bootLog = bootLog,
+            bootGuardFailures = bootGuardFailures,
+            bootGuardLatched = bootGuardLatched,
+            bootGuardAttempted = bootGuardAttempted,
+            bootGuardConfirmed = bootGuardConfirmed,
         )
 
         if (error != null) {
@@ -1816,6 +1848,127 @@ class KsuCliRepository(context: Context) {
     suspend fun repairOriginZygisk(): Boolean = withContext(Dispatchers.IO) {
         deployOriginZygisk()
     }
+
+    /** Clear the three-failure boot latch so OriginZygisk can start again. */
+    suspend fun resetOriginZygiskBootGuard(): Boolean = withContext(Dispatchers.IO) {
+        if (!rootAvailable()) return@withContext false
+        runCatching {
+            val shell = getRootShell()
+            ShellUtils.fastCmdResult(
+                shell,
+                "rm -rf $ORIGIN_ZYGISK_DIR/bootguard && " +
+                    "mkdir -p $ORIGIN_ZYGISK_DIR/bootguard && " +
+                    "chmod 0755 $ORIGIN_ZYGISK_DIR/bootguard",
+            )
+        }.getOrDefault(false)
+    }
+
+    /**
+     * Run a ksud command and return the full [Shell.Result] so callers can inspect
+     * the exit code and stdout. Callers own the argument string; command tokens must
+     * never be user-controlled.
+     */
+    private suspend fun execKsudResult(args: String): Shell.Result = withContext(Dispatchers.IO) {
+        getRootShell().newJob()
+            .add("${getKsuDaemonPath()} $args")
+            .to(ArrayList<String>(), ArrayList<String>())
+            .exec()
+    }
+
+    //
+    // Origin Sui: a built-in Zygisk module that ksud installs and supervises.
+    // ksud is the source of truth for the payload state; permissions are read
+    // and written through Sui's own management binder.
+    //
+
+    /** One report from `ksud sui status --json`; null when ksud or the payload is missing. */
+    suspend fun getSuiStatus(): SuiStatus? = withContext(Dispatchers.IO) {
+        runCatching {
+            val result = execKsudResult("sui status --json")
+            check(result.isSuccess) { "ksud sui status failed (exit ${result.code})" }
+            val payload = result.out.filter { it.isNotBlank() }
+            check(payload.size == 1) { "Invalid ksud sui status output" }
+            SuiStatus.fromJson(JSONObject(payload.single()))
+        }.onFailure { Log.w(TAG, "sui status failed", it) }.getOrNull()
+    }
+
+    suspend fun setSuiEnabled(enabled: Boolean): Boolean = withContext(Dispatchers.IO) {
+        val command = if (enabled) "sui enable" else "sui disable"
+        execKsud(command, newShell = true)
+    }
+
+    suspend fun repairSui(): Boolean = withContext(Dispatchers.IO) {
+        execKsud("sui repair", newShell = true)
+    }
+
+    /** Idempotent write proving Sui accepts this app as its manager. */
+    suspend fun suiProbeManagement(): String? = withContext(Dispatchers.IO) {
+        runCatching {
+            val service = SuiBridge.service() ?: error("Sui bridge returned no binder")
+            val uid = android.os.Process.myUid()
+            val flags = service.getFlagsForUid(uid, SuiBridge.MASK_PERMISSION)
+            service.updateFlagsForUid(uid, SuiBridge.MASK_PERMISSION, flags)
+            "binder=ok uid=$uid flags=$flags"
+        }.onFailure { Log.w(TAG, "sui management probe failed", it) }.getOrNull()
+    }
+
+    /** Launchable apps plus the permission Sui stores for each uid. */
+    suspend fun suiAppPermissions(): List<SuiApp> = withContext(Dispatchers.IO) {
+        runCatching {
+            val service = SuiBridge.service() ?: error("Sui bridge returned no binder")
+            val pm = appContext.packageManager
+            val entries = LinkedHashMap<Int, SuiApp>()
+            val launcher = Intent(Intent.ACTION_MAIN)
+                .addCategory(Intent.CATEGORY_LAUNCHER)
+            for (resolved in pm.queryIntentActivities(launcher, 0)) {
+                val info = resolved.activityInfo?.applicationInfo ?: continue
+                val uid = info.uid
+                // Root, shell and system uids are not app permission targets.
+                if (uid < 10000 || entries.containsKey(uid)) {
+                    continue
+                }
+                entries[uid] = SuiApp(
+                    uid = uid,
+                    packageName = info.packageName,
+                    label = pm.getApplicationLabel(info).toString(),
+                    mode = service.getFlagsForUid(uid, SuiApp.MODE_MASK),
+                    applicationInfo = info,
+                    requestsShizuku = requestsShizuku(pm, info.packageName),
+                )
+            }
+            entries.values.sortedBy { it.label.lowercase() }
+        }.onFailure { Log.w(TAG, "sui app permissions failed", it) }.getOrDefault(emptyList())
+    }
+
+    suspend fun setSuiAppMode(uid: Int, mode: Int): Boolean = withContext(Dispatchers.IO) {
+        runCatching {
+            val service = SuiBridge.service() ?: error("Sui bridge returned no binder")
+            service.updateFlagsForUid(uid, SuiApp.MODE_MASK, mode)
+            true
+        }.onFailure { Log.w(TAG, "sui set app mode failed", it) }.getOrDefault(false)
+    }
+
+    /** The permission Sui applies to apps that have no rule of their own. */
+    suspend fun suiDefaultMode(): Int? = withContext(Dispatchers.IO) {
+        runCatching {
+            SuiBridge.defaultMode() ?: error("Sui did not report the default permission")
+        }.onFailure { Log.w(TAG, "sui default mode failed", it) }.getOrNull()
+    }
+
+    suspend fun setSuiDefaultMode(mode: Int): Boolean = withContext(Dispatchers.IO) {
+        runCatching {
+            check(SuiBridge.setDefaultMode(mode and SuiApp.MODE_MASK)) {
+                "Sui rejected the default permission"
+            }
+        }.onFailure { Log.w(TAG, "sui set default mode failed", it) }.getOrDefault(false)
+    }
+
+    private fun requestsShizuku(pm: PackageManager, packageName: String): Boolean = runCatching {
+        pm.getPackageInfo(packageName, PackageManager.GET_PERMISSIONS)
+            .requestedPermissions
+            ?.contains(SuiApp.PERMISSION_API_V23) == true
+    }.getOrDefault(false)
+
 
     private fun deployOriginZygisk(): Boolean {
         if (!rootAvailable()) return false

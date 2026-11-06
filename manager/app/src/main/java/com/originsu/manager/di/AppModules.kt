@@ -222,6 +222,7 @@ import com.originsu.manager.ui.viewmodel.ModuleRepoViewModel
 import com.originsu.manager.ui.viewmodel.ModuleViewModel
 import com.originsu.manager.ui.viewmodel.ModuleBackupViewModel
 import com.originsu.manager.ui.viewmodel.SettingsViewModel
+import com.originsu.manager.ui.viewmodel.SuiPermissionsViewModel
 import com.originsu.manager.ui.viewmodel.SuSFSLkmViewModel
 import com.originsu.manager.ui.viewmodel.SuSFSViewModel
 import com.originsu.manager.ui.viewmodel.SulogViewModel
@@ -590,6 +591,7 @@ val viewModelModule = module {
         )
     }
     viewModelOf(::SulogViewModel)
+    viewModelOf(::SuiPermissionsViewModel)
     viewModelOf(::DynamicManagerViewModel)
     viewModelOf(::FlashViewModel)
     viewModelOf(::UmountManagerScreenViewModel)
