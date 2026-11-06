@@ -48,12 +48,6 @@ pub struct ProviderStatus {
     pub startup_generation: u64,
 }
 
-impl ProviderStatus {
-    pub fn external(&self) -> bool {
-        !self.external_providers.is_empty()
-    }
-}
-
 fn read_trimmed(path: &Path) -> Option<String> {
     fs::read_to_string(path)
         .ok()

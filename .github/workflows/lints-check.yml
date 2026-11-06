@@ -89,8 +89,9 @@ jobs:
         with:
           ignore_names: gradlew
           # userspace/sui is vendored upstream (see userspace/sui/UPSTREAM.md);
-          # its Magisk-module template scripts are not ours to relint.
-          ignore_paths: ./userspace/ksud/src/android/module/installer.sh ./.github/scripts/setup-rust-build.sh ./userspace/sui
+          # its Magisk-module template scripts are not ours to relint. The action
+          # builds '*./<path>/*', so this entry must not start with './'.
+          ignore_paths: ./userspace/ksud/src/android/module/installer.sh ./.github/scripts/setup-rust-build.sh userspace/sui
 
   check-crlf:
     name: Check Line Endings
