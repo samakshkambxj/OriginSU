@@ -1,6 +1,7 @@
 package com.originsu.manager.ui.screen.main
 
 import android.net.Uri
+import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.PaddingValues
@@ -9,9 +10,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.twotone.Article
 import androidx.compose.material.icons.twotone.BugReport
 import androidx.compose.material.icons.twotone.Dashboard
+import androidx.compose.material.icons.twotone.Download
 import androidx.compose.material.icons.twotone.Extension
 import androidx.compose.material.icons.twotone.Fingerprint
 import androidx.compose.material.icons.twotone.FolderOff
+import androidx.compose.material.icons.twotone.Info
 import androidx.compose.material.icons.twotone.Lock
 import androidx.compose.material.icons.twotone.Notifications
 import androidx.compose.material.icons.twotone.Policy
@@ -43,6 +46,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.originsu.manager.R
 import com.originsu.manager.data.packageinfo.InstalledPackageRepository
+import com.originsu.manager.data.curtain.OriginCurtainRepository
 import com.originsu.manager.data.shell.KsuCliRepository
 import com.originsu.manager.data.shell.OriginZygiskAppInfo
 import com.originsu.manager.ui.component.SearchAppBar
@@ -97,6 +101,7 @@ fun OriginLabScreen(
     val snackBarHost = LocalSnackbarHost.current
     val homeViewModel = koinViewModel<HomeViewModel>()
     val ksuCliRepository = koinInject<KsuCliRepository>()
+    val originCurtainRepository = koinInject<OriginCurtainRepository>()
     val installedPackageRepository = koinInject<InstalledPackageRepository>()
     val uiState by settingsViewModel.uiState.collectAsStateWithLifecycle()
     val homeState by homeViewModel.uiState.collectAsStateWithLifecycle()
@@ -204,6 +209,47 @@ fun OriginLabScreen(
         else -> zygiskDefault
     }
 
+    val titleCurtain = stringResource(R.string.origin_curtain)
+    val curtainStatus = uiState.originCurtainStatus
+    val curtainSupported = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
+    val curtainVersion = curtainStatus.moduleVersion.ifBlank { "?" }
+    val curtainSummary = when {
+        !curtainSupported -> stringResource(R.string.origin_curtain_unsupported)
+        !curtainStatus.zygiskEnabled -> stringResource(R.string.origin_curtain_requires_zygisk)
+        !curtainStatus.moduleInstalled -> stringResource(R.string.origin_curtain_not_installed)
+        !curtainStatus.managerInstalled -> stringResource(R.string.origin_curtain_manager_missing)
+        !curtainStatus.moduleEnabled -> stringResource(R.string.origin_curtain_disabled)
+        curtainStatus.moduleLoaded ->
+            stringResource(R.string.origin_curtain_active, curtainVersion)
+        else -> stringResource(R.string.origin_curtain_needs_reboot)
+    }
+    val curtainUnsupported = stringResource(R.string.origin_curtain_unsupported)
+    val curtainDownloadFailed = stringResource(R.string.origin_curtain_download_failed)
+    val curtainOpenFailed = stringResource(R.string.origin_curtain_open_failed)
+    val curtainMissing = stringResource(R.string.origin_curtain_status_missing)
+    val curtainZygiskStatus = when {
+        !curtainStatus.zygiskEnabled -> stringResource(R.string.origin_curtain_zygisk_off)
+        zygiskStatus.running -> stringResource(R.string.origin_curtain_zygisk_running)
+        else -> stringResource(R.string.origin_curtain_zygisk_pending)
+    }
+    val curtainDetail = stringResource(
+        R.string.origin_curtain_status_detail,
+        if (curtainStatus.moduleInstalled) {
+            stringResource(R.string.origin_curtain_status_version, curtainVersion)
+        } else {
+            curtainMissing
+        },
+        if (curtainStatus.managerInstalled) {
+            stringResource(
+                R.string.origin_curtain_status_version,
+                curtainStatus.managerVersion.ifBlank { "?" },
+            )
+        } else {
+            curtainMissing
+        },
+        curtainZygiskStatus,
+    )
+
     val titleVeilSwitch = stringResource(R.string.settings_veil)
     val descVeilDefault = stringResource(R.string.settings_veil_summary)
     val titleVeilManage = stringResource(R.string.veil)
@@ -274,18 +320,20 @@ fun OriginLabScreen(
     val matchMountEngine = matches(titleMountEngine)
     val matchMagicBackend = matches(titleMagicBackend, descMagicBackend)
     val matchSusfsLkm = matches(titleSusfsLkm, descSusfsLkm)
+    val matchCurtain = matches(titleCurtain, curtainSummary)
 
     val hasAnyMatch = listOf(
         matchZygisk, matchZygiskPanel, matchVeilSwitch, matchVeilManage, matchGrantToast,
         matchSuPrompt, matchTempGrant, matchBootloop, matchBootloopThreshold, matchSecureRoot,
         matchAppLock, matchRootGate, matchLockBoundRoot, matchRootGatePanic, matchOriginGuard,
-        matchMagicMount, matchMountEngine, matchMagicBackend, matchSusfsLkm,
+        matchMagicMount, matchMountEngine, matchMagicBackend, matchSusfsLkm, matchCurtain,
     ).any { it }
 
     LaunchedEffect(Unit) {
         settingsViewModel.dispatch(SettingsUiAction.LoadFeatureSettings)
         settingsViewModel.dispatch(SettingsUiAction.RefreshMagicMount)
         settingsViewModel.dispatch(SettingsUiAction.RefreshOriginZygisk)
+        settingsViewModel.dispatch(SettingsUiAction.RefreshOriginCurtain)
         settingsViewModel.dispatch(SettingsUiAction.RefreshBootloop)
     }
 
@@ -316,6 +364,21 @@ fun OriginLabScreen(
 
     ActivityResumeEffect {
         settingsViewModel.dispatch(SettingsUiAction.RefreshMagicMount)
+        settingsViewModel.dispatch(SettingsUiAction.RefreshOriginCurtain)
+    }
+
+    val installCurtain: () -> Unit = {
+        scope.launch {
+            val file = loadingDialog.withLoading {
+                originCurtainRepository.downloadLatestRelease()
+            }
+            if (file == null) {
+                snackBarHost.showReplacingSnackbar(curtainDownloadFailed)
+            } else {
+                navigator.push(Route.Flash.module(Uri.fromFile(file).toString()))
+            }
+        }
+        Unit
     }
 
     val exportDiagnosticsLauncher = rememberLauncherForActivityResult(
@@ -499,6 +562,95 @@ fun OriginLabScreen(
                                         }
                                     }
                                 },
+                            )
+                        }
+
+                        item(visible = matchCurtain) {
+                            val managerIntent = remember(curtainStatus.managerInstalled) {
+                                if (curtainStatus.managerInstalled) {
+                                    originCurtainRepository.managerLaunchIntent()
+                                } else {
+                                    null
+                                }
+                            }
+                            SettingsJumpPageWidget(
+                                icon = Icons.TwoTone.Visibility,
+                                title = titleCurtain,
+                                description = curtainSummary,
+                                onClick = {
+                                    when {
+                                        !curtainSupported -> scope.launch {
+                                            snackBarHost.showReplacingSnackbar(
+                                                curtainUnsupported
+                                            )
+                                        }
+
+                                        !curtainStatus.zygiskEnabled -> {
+                                            settingsViewModel.dispatch(
+                                                SettingsUiAction.SetOriginZygiskEnabled(true)
+                                            )
+                                        }
+
+                                        !curtainStatus.moduleInstalled ||
+                                            !curtainStatus.managerInstalled -> installCurtain()
+
+                                        !curtainStatus.moduleEnabled ->
+                                            navigator.push(Route.Module)
+
+                                        managerIntent != null -> runCatching {
+                                            context.startActivity(managerIntent)
+                                        }.onFailure {
+                                            scope.launch {
+                                                snackBarHost.showReplacingSnackbar(
+                                                    curtainOpenFailed
+                                                )
+                                            }
+                                        }
+
+                                        else -> scope.launch {
+                                            snackBarHost.showReplacingSnackbar(curtainOpenFailed)
+                                        }
+                                    }
+                                },
+                            )
+                        }
+
+                        item(visible = matchCurtain) {
+                            SettingsBaseWidget(
+                                icon = Icons.TwoTone.Info,
+                                title = stringResource(R.string.origin_curtain_status),
+                                description = curtainDetail,
+                            )
+                        }
+
+                        item(visible = matchCurtain && curtainStatus.moduleInstalled) {
+                            SettingsJumpPageWidget(
+                                icon = Icons.TwoTone.Download,
+                                title = stringResource(R.string.origin_curtain_update),
+                                description = stringResource(
+                                    R.string.origin_curtain_update_summary,
+                                    curtainVersion,
+                                ),
+                                onClick = { installCurtain() },
+                            )
+                        }
+
+                        item(visible = matchCurtain && curtainStatus.moduleInstalled) {
+                            SettingsJumpPageWidget(
+                                icon = Icons.TwoTone.Extension,
+                                title = stringResource(R.string.origin_curtain_manage),
+                                description = stringResource(R.string.origin_curtain_manage_summary),
+                                onClick = { navigator.push(Route.Module) },
+                            )
+                        }
+
+                        item(visible = matchCurtain && curtainStatus.moduleInstalled) {
+                            SettingsBaseWidget(
+                                icon = Icons.TwoTone.Info,
+                                title = stringResource(R.string.origin_curtain_third_party),
+                                description = stringResource(
+                                    R.string.origin_curtain_third_party_summary
+                                ),
                             )
                         }
 

@@ -7,6 +7,8 @@ import com.materialkolor.dynamiccolor.ColorSpec
 import com.originsu.manager.R
 import com.originsu.manager.data.shell.KsuCliRepository
 import com.originsu.manager.data.shell.OriginZygiskStatus
+import com.originsu.manager.data.curtain.OriginCurtainRepository
+import com.originsu.manager.domain.model.OriginCurtainStatus
 import com.originsu.manager.domain.model.AppearanceSetting
 import com.originsu.manager.domain.model.MountEngineInfo
 import com.originsu.manager.domain.model.PlatformSetting
@@ -155,6 +157,7 @@ data class SettingsUiState(
     val originZygiskRoot: String = "",
     val originZygiskError: String? = null,
     val originZygiskStatus: OriginZygiskStatus = OriginZygiskStatus(),
+    val originCurtainStatus: OriginCurtainStatus = OriginCurtainStatus(),
     val topBarLogo: TopBarLogo = TopBarLogo.YIN_YANG,
     val uiMode: UiMode = UiMode.Material,
     val miuixHomeStyle: MiuixHomeStyle = MiuixHomeStyle.Standard,
@@ -237,6 +240,7 @@ sealed interface SettingsUiAction {
     data class SetOriginZygiskInjectionPaused(val paused: Boolean) : SettingsUiAction
     data object RepairOriginZygisk : SettingsUiAction
     data object RefreshOriginZygisk : SettingsUiAction
+    data object RefreshOriginCurtain : SettingsUiAction
     data object RefreshBootloop : SettingsUiAction
     data class SetBootloopEnabled(val enabled: Boolean) : SettingsUiAction
     data class SetBootloopMax(val count: Int) : SettingsUiAction
@@ -277,6 +281,7 @@ class SettingsViewModel(
     private val getLongPreference: GetLongPreferenceUseCase,
     private val setLongPreference: SetLongPreferenceUseCase,
     private val ksuCliRepository: KsuCliRepository,
+    private val originCurtainRepository: OriginCurtainRepository,
     private val getBootloopStatus: GetBootloopStatusUseCase,
     private val setBootloopEnabled: SetBootloopEnabledUseCase,
     private val setBootloopMax: SetBootloopMaxUseCase,
@@ -676,6 +681,14 @@ class SettingsViewModel(
         }
     }
 
+    fun refreshOriginCurtain() {
+        viewModelScope.launch {
+            val status = runCatching { originCurtainRepository.getStatus() }
+                .getOrDefault(OriginCurtainStatus())
+            mutableState.update { it.copy(originCurtainStatus = status) }
+        }
+    }
+
     fun handleOriginZygiskChange(enabled: Boolean) {
         viewModelScope.launch {
             val ok = runCatching { ksuCliRepository.setOriginZygiskEnabled(enabled) }
@@ -684,6 +697,7 @@ class SettingsViewModel(
                 mutableEvents.tryEmit(SettingsUiEvent.Message(R.string.origin_zygisk_failed))
             }
             refreshOriginZygisk()
+            refreshOriginCurtain()
         }
     }
 
@@ -1017,6 +1031,7 @@ fun dispatch(action: SettingsUiAction) {
                 handleOriginZygiskInjectionPausedChange(action.paused)
             SettingsUiAction.RepairOriginZygisk -> repairOriginZygisk()
             SettingsUiAction.RefreshOriginZygisk -> refreshOriginZygisk()
+            SettingsUiAction.RefreshOriginCurtain -> refreshOriginCurtain()
             SettingsUiAction.RefreshBootloop -> refreshBootloop()
             is SettingsUiAction.SetBootloopEnabled ->
                 handleBootloopEnabledChange(action.enabled)

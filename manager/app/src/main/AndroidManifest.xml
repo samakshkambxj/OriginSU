@@ -28,6 +28,10 @@
 
     <uses-sdk tools:overrideLibrary="top.yukonga.miuix.kmp.blur" />
 
+    <queries>
+        <package android:name="org.frknkrc44.hma_oss" />
+    </queries>
+
     <application
         android:name=".KernelSUApplication"
         android:allowBackup="true"

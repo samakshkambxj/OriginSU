@@ -1379,4 +1379,29 @@
     <string name="settings_advanced_config">Advanced configuration</string>
     <string name="search_origin_lab">Search Origin Lab</string>
     <string name="search_advanced_config">Search advanced configuration</string>
+
+    <!-- Origin Curtain (HMA-OSS app-list hiding) -->
+    <string name="origin_curtain">Origin Curtain</string>
+    <string name="origin_curtain_unsupported">Requires Android 10 or newer</string>
+    <string name="origin_curtain_requires_zygisk">Enable Origin Zygisk first · tap to enable</string>
+    <string name="origin_curtain_not_installed">App-list hiding (HMA-OSS) · tap to install</string>
+    <string name="origin_curtain_manager_missing">Module installed · tap to install the HMA-OSS app</string>
+    <string name="origin_curtain_disabled">Installed but disabled · open Modules to enable it</string>
+    <string name="origin_curtain_active">Active · HMA-OSS %1$s · tap to open</string>
+    <string name="origin_curtain_needs_reboot">Installed · reboot to activate</string>
+    <string name="origin_curtain_status">Status</string>
+    <string name="origin_curtain_status_detail">Module: %1$s\nHMA-OSS app: %2$s\nOrigin Zygisk: %3$s</string>
+    <string name="origin_curtain_status_missing">not installed</string>
+    <string name="origin_curtain_status_version">installed · %1$s</string>
+    <string name="origin_curtain_zygisk_off">disabled</string>
+    <string name="origin_curtain_zygisk_running">running</string>
+    <string name="origin_curtain_zygisk_pending">enabled · reboot to activate</string>
+    <string name="origin_curtain_update">Update or reinstall</string>
+    <string name="origin_curtain_update_summary">Installed HMA-OSS %1$s · download the latest release</string>
+    <string name="origin_curtain_manage">Manage in Modules</string>
+    <string name="origin_curtain_manage_summary">Disable or remove HMA-OSS and its config app</string>
+    <string name="origin_curtain_third_party">Third-party module</string>
+    <string name="origin_curtain_third_party_summary">HMA-OSS by frknkrc44 · AGPL-3.0 · installed from upstream releases</string>
+    <string name="origin_curtain_download_failed">Could not download the HMA-OSS release</string>
+    <string name="origin_curtain_open_failed">Could not open the HMA-OSS app</string>
 </resources>

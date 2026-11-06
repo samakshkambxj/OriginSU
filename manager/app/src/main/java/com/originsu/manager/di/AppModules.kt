@@ -49,6 +49,7 @@ import com.originsu.manager.data.profile.ProfileTemplateRepository
 import com.originsu.manager.data.settings.LocaleHelper
 import com.originsu.manager.data.settings.LocaleRepository
 import com.originsu.manager.data.settings.SettingsPlatformRepository
+import com.originsu.manager.data.curtain.OriginCurtainRepository
 import com.originsu.manager.data.shell.KsuCliRepository
 import com.originsu.manager.data.shell.ShortcutRepository
 import com.originsu.manager.data.startup.ApplicationInitializationRepository
@@ -288,6 +289,7 @@ val coreModule = module {
 
 val repositoryModule = module {
     single { KsuCliRepository(androidApplication()) }
+    single { OriginCurtainRepository(androidApplication(), get(), get()) }
     singleOf(::InstalledPackageCache)
     singleOf(::AppIconDataSource)
     singleOf(::RootServiceRepository)
@@ -563,7 +565,7 @@ val viewModelModule = module {
         SettingsViewModel(
             get(), get(), get(), get(), get(), get(), get(), get(), get(), get(),
             get(), get(), get(), get(), get(), get(), get(), get(), get(), get(),
-            get(), get(), get(), get(), get(), get(), get(), get(),
+            get(), get(), get(), get(), get(), get(), get(), get(), get(),
         )
     }
     viewModelOf(::ModuleViewModel)

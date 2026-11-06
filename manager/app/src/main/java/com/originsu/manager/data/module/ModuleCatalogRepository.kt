@@ -113,11 +113,8 @@ class ModuleCatalogRepository(
                 val module = mutableModules.value.firstOrNull { it.moduleId == id } ?: continue
                 val detailed = runCatching { enrich(module) }.getOrNull() ?: module
                 val url = detailed.releases.firstOrNull()
-                    ?.assets?.firstOrNull { it.downloadUrl.endsWith(".zip", ignoreCase = true) }
-                    ?.downloadUrl
-                    ?: detailed.latestAsset?.assets
-                        ?.firstOrNull { it.downloadUrl.endsWith(".zip", ignoreCase = true) }
-                        ?.downloadUrl
+                    ?.assets?.preferredZip()?.downloadUrl
+                    ?: detailed.latestAsset?.assets?.preferredZip()?.downloadUrl
                 if (!url.isNullOrBlank()) result[id] = url
             }
             result
@@ -361,3 +358,17 @@ class ModuleCatalogRepository(
 
 private fun CatalogModule.sourceSchema(): RepoSchema =
     if (repoUrl.isNotBlank()) RepoSchema.KSUN else RepoSchema.LEGACY
+
+/**
+ * Prefer a signed release artifact over a debug one. Some modules (for
+ * example HMA-OSS) publish the debug zip first in their asset list, and the
+ * previous "first .zip" rule installed it by mistake.
+ */
+private fun List<ModuleReleaseAsset>.preferredZip(): ModuleReleaseAsset? {
+    val zips = filter { it.downloadUrl.endsWith(".zip", ignoreCase = true) }
+    return zips.firstOrNull {
+        it.name.contains("release", ignoreCase = true) &&
+            !it.name.contains("debug", ignoreCase = true)
+    } ?: zips.firstOrNull { !it.name.contains("debug", ignoreCase = true) }
+        ?: zips.firstOrNull()
+}
