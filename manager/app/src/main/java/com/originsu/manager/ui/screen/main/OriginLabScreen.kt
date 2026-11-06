@@ -238,6 +238,8 @@ fun OriginLabScreen(
         else -> zygiskDefault
     }
     val titleZygiskBootGuard = stringResource(R.string.origin_zygisk_bootguard_reset)
+    val bootGuardResetDone = stringResource(R.string.origin_zygisk_bootguard_reset_done)
+    val bootGuardResetFailed = stringResource(R.string.origin_zygisk_bootguard_reset_failed)
     val zygiskBootGuardSummary = if (zygiskStatus.bootGuardLatched) {
         stringResource(R.string.origin_zygisk_bootguard_latched)
     } else {
@@ -627,15 +629,11 @@ fun OriginLabScreen(
                                                 SettingsUiAction.RefreshOriginZygisk
                                             )
                                             snackBarHost.showReplacingSnackbar(
-                                                context.getString(
-                                                    R.string.origin_zygisk_bootguard_reset_done
-                                                )
+                                                bootGuardResetDone
                                             )
                                         } else {
                                             snackBarHost.showReplacingSnackbar(
-                                                context.getString(
-                                                    R.string.origin_zygisk_bootguard_reset_failed
-                                                )
+                                                bootGuardResetFailed
                                             )
                                         }
                                     }
