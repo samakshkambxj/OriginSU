@@ -623,7 +623,10 @@ fun OriginLabScreen(
                             )
                         }
 
-                        item(visible = matchCurtain && curtainStatus.moduleInstalled) {
+                        item(
+                            visible = matchCurtain && curtainSupported &&
+                                curtainStatus.zygiskEnabled && curtainStatus.moduleInstalled
+                        ) {
                             SettingsJumpPageWidget(
                                 icon = Icons.TwoTone.Download,
                                 title = stringResource(R.string.origin_curtain_update),

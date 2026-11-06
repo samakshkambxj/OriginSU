@@ -58,15 +58,20 @@ class OriginCurtainRepository(
         val zygisk = runCatching { ksuCliRepository.getOriginZygiskStatus() }
             .getOrDefault(OriginZygiskStatus())
 
-        // One root round-trip keeps the resume refresh cheap.
-        val rawStatus = ksuCliRepository.runCmd(
-            ksuCliRepository.getRootShell(),
-            "if [ -f $MODULE_DIR/module.prop ]; then " +
-                "echo CURTAIN_INSTALLED=1; " +
-                "sed -n 's/^version=//p' $MODULE_DIR/module.prop 2>/dev/null | head -n 1; " +
-                "[ -f $MODULE_DIR/disable ] && echo CURTAIN_DISABLED=1; " +
-                "else echo CURTAIN_INSTALLED=0; fi",
-        )
+        // One root round-trip keeps the resume refresh cheap, and skipping it
+        // entirely avoids spawning a shell when root is unavailable.
+        val rawStatus = if (ksuCliRepository.rootAvailable()) {
+            ksuCliRepository.runCmd(
+                ksuCliRepository.getRootShell(),
+                "if [ -f $MODULE_DIR/module.prop ]; then " +
+                    "echo CURTAIN_INSTALLED=1; " +
+                    "sed -n 's/^version=//p' $MODULE_DIR/module.prop 2>/dev/null | head -n 1; " +
+                    "[ -f $MODULE_DIR/disable ] && echo CURTAIN_DISABLED=1; " +
+                    "else echo CURTAIN_INSTALLED=0; fi",
+            )
+        } else {
+            ""
+        }
         val statusLines = rawStatus.lineSequence().map { it.trim() }.toList()
         val moduleInstalled = statusLines.contains("CURTAIN_INSTALLED=1")
         val moduleDisabled = statusLines.contains("CURTAIN_DISABLED=1")
@@ -74,10 +79,12 @@ class OriginCurtainRepository(
             it.isNotBlank() && !it.startsWith("CURTAIN_")
         }.orEmpty()
         val (managerInstalled, managerVersion) = managerInfo()
+        val skippedByZygisk = zygisk.disabledModules.contains(MODULE_ID) ||
+            zygisk.quarantinedModules.contains(MODULE_ID)
 
         OriginCurtainStatus(
             moduleInstalled = moduleInstalled,
-            moduleEnabled = moduleInstalled && !moduleDisabled,
+            moduleEnabled = moduleInstalled && !moduleDisabled && !skippedByZygisk,
             moduleLoaded = zygisk.installedModules.any {
                 it.id == MODULE_ID && it.loaded
             },
