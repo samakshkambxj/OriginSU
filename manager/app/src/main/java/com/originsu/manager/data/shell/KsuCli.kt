@@ -1960,6 +1960,7 @@ class KsuCliRepository(context: Context) {
             check(SuiBridge.setDefaultMode(mode and SuiApp.MODE_MASK)) {
                 "Sui rejected the default permission"
             }
+            true
         }.onFailure { Log.w(TAG, "sui set default mode failed", it) }.getOrDefault(false)
     }
 

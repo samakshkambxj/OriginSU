@@ -43,9 +43,10 @@ const MUTATED_FILES: [&str; 1] = ["sepolicy.rule"];
 /// one boot so a stale marker cannot make a rebooted device look healthy.
 fn current_boot_id() -> String {
     fs::read_to_string("/proc/sys/kernel/random/boot_id")
+        .ok()
         .map(|value| value.trim().to_owned())
         .filter(|value| !value.is_empty())
-        .unwrap_or_else(|_| "unknown".to_owned())
+        .unwrap_or_else(|| "unknown".to_owned())
 }
 
 #[derive(clap::Subcommand, Debug)]
@@ -429,8 +430,7 @@ fn process_running(stat: &str) -> bool {
 }
 
 fn boot_marker_matches() -> bool {
-    fs::read_to_string(BOOT_MARKER)
-        .is_ok_and(|stored| stored.trim() == current_boot_id())
+    fs::read_to_string(BOOT_MARKER).is_ok_and(|stored| stored.trim() == current_boot_id())
 }
 
 fn write_boot_marker() -> Result<()> {

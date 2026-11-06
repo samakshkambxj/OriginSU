@@ -17,8 +17,8 @@ mod sepolicy;
 mod soft_reboot;
 mod su;
 mod su_notify;
-mod sulog;
 pub mod sui;
+mod sulog;
 pub mod susfs;
 mod tempgrant;
 #[allow(nonstandard_style, unused, unsafe_op_in_unsafe_fn)]

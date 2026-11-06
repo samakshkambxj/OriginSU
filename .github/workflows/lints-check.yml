@@ -88,7 +88,9 @@ jobs:
         uses: ludeeus/action-shellcheck@2.0.0
         with:
           ignore_names: gradlew
-          ignore_paths: ./userspace/ksud/src/android/module/installer.sh ./.github/scripts/setup-rust-build.sh
+          # userspace/sui is vendored upstream (see userspace/sui/UPSTREAM.md);
+          # its Magisk-module template scripts are not ours to relint.
+          ignore_paths: ./userspace/ksud/src/android/module/installer.sh ./.github/scripts/setup-rust-build.sh ./userspace/sui
 
   check-crlf:
     name: Check Line Endings

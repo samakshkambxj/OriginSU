@@ -118,8 +118,7 @@ fn monitor_path() -> PathBuf {
 fn engine_available() -> bool {
     let dir = Path::new(ORIGIN_ZYGISK_DIR);
     monitor_path().is_file()
-        && (dir.join("lib64/libzygisk.so").is_file()
-            || dir.join("lib/libzygisk.so").is_file())
+        && (dir.join("lib64/libzygisk.so").is_file() || dir.join("lib/libzygisk.so").is_file())
 }
 
 fn enabled() -> bool {
