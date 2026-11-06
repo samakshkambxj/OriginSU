@@ -1,0 +1,274 @@
+/*
+ * This file is part of Sui.
+ *
+ * Sui is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * Sui is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with Sui.  If not, see <https://www.gnu.org/licenses/>.
+ *
+ * Copyright (c) 2021-2026 Sui Contributors
+ */
+
+package rikka.sui.server.bridge;
+
+import static rikka.sui.server.ServerConstants.LOGGER;
+
+import android.annotation.SuppressLint;
+import android.os.Build;
+import android.os.IBinder;
+import android.os.Parcel;
+import android.os.ServiceManager;
+import android.os.SystemProperties;
+import java.lang.reflect.Field;
+import java.util.Map;
+import rikka.sui.server.SuiService;
+import rikka.sui.util.BridgeConstants;
+
+public class BridgeServiceClient {
+
+    private static final int MAX_ZYGOTE_RESTART = 1;
+    private static int remainingRestart = MAX_ZYGOTE_RESTART;
+    private static boolean systemServerRequested = false;
+
+    private static class DeathRecipient implements IBinder.DeathRecipient {
+
+        private final IBinder binder;
+
+        public DeathRecipient(IBinder binder) {
+            this.binder = binder;
+        }
+
+        @Override
+        @SuppressLint("DiscouragedPrivateApi")
+        public void binderDied() {
+            binder.unlinkToDeath(this, 0);
+            synchronized (BridgeServiceClient.class) {
+                if (linkedBridgeService == binder && linkedDeathRecipient == this) {
+                    linkedBridgeService = null;
+                    linkedDeathRecipient = null;
+                }
+            }
+
+            LOGGER.i("service %s is dead.", BridgeConstants.SERVICE_NAME);
+
+            try {
+                //noinspection JavaReflectionMemberAccess
+                Field field = ServiceManager.class.getDeclaredField("sServiceManager");
+                field.setAccessible(true);
+                field.set(null, null);
+
+                //noinspection JavaReflectionMemberAccess
+                field = ServiceManager.class.getDeclaredField("sCache");
+                field.setAccessible(true);
+                Object sCache = field.get(null);
+                if (sCache instanceof Map) {
+                    //noinspection rawtypes
+                    ((Map) sCache).clear();
+                }
+                LOGGER.i("clear ServiceManager");
+            } catch (Throwable e) {
+                LOGGER.w(e, "clear ServiceManager");
+            }
+
+            sendToBridge(true);
+        }
+    }
+
+    public interface Listener {
+
+        void onSystemServerRestarted();
+
+        void onResponseFromBridgeService(boolean response);
+    }
+
+    private static Listener listener;
+    private static IBinder linkedBridgeService;
+    private static DeathRecipient linkedDeathRecipient;
+
+    private static void linkBridgeServiceDeathRecipient(IBinder bridgeService) throws Throwable {
+        synchronized (BridgeServiceClient.class) {
+            if (linkedBridgeService != null && linkedDeathRecipient != null) {
+                linkedBridgeService.unlinkToDeath(linkedDeathRecipient, 0);
+                linkedBridgeService = null;
+                linkedDeathRecipient = null;
+            }
+
+            DeathRecipient recipient = new DeathRecipient(bridgeService);
+            bridgeService.linkToDeath(recipient, 0);
+            linkedBridgeService = bridgeService;
+            linkedDeathRecipient = recipient;
+        }
+    }
+
+    private static void sendToBridge(boolean isRestart) {
+        IBinder bridgeService;
+        do {
+            bridgeService = ServiceManager.getService(BridgeConstants.SERVICE_NAME);
+            if (bridgeService != null && bridgeService.pingBinder()) {
+                break;
+            }
+
+            LOGGER.i("service %s is not started, wait 1s.", BridgeConstants.SERVICE_NAME);
+
+            try {
+                //noinspection BusyWait
+                Thread.sleep(1000);
+            } catch (Throwable e) {
+                LOGGER.w("sleep", e);
+            }
+        } while (true);
+
+        if (isRestart && listener != null) {
+            listener.onSystemServerRestarted();
+        }
+
+        try {
+            linkBridgeServiceDeathRecipient(bridgeService);
+        } catch (Throwable e) {
+            LOGGER.w(e, "linkToDeath");
+            sendToBridge(false);
+            return;
+        }
+
+        boolean res = false;
+        for (int i = 0; i < 3; i++) {
+            Parcel data = Parcel.obtain();
+            Parcel reply = Parcel.obtain();
+            try {
+                data.writeInterfaceToken(BridgeConstants.SERVICE_DESCRIPTOR);
+                data.writeInt(BridgeConstants.ACTION_SEND_BINDER);
+                IBinder binder = SuiService.getInstance();
+                LOGGER.v("binder %s", binder);
+                data.writeStrongBinder(binder);
+                res = bridgeService.transact(BridgeConstants.TRANSACTION_CODE, data, reply, 0);
+                reply.readException();
+            } catch (Throwable e) {
+                LOGGER.e(e, "send binder");
+            } finally {
+                data.recycle();
+                reply.recycle();
+            }
+
+            if (res) break;
+
+            LOGGER.w("no response from bridge, retry in 1s");
+
+            try {
+                Thread.sleep(1000);
+            } catch (InterruptedException ignored) {
+            }
+        }
+
+        if (listener != null) {
+            listener.onResponseFromBridgeService(res);
+        }
+
+        if (res) {
+            systemServerRequested = true;
+        } else {
+            maybeRestartZygote();
+        }
+    }
+
+    private static void maybeRestartZygote() {
+        if (systemServerRequested) {
+            return;
+        }
+        if (remainingRestart <= 0) {
+            LOGGER.w("zygote restart quota exhausted, skip restart");
+            return;
+        }
+        remainingRestart--;
+        LOGGER.w("System server injection failed, try restarting zygote (remaining=%d)", remainingRestart);
+        try {
+            boolean has64 = Build.SUPPORTED_64_BIT_ABIS != null && Build.SUPPORTED_64_BIT_ABIS.length > 0;
+            boolean has32 = Build.SUPPORTED_32_BIT_ABIS != null && Build.SUPPORTED_32_BIT_ABIS.length > 0;
+            String target = (has64 && has32) ? "zygote_secondary" : "zygote";
+            SystemProperties.set("ctl.restart", target);
+        } catch (Throwable e) {
+            LOGGER.w(e, "Failed to restart zygote");
+        }
+    }
+
+    public static void send(Listener listener) {
+        BridgeServiceClient.listener = listener;
+        sendToBridge(false);
+    }
+
+    public static void notifyStarted() {
+        IBinder bridgeService = ServiceManager.getService(BridgeConstants.SERVICE_NAME);
+        if (bridgeService == null) {
+            return;
+        }
+
+        Parcel data = Parcel.obtain();
+        Parcel reply = Parcel.obtain();
+        boolean res = false;
+        try {
+            data.writeInterfaceToken(BridgeConstants.SERVICE_DESCRIPTOR);
+            data.writeInt(BridgeConstants.ACTION_NOTIFY_FINISHED);
+            res = bridgeService.transact(BridgeConstants.TRANSACTION_CODE, data, reply, 0);
+            reply.readException();
+        } catch (Throwable e) {
+            LOGGER.e(e, "notify started");
+        } finally {
+            data.recycle();
+            reply.recycle();
+        }
+
+        if (res) {
+            LOGGER.i("notify started");
+        } else {
+            LOGGER.w("notify started");
+        }
+    }
+
+    public static boolean syncUids(
+            int[] hiddenUids,
+            int[] rootUids,
+            int[] deniedUids,
+            int[] shellUids,
+            int defaultFlags,
+            boolean legacyCompatEnabled,
+            String[] managerIdentity) {
+        IBinder bridgeService = ServiceManager.getService(BridgeConstants.SERVICE_NAME);
+        if (bridgeService == null) {
+            return false;
+        }
+
+        Parcel data = Parcel.obtain();
+        Parcel reply = Parcel.obtain();
+        try {
+            data.writeInterfaceToken(BridgeConstants.SERVICE_DESCRIPTOR);
+            data.writeInt(BridgeConstants.ACTION_SYNC_UIDS);
+            data.writeIntArray(hiddenUids);
+            data.writeIntArray(rootUids);
+            data.writeIntArray(shellUids);
+            data.writeInt(defaultFlags);
+            data.writeIntArray(deniedUids);
+            data.writeInt(legacyCompatEnabled ? 1 : 0);
+            data.writeString(managerIdentity[0]);
+            data.writeInt(Integer.parseInt(managerIdentity[1]));
+            data.writeString(managerIdentity[2]);
+            if (!bridgeService.transact(BridgeConstants.TRANSACTION_CODE, data, reply, 0)) {
+                return false;
+            }
+            reply.readException();
+            return true;
+        } catch (Throwable e) {
+            LOGGER.e(e, "sync uids");
+            return false;
+        } finally {
+            data.recycle();
+            reply.recycle();
+        }
+    }
+}

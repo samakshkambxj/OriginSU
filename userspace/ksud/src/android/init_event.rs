@@ -164,6 +164,12 @@ pub fn on_post_fs_data() -> Result<()> {
 
     run_stage("post-mount", wait);
 
+    // Origin Sui is a Zygisk module: stage its daemons once the provider has
+    // been started and the boot-time mounts are in place.
+    if let Err(e) = crate::android::sui::post_fs_data(safe_mode) {
+        warn!("Sui startup skipped/failed: {e:#}");
+    }
+
     std::env::set_current_dir("/").with_context(|| "failed to chdir to /")?;
 
     Ok(())
@@ -217,6 +223,9 @@ pub fn on_services() {
 
     info!("on_services triggered!");
     run_stage("service", ScriptWait::NoWait);
+    if let Err(e) = crate::android::sui::services() {
+        warn!("Sui health check failed: {e:#}");
+    }
 }
 
 pub fn on_boot_completed() {

@@ -1,0 +1,4 @@
+# Payload identity, independent of the OriginSU revision that builds it.
+version=13.5.4.3
+version_code=130504
+upstream_commit=e9674238a0dcfe13d9ea231cbdf866144e660db8

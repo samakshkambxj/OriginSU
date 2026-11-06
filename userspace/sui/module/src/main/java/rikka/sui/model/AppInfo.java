@@ -1,0 +1,115 @@
+/*
+ * This file is part of Sui.
+ *
+ * Sui is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * Sui is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with Sui.  If not, see <https://www.gnu.org/licenses/>.
+ *
+ * Copyright (c) 2021-2026 Sui Contributors
+ */
+
+package rikka.sui.model;
+
+import android.content.pm.PackageInfo;
+import android.os.Build;
+import android.os.Parcel;
+import android.os.Parcelable;
+import rikka.sui.server.SuiConfig;
+
+public class AppInfo implements Parcelable {
+
+    private static final int EFFECTIVE_FLAGS_SHIFT = 16;
+    private static final int LEGACY_FLAGS_MASK = 0xFFFF;
+
+    private static int packDefaultFlags(int defaultFlags, int effectiveFlags) {
+        return (defaultFlags & LEGACY_FLAGS_MASK)
+                | ((effectiveFlags & SuiConfig.MASK_PERMISSION) << EFFECTIVE_FLAGS_SHIFT);
+    }
+
+    private static int unpackDefaultFlags(int packedDefaultFlags) {
+        return packedDefaultFlags & LEGACY_FLAGS_MASK;
+    }
+
+    private static int unpackEffectiveFlags(int explicitFlags, int packedDefaultFlags) {
+        int encoded = (packedDefaultFlags >>> EFFECTIVE_FLAGS_SHIFT) & SuiConfig.MASK_PERMISSION;
+        if (encoded != 0) {
+            return encoded;
+        }
+        int explicit = explicitFlags & SuiConfig.MASK_PERMISSION;
+        if (explicit != 0) {
+            return explicit;
+        }
+        return unpackDefaultFlags(packedDefaultFlags) & SuiConfig.MASK_PERMISSION;
+    }
+
+    public PackageInfo packageInfo;
+    public int flags;
+    public int effectiveFlags;
+    public int defaultFlags;
+    public CharSequence label = null;
+
+    public AppInfo() {}
+
+    @SuppressWarnings("deprecation")
+    protected AppInfo(Parcel in) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            packageInfo = in.readParcelable(PackageInfo.class.getClassLoader(), PackageInfo.class);
+        } else {
+            packageInfo = in.readParcelable(PackageInfo.class.getClassLoader());
+        }
+        flags = in.readInt();
+        int packedDefaultFlags = in.readInt();
+        defaultFlags = unpackDefaultFlags(packedDefaultFlags);
+        effectiveFlags = unpackEffectiveFlags(flags, packedDefaultFlags);
+    }
+
+    public static final Creator<AppInfo> CREATOR = new Creator<AppInfo>() {
+        @Override
+        public AppInfo createFromParcel(Parcel in) {
+            return new AppInfo(in);
+        }
+
+        @Override
+        public AppInfo[] newArray(int size) {
+            return new AppInfo[size];
+        }
+    };
+
+    @Override
+    public int describeContents() {
+        return 0;
+    }
+
+    @Override
+    public void writeToParcel(Parcel dest, int flags) {
+        dest.writeParcelable(packageInfo, flags);
+        dest.writeInt(this.flags);
+        dest.writeInt(packDefaultFlags(defaultFlags, effectiveFlags));
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        AppInfo appInfo = (AppInfo) o;
+        return flags == appInfo.flags
+                && effectiveFlags == appInfo.effectiveFlags
+                && defaultFlags == appInfo.defaultFlags
+                && java.util.Objects.equals(packageInfo.packageName, appInfo.packageInfo.packageName)
+                && java.util.Objects.equals(label, appInfo.label);
+    }
+
+    @Override
+    public int hashCode() {
+        return java.util.Objects.hash(packageInfo.packageName, flags, effectiveFlags, defaultFlags, label);
+    }
+}

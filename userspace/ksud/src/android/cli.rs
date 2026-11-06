@@ -29,6 +29,12 @@ struct Args {
 
 #[derive(clap::Subcommand, Debug)]
 enum Commands {
+    /// Manage the built-in Origin Sui extension
+    Sui {
+        #[command(subcommand)]
+        command: crate::android::sui::Command,
+    },
+
     /// Flash an AnyKernel3 ZIP
     #[command(name = "anykernel3")]
     AnyKernel3 {
@@ -787,6 +793,7 @@ pub fn run() -> Result<()> {
 
     let result = match cli.command {
         Commands::AnyKernel3 { zip, slot } => anykernel3::flash(&zip, slot),
+        Commands::Sui { command } => crate::android::sui::run(&command),
         Commands::Susfs(args) => crate::android::susfs::cli::run_main(args),
         Commands::PostFsData => init_event::on_post_fs_data(),
         Commands::BootCompleted => {

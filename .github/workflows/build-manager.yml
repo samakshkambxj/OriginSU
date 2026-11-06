@@ -103,8 +103,11 @@ jobs:
   build-ksuinit:
     uses: ./.github/workflows/ksuinit.yml
 
+  build-sui:
+    uses: ./.github/workflows/sui.yml
+
   build-ksud:
-    needs: [build-lkm, build-lkm-tamper, build-ksuinit]
+    needs: [build-lkm, build-lkm-tamper, build-ksuinit, build-sui]
     strategy:
       matrix:
         target:

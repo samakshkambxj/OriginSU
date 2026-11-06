@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:id="@+id/adb_root_off"
+        android:title="@string/adb_root_off"
+        android:checkable="true" />
+    <item
+        android:id="@+id/adb_root_once"
+        android:title="@string/adb_root_once"
+        android:checkable="true" />
+    <item
+        android:id="@+id/adb_root_always"
+        android:title="@string/adb_root_always"
+        android:checkable="true" />
+</menu>

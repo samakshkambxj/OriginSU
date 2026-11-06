@@ -1,0 +1,287 @@
+/*
+ * This file is part of Sui.
+ *
+ * Sui is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * Sui is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with Sui.  If not, see <https://www.gnu.org/licenses/>.
+ *
+ * Copyright (c) 2021-2026 Sui Contributors
+ */
+
+#include <cstdio>
+#include <cstring>
+#include <chrono>
+#include <atomic>
+#include <fcntl.h>
+#include <unistd.h>
+#include <sys/vfs.h>
+#include <sys/stat.h>
+#include <dirent.h>
+#include <jni.h>
+#include <sys/socket.h>
+#include <sys/un.h>
+#include <sys/uio.h>
+#include <mntent.h>
+#include <sys/mount.h>
+#include <sys/sendfile.h>
+#include <dlfcn.h>
+#include <cinttypes>
+#include <vector>
+
+#include "android.h"
+#include "logging.h"
+#include "misc.h"
+#include "dex_file.h"
+#include "bridge_service.h"
+#include "binder_hook.h"
+#include "config.h"
+
+namespace Settings {
+
+static jclass mainClass = nullptr;
+static jmethodID my_execTransactMethodID;
+static jint bindApplicationTransactionCode = -1;
+// OriginOS 6 adds Vivo's IApplicationThread$Stub.TRANSACTION_bindApplicationCust = 0x48.
+// Settings may bind through it before the standard path, so match both codes.
+static jint bindApplicationCustTransactionCode = -1;
+static std::atomic_int execTransactLogCount{0};
+static std::atomic_int bindApplicationLogCount{0};
+
+static bool isBindApplicationTransactionCode(jint code) {
+    return code == bindApplicationTransactionCode || code == bindApplicationCustTransactionCode;
+}
+
+static bool installDex(JNIEnv* env, const char* appDataDir, Dex* dexFile) {
+    bool success = false;
+    jclass localMainClass = nullptr;
+    jclass loadedMainClass = nullptr;
+    jclass stringClass = nullptr;
+    jobjectArray args = nullptr;
+    jmethodID mainMethod = nullptr;
+
+    int api = android_get_device_api_level();
+    if (api <= 25) {
+        char dexPath[PATH_MAX], oatDir[PATH_MAX];
+        snprintf(dexPath, PATH_MAX, "%s/sui.dex", appDataDir);
+        snprintf(oatDir, PATH_MAX, "%s/code_cache", appDataDir);
+
+        LOGI("installDex (Below 7.1): using private paths: dex=%s, oat=%s", dexPath, oatDir);
+        dexFile->setPre26Paths(dexPath, oatDir);
+    } else if (api == 26 || api == 27) {
+        const char* dexPath = "/data/system/sui/sui.dex";
+        const char* oatDir = "/data/system/sui/oat";
+
+        LOGI("installDex (8.0/8.1): using global system paths: dex=%s, oat=%s", dexPath, oatDir);
+        dexFile->setPre26Paths(dexPath, oatDir);
+    }
+    dexFile->createClassLoader(env);
+
+    localMainClass = dexFile->findClass(env, SETTINGS_PROCESS_CLASSNAME);
+    if (!localMainClass) {
+        LOGE("installDex: unable to find main class: %s", SETTINGS_PROCESS_CLASSNAME);
+        goto cleanup;
+    }
+    loadedMainClass = (jclass)env->NewGlobalRef(localMainClass);
+    env->DeleteLocalRef(localMainClass);
+    if (!loadedMainClass) {
+        LOGE("installDex: unable to create main class global ref");
+        goto cleanup;
+    }
+
+    mainMethod = env->GetStaticMethodID(loadedMainClass, "main", "([Ljava/lang/String;)V");
+    if (!mainMethod) {
+        LOGE("installDex: unable to find main method");
+        env->ExceptionDescribe();
+        env->ExceptionClear();
+        goto cleanup;
+    }
+
+    my_execTransactMethodID =
+        env->GetStaticMethodID(loadedMainClass, "execTransact", "(Landroid/os/Binder;IJJI)Z");
+    if (!my_execTransactMethodID) {
+        LOGE("installDex: unable to find execTransact");
+        env->ExceptionDescribe();
+        env->ExceptionClear();
+        goto cleanup;
+    }
+
+    stringClass = env->FindClass("java/lang/String");
+    if (!stringClass) {
+        LOGE("installDex: unable to find java/lang/String");
+        env->ExceptionDescribe();
+        env->ExceptionClear();
+        goto cleanup;
+    }
+
+    args = env->NewObjectArray(0, stringClass, nullptr);
+    if (!args) {
+        LOGE("installDex: unable to allocate argument array");
+        if (env->ExceptionCheck()) {
+            env->ExceptionDescribe();
+            env->ExceptionClear();
+        }
+        goto cleanup;
+    }
+
+    env->CallStaticVoidMethod(loadedMainClass, mainMethod, args);
+    if (env->ExceptionCheck()) {
+        LOGE("installDex: exception in main method");
+        env->ExceptionDescribe();
+        env->ExceptionClear();
+        goto cleanup;
+    }
+
+    mainClass = loadedMainClass;
+    loadedMainClass = nullptr;
+    success = true;
+
+cleanup:
+    if (args)
+        env->DeleteLocalRef(args);
+    if (stringClass)
+        env->DeleteLocalRef(stringClass);
+    if (loadedMainClass)
+        env->DeleteGlobalRef(loadedMainClass);
+    dexFile->destroy(env);
+    return success;
+}
+
+/*
+ * return true = consumed
+ */
+static bool ExecTransact(jboolean* res, JNIEnv* env, jobject obj, va_list args) {
+    jint code;
+    jlong dataObj;
+    jlong replyObj;
+    jint flags;
+
+    if (bindApplicationTransactionCode == -1 && bindApplicationCustTransactionCode == -1) {
+        static std::atomic_bool warned{false};
+        if (!warned.exchange(true, std::memory_order_relaxed)) {
+            LOGW("ExecTransact: bindApplication transaction codes are unavailable");
+        }
+        return false;
+    }
+
+    va_list copy;
+    va_copy(copy, args);
+    code = va_arg(copy, jint);
+    dataObj = va_arg(copy, jlong);
+    replyObj = va_arg(copy, jlong);
+    flags = va_arg(copy, jint);
+    va_end(copy);
+
+    int logCount = execTransactLogCount.fetch_add(1, std::memory_order_relaxed);
+    bool isBindApplicationCode = isBindApplicationTransactionCode(code);
+    bool shouldLogBindApplication = false;
+    if (isBindApplicationCode) {
+        int bindLogCount = bindApplicationLogCount.fetch_add(1, std::memory_order_relaxed);
+        shouldLogBindApplication = bindLogCount < 8;
+    }
+    if (logCount < 32 || shouldLogBindApplication) {
+        LOGI(
+            "ExecTransact: code=%d expected_bindApplication=%d expected_bindApplicationCust=%d "
+            "flags=%d",
+            code, bindApplicationTransactionCode, bindApplicationCustTransactionCode, flags);
+    }
+
+    if (isBindApplicationCode) {
+        if (!mainClass) {
+            LOGW("ExecTransact: mainClass is null, dex not ready yet?");
+            return false;
+        }
+        if (shouldLogBindApplication) {
+            LOGI(
+                "ExecTransact: forwarding bindApplication transaction %d to "
+                "SettingsProcess.execTransact",
+                code);
+        }
+        *res = env->CallStaticBooleanMethod(mainClass, my_execTransactMethodID, obj, code, dataObj,
+                                            replyObj, flags);
+        if (env->ExceptionCheck()) {
+            LOGE("ExecTransact: SettingsProcess.execTransact raised an exception");
+            env->ExceptionDescribe();
+            env->ExceptionClear();
+            return false;
+        }
+        if (shouldLogBindApplication) {
+            LOGI("ExecTransact: SettingsProcess.execTransact returned %d", *res);
+        }
+        if (*res)
+            return true;
+    }
+
+    return false;
+}
+
+void main(JNIEnv* env, const char* appDataDir, Dex* dexFile) {
+    if (!dexFile->valid()) {
+        LOGE("no dex");
+        return;
+    }
+
+    env->ExceptionClear();
+    LOGI("main: settings startup");
+
+    if (android_get_device_api_level() >= 26) {
+        jclass applicationThreadClass = env->FindClass("android/app/IApplicationThread$Stub");
+        if (applicationThreadClass) {
+            jfieldID bindApplicationId =
+                env->GetStaticFieldID(applicationThreadClass, "TRANSACTION_bindApplication", "I");
+            if (bindApplicationId && !env->ExceptionCheck()) {
+                jint transactionCode =
+                    env->GetStaticIntField(applicationThreadClass, bindApplicationId);
+                if (!env->ExceptionCheck()) {
+                    bindApplicationTransactionCode = transactionCode;
+                }
+            }
+            env->ExceptionClear();
+
+            // Read the vendor transaction from the runtime framework instead of hardcoding 0x48.
+            jfieldID bindApplicationCustId = env->GetStaticFieldID(
+                applicationThreadClass, "TRANSACTION_bindApplicationCust", "I");
+            if (bindApplicationCustId && !env->ExceptionCheck()) {
+                jint transactionCode =
+                    env->GetStaticIntField(applicationThreadClass, bindApplicationCustId);
+                if (!env->ExceptionCheck()) {
+                    bindApplicationCustTransactionCode = transactionCode;
+                }
+            }
+            env->ExceptionClear();
+        } else {
+            LOGW("main: cannot find android/app/IApplicationThread$Stub");
+            env->ExceptionClear();
+        }
+    } else if (android_get_device_api_level() <= 25) {
+        bindApplicationTransactionCode = 13;
+        LOGI("main: set bindApplicationTransactionCode to 13 for API <= 25");
+    }
+
+    LOGI("main: bindApplicationTransactionCode=%d bindApplicationCustTransactionCode=%d",
+         bindApplicationTransactionCode, bindApplicationCustTransactionCode);
+
+    JavaVM* javaVm;
+    env->GetJavaVM(&javaVm);
+
+    BinderHook::Install(javaVm, env, ExecTransact);
+    env->ExceptionClear();
+
+    LOGI("main: install dex starting (dir=%s)", appDataDir ? appDataDir : "null");
+
+    if (!installDex(env, appDataDir, dexFile)) {
+        LOGE("main: install dex failed");
+        return;
+    }
+
+    LOGI("main: settings injection finished");
+}
+}  // namespace Settings

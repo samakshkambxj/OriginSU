@@ -1,0 +1,29 @@
+[versions]
+agp = "9.4.1"
+kotlin = "2.4.21"
+androidx-annotation = "1.11.0"
+androidx-core = "1.19.1"
+parcelablelist = "2.0.1"
+hidden-api = "4.4.0"
+hidden-api-bypass = "6.2"
+refine = "4.4.0"
+autoresconfig = "1.2.2"
+materialthemebuilder = "1.5.1"
+
+[libraries]
+androidx-annotation = { group = "androidx.annotation", name = "annotation", version.ref = "androidx-annotation" }
+androidx-core = { group = "androidx.core", name = "core", version.ref = "androidx-core" }
+parcelablelist = { group = "dev.rikka.rikkax.parcelablelist", name = "parcelablelist", version.ref = "parcelablelist" }
+hidden-compat = { group = "dev.rikka.hidden", name = "compat", version.ref = "hidden-api" }
+hidden-stub = { group = "dev.rikka.hidden", name = "stub", version.ref = "hidden-api" }
+hiddenapibypass = { group = "org.lsposed.hiddenapibypass", name = "hiddenapibypass", version.ref = "hidden-api-bypass" }
+refine-runtime = { group = "dev.rikka.tools.refine", name = "runtime", version.ref = "refine" }
+
+[plugins]
+android-application = { id = "com.android.application", version.ref = "agp" }
+android-library = { id = "com.android.library", version.ref = "agp" }
+android-settings = { id = "com.android.settings", version.ref = "agp" }
+kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
+refine = { id = "dev.rikka.tools.refine", version.ref = "refine" }
+rikka-autoresconfig = { id = "dev.rikka.tools.autoresconfig", version.ref = "autoresconfig" }
+rikka-materialthemebuilder = { id = "dev.rikka.tools.materialthemebuilder", version.ref = "materialthemebuilder" }

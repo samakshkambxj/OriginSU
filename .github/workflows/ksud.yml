@@ -77,6 +77,33 @@ jobs:
           mv ksuinit-x86_64/ksuinit ./userspace/ksud/bin/x86_64/
           mv ksuinit-riscv64/ksuinit ./userspace/ksud/bin/riscv64/
 
+      # Origin Sui ships as a payload embedded in ksud, so the package has to
+      # carry it for every ABI it publishes. riscv64 has no Sui payload, and the
+      # manager reports "payload missing" there instead of failing.
+      - name: Stage the Origin Sui payload
+        if: ${{ inputs.target != 'riscv64-linux-android' }}
+        run: |
+          case "${{ inputs.target }}" in
+            aarch64-linux-android) bindir=aarch64 ;;
+            armv7-linux-androideabi) bindir=arm ;;
+            x86_64-linux-android) bindir=x86_64 ;;
+            *) echo "unexpected target: ${{ inputs.target }}" >&2; exit 1 ;;
+          esac
+
+          zip=$(ls -t sui-payload/*.zip | head -1)
+          version=$(sed -n 's/^version=//p' userspace/sui/payload-version.txt)
+          version_code=$(sed -n 's/^version_code=//p' userspace/sui/payload-version.txt)
+
+          python3 userspace/sui/package.py \
+            --zip "$zip" \
+            --target "$bindir" \
+            --assets "userspace/ksud/bin/$bindir" \
+            --version "$version" \
+            --version-code "$version_code" \
+            --force
+
+          test -f "userspace/ksud/bin/$bindir/sui/payload.json"
+
       - name: Setup Rust toolchain
         if: ${{ inputs.target != 'riscv64-linux-android' }}
         uses: dtolnay/rust-toolchain@stable

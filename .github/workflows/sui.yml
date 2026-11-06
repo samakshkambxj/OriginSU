@@ -1,0 +1,51 @@
+name: Build Origin Sui payload
+
+on:
+  workflow_call:
+
+jobs:
+  build-sui:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          # module/build.gradle.kts stamps its version code from the commit count.
+          fetch-depth: 0
+
+      - name: Setup Java
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 21
+
+      # AGP insists on the NDK version the project pins, and looks it up under the
+      # SDK, so install exactly that one instead of relying on the runner image.
+      - name: Install the pinned NDK
+        run: |
+          ndk=$(sed -n 's/^android\.ndkVersion=//p' userspace/sui/gradle.properties)
+          test -n "$ndk"
+
+          SDKMANAGER="${ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager"
+          if [ ! -x "$SDKMANAGER" ]; then
+            SDKMANAGER=$(command -v sdkmanager)
+          fi
+          test -n "$SDKMANAGER"
+
+          yes | "$SDKMANAGER" --install "ndk;$ndk"
+          test -d "${ANDROID_SDK_ROOT}/ndk/$ndk"
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Build the payload
+        working-directory: userspace/sui
+        run: ./gradlew zipRelease --console=plain
+
+      - name: Upload the payload
+        uses: actions/upload-artifact@v7
+        with:
+          name: sui-payload
+          path: userspace/sui/out/*.zip
+          if-no-files-found: error

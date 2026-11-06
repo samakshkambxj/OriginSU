@@ -1,0 +1,94 @@
+name: Module
+
+permissions:
+  contents: write
+
+on:
+  push:
+    branches:
+      - main
+      - dev
+    paths-ignore:
+      - '.github/ISSUE_TEMPLATE'
+      - 'README*.md'
+      - 'docs/**'
+    tags:
+      - '*'
+  pull_request:
+    branches:
+      - main
+    paths-ignore:
+      - 'README*.md'
+      - 'docs/**'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build module
+    uses: ./.github/workflows/build.yml
+    if: ${{ github.event_name != 'push' || github.event.head_commit == null || !startsWith(github.event.head_commit.message, '[skip ci]') }}
+    with:
+      java_version: '21'
+    secrets: inherit
+
+  release:
+    name: Publish release
+    needs: build
+    if: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main') || startsWith(github.ref, 'refs/tags/') }}
+    uses: ./.github/workflows/release.yml
+    with:
+      release_tag: ${{ github.ref == 'refs/heads/main' && 'nightly' || github.ref_name }}
+      release_title: ${{ github.ref == 'refs/heads/main' && 'Nightly Build' || 'Release' }}
+      delete_existing_assets: ${{ github.ref == 'refs/heads/main' }}
+      version_name: ${{ needs.build.outputs.version_name }}
+      version_code: ${{ needs.build.outputs.version_code }}
+      commit_sha: ${{ needs.build.outputs.commit_sha }}
+      commit_url: ${{ needs.build.outputs.commit_url }}
+      build_duration: ${{ needs.build.outputs.build_duration }}
+      release_zip_name: ${{ needs.build.outputs.release_zip_name }}
+      debug_zip_name: ${{ needs.build.outputs.debug_zip_name }}
+      release_sha256: ${{ needs.build.outputs.release_sha256 }}
+      debug_sha256: ${{ needs.build.outputs.debug_sha256 }}
+    secrets: inherit
+
+  ksu-release:
+    name: Sync KernelSU community release
+    needs:
+      - build
+      - release
+    if: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main') || startsWith(github.ref, 'refs/tags/') }}
+    uses: ./.github/workflows/ksu-release.yml
+    with:
+      main_repo: XiaoTong6666/Sui
+      ksu_target_repo: XiaoTong6666/zygisk-sui
+      version_name: ${{ needs.build.outputs.version_name }}
+      version_code: ${{ needs.build.outputs.version_code }}
+      commit_sha: ${{ needs.build.outputs.commit_sha }}
+      commit_full_sha: ${{ needs.build.outputs.commit_full_sha }}
+      build_duration: ${{ needs.build.outputs.build_duration }}
+      release_zip_name: ${{ needs.build.outputs.release_zip_name }}
+      release_sha256: ${{ needs.build.outputs.release_sha256 }}
+    secrets: inherit
+
+  pages:
+    name: Update pages metadata
+    needs:
+      - build
+      - release
+    if: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main') || startsWith(github.ref, 'refs/tags/') }}
+    uses: ./.github/workflows/pages.yml
+    with:
+      release_tag: ${{ github.ref == 'refs/heads/main' && 'nightly' || github.ref_name }}
+      release_title: ${{ github.ref == 'refs/heads/main' && 'Nightly Build' || 'Release' }}
+      version_code: ${{ needs.build.outputs.version_code }}
+      version_short: ${{ needs.build.outputs.version_short }}
+      release_zip_name: ${{ needs.build.outputs.release_zip_name }}
+      commit_sha: ${{ needs.build.outputs.commit_sha }}
+      commit_url: ${{ needs.build.outputs.commit_url }}
+      build_duration: ${{ needs.build.outputs.build_duration }}
+      release_sha256: ${{ needs.build.outputs.release_sha256 }}
+    secrets: inherit

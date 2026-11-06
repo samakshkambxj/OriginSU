@@ -122,6 +122,24 @@ struct Asset;
 #[folder = "bin"]
 struct Asset;
 
+/// Embedded Origin Sui payload, staged under `bin/<arch>/sui/` by the build.
+pub fn sui_payload() -> Result<std::vec::Vec<(std::string::String, std::vec::Vec<u8>)>> {
+    let mut files = Vec::new();
+    for name in Asset::iter() {
+        let Some(relative) = name.strip_prefix("sui/") else {
+            continue;
+        };
+        let asset = Asset::get(&name).ok_or_else(|| anyhow::anyhow!("asset not found: {name}"))?;
+        files.push((relative.to_owned(), asset.data.into_owned()));
+    }
+    anyhow::ensure!(
+        !files.is_empty(),
+        "no embedded Sui payload for this architecture"
+    );
+    files.sort();
+    Ok(files)
+}
+
 pub fn list_supported_kmi() -> std::vec::Vec<std::string::String> {
     let mut list = Vec::new();
     for file in Asset::iter() {

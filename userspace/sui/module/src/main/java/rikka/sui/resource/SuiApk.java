@@ -1,0 +1,206 @@
+/*
+ * This file is part of Sui.
+ *
+ * Sui is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * Sui is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with Sui.  If not, see <https://www.gnu.org/licenses/>.
+ *
+ * Copyright (c) 2021-2026 Sui Contributors
+ */
+
+package rikka.sui.resource;
+
+import static rikka.sui.settings.SettingsConstants.LOGGER;
+
+import android.annotation.SuppressLint;
+import android.app.ActivityThread;
+import android.app.Application;
+import android.content.ComponentName;
+import android.content.pm.ApplicationInfo;
+import android.content.res.AssetManager;
+import android.content.res.Resources;
+import android.os.Build;
+import android.os.ParcelFileDescriptor;
+import android.util.Log;
+import dalvik.system.PathClassLoader;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.util.Objects;
+import rikka.sui.util.BridgeServiceClient;
+
+@SuppressLint({"DiscouragedPrivateApi", "BlockedPrivateApi"})
+@SuppressWarnings("JavaReflectionMemberAccess")
+public class SuiApk {
+
+    @SuppressWarnings("FieldCanBeLocal")
+    private final ClassLoader classLoader;
+
+    private volatile Resources resources;
+    private String apkPath;
+    private volatile Class<?> suiActivityClass;
+    private volatile Class<?> suiRequestPermissionDialogClass;
+    private volatile Constructor<?> suiActivityConstructor;
+    private volatile Constructor<?> suiRequestPermissionDialogConstructor;
+
+    public static SuiApk createForSettings() {
+        SuiApk apk;
+        try {
+            apk = new SuiApk();
+            apk.loadSuiActivity();
+            if (apk.getSuiActivityClass() == null || apk.getSuiActivityConstructor() == null) {
+                LOGGER.e("Cannot initialize SuiActivity from %s", apk.apkPath);
+                return null;
+            }
+            return apk;
+        } catch (Throwable e) {
+            Log.e("SuiApk", Log.getStackTraceString(e));
+            return null;
+        }
+    }
+
+    public static SuiApk createForSystemUI() {
+        SuiApk apk;
+        try {
+            apk = new SuiApk();
+            apk.loadSuiRequestPermissionDialog();
+            if (apk.getSuiRequestPermissionDialogClass() == null
+                    || apk.getSuiRequestPermissionDialogConstructor() == null) {
+                LOGGER.e("Cannot initialize SuiRequestPermissionDialog from %s", apk.apkPath);
+                return null;
+            }
+            return apk;
+        } catch (Throwable e) {
+            Log.e("SuiApk", Log.getStackTraceString(e));
+            return null;
+        }
+    }
+
+    private SuiApk()
+            throws IllegalAccessException, InstantiationException, NoSuchMethodException, InvocationTargetException,
+                    NoSuchFieldException, InterruptedException, Exception {
+        int retries = 10;
+        do {
+            if (BridgeServiceClient.getService() != null) break;
+            Log.w("SuiApk", "Cannot acquire server binder, wait 1s");
+            Thread.sleep(1000);
+            retries--;
+        } while (retries > 0);
+
+        String apkPath;
+        if (Build.VERSION.SDK_INT < 28) {
+            apkPath = "/data/system/sui/sui.apk";
+            LOGGER.i("SuiApk: Forced to use physical path: %s", apkPath);
+        } else {
+            ParcelFileDescriptor pfd = Objects.requireNonNull(BridgeServiceClient.openApk());
+            int fd = pfd.detachFd();
+            apkPath = "/proc/self/fd/" + fd;
+            LOGGER.i("SuiApk: Using FD path: %s", apkPath);
+        }
+
+        this.apkPath = apkPath;
+        classLoader = new PathClassLoader(apkPath, ClassLoader.getSystemClassLoader());
+
+        reloadResources();
+    }
+
+    @SuppressWarnings("deprecation")
+    public void reloadResources() throws Exception {
+        AssetManager am = AssetManager.class.getConstructor().newInstance();
+        Method addAssetPath = AssetManager.class.getDeclaredMethod("addAssetPath", String.class);
+        addAssetPath.setAccessible(true);
+        addAssetPath.invoke(am, apkPath);
+
+        Application application = ActivityThread.currentActivityThread().getApplication();
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            Method addOverlayPath = AssetManager.class.getDeclaredMethod("addOverlayPath", String.class);
+            addOverlayPath.setAccessible(true);
+
+            ApplicationInfo ai = application.getApplicationInfo();
+            Field field = ApplicationInfo.class.getDeclaredField("overlayPaths");
+            String[] overlayPaths = (String[]) field.get(ai);
+
+            if (overlayPaths != null) {
+                for (String overlayPath : overlayPaths) {
+                    addOverlayPath.invoke(am, overlayPath);
+                }
+            }
+        }
+
+        Resources newResources = new Resources(
+                am,
+                application.getResources().getDisplayMetrics(),
+                application.getResources().getConfiguration());
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            Field classLoaderField = Resources.class.getDeclaredField("mClassLoader");
+            classLoaderField.setAccessible(true);
+            classLoaderField.set(newResources, classLoader);
+        }
+
+        this.resources = newResources;
+    }
+
+    @SuppressWarnings("deprecation")
+    public void updateConfiguration(android.content.res.Configuration newConfig) throws Exception {
+        Resources res = this.resources;
+        if (res != null) {
+            res.updateConfiguration(newConfig, res.getDisplayMetrics());
+        }
+    }
+
+    private void loadSuiActivity() {
+        try {
+            suiActivityClass = classLoader.loadClass("rikka.sui.SuiActivity");
+            suiActivityConstructor =
+                    suiActivityClass.getDeclaredConstructor(Application.class, Resources.class, ComponentName.class);
+        } catch (Throwable e) {
+            LOGGER.e(e, "Cannot load SuiActivity class");
+        }
+    }
+
+    private void loadSuiRequestPermissionDialog() {
+        try {
+            suiRequestPermissionDialogClass = classLoader.loadClass("rikka.sui.SuiRequestPermissionDialog");
+            suiRequestPermissionDialogConstructor = suiRequestPermissionDialogClass.getDeclaredConstructor(
+                    Application.class, Resources.class, int.class, int.class, String.class, int.class);
+        } catch (Throwable e) {
+            LOGGER.e(e, "Cannot load SuiRequestPermissionDialog class");
+        }
+    }
+
+    public ClassLoader getClassLoader() {
+        return classLoader;
+    }
+
+    public Class<?> getSuiActivityClass() {
+        return suiActivityClass;
+    }
+
+    public Constructor<?> getSuiActivityConstructor() {
+        return suiActivityConstructor;
+    }
+
+    public Class<?> getSuiRequestPermissionDialogClass() {
+        return suiRequestPermissionDialogClass;
+    }
+
+    public Constructor<?> getSuiRequestPermissionDialogConstructor() {
+        return suiRequestPermissionDialogConstructor;
+    }
+
+    public Resources getResources() {
+        return resources;
+    }
+}
