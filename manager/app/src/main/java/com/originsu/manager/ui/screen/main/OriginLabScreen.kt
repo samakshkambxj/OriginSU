@@ -17,6 +17,7 @@ import androidx.compose.material.icons.twotone.FolderOff
 import androidx.compose.material.icons.twotone.Info
 import androidx.compose.material.icons.twotone.Lock
 import androidx.compose.material.icons.twotone.Notifications
+import androidx.compose.material.icons.twotone.OpenInNew
 import androidx.compose.material.icons.twotone.Policy
 import androidx.compose.material.icons.twotone.Psychology
 import androidx.compose.material.icons.twotone.RestartAlt
@@ -257,7 +258,6 @@ fun OriginLabScreen(
         !curtainSupported -> stringResource(R.string.origin_curtain_unsupported)
         !curtainStatus.zygiskEnabled -> stringResource(R.string.origin_curtain_requires_zygisk)
         !curtainStatus.moduleInstalled -> stringResource(R.string.origin_curtain_not_installed)
-        !curtainStatus.managerInstalled -> stringResource(R.string.origin_curtain_manager_missing)
         !curtainStatus.moduleEnabled -> stringResource(R.string.origin_curtain_disabled)
         curtainStatus.moduleLoaded ->
             stringResource(R.string.origin_curtain_active, curtainVersion)
@@ -695,13 +695,6 @@ fun OriginLabScreen(
                         }
 
                         item(visible = matchCurtain) {
-                            val managerIntent = remember(curtainStatus.managerInstalled) {
-                                if (curtainStatus.managerInstalled) {
-                                    originCurtainRepository.managerLaunchIntent()
-                                } else {
-                                    null
-                                }
-                            }
                             SettingsJumpPageWidget(
                                 icon = Icons.TwoTone.Visibility,
                                 title = titleCurtain,
@@ -720,25 +713,12 @@ fun OriginLabScreen(
                                             )
                                         }
 
-                                        !curtainStatus.moduleInstalled ||
-                                            !curtainStatus.managerInstalled -> installCurtain()
+                                        !curtainStatus.moduleInstalled -> installCurtain()
 
                                         !curtainStatus.moduleEnabled ->
                                             navigator.push(Route.Module)
 
-                                        managerIntent != null -> runCatching {
-                                            context.startActivity(managerIntent)
-                                        }.onFailure {
-                                            scope.launch {
-                                                snackBarHost.showReplacingSnackbar(
-                                                    curtainOpenFailed
-                                                )
-                                            }
-                                        }
-
-                                        else -> scope.launch {
-                                            snackBarHost.showReplacingSnackbar(curtainOpenFailed)
-                                        }
+                                        else -> navigator.push(Route.Curtain)
                                     }
                                 },
                             )
@@ -773,6 +753,29 @@ fun OriginLabScreen(
                                 title = stringResource(R.string.origin_curtain_manage),
                                 description = stringResource(R.string.origin_curtain_manage_summary),
                                 onClick = { navigator.push(Route.Module) },
+                            )
+                        }
+
+                        item(visible = matchCurtain && curtainStatus.managerInstalled) {
+                            val managerIntent = remember(curtainStatus.managerInstalled) {
+                                originCurtainRepository.managerLaunchIntent()
+                            }
+                            SettingsJumpPageWidget(
+                                icon = Icons.TwoTone.OpenInNew,
+                                title = stringResource(R.string.origin_curtain_open_upstream),
+                                description = stringResource(
+                                    R.string.origin_curtain_open_upstream_summary,
+                                ),
+                                onClick = {
+                                    val launched = managerIntent?.let { intent ->
+                                        runCatching { context.startActivity(intent) }.isSuccess
+                                    } == true
+                                    if (!launched) {
+                                        scope.launch {
+                                            snackBarHost.showReplacingSnackbar(curtainOpenFailed)
+                                        }
+                                    }
+                                },
                             )
                         }
 

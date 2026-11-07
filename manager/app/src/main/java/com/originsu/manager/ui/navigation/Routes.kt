@@ -181,6 +181,22 @@ sealed interface Route : NavKey, Parcelable {
 
     @Parcelize
     @Serializable
+    data object Curtain : Route
+
+    @Parcelize
+    @Serializable
+    data class CurtainApp(val packageName: String) : Route
+
+    @Parcelize
+    @Serializable
+    data object CurtainTemplates : Route
+
+    @Parcelize
+    @Serializable
+    data class CurtainTemplateApps(val name: String) : Route
+
+    @Parcelize
+    @Serializable
     data object KernelTuning : Route
 
     @Parcelize

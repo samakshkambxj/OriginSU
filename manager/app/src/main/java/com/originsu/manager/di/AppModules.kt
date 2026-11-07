@@ -50,6 +50,7 @@ import com.originsu.manager.data.settings.LocaleHelper
 import com.originsu.manager.data.settings.LocaleRepository
 import com.originsu.manager.data.settings.SettingsPlatformRepository
 import com.originsu.manager.data.curtain.OriginCurtainRepository
+import com.originsu.manager.data.curtain.CurtainConfigRepository
 import com.originsu.manager.data.shell.KsuCliRepository
 import com.originsu.manager.data.shell.ShortcutRepository
 import com.originsu.manager.data.startup.ApplicationInitializationRepository
@@ -223,6 +224,10 @@ import com.originsu.manager.ui.viewmodel.ModuleViewModel
 import com.originsu.manager.ui.viewmodel.ModuleBackupViewModel
 import com.originsu.manager.ui.viewmodel.SettingsViewModel
 import com.originsu.manager.ui.viewmodel.SuiPermissionsViewModel
+import com.originsu.manager.ui.viewmodel.CurtainViewModel
+import com.originsu.manager.ui.viewmodel.CurtainAppViewModel
+import com.originsu.manager.ui.viewmodel.CurtainTemplateAppsViewModel
+import com.originsu.manager.ui.viewmodel.CurtainTemplatesViewModel
 import com.originsu.manager.ui.viewmodel.SuSFSLkmViewModel
 import com.originsu.manager.ui.viewmodel.SuSFSViewModel
 import com.originsu.manager.ui.viewmodel.SulogViewModel
@@ -291,6 +296,7 @@ val coreModule = module {
 val repositoryModule = module {
     single { KsuCliRepository(androidApplication()) }
     single { OriginCurtainRepository(androidApplication(), get(), get()) }
+    single { CurtainConfigRepository(get()) }
     singleOf(::InstalledPackageCache)
     singleOf(::AppIconDataSource)
     singleOf(::RootServiceRepository)
@@ -592,6 +598,14 @@ val viewModelModule = module {
     }
     viewModelOf(::SulogViewModel)
     viewModelOf(::SuiPermissionsViewModel)
+    viewModelOf(::CurtainViewModel)
+    viewModel { parameters ->
+        CurtainAppViewModel(parameters[0], get(), get())
+    }
+    viewModelOf(::CurtainTemplatesViewModel)
+    viewModel { parameters ->
+        CurtainTemplateAppsViewModel(parameters[0], get(), get())
+    }
     viewModelOf(::DynamicManagerViewModel)
     viewModelOf(::FlashViewModel)
     viewModelOf(::UmountManagerScreenViewModel)

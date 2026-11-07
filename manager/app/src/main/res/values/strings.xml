@@ -1424,7 +1424,7 @@
     <string name="origin_curtain_not_installed">App-list hiding (HMA-OSS) · tap to install</string>
     <string name="origin_curtain_manager_missing">Module installed · tap to install the HMA-OSS app</string>
     <string name="origin_curtain_disabled">Installed but disabled · open Modules to enable it</string>
-    <string name="origin_curtain_active">Active · HMA-OSS %1$s · tap to open</string>
+    <string name="origin_curtain_active">Active · HMA-OSS %1$s · tap to manage</string>
     <string name="origin_curtain_needs_reboot">Installed · reboot to activate</string>
     <string name="origin_curtain_status">Status</string>
     <string name="origin_curtain_status_detail">Module: %1$s\nHMA-OSS app: %2$s\nOrigin Zygisk: %3$s</string>
@@ -1438,7 +1438,99 @@
     <string name="origin_curtain_manage">Manage in Modules</string>
     <string name="origin_curtain_manage_summary">Disable or remove HMA-OSS and its config app</string>
     <string name="origin_curtain_third_party">Third-party module</string>
-    <string name="origin_curtain_third_party_summary">HMA-OSS by frknkrc44 · AGPL-3.0 · installed from upstream releases</string>
+    <string name="origin_curtain_third_party_summary">HMA-OSS by frknkrc44 · GPL-3.0 · installed from upstream releases</string>
     <string name="origin_curtain_download_failed">Could not download the HMA-OSS release</string>
     <string name="origin_curtain_open_failed">Could not open the HMA-OSS app</string>
+
+    <string name="origin_curtain_search">Search</string>
+    <string name="origin_curtain_search_apps">Search apps</string>
+    <string name="origin_curtain_no_apps">No apps match</string>
+    <string name="origin_curtain_picker_apply">Apply</string>
+
+    <string name="origin_curtain_error_title">Origin Curtain unavailable</string>
+    <string name="origin_curtain_error_no_root">Root access is required to read and write the module config</string>
+    <string name="origin_curtain_error_not_initialized">Reboot once so the module can create its config, then try again</string>
+    <string name="origin_curtain_error_unreadable">The module config could not be read</string>
+    <string name="origin_curtain_error_write">Could not write the module config</string>
+
+    <string name="origin_curtain_work_mode">Module mode</string>
+    <string name="origin_curtain_work_mode_ok">Active</string>
+    <string name="origin_curtain_work_mode_no_hooks">Hooks disabled by a conflicting module</string>
+    <string name="origin_curtain_work_mode_loading">Loading</string>
+    <string name="origin_curtain_work_mode_crashed">Crashed</string>
+    <string name="origin_curtain_work_mode_unknown">Unknown</string>
+    <string name="origin_curtain_filter_count">Filtered requests</string>
+    <string name="origin_curtain_filter_count_value">%1$d since the module started</string>
+
+    <string name="origin_curtain_global">Protection</string>
+    <string name="origin_curtain_force_mount">Force mount data</string>
+    <string name="origin_curtain_force_mount_summary">Apply per-app mounts to every app targeting Android 11 or newer</string>
+    <string name="origin_curtain_disable_activity_launch">Disable Activity launch protection</string>
+    <string name="origin_curtain_disable_activity_launch_summary">Lift all startActivity restrictions. Leave this off unless another module conflicts</string>
+    <string name="origin_curtain_alt_app_data">Alternative app data isolation</string>
+    <string name="origin_curtain_alt_app_data_summary">Propless isolation. Some apps may misbehave with it enabled</string>
+    <string name="origin_curtain_alt_vold_data">Alternative vold data isolation</string>
+    <string name="origin_curtain_alt_vold_data_summary">Propless vold isolation. Some Android builds still leak vold presence</string>
+    <string name="origin_curtain_skip_system_data">Skip system apps for data isolation</string>
+    <string name="origin_curtain_skip_system_data_summary">Recommended. Prevents boot loops caused by isolating system apps</string>
+    <string name="origin_curtain_detail_log">Detailed logging</string>
+    <string name="origin_curtain_detail_log_summary">Verbose module logs for debugging</string>
+    <string name="origin_curtain_error_only_log">Error-only logging</string>
+    <string name="origin_curtain_error_only_log_summary">Silence every log channel except errors</string>
+
+    <string name="origin_curtain_apps_summary">%1$d of %2$d apps configured</string>
+    <string name="origin_curtain_apps_section">Apps</string>
+    <string name="origin_curtain_app_config">Application</string>
+    <string name="origin_curtain_app_hide">Hide apps from this app</string>
+    <string name="origin_curtain_app_hide_summary">Adds a hiding rule for this app</string>
+    <string name="origin_curtain_mode">Mode</string>
+    <string name="origin_curtain_mode_summary">Blacklist hides the selected apps. Whitelist shows only the selected apps</string>
+    <string name="origin_curtain_mode_blacklist">Blacklist</string>
+    <string name="origin_curtain_mode_whitelist">Whitelist</string>
+    <string name="origin_curtain_hidden_apps">Hidden apps</string>
+    <string name="origin_curtain_hidden_apps_summary">These apps are invisible to the target app</string>
+    <string name="origin_curtain_visible_apps">Visible apps</string>
+    <string name="origin_curtain_visible_apps_summary">Only these apps are visible to the target app</string>
+    <string name="origin_curtain_excluded_apps">Exceptions</string>
+    <string name="origin_curtain_excluded_apps_summary">Apps excluded from the rule in the opposite direction</string>
+    <string name="origin_curtain_applied_templates">Applied templates</string>
+    <string name="origin_curtain_selected_count">%1$d selected</string>
+    <string name="origin_curtain_selected_count_summary">%1$d selected · %2$s</string>
+
+    <string name="origin_curtain_spoof">Installation source spoofing</string>
+    <string name="origin_curtain_spoof_source">Spoof installation sources</string>
+    <string name="origin_curtain_spoof_source_summary">Report user apps as installed from Play Store</string>
+    <string name="origin_curtain_spoof_source_system">Spoof system app sources too</string>
+    <string name="origin_curtain_spoof_source_system_summary">Report system apps as having no installer</string>
+    <string name="origin_curtain_spoof_exclude_target">Exclude this app</string>
+    <string name="origin_curtain_spoof_exclude_target_summary">Use when this app is not available on Play Store</string>
+    <string name="origin_curtain_exclude_system">Exclude system apps</string>
+    <string name="origin_curtain_exclude_system_summary">Keep system apps visible in whitelist mode</string>
+    <string name="origin_curtain_invert_launch">Invert Activity launch protection</string>
+    <string name="origin_curtain_invert_launch_summary">Flip the global Activity launch protection for this app</string>
+    <string name="origin_curtain_exclude_vold">Exclude from vold data isolation</string>
+    <string name="origin_curtain_exclude_vold_summary">Skip vold isolation for this app</string>
+
+    <string name="origin_curtain_tools">Tools</string>
+    <string name="origin_curtain_templates">Templates</string>
+    <string name="origin_curtain_templates_summary">Reusable app lists you can apply to any app</string>
+    <string name="origin_curtain_template_new">New template</string>
+    <string name="origin_curtain_template_new_summary">Create a reusable blacklist or whitelist</string>
+    <string name="origin_curtain_template_create">Create</string>
+    <string name="origin_curtain_template_name">Template name</string>
+    <string name="origin_curtain_template_name_exists">A template with that name already exists</string>
+    <string name="origin_curtain_template_delete">Delete template</string>
+    <string name="origin_curtain_template_delete_confirm">Delete “%1$s”? Apps using it will lose the rule</string>
+    <string name="origin_curtain_template_empty">No templates yet</string>
+    <string name="origin_curtain_template_empty_summary">Create one to reuse the same hidden app list across apps</string>
+    <string name="origin_curtain_template_summary">%1$s · %2$d apps</string>
+    <string name="origin_curtain_template_mode">Template type</string>
+    <string name="origin_curtain_template_mode_summary">Blacklist hides the listed apps. Whitelist shows only the listed apps</string>
+    <string name="origin_curtain_template_app_count">%1$d selected</string>
+
+    <string name="origin_curtain_advanced">Advanced</string>
+    <string name="origin_curtain_upstream_conflict">HMA-OSS app detected</string>
+    <string name="origin_curtain_upstream_conflict_summary">Changes made in the upstream app can overwrite Origin Curtain. Use one of them, not both</string>
+    <string name="origin_curtain_open_upstream">Open HMA-OSS app</string>
+    <string name="origin_curtain_open_upstream_summary">Access the upstream app for options Origin Curtain does not cover yet</string>
 </resources>

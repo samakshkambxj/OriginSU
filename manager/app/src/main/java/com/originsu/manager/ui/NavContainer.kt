@@ -69,6 +69,10 @@ import com.originsu.manager.ui.overscroll.StretchOverscrollCompensationState
 import com.originsu.manager.ui.overscroll.rememberCustomOverscrollFactory
 import com.originsu.manager.ui.screen.AppProfileScreen
 import com.originsu.manager.ui.screen.AppProfileTemplateScreen
+import com.originsu.manager.ui.screen.CurtainAppScreen
+import com.originsu.manager.ui.screen.CurtainScreen
+import com.originsu.manager.ui.screen.CurtainTemplateAppsScreen
+import com.originsu.manager.ui.screen.CurtainTemplatesScreen
 import com.originsu.manager.ui.screen.DynamicManagerScreen
 import com.originsu.manager.ui.screen.ExecuteModuleActionScreen
 import com.originsu.manager.ui.screen.FlashIt
@@ -458,6 +462,50 @@ fun NavContainer(
                     useBlur = useBlur,
                 ) {
                     SuiPermissionsScreen()
+                }
+            }
+            entry<Route.Curtain>(swipeDismiss = swipeBackDirection) {
+                ManagerNavEntry(
+                    interceptPredictiveBack = interceptPredictiveBack,
+                    onBack = onBack,
+                    themeConfig = themeConfig,
+                    backgroundRenderState = backgroundRenderState,
+                    useBlur = useBlur,
+                ) {
+                    CurtainScreen()
+                }
+            }
+            entry<Route.CurtainApp>(swipeDismiss = swipeBackDirection) { key ->
+                ManagerNavEntry(
+                    interceptPredictiveBack = interceptPredictiveBack,
+                    onBack = onBack,
+                    themeConfig = themeConfig,
+                    backgroundRenderState = backgroundRenderState,
+                    useBlur = useBlur,
+                ) {
+                    CurtainAppScreen(key.packageName)
+                }
+            }
+            entry<Route.CurtainTemplates>(swipeDismiss = swipeBackDirection) {
+                ManagerNavEntry(
+                    interceptPredictiveBack = interceptPredictiveBack,
+                    onBack = onBack,
+                    themeConfig = themeConfig,
+                    backgroundRenderState = backgroundRenderState,
+                    useBlur = useBlur,
+                ) {
+                    CurtainTemplatesScreen()
+                }
+            }
+            entry<Route.CurtainTemplateApps>(swipeDismiss = swipeBackDirection) { key ->
+                ManagerNavEntry(
+                    interceptPredictiveBack = interceptPredictiveBack,
+                    onBack = onBack,
+                    themeConfig = themeConfig,
+                    backgroundRenderState = backgroundRenderState,
+                    useBlur = useBlur,
+                ) {
+                    CurtainTemplateAppsScreen(key.name)
                 }
             }
             entry<Route.AppIcon>(swipeDismiss = swipeBackDirection) {
