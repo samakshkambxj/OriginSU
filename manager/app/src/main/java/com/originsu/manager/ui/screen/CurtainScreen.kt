@@ -12,6 +12,7 @@ import androidx.compose.material.icons.twotone.BugReport
 import androidx.compose.material.icons.twotone.Groups
 import androidx.compose.material.icons.twotone.Info
 import androidx.compose.material.icons.twotone.OpenInNew
+import androidx.compose.material.icons.twotone.RestartAlt
 import androidx.compose.material.icons.twotone.Visibility
 import androidx.compose.material.icons.twotone.Warning
 import androidx.compose.material3.CircularProgressIndicator
@@ -25,6 +26,7 @@ import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -36,9 +38,11 @@ import com.originsu.manager.R
 import com.originsu.manager.data.curtain.CurtainConfigRepository
 import com.originsu.manager.data.curtain.CurtainLoadError
 import com.originsu.manager.data.curtain.OriginCurtainRepository
+import com.originsu.manager.ui.component.ConfirmResult
 import com.originsu.manager.ui.component.PackageIcon
 import com.originsu.manager.ui.component.SearchAppBar
 import com.originsu.manager.ui.component.SearchNoMatch
+import com.originsu.manager.ui.component.rememberConfirmDialog
 import com.originsu.manager.ui.component.rememberSearchAppBarScrollBehavior
 import com.originsu.manager.ui.component.settings.SegmentedColumn
 import com.originsu.manager.ui.component.settings.SettingsBaseWidget
@@ -54,6 +58,7 @@ import com.originsu.manager.ui.util.showReplacingSnackbar
 import com.originsu.manager.ui.viewmodel.CurtainUiEvent
 import com.originsu.manager.ui.viewmodel.CurtainViewModel
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -75,9 +80,27 @@ fun CurtainScreen(viewModel: CurtainViewModel = koinViewModel()) {
         TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
     )
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val scope = rememberCoroutineScope()
+    val confirmDialog = rememberConfirmDialog()
 
     val saveFailed = stringResource(R.string.origin_curtain_error_write)
     val configMissing = stringResource(R.string.origin_curtain_error_not_initialized)
+    val rebootTitle = stringResource(R.string.origin_curtain_setup_reboot)
+    val rebootSummary = stringResource(R.string.origin_curtain_setup_reboot_summary)
+    val rebootConfirmTitle = stringResource(R.string.origin_curtain_setup_reboot_confirm_title)
+    val rebootConfirmContent = stringResource(R.string.origin_curtain_setup_reboot_confirm_content)
+    val requestReboot: () -> Unit = {
+        scope.launch {
+            if (confirmDialog.awaitConfirm(
+                    title = rebootConfirmTitle,
+                    content = rebootConfirmContent,
+                ) == ConfirmResult.Confirmed
+            ) {
+                viewModel.reboot()
+            }
+        }
+        Unit
+    }
 
     LaunchedEffect(viewModel) {
         viewModel.events.collectLatest { event ->
@@ -94,13 +117,19 @@ fun CurtainScreen(viewModel: CurtainViewModel = koinViewModel()) {
         viewModel.refresh()
     }
 
+    val setupText = when {
+        !uiState.moduleInstalled ->
+            stringResource(R.string.origin_curtain_setup_not_installed)
+        !uiState.moduleLoaded ->
+            stringResource(R.string.origin_curtain_setup_reboot_module)
+        else -> stringResource(R.string.origin_curtain_setup_config_missing)
+    }
+
     val errorText = when (uiState.error) {
         CurtainLoadError.NO_ROOT -> stringResource(R.string.origin_curtain_error_no_root)
-        CurtainLoadError.NOT_INITIALIZED ->
-            stringResource(R.string.origin_curtain_error_not_initialized)
         CurtainLoadError.UNREADABLE -> stringResource(R.string.origin_curtain_error_unreadable)
         CurtainLoadError.WRITE_FAILED -> stringResource(R.string.origin_curtain_error_write)
-        null -> null
+        CurtainLoadError.NOT_INITIALIZED, null -> null
     }
 
     val appsSummary = stringResource(
@@ -180,6 +209,52 @@ fun CurtainScreen(viewModel: CurtainViewModel = koinViewModel()) {
                                 uiState.filterCount ?: 0,
                             ),
                         )
+                    }
+                }
+            }
+
+            if (uiState.error == CurtainLoadError.NOT_INITIALIZED) {
+                item(key = "setup") {
+                    SegmentedColumn(title = stringResource(R.string.origin_curtain_setup)) {
+                        item {
+                            SettingsBaseWidget(
+                                icon = Icons.TwoTone.Info,
+                                title = stringResource(R.string.origin_curtain_setup_title),
+                                description = setupText,
+                            )
+                        }
+                        item(visible = uiState.moduleInstalled) {
+                            SettingsJumpPageWidget(
+                                icon = Icons.TwoTone.RestartAlt,
+                                title = rebootTitle,
+                                description = rebootSummary,
+                                onClick = requestReboot,
+                            )
+                        }
+                    }
+                }
+            }
+
+            if (uiState.configCreated) {
+                item(key = "config-created") {
+                    SegmentedColumn(title = stringResource(R.string.origin_curtain_setup)) {
+                        item {
+                            SettingsBaseWidget(
+                                icon = Icons.TwoTone.Info,
+                                title = stringResource(R.string.origin_curtain_config_created),
+                                description = stringResource(
+                                    R.string.origin_curtain_config_created_summary,
+                                ),
+                            )
+                        }
+                        item {
+                            SettingsJumpPageWidget(
+                                icon = Icons.TwoTone.RestartAlt,
+                                title = rebootTitle,
+                                description = rebootSummary,
+                                onClick = requestReboot,
+                            )
+                        }
                     }
                 }
             }

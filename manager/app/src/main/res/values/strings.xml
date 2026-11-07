@@ -1492,9 +1492,21 @@
 
     <string name="origin_curtain_error_title">Origin Curtain unavailable</string>
     <string name="origin_curtain_error_no_root">Root access is required to read and write the module config</string>
-    <string name="origin_curtain_error_not_initialized">Reboot once so the module can create its config, then try again</string>
+    <string name="origin_curtain_error_not_initialized">The module config is not ready yet. Reboot once after installing the module, then try again</string>
     <string name="origin_curtain_error_unreadable">The module config could not be read</string>
     <string name="origin_curtain_error_write">Could not write the module config</string>
+
+    <string name="origin_curtain_setup">Finish setup</string>
+    <string name="origin_curtain_setup_title">Setup required</string>
+    <string name="origin_curtain_setup_not_installed">Install the Origin Curtain module from Origin Lab first</string>
+    <string name="origin_curtain_setup_reboot_module">The module is installed but has not started yet. Reboot once so it can load and create its config</string>
+    <string name="origin_curtain_setup_config_missing">The module is running but Origin Curtain could not create its config. Reboot once, then try again</string>
+    <string name="origin_curtain_setup_reboot">Reboot now</string>
+    <string name="origin_curtain_setup_reboot_summary">Restart the device to let the module finish setup</string>
+    <string name="origin_curtain_setup_reboot_confirm_title">Reboot now?</string>
+    <string name="origin_curtain_setup_reboot_confirm_content">The device will restart so the module can load its config</string>
+    <string name="origin_curtain_config_created">Config created</string>
+    <string name="origin_curtain_config_created_summary">Origin Curtain created a fresh config. Reboot once so the module picks it up; after that, edits apply without a reboot</string>
 
     <string name="origin_curtain_work_mode">Module mode</string>
     <string name="origin_curtain_work_mode_ok">Active</string>

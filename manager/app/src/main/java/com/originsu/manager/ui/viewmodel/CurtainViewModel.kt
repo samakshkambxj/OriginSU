@@ -13,6 +13,8 @@ import com.originsu.manager.data.curtain.CurtainSnapshot
 import com.originsu.manager.data.curtain.CurtainTemplate
 import com.originsu.manager.data.curtain.OriginCurtainRepository
 import com.originsu.manager.data.packageinfo.InstalledPackageRepository
+import com.originsu.manager.data.shell.KsuCliRepository
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -48,6 +50,10 @@ data class CurtainUiState(
     val workMode: Int? = null,
     val upstreamInstalled: Boolean = false,
     val moduleVersion: String = "",
+    val moduleInstalled: Boolean = false,
+    val moduleLoaded: Boolean = false,
+    /** A fresh config was seeded; one reboot is needed before the module reads it. */
+    val configCreated: Boolean = false,
     val busy: Boolean = false,
 ) {
     val visibleApps: List<CurtainAppRow>
@@ -72,6 +78,7 @@ class CurtainViewModel(
     private val configRepository: CurtainConfigRepository,
     private val installedPackageRepository: InstalledPackageRepository,
     private val originCurtainRepository: OriginCurtainRepository,
+    private val ksuCliRepository: KsuCliRepository,
 ) : ViewModel() {
 
     private companion object {
@@ -101,6 +108,8 @@ class CurtainViewModel(
                     installedApps = installed,
                     upstreamInstalled = status?.managerInstalled == true,
                     moduleVersion = status?.moduleVersion.orEmpty(),
+                    moduleInstalled = status?.moduleInstalled == true,
+                    moduleLoaded = status?.moduleLoaded == true,
                 )
                 when (result) {
                     is CurtainLoadResult.Ready -> base
@@ -109,6 +118,7 @@ class CurtainViewModel(
                     is CurtainLoadResult.Failure -> base.copy(
                         loading = false,
                         error = result.error,
+                        configCreated = false,
                     )
                 }
             }
@@ -126,6 +136,13 @@ class CurtainViewModel(
 
     fun setAppEnabled(packageName: String, enabled: Boolean) {
         save { configRepository.setAppEnabled(packageName, enabled) }
+    }
+
+    fun reboot() {
+        viewModelScope.launch(Dispatchers.IO) {
+            runCatching { ksuCliRepository.reboot() }
+                .onFailure { Log.w(TAG, "Could not reboot the device", it) }
+        }
     }
 
     private fun save(block: suspend () -> CurtainLoadResult) {
@@ -165,6 +182,9 @@ class CurtainViewModel(
     private fun CurtainUiState.withSnapshot(snapshot: CurtainSnapshot): CurtainUiState =
         copy(
             error = null,
+            // Sticky for the session: the flag only clears on the next reboot,
+            // when the module finally reads the config we seeded.
+            configCreated = snapshot.configCreated || this.configCreated,
             global = snapshot.config.global,
             templates = snapshot.config.templates.values.sortedBy { it.name.lowercase() },
             apps = buildRows(installedApps, snapshot.config.apps),

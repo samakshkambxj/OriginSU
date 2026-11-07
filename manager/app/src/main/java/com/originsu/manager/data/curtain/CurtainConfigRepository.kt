@@ -25,6 +25,13 @@ data class CurtainSnapshot(
     val config: CurtainConfig,
     val filterCount: Int? = null,
     val workMode: Int? = null,
+    /**
+     * True when the module data directory existed but had no config yet, so
+     * Origin Curtain created one. The module only watches a config file that
+     * already existed when it started, which means this fresh config (and any
+     * edits made to it) needs one reboot to be picked up.
+     */
+    val configCreated: Boolean = false,
 )
 
 /**
@@ -127,9 +134,23 @@ class CurtainConfigRepository(
         if (!ksuCliRepository.rootAvailable()) {
             return CurtainLoadResult.Failure(CurtainLoadError.NO_ROOT)
         }
-        val directory = resolveDirectory() ?: return CurtainLoadResult.Failure(
+        val moduleDir = resolveDirectory() ?: return CurtainLoadResult.Failure(
             CurtainLoadError.NOT_INITIALIZED
         )
+        val directory = moduleDir.path
+        val configCreated = if (!moduleDir.hasConfig) {
+            // The module never creates the config on its own: upstream writes
+            // one when the HMA-OSS app saves its settings, so a fresh install
+            // would otherwise report "not initialized" forever. Create the
+            // default document ourselves; the module's serializer fills every
+            // omitted key (including configVersion) from its own defaults.
+            if (!createDefaultConfig(directory)) {
+                return CurtainLoadResult.Failure(CurtainLoadError.WRITE_FAILED)
+            }
+            true
+        } else {
+            false
+        }
         val configPath = "$directory/config.json"
         val script = buildString {
             append("echo ").append(quote(CONFIG_MARKER)).append('\n')
@@ -163,8 +184,32 @@ class CurtainConfigRepository(
                 config = CurtainConfigCodec.parse(document),
                 filterCount = parseFilterCount(sections[FILTER_MARKER].orEmpty()),
                 workMode = parseWorkMode(sections[STATUS_MARKER].orEmpty()),
+                configCreated = configCreated,
             )
         )
+    }
+
+    /**
+     * Seeded with `{}`: every HMA-OSS config field has a serializer default, so
+     * the module parses this as a complete default config at its own
+     * `configVersion`. The file must belong to system_server (uid 1000), which
+     * is what reads it from the zygote.
+     */
+    private fun createDefaultConfig(directory: String): Boolean {
+        val configPath = "$directory/config.json"
+        val temporaryPath = "$directory/config.json.originsu-new"
+        val command = "printf '%s' '{}' > ${quote(temporaryPath)} && " +
+            "cat ${quote(temporaryPath)} > ${quote(configPath)} && " +
+            "chown 1000:1000 ${quote(configPath)} && " +
+            "chmod 0600 ${quote(configPath)} && " +
+            "(restorecon ${quote(configPath)} 2>/dev/null || true) && " +
+            "rm -f ${quote(temporaryPath)}"
+        return runCatching {
+            ksuCliRepository.getRootShell().newJob().add(command).exec().isSuccess
+        }.getOrElse {
+            Log.w(TAG, "Could not create the Origin Curtain config", it)
+            false
+        }
     }
 
     private fun write(document: JSONObject): Boolean {
@@ -185,27 +230,46 @@ class CurtainConfigRepository(
         }
     }
 
-    private fun resolveDirectory(): String? {
+    private data class ModuleDir(val path: String, val hasConfig: Boolean)
+
+    private fun resolveDirectory(): ModuleDir? {
         cachedDir?.let { directory ->
-            val alive = runCatching {
+            val state = runCatching {
                 ksuCliRepository.runCmd(
                     ksuCliRepository.getRootShell(),
-                    "[ -f ${quote("$directory/config.json")} ] && echo alive",
+                    "if [ -f ${quote("$directory/config.json")} ]; then echo CONFIG; " +
+                        "elif [ -d ${quote(directory)} ]; then echo DIR; fi",
                 )
             }.getOrDefault("")
-            if (alive.contains("alive")) return directory
+            if (state.contains("CONFIG")) return ModuleDir(directory, hasConfig = true)
+            if (state.contains("DIR")) return ModuleDir(directory, hasConfig = false)
             cachedDir = null
         }
+        // Prefer a directory that already has a config, then the active one the
+        // module marked with status.json, and only then any leftover directory
+        // so a booted module that never wrote a config can still be initialized.
         val script = buildString {
             append("for d in /data/misc/hide_my_applist* /data/system/hide_my_applist*; do\n")
-            append("  if [ -f \"\$d/config.json\" ]; then echo \"\$d\"; break; fi\n")
+            append("  if [ -f \"\$d/config.json\" ]; then echo \"CONFIG:\$d\"; exit 0; fi\n")
+            append("done\n")
+            append("for d in /data/misc/hide_my_applist* /data/system/hide_my_applist*; do\n")
+            append("  if [ -f \"\$d/status.json\" ]; then echo \"DIR:\$d\"; exit 0; fi\n")
+            append("done\n")
+            append("for d in /data/misc/hide_my_applist* /data/system/hide_my_applist*; do\n")
+            append("  if [ -d \"\$d\" ]; then echo \"DIR:\$d\"; exit 0; fi\n")
             append("done")
         }
         return runCatching {
             ksuCliRepository.runCmd(ksuCliRepository.getRootShell(), script)
                 .lineSequence()
                 .map { it.trim() }
-                .firstOrNull { it.startsWith("/") }
+                .firstOrNull { it.startsWith("CONFIG:") || it.startsWith("DIR:") }
+                ?.let { line ->
+                    ModuleDir(
+                        path = line.substringAfter(':'),
+                        hasConfig = line.startsWith("CONFIG:"),
+                    )
+                }
         }.getOrNull()
     }
 
