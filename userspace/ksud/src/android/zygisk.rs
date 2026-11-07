@@ -98,10 +98,20 @@ pub fn external_providers() -> Vec<String> {
     found
 }
 
+fn abi_list() -> String {
+    let first = crate::android::utils::getprop("ro.system.product.cpu.abilist").unwrap_or_default();
+    let second = crate::android::utils::getprop("ro.product.cpu.abilist").unwrap_or_default();
+    if second.len() > first.len() {
+        second
+    } else {
+        first
+    }
+}
+
 fn monitor_path() -> PathBuf {
     let dir = Path::new(ORIGIN_ZYGISK_DIR);
-    let abi64 = crate::android::utils::getprop("ro.product.cpu.abilist")
-        .is_some_and(|list| list.contains("arm64-v8a") || list.contains("x86_64"));
+    let abis = abi_list();
+    let abi64 = abis.contains("arm64-v8a") || abis.contains("x86_64");
     dir.join(if abi64 {
         "bin/zygisk-ptrace64"
     } else {
@@ -122,10 +132,26 @@ fn enabled() -> bool {
         && Path::new(ORIGIN_ZYGISK_HOOK).is_file()
 }
 
-fn injection_state() -> &'static str {
-    let Ok(raw) = fs::read_to_string(STATE) else {
-        return "unverified";
-    };
+fn json_bool(value: &serde_json::Value) -> bool {
+    match value {
+        serde_json::Value::Bool(flag) => *flag,
+        serde_json::Value::Number(number) => number.as_i64() == Some(1),
+        serde_json::Value::String(text) => text == "1" || text.eq_ignore_ascii_case("true"),
+        _ => false,
+    }
+}
+
+fn json_state_is_zero(value: &serde_json::Value) -> bool {
+    match value {
+        serde_json::Value::Number(number) => number.as_i64() == Some(0),
+        serde_json::Value::String(text) => text.trim() == "0",
+        _ => false,
+    }
+}
+
+/// Parse the engine's `state.json`. Current engines emit numeric flags
+/// (`"state": 0`, `"64": 1`), while older payloads used strings; accept both.
+fn parse_injection_state(raw: &str) -> &'static str {
     // Older engine builds emitted a trailing comma after monitor.reason.
     let normalized = raw
         .replace(",\n  }", "\n  }")
@@ -137,19 +163,23 @@ fn injection_state() -> &'static str {
     let monitor_ok = state
         .get("monitor")
         .and_then(|monitor| monitor.get("state"))
-        .and_then(|value| value.as_str())
-        .is_some_and(|value| value == "0");
+        .is_some_and(json_state_is_zero);
     if !monitor_ok {
         return "failed";
     }
-    let zygote = state.get("zygote");
-    let injected = ["64", "32"].iter().any(|abi| {
-        zygote
-            .and_then(|zygote| zygote.get(abi))
-            .and_then(serde_json::Value::as_bool)
-            .unwrap_or(false)
+    let injected = state.get("zygote").is_some_and(|zygote| {
+        ["64", "32"]
+            .iter()
+            .any(|abi| zygote.get(abi).is_some_and(json_bool))
     });
     if injected { "injected" } else { "starting" }
+}
+
+fn injection_state() -> &'static str {
+    let Ok(raw) = fs::read_to_string(STATE) else {
+        return "unverified";
+    };
+    parse_injection_state(&raw)
 }
 
 #[derive(Default)]
@@ -228,5 +258,53 @@ pub fn detach_from_service_cgroup() -> std::io::Result<()> {
         };
         libc::close(fd);
         error.map_or(Ok(()), Err)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::parse_injection_state;
+
+    #[test]
+    fn numeric_state_json_is_understood() {
+        let raw = r#"{
+  "root": "KernelSU",
+  "monitor": {
+    "state": 0
+  },
+  "rezygiskd": {
+    "64": {
+      "state": 1,
+      "modules": []
+    }
+  },
+  "zygote": {
+    "64": 1
+  }
+}"#;
+        assert_eq!(parse_injection_state(raw), "injected");
+    }
+
+    #[test]
+    fn numeric_zero_zygote_is_starting() {
+        let raw = r#"{"monitor":{"state":0},"zygote":{"64":0}}"#;
+        assert_eq!(parse_injection_state(raw), "starting");
+    }
+
+    #[test]
+    fn stopped_monitor_is_failed() {
+        let raw = r#"{"monitor":{"state":2,"reason":"crashed"},"zygote":{"64":1}}"#;
+        assert_eq!(parse_injection_state(raw), "failed");
+    }
+
+    #[test]
+    fn legacy_string_state_still_works() {
+        let raw = r#"{"monitor":{"state":"0"},"zygote":{"64":"1"}}"#;
+        assert_eq!(parse_injection_state(raw), "injected");
+    }
+
+    #[test]
+    fn malformed_state_is_unverified() {
+        assert_eq!(parse_injection_state("not json"), "unverified");
     }
 }
