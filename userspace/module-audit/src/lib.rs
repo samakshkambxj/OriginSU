@@ -3021,14 +3021,14 @@ fn analyze_delete(
         return;
     }
     for target in targets {
-        let (rule, severity, title) = if is_module_owned(&target, module_id) {
-            (RULE_OWN_DELETE, Severity::Info, "Module-owned deletion")
-        } else if is_broad_delete(&target) {
+        let (rule, severity, title) = if is_broad_delete(&target) {
             (
                 RULE_BROAD_DELETE,
                 Severity::Critical,
                 "Broad destructive deletion",
             )
+        } else if is_module_owned(&target, module_id) {
+            (RULE_OWN_DELETE, Severity::Info, "Module-owned deletion")
         } else if contains_unresolved_variable(&target) {
             (
                 RULE_UNKNOWN_DELETE,
@@ -4160,32 +4160,50 @@ fn posix_basename(path: &str) -> &str {
 }
 
 fn is_module_owned(path: &str, module_id: Option<&str>) -> bool {
-    path.starts_with("/data/adb/ksu/.audit-tmp/")
-        || path == "/data/adb/ksu/.audit-tmp"
-        || module_id.is_some_and(|id| {
-            let active = format!("/data/adb/modules/{id}");
-            let updated = format!("/data/adb/modules_update/{id}");
-            path == active
-                || path.starts_with(&format!("{active}/"))
-                || path == updated
-                || path.starts_with(&format!("{updated}/"))
-        })
+    if path.starts_with("/data/adb/ksu/.audit-tmp/") || path == "/data/adb/ksu/.audit-tmp" {
+        return true;
+    }
+    let Some(id) = module_id else {
+        return false;
+    };
+    let mut roots = vec![
+        format!("/data/adb/modules/{id}"),
+        format!("/data/adb/modules_update/{id}"),
+    ];
+    // A module also owns its conventional persistent data directory, unless
+    // the id would collide with a root-managed directory such as
+    // /data/adb/modules or /data/adb/ksu.
+    if !matches!(id, "modules" | "modules_update" | "ksu") {
+        roots.push(format!("/data/adb/{id}"));
+    }
+    roots
+        .into_iter()
+        .any(|root| path == root || path.starts_with(&format!("{root}/")))
 }
 
 fn is_broad_delete(path: &str) -> bool {
-    matches!(
-        path.trim_end_matches('/'),
-        "" | "/"
-            | "/data"
-            | "/data/adb"
-            | "/data/adb/modules"
-            | "/data/adb/modules_update"
-            | "/system"
-            | "/vendor"
-            | "/product"
-            | "/odm"
-            | "/system_ext"
-    ) || path.ends_with("/*")
+    const PROTECTED_ROOTS: [&str; 10] = [
+        "",
+        "/data",
+        "/data/adb",
+        "/data/adb/modules",
+        "/data/adb/modules_update",
+        "/system",
+        "/system_ext",
+        "/vendor",
+        "/product",
+        "/odm",
+    ];
+    let trimmed = path.trim_end_matches('/');
+    // Deleting a protected root itself, or globbing everything directly under
+    // one, is broad. A wildcard under a more specific path (a module's own
+    // cache or data directory, for example) is classified by the caller.
+    if PROTECTED_ROOTS.contains(&trimmed) {
+        return true;
+    }
+    trimmed
+        .strip_suffix("/*")
+        .is_some_and(|base| PROTECTED_ROOTS.contains(&base.trim_end_matches('/')))
 }
 
 fn is_block_device_path(path: &str) -> bool {
