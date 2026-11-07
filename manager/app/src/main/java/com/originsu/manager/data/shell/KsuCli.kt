@@ -714,9 +714,30 @@ class KsuCliRepository(context: Context) {
                 append(" --slot ${shellQuote(it)}")
             }
         }
-        val result = flashWithIO(command, onStdout, onStderr)
+        // ksud already strips ui_print from stdout, but the installer's unzip
+        // chatter still lands on stderr.
+        val result = flashWithIO(
+            command,
+            { line -> cleanAnyKernelLine(line)?.let(onStdout) },
+            { line -> cleanAnyKernelLine(line)?.let(onStderr) },
+        )
         Log.i(TAG, "AnyKernel3 flash result: ${result.isSuccess}, code: ${result.code}")
         return result.isSuccess
+    }
+
+    /**
+     * Reduce AnyKernel3 installer output to the messages a user cares about:
+     * drop busybox unzip chatter, strip the ui_print wrapper and collapse the
+     * blank separator lines ui_print emits between steps.
+     */
+    private fun cleanAnyKernelLine(line: String): String? {
+        val trimmed = line.trim()
+        return when {
+            trimmed.isEmpty() || trimmed == "ui_print" -> null
+            trimmed.startsWith("ui_print ") -> trimmed.removePrefix("ui_print ").trim().ifEmpty { null }
+            trimmed.startsWith("inflating: ") -> null
+            else -> trimmed
+        }
     }
 
     /**
@@ -924,8 +945,14 @@ class KsuCliRepository(context: Context) {
                 fi)
         """.trimIndent().replace(Regex("\\s+\\\\\\s*"), " ")
 
+        // AnyKernel3 installers mix busybox unzip chatter and ui_print wrapper
+        // lines into their output; present only the meaningful messages.
         return try {
-            val result = flashWithIO(cmd, onStdout, onStderr)
+            val result = flashWithIO(
+                cmd,
+                { line -> cleanAnyKernelLine(line)?.let(onStdout) },
+                { line -> cleanAnyKernelLine(line)?.let(onStderr) },
+            )
             Log.i(TAG, "AnyKernel3 legacy flash result: $result")
             onFinish(result.isSuccess, result.code)
             result.isSuccess

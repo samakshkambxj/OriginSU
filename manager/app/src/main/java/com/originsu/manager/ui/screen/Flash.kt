@@ -457,6 +457,14 @@ fun FlashScreen(flashIt: FlashIt) {
                     text = installingModuleString.format(flashIt.currentIndex + 1, flashIt.uris.size, "Module")
                     logContent.append(text).append("\n")
                 }
+            } else if (flashIt is FlashIt.FlashAnyKernelZip) {
+                // Show the same install card as module flashes, labeled with the
+                // kernel zip's file name.
+                val kernelName = getKernelZipDisplayName(context, flashIt.uri)
+                currentModuleName = kernelName
+                flashViewModel.dispatch(
+                    FlashUiAction.UpdateModule(currentModuleName = kernelName)
+                )
             }
 
             flashIt(executeFlashOperation, flashIt, auditConfirmed, noAudit, onFinish = { showReboot, code ->
@@ -635,10 +643,15 @@ fun FlashScreen(flashIt: FlashIt) {
         ) {
             Spacer(modifier = Modifier.height(innerPadding.calculateTopPadding()))
 
-            if (flashIt is FlashIt.FlashModules) {
+            if (flashIt is FlashIt.FlashModules || flashIt is FlashIt.FlashAnyKernelZip) {
+                val (installIndex, installTotal) = if (flashIt is FlashIt.FlashModules) {
+                    flashIt.currentIndex + 1 to flashIt.uris.size
+                } else {
+                    1 to 1
+                }
                 ModuleInstallProgressBar(
-                    currentIndex = flashIt.currentIndex + 1,
-                    totalCount = flashIt.uris.size,
+                    currentIndex = installIndex,
+                    totalCount = installTotal,
                     currentModuleName = currentStatus.currentModuleName,
                     status = flashUiState.flashingStatus,
                     failedModules = currentStatus.failedModules
@@ -1075,6 +1088,28 @@ suspend fun getModuleNameFromUri(
         }
     }
 }
+
+/**
+ * Display name for a kernel flash card: the picker's file name when the
+ * provider exposes it, else the last URI segment.
+ */
+fun getKernelZipDisplayName(context: android.content.Context, uri: String): String =
+    runCatching {
+        context.contentResolver.query(
+            android.net.Uri.parse(uri),
+            arrayOf(android.provider.OpenableColumns.DISPLAY_NAME),
+            null,
+            null,
+            null,
+        )?.use { cursor ->
+            val index = cursor.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+            if (index >= 0 && cursor.moveToFirst()) cursor.getString(index) else null
+        }
+    }.getOrNull()
+        ?.takeIf { it.isNotBlank() }
+        ?: android.net.Uri.parse(uri).lastPathSegment?.takeIf { it.isNotBlank() }
+        ?: "AnyKernel3"
+
 
 @Parcelize
 sealed class FlashIt : Parcelable {
