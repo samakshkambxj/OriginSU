@@ -228,7 +228,7 @@ fun CurtainScreen(viewModel: CurtainViewModel = koinViewModel()) {
                                 icon = Icons.TwoTone.RestartAlt,
                                 title = rebootTitle,
                                 description = rebootSummary,
-                                onClick = requestReboot,
+                                onClick = { requestReboot() },
                             )
                         }
                     }
@@ -252,7 +252,7 @@ fun CurtainScreen(viewModel: CurtainViewModel = koinViewModel()) {
                                 icon = Icons.TwoTone.RestartAlt,
                                 title = rebootTitle,
                                 description = rebootSummary,
-                                onClick = requestReboot,
+                                onClick = { requestReboot() },
                             )
                         }
                     }
