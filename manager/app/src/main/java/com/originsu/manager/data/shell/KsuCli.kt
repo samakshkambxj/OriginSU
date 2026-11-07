@@ -1615,7 +1615,10 @@ class KsuCliRepository(context: Context) {
             val daemonsJson = state.optJSONObject("rezygiskd")
             for (abi in listOf("64", "32")) {
                 val daemon = daemonsJson?.optJSONObject(abi) ?: continue
-                val daemonRunning = daemon.optInt("state", 0) == 0
+                // The engine writes the daemon flag as an integer bool: 1 means
+                // the daemon is alive. Monitor state uses the enum where 0 is
+                // TRACING, so the two fields must not share an interpretation.
+                val daemonRunning = daemon.optInt("state", 0) != 0
                 val reason = daemon.optString("reason").takeIf { it.isNotBlank() }
                 val loaded = mutableListOf<String>()
                 val loadedJson = daemon.optJSONArray("modules")
@@ -1661,7 +1664,23 @@ class KsuCliRepository(context: Context) {
         val bootGuardConfirmed = bootGuard["BG_CONFIRMED"].orEmpty()
 
         val manifest = "$ORIGIN_ZYGISK_DIR/deployed.sha256"
-        val hasManifest = ShellUtils.fastCmdResult(shell, "[ -f $manifest ]")
+        var hasManifest = ShellUtils.fastCmdResult(shell, "[ -f $manifest ]")
+        if (!hasManifest && deployed) {
+            // Installs created before the checksum manifest was introduced have
+            // no baseline. Build one from the deployed runtime so integrity can
+            // be tracked from this point on instead of permanently asking the
+            // user to repair a healthy engine.
+            runCmd(
+                shell,
+                "cd $ORIGIN_ZYGISK_DIR && { " +
+                    "for f in bin/* lib/* lib64/* machikado.*; do " +
+                    "[ -f \"${'$'}f\" ] && sha256sum \"${'$'}f\"; done; } " +
+                    "> deployed.sha256.tmp 2>/dev/null && " +
+                    "chmod 0644 deployed.sha256.tmp && " +
+                    "mv -f deployed.sha256.tmp deployed.sha256",
+            )
+            hasManifest = ShellUtils.fastCmdResult(shell, "[ -f $manifest ]")
+        }
         var integrityOk = false
         var integrityError: String? = null
         if (hasManifest) {
@@ -1669,12 +1688,20 @@ class KsuCliRepository(context: Context) {
                 shell,
                 "cd $ORIGIN_ZYGISK_DIR && sha256sum -c deployed.sha256 2>&1",
             )
-            integrityOk = check.lineSequence().any { it.endsWith(": OK") } &&
-                !check.contains("FAILED")
+            val lines = check.lineSequence().toList()
+            // The engine rewrites module.prop on every status refresh (it embeds
+            // the live monitor/daemon state in `description`). Older manifests
+            // included that mutable file, so a mismatch there is expected and
+            // must not be reported as engine corruption.
+            val mutableMetadata = setOf("module.prop", "module.prop.bak")
+            val failures = lines.filter { line ->
+                val name = line.substringBefore(':', "").trim().removePrefix("./")
+                (line.contains(": FAILED") || line.contains("No such file")) &&
+                    name !in mutableMetadata
+            }
+            integrityOk = lines.any { it.endsWith(": OK") } && failures.isEmpty()
             if (!integrityOk) {
-                integrityError = check.lineSequence()
-                    .firstOrNull { it.contains("FAILED") || it.contains("No such") }
-                    ?.trim()
+                integrityError = failures.firstOrNull()?.trim()
                     ?: appContext.getString(R.string.origin_zygisk_integrity_failed)
             }
         } else {
@@ -1913,9 +1940,11 @@ class KsuCliRepository(context: Context) {
         runCatching {
             val result = execKsudResult("sui status --json")
             check(result.isSuccess) { "ksud sui status failed (exit ${result.code})" }
-            val payload = result.out.filter { it.isNotBlank() }
-            check(payload.size == 1) { "Invalid ksud sui status output" }
-            SuiStatus.fromJson(JSONObject(payload.single()))
+            // ksud may prepend diagnostics from the daemon bootstrap. The JSON
+            // report is the last non-empty line, so tolerate any banner lines.
+            val payload = result.out.lastOrNull { it.trimStart().startsWith("{") }
+                ?: error("Invalid ksud sui status output")
+            SuiStatus.fromJson(JSONObject(payload.trim()))
         }.onFailure { Log.w(TAG, "sui status failed", it) }.getOrNull()
     }
 

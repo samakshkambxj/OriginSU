@@ -92,8 +92,11 @@ cp -f module.prop module.prop.bak
 chmod 0644 module.prop module.prop.bak
 
 # Deployed-file manifest used by the manager and originzygiskctl integrity.
+# module.prop is deliberately excluded: the engine rewrites its description
+# with live monitor/daemon state on every update, so hashing it would make the
+# runtime look corrupted immediately after boot.
 {
-  for f in bin/* lib/* lib64/* machikado.* module.prop; do
+  for f in bin/* lib/* lib64/* machikado.*; do
     if [ -f "$f" ]; then sha256sum "$f"; fi
   done
 } > deployed.sha256 2>/dev/null || true

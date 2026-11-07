@@ -30,6 +30,10 @@ import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.contentColorFor
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -223,6 +227,7 @@ fun BentoToggleRow(
     checked: Boolean,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
+    subtitle: String? = null,
     onCheckedChange: (Boolean) -> Unit,
 ) {
     val haptic = LocalHapticFeedback.current
@@ -260,13 +265,23 @@ fun BentoToggleRow(
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Spacer(modifier = Modifier.width(12.dp))
-        Text(
-            text = title,
-            style = MaterialTheme.typography.bodyLarge,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f),
-        )
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyLarge,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            if (!subtitle.isNullOrBlank()) {
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
         Spacer(modifier = Modifier.width(12.dp))
         Switch(
             modifier = Modifier.clearAndSetSemantics {},
@@ -292,6 +307,7 @@ fun BentoJumpRow(
     title: String,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
+    subtitle: String? = null,
     trailingIcon: ImageVector = Icons.Filled.ChevronRight,
     onClick: () -> Unit,
 ) {
@@ -320,23 +336,71 @@ fun BentoJumpRow(
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Spacer(modifier = Modifier.width(12.dp))
-        Text(
-            text = title,
-            style = MaterialTheme.typography.bodyLarge,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f),
-            color = if (enabled) {
-                MaterialTheme.colorScheme.onSurface
-            } else {
-                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
-            },
-        )
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyLarge,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                color = if (enabled) {
+                    MaterialTheme.colorScheme.onSurface
+                } else {
+                    MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                },
+            )
+            if (!subtitle.isNullOrBlank()) {
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
         Icon(
             imageVector = trailingIcon,
             contentDescription = null,
             modifier = Modifier.size(20.dp),
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+/**
+ * Compact in-tile row that opens a single-choice dialog. The current value is
+ * rendered as the subtitle so the row keeps the same compact bento rhythm.
+ */
+@Composable
+fun BentoChooseRow(
+    icon: ImageVector,
+    title: String,
+    subtitle: String,
+    items: List<String>,
+    selectedIndex: Int,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    onSelectedIndexChange: (Int) -> Unit,
+) {
+    var showDialog by remember { mutableStateOf(false) }
+
+    BentoJumpRow(
+        icon = icon,
+        title = title,
+        subtitle = subtitle,
+        modifier = modifier,
+        enabled = enabled,
+        onClick = { showDialog = true },
+    )
+
+    if (showDialog) {
+        SettingsChooseDialog(
+            show = true,
+            title = title,
+            items = items,
+            selectedIndex = selectedIndex.coerceIn(0, (items.size - 1).coerceAtLeast(0)),
+            onDismiss = { showDialog = false },
+            onSelectedIndexChange = onSelectedIndexChange,
         )
     }
 }
