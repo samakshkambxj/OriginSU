@@ -181,6 +181,10 @@ sealed interface Route : NavKey, Parcelable {
 
     @Parcelize
     @Serializable
+    data object OriginMount : Route
+
+    @Parcelize
+    @Serializable
     data object Curtain : Route
 
     @Parcelize

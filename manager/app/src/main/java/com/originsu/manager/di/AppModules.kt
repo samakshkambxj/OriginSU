@@ -228,6 +228,7 @@ import com.originsu.manager.ui.viewmodel.CurtainViewModel
 import com.originsu.manager.ui.viewmodel.CurtainAppViewModel
 import com.originsu.manager.ui.viewmodel.CurtainTemplateAppsViewModel
 import com.originsu.manager.ui.viewmodel.CurtainTemplatesViewModel
+import com.originsu.manager.ui.viewmodel.OriginMountViewModel
 import com.originsu.manager.ui.viewmodel.SuSFSLkmViewModel
 import com.originsu.manager.ui.viewmodel.SuSFSViewModel
 import com.originsu.manager.ui.viewmodel.SulogViewModel
@@ -583,6 +584,7 @@ val viewModelModule = module {
     viewModelOf(::UpdaterViewModel)
     viewModelOf(::SuSFSViewModel)
     viewModelOf(::SuSFSLkmViewModel)
+    viewModelOf(::OriginMountViewModel)
     viewModelOf(::ModuleRepoViewModel)
     viewModel { parameters -> ModuleDetailViewModel(parameters[0], get()) }
     viewModelOf(::TemplateViewModel)

@@ -20,6 +20,11 @@ import com.originsu.manager.data.model.SuiStatus
 import com.originsu.manager.data.sui.SuiBridge
 import com.originsu.manager.domain.model.LkmSelection
 import com.originsu.manager.domain.model.MountEngineInfo
+import com.originsu.manager.domain.model.NomountUidState
+import com.originsu.manager.domain.model.OriginMountMode
+import com.originsu.manager.domain.model.OriginMountNoMountStatus
+import com.originsu.manager.domain.model.OriginMountRuntime
+import com.originsu.manager.domain.model.OriginMountStatus
 import com.originsu.manager.domain.model.TempGrantRecord
 import com.topjohnwu.superuser.CallbackList
 import com.topjohnwu.superuser.Shell
@@ -1557,6 +1562,145 @@ class KsuCliRepository(context: Context) {
                 .map { it.trim() }
                 .filter { it.isNotEmpty() },
         )
+    }
+
+    // ---- OriginMount provider selection and NoMount policy ----
+    // ksud owns the state; the manager only asks for a status snapshot and
+    // sends explicit changes.
+
+    suspend fun getOriginMountStatus(): OriginMountStatus = withContext(Dispatchers.IO) {
+        if (!rootAvailable()) {
+            return@withContext OriginMountStatus()
+        }
+        val shell = getRootShell()
+        val output = runCatching {
+            runCmd(shell, "${getKsuDaemonPath()} origin-mount status --json")
+        }.getOrDefault("")
+        parseOriginMountStatus(output)
+    }
+
+    private fun parseOriginMountStatus(output: String): OriginMountStatus {
+        val payload = output.lineSequence()
+            .map { it.trim() }
+            .lastOrNull { it.startsWith("{") && it.endsWith("}") }
+            ?: return OriginMountStatus()
+        return runCatching {
+            val root = JSONObject(payload)
+            val runtimeJson = root.optJSONObject("runtime")
+            val nomountJson = root.optJSONObject("nomount")
+            OriginMountStatus(
+                mode = OriginMountMode.fromId(root.optString("mode", "auto")),
+                provider = root.optString("provider", "none"),
+                metamoduleId = root.optString("metamodule"),
+                magicMountEnabled = root.optBoolean("magic_mount", false),
+                backend = root.optString("backend", "auto")
+                    .takeIf { it in MAGIC_MOUNT_BACKENDS } ?: "auto",
+                kernelEngines = root.optJSONArray("kernel")?.let { array ->
+                    (0 until array.length()).mapNotNull { index ->
+                        array.optString(index).takeIf { it.isNotBlank() }
+                    }
+                }.orEmpty(),
+                runtime = runtimeJson?.let { json ->
+                    OriginMountRuntime(
+                        bootId = json.optString("boot_id"),
+                        provider = json.optString("provider"),
+                        configured = json.optString("configured"),
+                        result = json.optString("result"),
+                        targetCount = if (json.has("target_count") && !json.isNull("target_count")) {
+                            json.optInt("target_count")
+                        } else {
+                            null
+                        },
+                        error = json.optString("error"),
+                        warning = json.optString("warning"),
+                        warningCode = json.optString("warning_code"),
+                    )
+                },
+                nomount = nomountJson?.let { json ->
+                    OriginMountNoMountStatus(
+                        driverState = json.optString("driver_state", "absent"),
+                        driverVersion = json.optString("driver_version"),
+                        rulesExpected = json.optInt("rules_expected"),
+                        rulesApplied = json.optInt("rules_applied"),
+                        uidCount = json.optInt("uid_count"),
+                        isolatedBlocked = json.optBoolean("isolated_blocked", false),
+                        deferredTo = json.optString("deferred_to"),
+                        ownsInjection = json.optBoolean("owns_injection", false),
+                        unavailableCode = json.optString("unavailable_code"),
+                        unavailableDetail = json.optString("unavailable_detail"),
+                        error = json.optString("error"),
+                    )
+                },
+            )
+        }.getOrDefault(OriginMountStatus())
+    }
+
+    suspend fun setOriginMountMode(mode: OriginMountMode): Boolean =
+        withContext(Dispatchers.IO) {
+            if (!rootAvailable()) {
+                return@withContext false
+            }
+            runCatching { execKsud("origin-mount set-mode ${mode.id}") }.getOrDefault(false)
+        }
+
+    /** Run the selected provider now. NoMount falls back to Magic Mount on failure. */
+    suspend fun runOriginMount(): Boolean = withContext(Dispatchers.IO) {
+        if (!rootAvailable()) {
+            return@withContext false
+        }
+        runCatching { execKsud("origin-mount mount") }.getOrDefault(false)
+    }
+
+    suspend fun getNomountUidState(): NomountUidState = withContext(Dispatchers.IO) {
+        if (!rootAvailable()) {
+            return@withContext NomountUidState()
+        }
+        val shell = getRootShell()
+        val output = runCatching {
+            runCmd(shell, "${getKsuDaemonPath()} nomount uid list --json")
+        }.getOrDefault("")
+        val payload = output.lineSequence()
+            .map { it.trim() }
+            .lastOrNull { it.startsWith("{") && it.endsWith("}") }
+            ?: return@withContext NomountUidState()
+        runCatching {
+            val root = JSONObject(payload)
+            fun uids(name: String): List<Int> =
+                root.optJSONArray(name)?.let { array ->
+                    (0 until array.length()).mapNotNull { index ->
+                        array.optInt(index, -1).takeIf { it >= 0 }
+                    }
+                }.orEmpty()
+            NomountUidState(
+                active = uids("active"),
+                stored = uids("stored"),
+                isolatedBlocked = root.optBoolean("isolated_blocked", false),
+            )
+        }.getOrDefault(NomountUidState())
+    }
+
+    suspend fun setNomountUids(uids: List<Int>): Boolean = withContext(Dispatchers.IO) {
+        if (!rootAvailable()) {
+            return@withContext false
+        }
+        val args = uids.distinct().sorted().joinToString(" ")
+        runCatching { execKsud("nomount uid set $args".trim()) }.getOrDefault(false)
+    }
+
+    suspend fun setNomountIsolated(stockVisible: Boolean): Boolean =
+        withContext(Dispatchers.IO) {
+            if (!rootAvailable()) {
+                return@withContext false
+            }
+            val state = if (stockVisible) "on" else "off"
+            runCatching { execKsud("nomount uid isolated $state") }.getOrDefault(false)
+        }
+
+    suspend fun clearNomountRules(): Boolean = withContext(Dispatchers.IO) {
+        if (!rootAvailable()) {
+            return@withContext false
+        }
+        runCatching { execKsud("nomount clear") }.getOrDefault(false)
     }
 
     suspend fun isOriginZygiskRunning(): Boolean = withContext(Dispatchers.IO) {

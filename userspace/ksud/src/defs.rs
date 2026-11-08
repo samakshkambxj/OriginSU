@@ -94,6 +94,29 @@ mod android {
     /// Scratch dir for Magic Mount overlay workdirs (same fs as /data upper layers).
     pub const MAGIC_MOUNT_WORK_DIR: &str = concatcp!(WORKING_DIR, "magic_mount/");
 
+    // OriginMount provider selection and runtime records.
+    /// Selected provider: one of `auto`, `builtin`, `metamodule`, `nomount`, `off`.
+    pub const MOUNT_MODE_FILE: &str = concatcp!(WORKING_DIR, "mount_mode");
+    /// Result of the last boot's mounting attempt.
+    pub const MOUNT_RUNTIME: &str = concatcp!(WORKING_DIR, "mount_runtime");
+    /// Record written before a provider runs; a leftover entry means the step
+    /// never returned and must not be repeated in the same boot.
+    pub const MOUNT_INFLIGHT: &str = concatcp!(WORKING_DIR, "mount_inflight");
+    /// Human-readable log of the mount pass, kept for bug reports.
+    pub const MOUNT_LOG: &str = concatcp!(LOG_DIR, "mount.log");
+    /// Rotate the mount log once it grows past this size.
+    pub const MOUNT_LOG_MAX_BYTES: u64 = 512 * 1024;
+
+    // Built-in NoMount backend.
+    pub const NOMOUNT_RUNTIME: &str = concatcp!(WORKING_DIR, "nomount_runtime");
+    pub const NOMOUNT_UIDS: &str = concatcp!(WORKING_DIR, "nomount_uids");
+    pub const NOMOUNT_LAST_ACTION: &str = concatcp!(WORKING_DIR, "nomount_last_action");
+    /// Written before loading the embedded module; a leftover entry means the
+    /// load never returned and must not be retried until the user re-selects
+    /// NoMount.
+    pub const NOMOUNT_LOAD_ATTEMPT: &str = concatcp!(WORKING_DIR, "nomount_load_attempt");
+    pub const NOMOUNT_LOAD_LOCK: &str = concatcp!(WORKING_DIR, "nomount_load.lock");
+
     #[derive(Serialize)]
     pub struct MountInfo {
         pub path: String,

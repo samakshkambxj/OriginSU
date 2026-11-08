@@ -172,3 +172,8 @@ pub fn get_asset(name: &str) -> Result<std::borrow::Cow<'static, [u8]>> {
     let asset = Asset::get(name).ok_or_else(|| anyhow::anyhow!("asset not found: {name}"))?;
     Ok(asset.data)
 }
+
+/// Alias used by the NoMount backend for an embedded kernel module.
+pub fn get_asset_data(name: &str) -> Result<std::borrow::Cow<'static, [u8]>> {
+    get_asset(name)
+}

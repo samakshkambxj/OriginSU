@@ -1,0 +1,12 @@
+/build/
+*.ko
+*.o
+*.lds
+*.mod
+*.mod.c
+*.cmd
+*.symvers
+*.order
+Module.symvers
+modules.order
+.tmp_versions/

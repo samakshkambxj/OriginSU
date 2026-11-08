@@ -45,6 +45,10 @@ jobs:
               [ -f "$f" ] || continue
               cp "$f" ./userspace/ksud/bin/aarch64/
             done
+            for f in "$d"*_nomount.ko; do
+              [ -f "$f" ] || continue
+              cp "$f" ./userspace/ksud/bin/aarch64/
+            done
           done
           for d in aarch64-android*-susfs-lkm/; do
             [ -d "$d" ] || continue
@@ -54,6 +58,13 @@ jobs:
             done
           done
           cp x86_64-android*-lkm/*_kernelsu.ko ./userspace/ksud/bin/x86_64/
+          for d in x86_64-android*-lkm/; do
+            [ -d "$d" ] || continue
+            for f in "$d"*_nomount.ko; do
+              [ -f "$f" ] || continue
+              cp "$f" ./userspace/ksud/bin/x86_64/
+            done
+          done
           for d in aarch64-android*-lkm-tamper/; do
             [ -d "$d" ] || continue
             for f in "$d"*_kernelsu.ko; do

@@ -398,6 +398,8 @@ fun OriginLabScreen(
     val descOriginGuard = stringResource(R.string.settings_originguard_summary)
     val titleMagicMount = stringResource(R.string.settings_magic_mount)
     val descMagicMount = stringResource(R.string.settings_magic_mount_summary)
+    val titleOriginMount = stringResource(R.string.origin_mount_title)
+    val descOriginMount = stringResource(R.string.origin_lab_caption_origin_mount)
     val titleMountEngine = stringResource(R.string.settings_mount_engine)
     val titleMagicBackend = stringResource(R.string.settings_magic_mount_backend)
     val descMagicBackend = stringResource(R.string.settings_magic_mount_backend_summary)
@@ -431,6 +433,7 @@ fun OriginLabScreen(
     val matchRootGatePanic = matches(titleRootGatePanic, descRootGatePanic)
     val matchOriginGuard = matches(titleOriginGuard, descOriginGuard)
     val matchMagicMount = matches(titleMagicMount, descMagicMount)
+    val matchOriginMount = matches(titleOriginMount, descOriginMount)
     val matchMountEngine = matches(titleMountEngine)
     val matchMagicBackend = matches(titleMagicBackend, descMagicBackend)
     val matchSusfsLkm = matches(titleSusfsLkm, descSusfsLkm)
@@ -443,8 +446,8 @@ fun OriginLabScreen(
         matchZygisk, matchZygiskPanel, matchVeilSwitch, matchVeilManage, matchGrantToast,
         matchSuPrompt, matchTempGrant, matchBootloop, matchBootloopThreshold, matchSecureRoot,
         matchAppLock, matchRootGate, matchLockBoundRoot, matchRootGatePanic, matchOriginGuard,
-        matchMagicMount, matchMountEngine, matchMagicBackend, matchSusfsLkm, matchCurtain,
-        matchSui, matchSuiPermissions, matchSuiRepair,
+        matchMagicMount, matchOriginMount, matchMountEngine, matchMagicBackend, matchSusfsLkm,
+        matchCurtain, matchSui, matchSuiPermissions, matchSuiRepair,
     ).any { it }
 
     LaunchedEffect(Unit) {
@@ -1276,7 +1279,7 @@ fun OriginLabScreen(
 
             // ----- System & boot ----------------------------------------------
             if (matchSusfsLkm || matchBootloop || matchBootloopThreshold ||
-                matchMountEngine || matchMagicMount || matchMagicBackend
+                matchOriginMount || matchMountEngine || matchMagicMount || matchMagicBackend
             ) {
                 item(key = "section-system", span = StaggeredGridItemSpan.FullLine) {
                     Column {
@@ -1331,6 +1334,17 @@ fun OriginLabScreen(
                                         settingsViewModel.dispatch(
                                             SettingsUiAction.SetBootloopMax(index + 2)
                                         )
+                                    },
+                                )
+                            }
+
+                            item(visible = matchOriginMount) {
+                                SettingsJumpPageWidget(
+                                    icon = Icons.TwoTone.Extension,
+                                    title = titleOriginMount,
+                                    description = descOriginMount,
+                                    onClick = {
+                                        navigator.push(Route.OriginMount)
                                     },
                                 )
                             }

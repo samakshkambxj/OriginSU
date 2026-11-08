@@ -9,8 +9,8 @@ use crate::{
     android::{
         bootloop, debug, dynamic_manager, feature, init_event, ksucalls,
         module::{self, module_config, regenerate_preinit},
-        profile, sepolicy, su, su_notify, sulog, susfs, tempgrant, uapi, umount_config, utils,
-        veil,
+        nomount, origin_mount, profile, sepolicy, su, su_notify, sulog, susfs, tempgrant, uapi,
+        umount_config, utils, veil,
     },
     anykernel3::{self, Slot},
     apk_sign, assets,
@@ -33,6 +33,19 @@ enum Commands {
     Sui {
         #[command(subcommand)]
         command: crate::android::sui::Command,
+    },
+
+    /// Manage OriginMount provider selection and the built-in mount engines
+    #[command(name = "origin-mount")]
+    OriginMount {
+        #[command(subcommand)]
+        command: OriginMountCmd,
+    },
+
+    /// Manage the built-in NoMount backend
+    Nomount {
+        #[command(subcommand)]
+        command: NomountCmd,
     },
 
     /// Flash an AnyKernel3 ZIP
@@ -501,6 +514,110 @@ enum MagicMountCmd {
 }
 
 #[derive(clap::Subcommand, Debug)]
+enum OriginMountCmd {
+    /// print the selected mode, resolved provider and last boot result
+    Status {
+        /// emit a single JSON object instead of key=value lines
+        #[arg(long)]
+        json: bool,
+    },
+
+    /// set the provider mode: auto | builtin | metamodule | nomount | off
+    SetMode {
+        /// one of: auto, builtin, metamodule, nomount, off
+        mode: String,
+    },
+
+    /// run the selected provider now
+    Mount,
+}
+
+#[derive(clap::Subcommand, Debug)]
+enum NomountCmd {
+    /// print driver state, rule counts and UID exclusions
+    Status {
+        /// emit a single JSON object instead of key=value lines
+        #[arg(long)]
+        json: bool,
+    },
+
+    /// build the rule list from the modules without touching the kernel
+    Inject {
+        /// report what would be applied; never talks to the kernel
+        #[arg(long)]
+        dry_run: bool,
+        /// emit a single JSON object instead of key=value lines
+        #[arg(long)]
+        json: bool,
+        /// with --dry-run, print every rule and every skip reason
+        #[arg(long)]
+        verbose: bool,
+    },
+
+    /// show the rules the kernel currently holds
+    List {
+        /// emit a single JSON object instead of text
+        #[arg(long)]
+        json: bool,
+    },
+
+    /// drop every redirection rule; UID exclusions are kept
+    Clear,
+
+    /// add one module's rules to the running kernel without a reboot
+    HotLoad {
+        /// module id
+        id: String,
+    },
+
+    /// remove one module's rules from the running kernel without a reboot
+    HotUnload {
+        /// module id
+        id: String,
+    },
+
+    /// manage the UID exclusions (apps that see the stock filesystem)
+    Uid {
+        #[command(subcommand)]
+        command: NomountUidCmd,
+    },
+}
+
+#[derive(clap::Subcommand, Debug)]
+enum NomountUidCmd {
+    /// show the active and stored UID exclusions
+    List {
+        /// emit a single JSON object instead of text
+        #[arg(long)]
+        json: bool,
+    },
+
+    /// replace the stored list with these UIDs, then apply it
+    Set {
+        /// UIDs to keep; omit to clear the list
+        uids: Vec<u32>,
+    },
+
+    /// add these UIDs to the stored list, then apply it
+    Add {
+        #[arg(required = true)]
+        uids: Vec<u32>,
+    },
+
+    /// remove these UIDs from the stored list, then apply it
+    Del {
+        #[arg(required = true)]
+        uids: Vec<u32>,
+    },
+
+    /// whether isolated processes also see the stock filesystem
+    Isolated {
+        /// one of: on, off
+        state: String,
+    },
+}
+
+#[derive(clap::Subcommand, Debug)]
 enum PreinitCmd {
     /// show per-module preinit state for the next boot
     Status,
@@ -794,6 +911,57 @@ pub fn run() -> Result<()> {
     let result = match cli.command {
         Commands::AnyKernel3 { zip, slot } => anykernel3::flash(&zip, slot),
         Commands::Sui { command } => crate::android::sui::run(&command),
+        Commands::OriginMount { command } => match command {
+            OriginMountCmd::Status { json } => origin_mount::Status::collect().print(json),
+            OriginMountCmd::SetMode { mode } => origin_mount::set_mode(&mode),
+            OriginMountCmd::Mount => origin_mount::run_now(),
+        },
+        Commands::Nomount { command } => match command {
+            NomountCmd::Status { json } => {
+                let status = nomount::Status::collect()?;
+                nomount::log_probe(&status.probe);
+                status.print(json)
+            }
+            NomountCmd::Inject {
+                dry_run,
+                json,
+                verbose,
+            } => nomount::inject(dry_run, json, verbose),
+            NomountCmd::List { json } => nomount::print_rules(json),
+            NomountCmd::Clear => nomount::clear_rules(),
+            NomountCmd::HotLoad { id } => {
+                let applied = nomount::hot_load(&id)?;
+                println!("rules_applied={applied}");
+                Ok(())
+            }
+            NomountCmd::HotUnload { id } => {
+                let removed = nomount::hot_unload(&id)?;
+                println!("rules_removed={removed}");
+                Ok(())
+            }
+            NomountCmd::Uid { command } => match command {
+                NomountUidCmd::List { json } => nomount::uid_edit(None, &[], json),
+                NomountUidCmd::Set { uids } => {
+                    nomount::uid_edit(Some(nomount::UidEdit::Set), &uids, false)
+                }
+                NomountUidCmd::Add { uids } => {
+                    nomount::uid_edit(Some(nomount::UidEdit::Add), &uids, false)
+                }
+                NomountUidCmd::Del { uids } => {
+                    nomount::uid_edit(Some(nomount::UidEdit::Del), &uids, false)
+                }
+                NomountUidCmd::Isolated { state } => {
+                    let on = match state.as_str() {
+                        "on" | "1" | "true" => true,
+                        "off" | "0" | "false" => false,
+                        other => {
+                            anyhow::bail!("invalid isolated state {other:?}; expected on or off")
+                        }
+                    };
+                    nomount::uid_edit(Some(nomount::UidEdit::Isolated(on)), &[], false)
+                }
+            },
+        },
         Commands::Susfs(args) => crate::android::susfs::cli::run_main(args),
         Commands::PostFsData => init_event::on_post_fs_data(),
         Commands::BootCompleted => {
@@ -825,10 +993,10 @@ pub fn run() -> Result<()> {
                 Module::Action { id } => module::run_action(&id),
                 Module::List => module::list_modules(),
                 Module::MagicMount { command } => match command {
-                    MagicMountCmd::Status => module::magic_mount::status(),
-                    MagicMountCmd::Enable => module::magic_mount::set_enabled(true),
-                    MagicMountCmd::Disable => module::magic_mount::set_enabled(false),
-                    MagicMountCmd::Mount => module::magic_mount::run_magic_mount(),
+                    MagicMountCmd::Status => origin_mount::legacy_status(),
+                    MagicMountCmd::Enable => origin_mount::legacy_set_enabled(true),
+                    MagicMountCmd::Disable => origin_mount::legacy_set_enabled(false),
+                    MagicMountCmd::Mount => module::magic_mount::run_magic_mount_forced(),
                     MagicMountCmd::Backend { mode } => match mode {
                         Some(mode) => module::magic_mount::set_backend(&mode),
                         None => module::magic_mount::print_backend(),

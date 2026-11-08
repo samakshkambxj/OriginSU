@@ -97,6 +97,7 @@ import com.originsu.manager.ui.screen.main.OriginLabScreen
 import com.originsu.manager.ui.screen.moduleRepo.ModuleRepoScreen
 import com.originsu.manager.ui.screen.moduleRepo.OnlineModuleDetailScreen
 import com.originsu.manager.ui.screen.susfs.SuSFSConfigScreen
+import com.originsu.manager.ui.screen.mount.OriginMountScreen
 import com.originsu.manager.ui.screen.susfs.SuSFSLkmScreen
 import com.originsu.manager.ui.screen.themeSettings.ThemeSettingsScreen
 import com.originsu.manager.ui.theme.BackgroundRenderState
@@ -761,6 +762,17 @@ fun NavContainer(
                         settingsViewModel = settingsViewModel,
                         initialQuery = key.initialQuery,
                     )
+                }
+            }
+            entry<Route.OriginMount>(swipeDismiss = swipeBackDirection) {
+                ManagerNavEntry(
+                    interceptPredictiveBack = interceptPredictiveBack,
+                    onBack = onBack,
+                    themeConfig = themeConfig,
+                    backgroundRenderState = backgroundRenderState,
+                    useBlur = useBlur,
+                ) {
+                    OriginMountScreen()
                 }
             }
             entry<Route.SuSFSLkm>(swipeDismiss = swipeBackDirection) {

@@ -62,8 +62,6 @@ pub fn on_post_fs_data() -> Result<()> {
         }
     }
 
-    let module_dir = defs::MODULE_DIR;
-
     assets::ensure_binaries(true).with_context(|| "Failed to extract bin assets")?;
 
     crate::android::hot_install::clean_trash();
@@ -134,12 +132,11 @@ pub fn on_post_fs_data() -> Result<()> {
         warn!("exec metamodule post-fs-data script failed: {e}");
     }
 
-    // Magic Mount: userspace Magisk-style mounting of module system trees.
-    // Runs before module post-fs-data scripts, matching Magisk: scripts must
-    // already see their module's system/ files. Stands down when an enabled
-    // metamodule owns mounting.
-    if let Err(e) = module::magic_mount::run_magic_mount() {
-        warn!("magic mount failed: {e:#}");
+    // OriginMount: run the selected provider (built-in executor, NoMount or a
+    // metamodule; never more than one) before the post-mount stage. Stands
+    // down when the user selected `off` or no provider is active.
+    if let Err(e) = crate::android::origin_mount::run_boot_pass() {
+        warn!("origin mount failed: {e:#}");
     }
 
     // exec modules post-fs-data scripts
@@ -152,8 +149,12 @@ pub fn on_post_fs_data() -> Result<()> {
         warn!("load system.prop failed: {e}");
     }
 
-    // execute metamodule mount script
-    if let Err(e) = metamodule::exec_mount_script(module_dir) {
+    // Execute the metamodule mount script only when OriginMount selected it.
+    // The built-in executor and NoMount already ran above, so this is the one
+    // provider that mounts later in the boot.
+    if crate::android::origin_mount::should_run_metamodule_mount()
+        && let Err(e) = crate::android::origin_mount::run_metamodule_mount()
+    {
         warn!("execute metamodule mount failed: {e}");
     }
 

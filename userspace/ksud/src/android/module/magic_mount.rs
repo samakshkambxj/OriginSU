@@ -57,6 +57,18 @@ const REPLACE_MARKER: &str = ".replace";
 /// `/system`. Only names the device actually exposes are used.
 const PARTITION_NAMES: &[&str] = &["vendor", "product", "system_ext", "odm"];
 
+/// Whether a directory is marked opaque (`trusted.overlay.opaque=y`) and must
+/// therefore replace its target instead of merging into it.
+pub fn read_opaque(path: &Path) -> Result<bool> {
+    const REPLACE_DIR_XATTR: &str = "trusted.overlay.opaque";
+    match extattr::lgetxattr(path, REPLACE_DIR_XATTR) {
+        Ok(value) => Ok(String::from_utf8_lossy(&value) == "y"),
+        Err(error) if error.0 == libc::ENODATA => Ok(false),
+        Err(error) => Err(anyhow::anyhow!(error))
+            .with_context(|| format!("read {REPLACE_DIR_XATTR} of {}", path.display())),
+    }
+}
+
 /// Magic Mount is enabled only when the enable flag file exists (disabled by
 /// default while the feature is turned off).
 pub fn is_enabled() -> bool {
@@ -80,15 +92,6 @@ pub fn set_enabled(enabled: bool) -> Result<()> {
                 .with_context(|| format!("Failed to remove {}", flag.display()))?;
         }
         info!("Magic Mount disabled (takes effect on next boot)");
-    }
-    Ok(())
-}
-
-pub fn status() -> Result<()> {
-    if is_enabled() {
-        println!("enabled");
-    } else {
-        println!("disabled");
     }
     Ok(())
 }
@@ -1052,15 +1055,19 @@ fn run_bind_mount(root: &Node) -> Result<()> {
     result
 }
 
-/// Run the Magic Mount pass. Safe to call when disabled or when a metamodule
-/// owns mounting (both are no-ops). Per-module failures are logged and do
-/// not abort the pass.
-pub fn run_magic_mount() -> Result<()> {
-    if !is_enabled() {
+/// Run the Magic Mount pass regardless of the legacy enable flag or an
+/// installed metamodule. OriginMount calls this after it has already resolved
+/// the provider for the boot, so the old gating has already been applied.
+pub fn run_magic_mount_forced() -> Result<()> {
+    run_magic_mount_impl(true)
+}
+
+fn run_magic_mount_impl(forced: bool) -> Result<()> {
+    if !forced && !is_enabled() {
         info!("Magic Mount disabled, skipping");
         return Ok(());
     }
-    if module::metamodule::owns_mounting() {
+    if !forced && module::metamodule::owns_mounting() {
         info!("Metamodule owns mounting, Magic Mount stands down");
         return Ok(());
     }

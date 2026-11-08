@@ -93,12 +93,24 @@ jobs:
         llvm-strip -d "$OUT_DIR/$OUTPUT_NAME"
         echo "Size after stripping: $(du -h "$OUT_DIR/$OUTPUT_NAME" | cut -f1)"
 
+    - name: Build nomount.ko
+      if: ${{ inputs.arch == 'arm64' }}
+      run: |
+        echo "=== Building NoMount for KMI: ${{ inputs.kmi }} ==="
+        # The checkout lives at $GITHUB_WORKSPACE; /github/workspace is only
+        # the scratch directory the kernelsu.ko step creates for its artifacts.
+        NOMOUNT_OUT="/github/workspace/out/aarch64/${{ inputs.kmi }}_nomount.ko" \
+          sh "$GITHUB_WORKSPACE/userspace/nomount/build-lkm.sh"
+        echo "Size: $(du -h "/github/workspace/out/aarch64/${{ inputs.kmi }}_nomount.ko" | cut -f1)"
+
     - name: Upload kernelsu.ko artifact
       if: ${{ inputs.arch == 'arm64' }}
       uses: actions/upload-artifact@v7
       with:
         name: aarch64-${{ inputs.kmi }}-lkm${{ inputs.hook == 'TAMPER_SYSCALL_TABLE' && '-tamper' || '' }}
-        path: /github/workspace/out/aarch64/${{ inputs.kmi }}_kernelsu.ko
+        path: |
+          /github/workspace/out/aarch64/${{ inputs.kmi }}_kernelsu.ko
+          /github/workspace/out/aarch64/${{ inputs.kmi }}_nomount.ko
 
     - name: Build kernelsu.ko for x64
       if: ${{ inputs.arch == 'x86_64' }}
@@ -175,10 +187,24 @@ jobs:
         echo "Size: $(du -h "$OUT_DIR/$OUTPUT_NAME" | cut -f1)"
         llvm-strip -d "$OUT_DIR/$OUTPUT_NAME"
         echo "Size after stripping: $(du -h "$OUT_DIR/$OUTPUT_NAME" | cut -f1)"
-        
+
+    - name: Build nomount.ko for x64
+      if: ${{ inputs.arch == 'x86_64' }}
+      run: |
+        echo "=== Building x64 NoMount for KMI: ${{ inputs.kmi }} ==="
+        # The x64 KDIR is prepared by the step above; the arm64 KDIR comes from
+        # the DDK image, so only this branch has to pass one in.
+        NOMOUNT_ARCH=x86_64 \
+        KDIR="/opt/ddk/kdir-x64/${{ inputs.kmi }}" \
+        NOMOUNT_OUT="/github/workspace/out/x86_64/${{ inputs.kmi }}_nomount.ko" \
+          sh "$GITHUB_WORKSPACE/userspace/nomount/build-lkm.sh"
+        echo "Size: $(du -h "/github/workspace/out/x86_64/${{ inputs.kmi }}_nomount.ko" | cut -f1)"
+
     - name: Upload x64 kernelsu.ko artifact
       if: ${{ inputs.arch == 'x86_64' }}
       uses: actions/upload-artifact@v7
       with:
         name: x86_64-${{ inputs.kmi }}-lkm${{ inputs.hook == 'TAMPER_SYSCALL_TABLE' && '-tamper' || '' }}
-        path: /github/workspace/out/x86_64/${{ inputs.kmi }}_kernelsu.ko
+        path: |
+          /github/workspace/out/x86_64/${{ inputs.kmi }}_kernelsu.ko
+          /github/workspace/out/x86_64/${{ inputs.kmi }}_nomount.ko
