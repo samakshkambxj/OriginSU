@@ -1,25 +1,32 @@
-# OriginSU
-
-<img align='right' src='docs/OriginSU-default.png' width='200px' alt="OriginSU Logo">
-
-**Root your Android device. Keep control of it.**
-
-OriginSU is a kernel-based root solution built on
-[ReSukiSU](https://github.com/ReSukiSU/ReSukiSU) (SukiSU-Ultra → KernelSU
-lineage). It pairs a kernel `su` implementation with a manager that handles
-root access, modules, hiding, flashing and kernel tuning in one place.
-
 <div align="center">
 
-  [![Latest release](https://img.shields.io/github/v/release/samakshkambxj/OriginSU?label=Release&logo=github)](https://github.com/samakshkambxj/OriginSU/releases/latest)
-  [![Downloads](https://img.shields.io/github/downloads/samakshkambxj/OriginSU/total?label=Downloads&logo=github)](https://github.com/samakshkambxj/OriginSU/releases)
-  [![Build](https://img.shields.io/github/actions/workflow/status/samakshkambxj/OriginSU/build-manager.yml?branch=main&label=Build&logo=github)](https://github.com/samakshkambxj/OriginSU/actions/workflows/build-manager.yml)
-  [![Kernel License: GPL v2](https://img.shields.io/badge/Kernel-GPL%20v2-orange.svg?logo=gnu)](https://www.gnu.org/licenses/old-licenses/gpl-2.0.en.html)
-  [![Manager License: GPL v3](https://img.shields.io/github/license/samakshkambxj/OriginSU?label=Manager&logo=gnu)](/LICENSE)
+<img src="docs/OriginSU.svg" width="140px" alt="OriginSU logo">
+
+# OriginSU
+
+**Every root engine, hiding trick and system service — inside one manager.**
+
+[Releases](https://github.com/samakshkambxj/OriginSU/releases) ·
+[Documentation](https://samakshkambxj.github.io/OriginSU/) ·
+[Issues](https://github.com/samakshkambxj/OriginSU/issues)
+
+[![Latest release](https://img.shields.io/github/v/release/samakshkambxj/OriginSU?label=Release&logo=github)](https://github.com/samakshkambxj/OriginSU/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/samakshkambxj/OriginSU/total?label=Downloads&logo=github)](https://github.com/samakshkambxj/OriginSU/releases)
+[![Build](https://img.shields.io/github/actions/workflow/status/samakshkambxj/OriginSU/build-manager.yml?branch=main&label=Build&logo=github)](https://github.com/samakshkambxj/OriginSU/actions/workflows/build-manager.yml)
+[![Kernel License: GPL v2](https://img.shields.io/badge/Kernel-GPL%20v2-orange.svg?logo=gnu)](https://www.gnu.org/licenses/old-licenses/gpl-2.0.en.html)
+[![Manager License: GPL v3](https://img.shields.io/github/license/samakshkambxj/OriginSU?label=Manager&logo=gnu)](/LICENSE)
 
 </div>
 
-📖 **Documentation: <https://samakshkambxj.github.io/OriginSU/>**
+---
+
+<img align='right' src='docs/OriginSU-default.png' width='220px' alt="OriginSU manager">
+
+OriginSU is a kernel-based root solution built on
+[ReSukiSU](https://github.com/ReSukiSU/ReSukiSU) (SukiSU-Ultra → KernelSU
+lineage). The kernel does the work; the manager does everything around it — and
+unlike most forks, **the manager ships the whole stack**. No companion apps, no
+module hunting, no one-app-per-feature patchwork.
 
 > [!IMPORTANT]
 > Install only the official manager APK from the
@@ -27,27 +34,42 @@ root access, modules, hiding, flashing and kernel tuning in one place.
 > whose name ends in `-release.apk`. Debug, PR, dev and resigned builds use a
 > different certificate and the kernel rejects them as unofficial.
 
-## Features
+## The Origin stack
 
-- **Kernel-based `su`** with per-app profiles, time-limited grants and a
-  biometric secure-root gate.
-- **Modules** based on [metamodules](https://kernelsu.org/guide/metamodule.html),
-  plus Magic Mount for `system/` trees, batch actions and backups.
-- **Hiding built in** — Origin Veil per-app cloaking with probe history and
-  su-notify actions, the SuSFS manager with a one-tap strong-hiding preset, and
-  OriginGuard's pre-install module audit.
-- **OriginZygisk bundled in the manager** — no separate module, with deploy,
-  integrity repair, per-app skip rules and diagnostics export.
-- **Origin Sui** — a built-in Shizuku API provider on top of OriginZygisk, with
-  per-app Default/Root/Shell/Deny/Hide modes, a default permission and
-  system/Shizuku filters.
-- **Origin Curtain** — the in-manager config layer for the HMA-OSS app-list
-  hiding module: blacklist/whitelist modes, reusable templates, installation
-  source spoofing and global protection toggles.
-- **Flashing that feels like an installer** — direct install, AnyKernel3 zips,
-  offline `boot.img` patching, LKM/KPM flows and bootloop protection.
+- **OriginMount** — the mount control room. Pick the engine that mounts your
+  modules: Automatic, Built-in Magic Mount, a metamodule, NoMount or Off, and
+  remount without rebooting.
+- **NoMount** — kernel-side path redirection with per-app exclusions,
+  active/planned rule counters and isolated-process handling. Falls back to
+  Magic Mount when it cannot run.
+- **Magic Mount** — built-in overlayfs/bind mount engine with an Automatic,
+  Overlayfs or Bind backend, so no metamodule is required.
+- **OriginZygisk** — Zygisk bundled *inside* the manager: deploy, integrity
+  repair, per-app skip rules, boot log and a boot guard that stops a broken
+  engine from looping.
+- **OriginSUI** — a Shizuku API provider running on OriginZygisk, with per-app
+  modes (Default / Root / Shell / Deny / Hide), default permissions and
+  system-app filters.
+- **OriginCurtain** — the control layer for the HMA-OSS app-list hiding module:
+  blacklist/whitelist, reusable templates, install-source spoofing and global
+  protection.
+- **OriginVeil** — per-app cloaking that records root probes, lets you react
+  with a su-notify, and keeps modules out of detection apps' sight.
+- **OriginGuard** — audits a module archive before it is installed, so you know
+  what you are flashing.
 - **OriginTune** — CPU, GPU, I/O, memory, LMK, ZRAM and sysctl tuning, showing
-  only the knobs the running kernel actually exposes.
+  only the knobs your running kernel actually exposes.
+- **Root terminal** — a root shell built into the manager. Commands run as
+  root, no `su`, no Termux.
+- **SuSFS** — full manager for the SuSFS userspace module, plus the guard LKM
+  for arm64 devices.
+
+Everything else a root manager needs is here too: **per-app root profiles** with
+templates, time-limited grants and a biometric secure-root gate; **modules** with
+metamodule support, batch actions, backups and a WebUI module browser; and
+**flashing** with direct install, AnyKernel3 zips, offline `boot.img` patching,
+LKM/KPM flows and bootloop rescue. The UI follows the same idea — a bento home
+screen, AMOLED dark mode, MIUI-style layouts and global search.
 
 ## Compatibility
 
@@ -143,14 +165,12 @@ add `obj-$(CONFIG_KSU) += kernelsu/` to `drivers/Makefile`, and source
 | `Manual Hook` | Most compatible; supports Linux kernels 3.4–6.18. |
 | `SuSFS Inline Hook` | From [SuSFS](https://gitlab.com/simonpunk/susfs4ksu), like `Manual Hook` but provided by the SuSFS project. |
 
-### Build and release
+## Build from source
 
 Releases are built by CI (`.github/workflows/`) and signed with the project
 release key. Pushing a `v*` tag publishes a GitHub Release with the manager APKs
-and LKM modules.
-
-Required Actions secrets: `KEYSTORE`, `KEYSTORE_PASSWORD`, `KEY_ALIAS`,
-`KEY_PASSWORD`.
+and LKM modules. Required Actions secrets: `KEYSTORE`, `KEYSTORE_PASSWORD`,
+`KEY_ALIAS`, `KEY_PASSWORD`.
 
 ```bash
 # Tag a release (maintainers)
@@ -193,8 +213,10 @@ GPL-2.0-compatible. Please report security issues privately (see
 - [genuine](https://github.com/brevent/genuine/): APK v2 signature validation
 - [Diamorphine](https://github.com/m0nad/Diamorphine): some rootkit skills
 - [WildKSU](https://github.com/WildKernels/Wild_KSU): launcher icon artwork, themed app-shortcut icons and animated home logo concept
-- [Sui](https://github.com/RikkaApps/Sui): Shizuku API implementation behind Origin Sui (GPL-3.0)
-- [Sui fork](https://github.com/XiaoTong6666/Sui): pinned source of the bundled Origin Sui payload
-- [Shizuku-API](https://github.com/RikkaApps/Shizuku-API): the Shizuku API Sui exposes (MIT, RikkaW)
-- [HMA-OSS](https://github.com/frknkrc44/HMA-OSS): app-list hiding module behind Origin Curtain (AGPL-3.0)
+- [Sui](https://github.com/RikkaApps/Sui): Shizuku API implementation behind OriginSUI (GPL-3.0)
+- [Sui fork](https://github.com/XiaoTong6666/Sui): pinned source of the bundled OriginSUI payload
+- [Shizuku-API](https://github.com/RikkaApps/Shizuku-API): the Shizuku API OriginSUI exposes (MIT, RikkaW)
+- [HMA-OSS](https://github.com/frknkrc44/HMA-OSS): app-list hiding module behind OriginCurtain (AGPL-3.0)
 - [Hide My Applist](https://github.com/Dr-TSNG/Hide-My-Applist): project HMA-OSS forked from
+- [NoMount](https://github.com/maxsteeel/nomount): VFS path redirection framework behind the NoMount engine
+- [ZeroMount](https://github.com/Enginex0/zeromount): mountless module loading and ZeroMount driver support
