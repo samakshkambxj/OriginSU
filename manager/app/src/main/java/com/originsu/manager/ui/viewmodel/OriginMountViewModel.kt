@@ -29,6 +29,8 @@ data class OriginMountUiState(
 sealed interface OriginMountUiAction {
     data object Refresh : OriginMountUiAction
     data class SetMode(val mode: OriginMountMode) : OriginMountUiAction
+    data class SetMagicMountEnabled(val enabled: Boolean) : OriginMountUiAction
+    data class SetMagicMountBackend(val backend: String) : OriginMountUiAction
     data object MountNow : OriginMountUiAction
     data object RefreshUids : OriginMountUiAction
     data class SetUids(val uids: List<Int>) : OriginMountUiAction
@@ -40,6 +42,8 @@ sealed interface OriginMountUiAction {
 sealed interface OriginMountUiEvent {
     data object RefreshFailed : OriginMountUiEvent
     data object ModeChanged : OriginMountUiEvent
+    data object MagicMountChanged : OriginMountUiEvent
+    data class MagicMountFailed(val message: String) : OriginMountUiEvent
     data object MountSucceeded : OriginMountUiEvent
     data class MountFailed(val message: String) : OriginMountUiEvent
     data object UidsUpdated : OriginMountUiEvent
@@ -65,6 +69,18 @@ class OriginMountViewModel(
             is OriginMountUiAction.SetMode -> perform(
                 operation = { ksuCli.setOriginMountMode(action.mode) },
                 success = OriginMountUiEvent.ModeChanged,
+            )
+
+            is OriginMountUiAction.SetMagicMountEnabled -> perform(
+                operation = { ksuCli.setMagicMountEnabled(action.enabled) },
+                success = OriginMountUiEvent.MagicMountChanged,
+                failure = { message -> OriginMountUiEvent.MagicMountFailed(message) },
+            )
+
+            is OriginMountUiAction.SetMagicMountBackend -> perform(
+                operation = { ksuCli.setMagicMountBackend(action.backend) },
+                success = OriginMountUiEvent.MagicMountChanged,
+                failure = { message -> OriginMountUiEvent.MagicMountFailed(message) },
             )
 
             OriginMountUiAction.MountNow -> perform(

@@ -135,6 +135,21 @@ fun OriginMountScreen() {
         OriginMountMode.Off -> stringResource(R.string.origin_mount_mode_summary_off)
     }
     val resolvedProviderLabel = providerLabel(status?.provider.orEmpty(), knownValue)
+    val metamoduleOwnsMounting = status?.provider == "metamodule"
+    val magicMountHandoffOwner = status?.metamoduleId
+        ?.takeIf { it.isNotBlank() }
+        ?: resolvedProviderLabel
+    // Magic Mount only runs for Auto/Builtin, or as the NoMount fallback. The
+    // enable flag only influences Auto; Builtin forces it on and Nomount only
+    // uses the engine when its own provider fails.
+    val showMagicMountSection = mode == OriginMountMode.Auto ||
+        mode == OriginMountMode.Builtin ||
+        mode == OriginMountMode.Nomount ||
+        status?.provider == "builtin"
+    val showMagicMountSwitch = mode == OriginMountMode.Auto ||
+        mode == OriginMountMode.Builtin
+    val magicMountForced = mode == OriginMountMode.Builtin
+    val magicMountFallbackOnly = mode == OriginMountMode.Nomount
     val runtimeText = runtimeSummary(runtime, status, knownValue)
     val nomountLabel = stringResource(R.string.origin_mount_provider_nomount)
     val kernelLabels = status?.kernelEngines.orEmpty().map { engine ->
@@ -176,6 +191,8 @@ fun OriginMountScreen() {
 
     val refreshFailed = stringResource(R.string.origin_mount_refresh_failed)
     val modeChanged = stringResource(R.string.origin_mount_mode_changed)
+    val magicMountChanged = stringResource(R.string.origin_mount_magic_mount_changed)
+    val magicMountFailed = stringResource(R.string.magic_mount_failed)
     val mountSuccess = stringResource(R.string.origin_mount_mount_success)
     val mountFailed = stringResource(R.string.origin_mount_mount_failed)
     val uidsUpdated = stringResource(R.string.origin_mount_uids_updated)
@@ -203,6 +220,12 @@ fun OriginMountScreen() {
 
                 OriginMountUiEvent.ModeChanged ->
                     snackBarHost.showReplacingSnackbar(modeChanged)
+
+                OriginMountUiEvent.MagicMountChanged ->
+                    snackBarHost.showReplacingSnackbar(magicMountChanged)
+
+                is OriginMountUiEvent.MagicMountFailed ->
+                    snackBarHost.showReplacingSnackbar(event.message.ifBlank { magicMountFailed })
 
                 OriginMountUiEvent.MountSucceeded ->
                     snackBarHost.showReplacingSnackbar(mountSuccess)
@@ -320,6 +343,78 @@ fun OriginMountScreen() {
                                 title = stringResource(R.string.origin_mount_kernel),
                                 description = kernelText,
                             )
+                        }
+                    }
+                }
+
+                if (showMagicMountSection) {
+                    item {
+                        SegmentedColumn(
+                            title = stringResource(R.string.origin_mount_magic_mount_section)
+                        ) {
+                            item(visible = showMagicMountSwitch) {
+                                val magicMountSummary = when {
+                                    metamoduleOwnsMounting -> stringResource(
+                                        R.string.settings_magic_mount_handoff_summary,
+                                        magicMountHandoffOwner,
+                                    )
+
+                                    magicMountForced -> stringResource(
+                                        R.string.origin_mount_magic_mount_forced_summary
+                                    )
+
+                                    else -> stringResource(R.string.settings_magic_mount_summary)
+                                }
+                                SettingsSwitchWidget(
+                                    icon = Icons.TwoTone.Extension,
+                                    title = stringResource(R.string.settings_magic_mount),
+                                    description = magicMountSummary,
+                                    enabled = !uiState.isWorking &&
+                                        !metamoduleOwnsMounting &&
+                                        !magicMountForced,
+                                    checked = status?.magicMountEnabled == true,
+                                    onCheckedChange = { enabled ->
+                                        viewModel.dispatch(
+                                            OriginMountUiAction.SetMagicMountEnabled(enabled)
+                                        )
+                                    },
+                                )
+                            }
+                            item {
+                                val backendItems = listOf(
+                                    stringResource(R.string.magic_mount_backend_auto),
+                                    stringResource(R.string.magic_mount_backend_overlay),
+                                    stringResource(R.string.magic_mount_backend_bind),
+                                )
+                                val backendIds = listOf("auto", "overlay", "bind")
+                                val selectedBackend = backendIds
+                                    .indexOf(status?.backend ?: "auto")
+                                    .takeIf { it >= 0 } ?: 0
+                                val backendSummary = if (magicMountFallbackOnly) {
+                                    stringResource(
+                                        R.string.origin_mount_magic_mount_backend_fallback_summary
+                                    )
+                                } else {
+                                    stringResource(
+                                        R.string.settings_magic_mount_backend_summary
+                                    )
+                                }
+                                SettingsChooseWidget(
+                                    icon = Icons.TwoTone.Dashboard,
+                                    title = stringResource(R.string.settings_magic_mount_backend),
+                                    description = backendSummary,
+                                    enabled = !uiState.isWorking && !metamoduleOwnsMounting,
+                                    items = backendItems,
+                                    selectedIndex = selectedBackend,
+                                    onSelectedIndexChange = { index ->
+                                        backendIds.getOrNull(index)?.let { backend ->
+                                            viewModel.dispatch(
+                                                OriginMountUiAction.SetMagicMountBackend(backend)
+                                            )
+                                        }
+                                    },
+                                )
+                            }
                         }
                     }
                 }

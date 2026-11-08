@@ -397,15 +397,11 @@ fun OriginLabScreen(
     val descRootGatePanic = stringResource(R.string.settings_root_gate_panic_summary)
     val titleOriginGuard = stringResource(R.string.settings_originguard)
     val descOriginGuard = stringResource(R.string.settings_originguard_summary)
-    val titleMagicMount = stringResource(R.string.settings_magic_mount)
-    val descMagicMount = stringResource(R.string.settings_magic_mount_summary)
     val titleOriginMount = stringResource(R.string.origin_mount_title)
     val descOriginMount = stringResource(R.string.origin_lab_caption_origin_mount)
     val titleTerminal = stringResource(R.string.terminal_title)
     val descTerminal = stringResource(R.string.origin_lab_caption_terminal)
     val titleMountEngine = stringResource(R.string.settings_mount_engine)
-    val titleMagicBackend = stringResource(R.string.settings_magic_mount_backend)
-    val descMagicBackend = stringResource(R.string.settings_magic_mount_backend_summary)
     val titleSusfsLkm = stringResource(R.string.settings_susfs_lkm)
     val descSusfsLkm = stringResource(R.string.settings_susfs_lkm_summary)
 
@@ -435,11 +431,9 @@ fun OriginLabScreen(
     val matchLockBoundRoot = matches(titleLockBoundRoot, descLockBoundRoot)
     val matchRootGatePanic = matches(titleRootGatePanic, descRootGatePanic)
     val matchOriginGuard = matches(titleOriginGuard, descOriginGuard)
-    val matchMagicMount = matches(titleMagicMount, descMagicMount)
     val matchOriginMount = matches(titleOriginMount, descOriginMount)
     val matchTerminal = matches(titleTerminal, descTerminal)
     val matchMountEngine = matches(titleMountEngine)
-    val matchMagicBackend = matches(titleMagicBackend, descMagicBackend)
     val matchSusfsLkm = matches(titleSusfsLkm, descSusfsLkm)
     val matchCurtain = matches(titleCurtain, curtainSummary)
     val matchSui = matches(titleSui, suiSummary)
@@ -450,7 +444,7 @@ fun OriginLabScreen(
         matchZygisk, matchZygiskPanel, matchVeilSwitch, matchVeilManage, matchGrantToast,
         matchSuPrompt, matchTempGrant, matchBootloop, matchBootloopThreshold, matchSecureRoot,
         matchAppLock, matchRootGate, matchLockBoundRoot, matchRootGatePanic, matchOriginGuard,
-        matchMagicMount, matchOriginMount, matchMountEngine, matchMagicBackend, matchSusfsLkm,
+        matchOriginMount, matchMountEngine, matchSusfsLkm,
         matchCurtain, matchSui, matchSuiPermissions, matchSuiRepair, matchTerminal,
     ).any { it }
 
@@ -1283,8 +1277,7 @@ fun OriginLabScreen(
 
             // ----- System & boot ----------------------------------------------
             if (matchSusfsLkm || matchBootloop || matchBootloopThreshold ||
-                matchOriginMount || matchTerminal || matchMountEngine || matchMagicMount ||
-                matchMagicBackend
+                matchOriginMount || matchTerminal || matchMountEngine
             ) {
                 item(key = "section-system", span = StaggeredGridItemSpan.FullLine) {
                     Column {
@@ -1408,60 +1401,6 @@ fun OriginLabScreen(
                                     icon = Icons.TwoTone.Dashboard,
                                     title = titleMountEngine,
                                     description = engineDescription,
-                                )
-                            }
-
-                            item(visible = matchMagicMount) {
-                                val metamoduleOwnsMounting = uiState.mountEngine.metamoduleOwnsMounting
-                                val magicMountSummary =
-                                    if (metamoduleOwnsMounting) {
-                                        stringResource(
-                                            R.string.settings_magic_mount_handoff_summary,
-                                            uiState.mountEngine.name.ifBlank {
-                                                uiState.mountEngine.engine
-                                            },
-                                        )
-                                    } else {
-                                        descMagicMount
-                                    }
-                                SettingsSwitchWidget(
-                                    icon = Icons.TwoTone.Extension,
-                                    title = titleMagicMount,
-                                    description = magicMountSummary,
-                                    enabled = !metamoduleOwnsMounting,
-                                    checked = uiState.isMagicMountEnabled,
-                                    onCheckedChange = { enabled ->
-                                        settingsViewModel.dispatch(
-                                            SettingsUiAction.SetMagicMountEnabled(enabled)
-                                        )
-                                    }
-                                )
-                            }
-
-                            item(visible = matchMagicBackend) {
-                                val backendItems = listOf(
-                                    stringResource(R.string.magic_mount_backend_auto),
-                                    stringResource(R.string.magic_mount_backend_overlay),
-                                    stringResource(R.string.magic_mount_backend_bind),
-                                )
-                                val backendIds = listOf("auto", "overlay", "bind")
-                                val selectedBackend =
-                                    backendIds.indexOf(uiState.magicMountBackend)
-                                        .takeIf { it >= 0 } ?: 0
-                                SettingsChooseWidget(
-                                    icon = Icons.TwoTone.Dashboard,
-                                    title = titleMagicBackend,
-                                    description = descMagicBackend,
-                                    enabled = !uiState.mountEngine.metamoduleOwnsMounting,
-                                    items = backendItems,
-                                    selectedIndex = selectedBackend,
-                                    onSelectedIndexChange = { index ->
-                                        backendIds.getOrNull(index)?.let { backend ->
-                                            settingsViewModel.dispatch(
-                                                SettingsUiAction.SetMagicMountBackend(backend)
-                                            )
-                                        }
-                                    }
                                 )
                             }
                         }

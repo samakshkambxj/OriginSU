@@ -97,6 +97,7 @@ import com.originsu.manager.ui.component.rememberLoadingDialog
 import com.originsu.manager.ui.component.rememberSearchAppBarScrollBehavior
 import com.originsu.manager.ui.component.settings.BentoCaption
 import com.originsu.manager.ui.component.settings.BentoCard
+import com.originsu.manager.ui.component.settings.BentoChooseRow
 import com.originsu.manager.ui.component.settings.BentoGrid
 import com.originsu.manager.ui.component.settings.BentoHeader
 import com.originsu.manager.ui.component.settings.BentoJumpRow
@@ -163,6 +164,8 @@ fun SettingsPage(bottomPadding: Dp) {
     val updatesTileTitle = stringResource(R.string.settings_bento_updates_title)
     val toolsTileTitle = stringResource(R.string.tools)
     val titleTerminal = stringResource(R.string.terminal_title)
+    val magicMountSummary = stringResource(R.string.settings_magic_mount_summary)
+    val magicMountBackendSummary = stringResource(R.string.settings_magic_mount_backend_summary)
     val aboutTitle = stringResource(R.string.about)
     val advancedConfigTitle = stringResource(R.string.settings_advanced_config)
     val themeTitle = stringResource(R.string.theme_settings)
@@ -239,8 +242,6 @@ fun SettingsPage(bottomPadding: Dp) {
         stringResource(R.string.settings_lock_bound_root_summary),
         stringResource(R.string.settings_root_gate_panic_summary),
         stringResource(R.string.settings_originguard_summary),
-        stringResource(R.string.settings_magic_mount_summary),
-        stringResource(R.string.settings_magic_mount_backend_summary),
         stringResource(R.string.settings_susfs_lkm_summary),
     )
     val coreSearchKeywords = listOf(
@@ -259,8 +260,11 @@ fun SettingsPage(bottomPadding: Dp) {
         titleZygiskSkipApps, titleZygiskTelemetry, titleZygiskLog, titleZygiskDiagnostics,
         titleVeilSwitch, titleVeilManage, titleGrantToast, titleSuPrompt, titleTempGrant,
         titleBootloop, titleBootloopThreshold, titleSecureRoot, titleAppLock, titleRootGate,
-        titleLockBoundRoot, titleRootGatePanic, titleOriginGuard, titleMagicMount,
-        titleMountEngine, titleMagicBackend, titleSusfsLkm, *originSearchKeywords.toTypedArray(),
+        titleLockBoundRoot, titleRootGatePanic, titleOriginGuard,
+        titleMountEngine, titleSusfsLkm, *originSearchKeywords.toTypedArray(),
+    )
+    val matchMagicMountTile = matches(
+        titleMagicMount, magicMountSummary, titleMagicBackend, magicMountBackendSummary,
     )
     val matchCoreTile = matches(
         coreTileTitle, titleProfileTemplate, descProfileTemplate, titleSuCompat, titleUmount,
@@ -285,7 +289,7 @@ fun SettingsPage(bottomPadding: Dp) {
 
     val hasAnyMatch = matchOriginTile ||
         (homeState.systemStatus.isFullFeatured && matchCoreTile) ||
-        matchUpdatesTile || matchToolsTile || matchAboutTile ||
+        matchMagicMountTile || matchUpdatesTile || matchToolsTile || matchAboutTile ||
         (uiState.bootloopRescued && matchBootloopAlert)
 
     LaunchedEffect(Unit) {
@@ -431,6 +435,36 @@ fun SettingsPage(bottomPadding: Dp) {
                             Spacer(Modifier.height(8.dp))
                             BentoCaption(themeSummary)
                         }
+                    }
+                }
+
+                // ----- Magic Mount ------------------------------------------------
+                if (matchMagicMountTile) {
+                    item(
+                        key = "magic-mount",
+                        span = StaggeredGridItemSpan.FullLine,
+                    ) {
+                        MagicMountTile(
+                            isEnabled = uiState.isMagicMountEnabled,
+                            backend = uiState.magicMountBackend,
+                            metamoduleOwnsMounting = uiState.mountEngine.metamoduleOwnsMounting,
+                            handoffOwner = uiState.mountEngine.name.ifBlank {
+                                uiState.mountEngine.metamoduleId.ifBlank {
+                                    uiState.mountEngine.engine
+                                }
+                            },
+                            onToggle = { enabled ->
+                                settingsViewModel.dispatch(
+                                    SettingsUiAction.SetMagicMountEnabled(enabled)
+                                )
+                            },
+                            onBackendChange = { backend ->
+                                settingsViewModel.dispatch(
+                                    SettingsUiAction.SetMagicMountBackend(backend)
+                                )
+                            },
+                            onOpen = { navigator.push(Route.OriginMount) },
+                        )
                     }
                 }
 
@@ -826,6 +860,82 @@ private fun CoreBandTile(
             icon = Icons.TwoTone.Settings,
             title = stringResource(R.string.settings_advanced_config),
             onClick = onOpenAdvanced,
+        )
+    }
+}
+
+/**
+ * Magic Mount controls: enable switch, mount backend and the metamodule
+ * handoff, with a shortcut into the full OriginMount page.
+ */
+@Composable
+private fun MagicMountTile(
+    isEnabled: Boolean,
+    backend: String,
+    metamoduleOwnsMounting: Boolean,
+    handoffOwner: String,
+    onToggle: (Boolean) -> Unit,
+    onBackendChange: (String) -> Unit,
+    onOpen: () -> Unit,
+) {
+    val backendIds = listOf("auto", "overlay", "bind")
+    val backendLabels = listOf(
+        stringResource(R.string.magic_mount_backend_auto),
+        stringResource(R.string.magic_mount_backend_overlay),
+        stringResource(R.string.magic_mount_backend_bind),
+    )
+    val selectedBackend = backendIds.indexOf(backend).takeIf { it >= 0 } ?: 0
+    val summary = if (metamoduleOwnsMounting) {
+        stringResource(
+            R.string.settings_magic_mount_handoff_summary,
+            handoffOwner.ifBlank { stringResource(R.string.settings_magic_mount_handoff_owner) },
+        )
+    } else {
+        stringResource(R.string.settings_magic_mount_summary)
+    }
+    val statusText = when {
+        metamoduleOwnsMounting -> stringResource(R.string.magic_mount_handoff_blocked)
+        isEnabled -> stringResource(R.string.magic_mount_enabled)
+        else -> stringResource(R.string.magic_mount_disabled)
+    }
+
+    BentoCard {
+        BentoHeader(
+            icon = Icons.TwoTone.Extension,
+            title = stringResource(R.string.settings_magic_mount),
+            trailingContent = {
+                BentoStatusChip(
+                    text = statusText,
+                    active = isEnabled && !metamoduleOwnsMounting,
+                    isWarning = metamoduleOwnsMounting,
+                )
+            },
+        )
+        Spacer(Modifier.height(6.dp))
+        BentoCaption(summary)
+        Spacer(Modifier.height(4.dp))
+        BentoToggleRow(
+            icon = Icons.TwoTone.Extension,
+            title = stringResource(R.string.settings_magic_mount_enable),
+            checked = isEnabled,
+            enabled = !metamoduleOwnsMounting,
+            onCheckedChange = onToggle,
+        )
+        BentoChooseRow(
+            icon = Icons.TwoTone.Dashboard,
+            title = stringResource(R.string.settings_magic_mount_backend),
+            subtitle = backendLabels[selectedBackend],
+            items = backendLabels,
+            selectedIndex = selectedBackend,
+            enabled = !metamoduleOwnsMounting,
+            onSelectedIndexChange = { index ->
+                backendIds.getOrNull(index)?.let(onBackendChange)
+            },
+        )
+        BentoJumpRow(
+            icon = Icons.TwoTone.Extension,
+            title = stringResource(R.string.origin_mount_title),
+            onClick = onOpen,
         )
     }
 }

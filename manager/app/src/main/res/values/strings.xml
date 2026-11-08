@@ -503,11 +503,17 @@
     <string name="kernel_tuning_diag_stall_ms">%1$d ms</string>
     <string name="settings_magic_mount">Magic Mount</string>
     <string name="settings_magic_mount_summary">Mount module system files Magisk-style (takes effect on next boot)</string>
+    <string name="settings_magic_mount_enable">Enable Magic Mount</string>
     <string name="settings_magic_mount_handoff_summary">%1$s owns module mounting, so Magic Mount is disabled</string>
+    <string name="settings_magic_mount_handoff_owner">A metamodule</string>
     <string name="settings_magic_mount_backend">Mount backend</string>
-    <string name="settings_magic_mount_backend_summary">Auto prefers overlayfs and falls back to bind mounts</string>
+    <string name="settings_magic_mount_backend_summary">Automatic prefers overlayfs and falls back to bind mounts</string>
     <string name="origin_mount_title">OriginMount</string>
     <string name="origin_mount_provider_section">Provider</string>
+    <string name="origin_mount_magic_mount_section">Magic Mount</string>
+    <string name="origin_mount_magic_mount_changed">Magic Mount updated; takes effect on next boot</string>
+    <string name="origin_mount_magic_mount_forced_summary">The Built-in Magic Mount provider is selected, so Magic Mount is always on</string>
+    <string name="origin_mount_magic_mount_backend_fallback_summary">Used by the Magic Mount fallback if NoMount fails</string>
     <string name="origin_mount_mode">Mount provider</string>
     <string name="origin_mount_mode_auto">Auto</string>
     <string name="origin_mount_mode_builtin">Built-in Magic Mount</string>
@@ -576,7 +582,7 @@
     <string name="origin_mount_uids_confirm">Save</string>
     <string name="origin_mount_uids_cancel">Cancel</string>
     <string name="origin_mount_value_unknown">Unknown</string>
-    <string name="origin_lab_caption_origin_mount">Choose the provider and tune NoMount</string>
+    <string name="origin_lab_caption_origin_mount">Choose the provider, Magic Mount and NoMount</string>
     <string name="terminal_title">Terminal</string>
     <string name="terminal_clear">Clear output</string>
     <string name="terminal_run">Run</string>
@@ -595,7 +601,7 @@
     <string name="settings_mount_engine_none">No engine is mounting modules. Enable Magic Mount or install a metamodule.</string>
     <string name="settings_mount_engine_unknown">Engine status unavailable</string>
     <string name="settings_mount_engine_kernel_support">Kernel VFS drivers: %1$s</string>
-    <string name="magic_mount_backend_auto">Auto</string>
+    <string name="magic_mount_backend_auto">Automatic</string>
     <string name="magic_mount_backend_overlay">Overlayfs</string>
     <string name="magic_mount_backend_bind">Bind</string>
     <string name="install_hook_flavor">Hook flavor</string>
@@ -957,6 +963,8 @@
     <string name="sui_notification_message">%1$s requests Shizuku access</string>
     <string name="sui_notification_channel">Shizuku requests</string>
     <string name="magic_mount_failed">Magic Mount change failed</string>
+    <string name="magic_mount_enabled">Enabled</string>
+    <string name="magic_mount_disabled">Disabled</string>
     <string name="magic_mount_handoff_blocked">A metamodule owns module mounting</string>
     <string name="zygisk_provider_blocked">Conflicting Zygisk provider blocked while Origin Zygisk is on</string>
     <string name="onboarding_title_welcome">Welcome to OriginSU</string>
