@@ -81,6 +81,7 @@ import com.originsu.manager.ui.screen.InstallScreen
 import com.originsu.manager.ui.screen.AppIconScreen
 import com.originsu.manager.ui.screen.SulogScreen
 import com.originsu.manager.ui.screen.SuiPermissionsScreen
+import com.originsu.manager.ui.screen.TerminalScreen
 import com.originsu.manager.ui.screen.UpdaterScreen
 import com.originsu.manager.ui.screen.VeilDetailScreen
 import com.originsu.manager.ui.screen.VeilScreen
@@ -773,6 +774,17 @@ fun NavContainer(
                     useBlur = useBlur,
                 ) {
                     OriginMountScreen()
+                }
+            }
+            entry<Route.Terminal>(swipeDismiss = swipeBackDirection) {
+                ManagerNavEntry(
+                    interceptPredictiveBack = interceptPredictiveBack,
+                    onBack = onBack,
+                    themeConfig = themeConfig,
+                    backgroundRenderState = backgroundRenderState,
+                    useBlur = useBlur,
+                ) {
+                    TerminalScreen()
                 }
             }
             entry<Route.SuSFSLkm>(swipeDismiss = swipeBackDirection) {

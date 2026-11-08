@@ -31,15 +31,18 @@ import com.topjohnwu.superuser.Shell
 import com.topjohnwu.superuser.ShellUtils
 import com.topjohnwu.superuser.io.SuFile
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.BufferedOutputStream
 import java.io.File
 import java.nio.charset.StandardCharsets
 import java.text.SimpleDateFormat
+import java.util.Collections
 import java.util.Date
 import java.util.Locale
 import java.util.Properties
@@ -47,6 +50,7 @@ import java.util.zip.ZipEntry
 import java.util.zip.ZipFile
 import java.util.zip.ZipInputStream
 import java.util.zip.ZipOutputStream
+import kotlin.coroutines.resume
 
 /** A Zygisk module discovered under /data/adb/modules. */
 data class OriginZygiskModule(
@@ -132,6 +136,21 @@ data class OriginZygiskStatus(
             if (missing > 0) append(" · $missing missing ABI")
         }
 }
+
+/**
+ * Result of a one-shot command executed from the built-in terminal.
+ *
+ * [timedOut] and [rootUnavailable] are reported separately so the UI can
+ * localise those states instead of parsing an English error string.
+ */
+data class ShellCommandResult(
+    val command: String,
+    val stdout: String,
+    val stderr: String,
+    val exitCode: Int,
+    val timedOut: Boolean = false,
+    val rootUnavailable: Boolean = false,
+)
 
 /**
  * @author weishu
@@ -1283,6 +1302,102 @@ class KsuCliRepository(context: Context) {
             .to(mutableListOf<String>(), null)
             .exec().out
             .joinToString("\n")
+    }
+
+    /**
+     * Run one command in an isolated root shell for the built-in terminal.
+     *
+     * A fresh, self-closed shell is used per command so a long-running or
+     * interactive command cannot block the shared root shell used by the rest
+     * of the manager. The job is submitted asynchronously so a timeout (or the
+     * user leaving the screen) can close the shell and terminate the command.
+     */
+    suspend fun runShellCommand(
+        command: String,
+        timeoutMs: Long = 60_000L,
+    ): ShellCommandResult = withContext(Dispatchers.IO) {
+        val trimmed = command.trim()
+        if (trimmed.isEmpty()) {
+            return@withContext ShellCommandResult(
+                command = "",
+                stdout = "",
+                stderr = "",
+                exitCode = -1,
+            )
+        }
+
+        val shell = try {
+            createRootShell()
+        } catch (t: Throwable) {
+            Log.w(TAG, "terminal: could not create root shell", t)
+            return@withContext ShellCommandResult(
+                command = trimmed,
+                stdout = "",
+                stderr = t.message ?: t.javaClass.simpleName,
+                exitCode = -1,
+            )
+        }
+
+        try {
+            if (!shell.isRoot) {
+                return@withContext ShellCommandResult(
+                    command = trimmed,
+                    stdout = "",
+                    stderr = "",
+                    exitCode = -1,
+                    rootUnavailable = true,
+                )
+            }
+
+            val pending: ShellCommandResult? = withTimeoutOrNull(timeoutMs) {
+                suspendCancellableCoroutine<ShellCommandResult> { continuation ->
+                    val stdout = Collections.synchronizedList(ArrayList<String>())
+                    val stderr = Collections.synchronizedList(ArrayList<String>())
+                    shell.newJob()
+                        .add(trimmed)
+                        .to(stdout, stderr)
+                        .submit(
+                            null,
+                            Shell.ResultCallback { result ->
+                                if (continuation.isActive) {
+                                    runCatching {
+                                        continuation.resume(
+                                            ShellCommandResult(
+                                                command = trimmed,
+                                                stdout = stdout.joinToString("\n"),
+                                                stderr = stderr.joinToString("\n"),
+                                                exitCode = result.code,
+                                            )
+                                        )
+                                    }
+                                }
+                            },
+                        )
+                    continuation.invokeOnCancellation {
+                        // Closing the shell kills whatever is still running.
+                        runCatching { shell.close() }
+                    }
+                }
+            }
+
+            pending ?: ShellCommandResult(
+                command = trimmed,
+                stdout = "",
+                stderr = "",
+                exitCode = -1,
+                timedOut = true,
+            )
+        } catch (t: Throwable) {
+            Log.w(TAG, "terminal: command failed", t)
+            ShellCommandResult(
+                command = trimmed,
+                stdout = "",
+                stderr = t.message ?: t.javaClass.simpleName,
+                exitCode = -1,
+            )
+        } finally {
+            runCatching { shell.close() }
+        }
     }
 
     fun forceStopApp(packageName: String) {

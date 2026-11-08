@@ -37,6 +37,7 @@ import androidx.compose.material.icons.twotone.Psychology
 import androidx.compose.material.icons.twotone.RestartAlt
 import androidx.compose.material.icons.twotone.Security
 import androidx.compose.material.icons.twotone.Shield
+import androidx.compose.material.icons.twotone.Terminal
 import androidx.compose.material.icons.twotone.Timer
 import androidx.compose.material.icons.twotone.Tune
 import androidx.compose.material.icons.twotone.Visibility
@@ -400,6 +401,8 @@ fun OriginLabScreen(
     val descMagicMount = stringResource(R.string.settings_magic_mount_summary)
     val titleOriginMount = stringResource(R.string.origin_mount_title)
     val descOriginMount = stringResource(R.string.origin_lab_caption_origin_mount)
+    val titleTerminal = stringResource(R.string.terminal_title)
+    val descTerminal = stringResource(R.string.origin_lab_caption_terminal)
     val titleMountEngine = stringResource(R.string.settings_mount_engine)
     val titleMagicBackend = stringResource(R.string.settings_magic_mount_backend)
     val descMagicBackend = stringResource(R.string.settings_magic_mount_backend_summary)
@@ -434,6 +437,7 @@ fun OriginLabScreen(
     val matchOriginGuard = matches(titleOriginGuard, descOriginGuard)
     val matchMagicMount = matches(titleMagicMount, descMagicMount)
     val matchOriginMount = matches(titleOriginMount, descOriginMount)
+    val matchTerminal = matches(titleTerminal, descTerminal)
     val matchMountEngine = matches(titleMountEngine)
     val matchMagicBackend = matches(titleMagicBackend, descMagicBackend)
     val matchSusfsLkm = matches(titleSusfsLkm, descSusfsLkm)
@@ -447,7 +451,7 @@ fun OriginLabScreen(
         matchSuPrompt, matchTempGrant, matchBootloop, matchBootloopThreshold, matchSecureRoot,
         matchAppLock, matchRootGate, matchLockBoundRoot, matchRootGatePanic, matchOriginGuard,
         matchMagicMount, matchOriginMount, matchMountEngine, matchMagicBackend, matchSusfsLkm,
-        matchCurtain, matchSui, matchSuiPermissions, matchSuiRepair,
+        matchCurtain, matchSui, matchSuiPermissions, matchSuiRepair, matchTerminal,
     ).any { it }
 
     LaunchedEffect(Unit) {
@@ -1279,7 +1283,8 @@ fun OriginLabScreen(
 
             // ----- System & boot ----------------------------------------------
             if (matchSusfsLkm || matchBootloop || matchBootloopThreshold ||
-                matchOriginMount || matchMountEngine || matchMagicMount || matchMagicBackend
+                matchOriginMount || matchTerminal || matchMountEngine || matchMagicMount ||
+                matchMagicBackend
             ) {
                 item(key = "section-system", span = StaggeredGridItemSpan.FullLine) {
                     Column {
@@ -1345,6 +1350,17 @@ fun OriginLabScreen(
                                     description = descOriginMount,
                                     onClick = {
                                         navigator.push(Route.OriginMount)
+                                    },
+                                )
+                            }
+
+                            item(visible = matchTerminal) {
+                                SettingsJumpPageWidget(
+                                    icon = Icons.TwoTone.Terminal,
+                                    title = titleTerminal,
+                                    description = descTerminal,
+                                    onClick = {
+                                        navigator.push(Route.Terminal)
                                     },
                                 )
                             }

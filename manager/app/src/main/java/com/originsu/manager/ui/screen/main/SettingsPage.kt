@@ -45,6 +45,7 @@ import androidx.compose.material.icons.twotone.Save
 import androidx.compose.material.icons.twotone.Science
 import androidx.compose.material.icons.twotone.Settings
 import androidx.compose.material.icons.twotone.Share
+import androidx.compose.material.icons.twotone.Terminal
 import androidx.compose.material.icons.twotone.Tune
 import androidx.compose.material.icons.twotone.Update
 import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridItemSpan
@@ -161,6 +162,7 @@ fun SettingsPage(bottomPadding: Dp) {
     val coreTileTitle = stringResource(R.string.settings_bento_core_title)
     val updatesTileTitle = stringResource(R.string.settings_bento_updates_title)
     val toolsTileTitle = stringResource(R.string.tools)
+    val titleTerminal = stringResource(R.string.terminal_title)
     val aboutTitle = stringResource(R.string.about)
     val advancedConfigTitle = stringResource(R.string.settings_advanced_config)
     val themeTitle = stringResource(R.string.theme_settings)
@@ -273,7 +275,7 @@ fun SettingsPage(bottomPadding: Dp) {
     )
     val matchToolsTile = matches(
         toolsTileTitle, titleSendLog, titleDynamicManager, descDynamicManager, titleUmountManager,
-        descUmountManager, titleTuning, descTuning, titleUninstall,
+        descUmountManager, titleTuning, descTuning, titleUninstall, titleTerminal,
     )
     val matchAboutTile = matches(aboutTitle)
     val matchBootloopAlert = matches(
@@ -504,6 +506,7 @@ fun SettingsPage(bottomPadding: Dp) {
                             showUninstall = homeState.systemStatus.lkmMode == true &&
                                 !homeState.systemStatus.isLateLoadMode,
                             onSendLog = { showBottomsheet = true },
+                            onTerminal = { navigator.push(Route.Terminal) },
                             onDynamicManager = { navigator.push(Route.DynamicManager) },
                             onUmountManager = { navigator.push(Route.UmountManager) },
                             onKernelTuning = { navigator.push(Route.KernelTuning) },
@@ -879,6 +882,7 @@ private fun ToolsBandTile(
     isKernelUmountEnabled: Boolean,
     showUninstall: Boolean,
     onSendLog: () -> Unit,
+    onTerminal: () -> Unit,
     onDynamicManager: () -> Unit,
     onUmountManager: () -> Unit,
     onKernelTuning: () -> Unit,
@@ -894,6 +898,11 @@ private fun ToolsBandTile(
             icon = Icons.TwoTone.BugReport,
             title = stringResource(R.string.send_log),
             onClick = onSendLog,
+        )
+        BentoJumpRow(
+            icon = Icons.TwoTone.Terminal,
+            title = stringResource(R.string.terminal_title),
+            onClick = onTerminal,
         )
         if (showFullFeatured) {
             BentoJumpRow(
