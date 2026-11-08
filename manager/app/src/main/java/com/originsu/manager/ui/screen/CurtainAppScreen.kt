@@ -3,10 +3,14 @@ package com.originsu.manager.ui.screen
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.twotone.Android
+import androidx.compose.material.icons.twotone.Block
 import androidx.compose.material.icons.twotone.Info
 import androidx.compose.material.icons.twotone.Lock
 import androidx.compose.material.icons.twotone.Settings
 import androidx.compose.material.icons.twotone.ShoppingCart
+import androidx.compose.material.icons.twotone.Storage
+import androidx.compose.material.icons.twotone.SwapHoriz
 import androidx.compose.material.icons.twotone.Visibility
 import androidx.compose.material.icons.twotone.Warning
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -20,6 +24,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -35,9 +40,13 @@ import com.originsu.manager.ui.component.settings.SettingsChooseWidget
 import com.originsu.manager.ui.component.settings.SettingsJumpPageWidget
 import com.originsu.manager.ui.component.settings.SettingsSwitchWidget
 import com.originsu.manager.ui.navigation.LocalNavigator
+import com.originsu.manager.ui.theme.CardConfig
+import com.originsu.manager.ui.theme.ThemeConfig
 import com.originsu.manager.ui.theme.blurEffect
+import com.originsu.manager.ui.theme.blurSource
 import com.originsu.manager.ui.util.adaptiveScaffoldWindowInsets
 import com.originsu.manager.ui.viewmodel.CurtainAppViewModel
+import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
 
@@ -52,6 +61,8 @@ fun CurtainAppScreen(packageName: String) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
     val picker = rememberCurtainPickerDialog()
+    val themeConfig: ThemeConfig = koinInject()
+    val cardConfig: CardConfig = koinInject()
 
     val config = uiState.config
     val blacklist = stringResource(R.string.origin_curtain_mode_blacklist)
@@ -94,15 +105,26 @@ fun CurtainAppScreen(packageName: String) {
                 navigationIcon = { AppBackButton(onClick = { navigator.pop() }) },
                 scrollBehavior = scrollBehavior,
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                    scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainer,
+                    containerColor = if (themeConfig.isEnableBlur) {
+                        Color.Transparent
+                    } else {
+                        MaterialTheme.colorScheme.surfaceContainer.copy(cardConfig.cardAlpha)
+                    },
+                    scrolledContainerColor = if (themeConfig.isEnableBlur) {
+                        Color.Transparent
+                    } else {
+                        MaterialTheme.colorScheme.surfaceContainer.copy(cardConfig.cardAlpha)
+                    },
                 ),
             )
         },
-        containerColor = MaterialTheme.colorScheme.surface,
+        containerColor = Color.Transparent,
+        contentColor = MaterialTheme.colorScheme.onSurface,
     ) { innerPadding ->
         LazyColumn(
-            modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
+            modifier = Modifier
+                .nestedScroll(scrollBehavior.nestedScrollConnection)
+                .blurSource(),
             contentPadding = PaddingValues(
                 top = innerPadding.calculateTopPadding() + 8.dp,
                 bottom = innerPadding.calculateBottomPadding() + 24.dp,
@@ -251,6 +273,7 @@ fun CurtainAppScreen(packageName: String) {
                         }
                         item {
                             SettingsSwitchWidget(
+                                icon = Icons.TwoTone.Android,
                                 title = stringResource(R.string.origin_curtain_spoof_source_system),
                                 description = stringResource(
                                     R.string.origin_curtain_spoof_source_system_summary,
@@ -262,6 +285,7 @@ fun CurtainAppScreen(packageName: String) {
                         }
                         item {
                             SettingsSwitchWidget(
+                                icon = Icons.TwoTone.Block,
                                 title = stringResource(R.string.origin_curtain_spoof_exclude_target),
                                 description = stringResource(
                                     R.string.origin_curtain_spoof_exclude_target_summary,
@@ -278,6 +302,7 @@ fun CurtainAppScreen(packageName: String) {
                     SegmentedColumn(title = stringResource(R.string.origin_curtain_advanced)) {
                         item {
                             SettingsSwitchWidget(
+                                icon = Icons.TwoTone.Android,
                                 title = stringResource(R.string.origin_curtain_exclude_system),
                                 description = stringResource(
                                     R.string.origin_curtain_exclude_system_summary,
@@ -289,6 +314,7 @@ fun CurtainAppScreen(packageName: String) {
                         }
                         item {
                             SettingsSwitchWidget(
+                                icon = Icons.TwoTone.SwapHoriz,
                                 title = stringResource(R.string.origin_curtain_invert_launch),
                                 description = stringResource(
                                     R.string.origin_curtain_invert_launch_summary,
@@ -300,6 +326,7 @@ fun CurtainAppScreen(packageName: String) {
                         }
                         item {
                             SettingsSwitchWidget(
+                                icon = Icons.TwoTone.Storage,
                                 title = stringResource(R.string.origin_curtain_exclude_vold),
                                 description = stringResource(
                                     R.string.origin_curtain_exclude_vold_summary,

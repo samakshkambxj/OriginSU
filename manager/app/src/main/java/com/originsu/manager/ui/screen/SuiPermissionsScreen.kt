@@ -37,6 +37,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
@@ -61,6 +62,7 @@ import com.originsu.manager.ui.component.settings.BentoHeader
 import com.originsu.manager.ui.component.settings.BentoStatusChip
 import com.originsu.manager.ui.component.settings.SettingsChooseDialog
 import com.originsu.manager.ui.navigation.LocalNavigator
+import com.originsu.manager.ui.theme.blurSource
 import com.originsu.manager.ui.util.adaptiveScaffoldWindowInsets
 import com.originsu.manager.ui.viewmodel.SuiPermissionsViewModel
 import org.koin.compose.viewmodel.koinViewModel
@@ -78,6 +80,7 @@ private enum class SuiFilter {
     ALL,
     SHIZUKU,
     CONFIGURED,
+    SYSTEM,
 }
 
 @Composable
@@ -116,6 +119,7 @@ fun SuiPermissionsScreen(viewModel: SuiPermissionsViewModel = koinViewModel()) {
             SuiFilter.ALL -> true
             SuiFilter.SHIZUKU -> app.isShizukuApp
             SuiFilter.CONFIGURED -> app.suiMode != SuiMode.DEFAULT
+            SuiFilter.SYSTEM -> app.isSystem
         }
     }
 
@@ -131,9 +135,13 @@ fun SuiPermissionsScreen(viewModel: SuiPermissionsViewModel = koinViewModel()) {
             )
         },
         contentWindowInsets = adaptiveScaffoldWindowInsets(),
+        containerColor = Color.Transparent,
+        contentColor = MaterialTheme.colorScheme.onSurface,
     ) { innerPadding ->
         BentoGrid(
-            modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
+            modifier = Modifier
+                .nestedScroll(scrollBehavior.nestedScrollConnection)
+                .blurSource(),
             contentPadding = PaddingValues(
                 top = innerPadding.calculateTopPadding() + 5.dp,
                 start = 16.dp,
@@ -183,6 +191,11 @@ fun SuiPermissionsScreen(viewModel: SuiPermissionsViewModel = koinViewModel()) {
                                 selected = filter == SuiFilter.CONFIGURED,
                                 onClick = { filter = SuiFilter.CONFIGURED },
                                 label = { Text(stringResource(R.string.sui_filter_configured)) },
+                            )
+                            FilterChip(
+                                selected = filter == SuiFilter.SYSTEM,
+                                onClick = { filter = SuiFilter.SYSTEM },
+                                label = { Text(stringResource(R.string.sui_filter_system)) },
                             )
                         }
                         Spacer(Modifier.height(4.dp))

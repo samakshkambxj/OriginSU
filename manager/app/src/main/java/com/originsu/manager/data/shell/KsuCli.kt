@@ -2,6 +2,7 @@ package com.originsu.manager.data.shell
 
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
@@ -1968,31 +1969,40 @@ class KsuCliRepository(context: Context) {
         }.onFailure { Log.w(TAG, "sui management probe failed", it) }.getOrNull()
     }
 
-    /** Launchable apps plus the permission Sui stores for each uid. */
+    /** Apps Sui can hold a permission for, with the flags stored for each uid. */
     suspend fun suiAppPermissions(): List<SuiApp> = withContext(Dispatchers.IO) {
         runCatching {
             val service = SuiBridge.service() ?: error("Sui bridge returned no binder")
             val pm = appContext.packageManager
             val entries = LinkedHashMap<Int, SuiApp>()
-            val launcher = Intent(Intent.ACTION_MAIN)
-                .addCategory(Intent.CATEGORY_LAUNCHER)
-            for (resolved in pm.queryIntentActivities(launcher, 0)) {
-                val info = resolved.activityInfo?.applicationInfo ?: continue
+            val ownPackage = appContext.packageName
+            @Suppress("DEPRECATION")
+            val packages = pm.getInstalledPackages(PackageManager.GET_PERMISSIONS)
+            for (pi in packages) {
+                val info = pi.applicationInfo ?: continue
                 val uid = info.uid
-                // Root, shell and system uids are not app permission targets.
-                if (uid < 10000 || entries.containsKey(uid)) {
-                    continue
-                }
+                if (info.packageName == ownPackage || entries.containsKey(uid)) continue
+                // Mirror Sui's AppListBuilder: only packages that ship code.
+                if (info.flags and ApplicationInfo.FLAG_HAS_CODE == 0) continue
+                val mode = service.getFlagsForUid(uid, SuiApp.MODE_MASK)
+                val isSystem = info.flags and (
+                    ApplicationInfo.FLAG_SYSTEM or ApplicationInfo.FLAG_UPDATED_SYSTEM_APP
+                    ) != 0
+                // List every app that ships code; the UI can filter system apps.
                 entries[uid] = SuiApp(
                     uid = uid,
                     packageName = info.packageName,
                     label = pm.getApplicationLabel(info).toString(),
-                    mode = service.getFlagsForUid(uid, SuiApp.MODE_MASK),
+                    mode = mode,
                     applicationInfo = info,
-                    requestsShizuku = requestsShizuku(pm, info.packageName),
+                    requestsShizuku = pi.requestedPermissions
+                        ?.contains(SuiApp.PERMISSION_API_V23) == true,
+                    isSystem = isSystem,
                 )
             }
-            entries.values.sortedBy { it.label.lowercase() }
+            entries.values.sortedWith(
+                compareBy({ it.isSystem }, { it.label.lowercase() })
+            )
         }.onFailure { Log.w(TAG, "sui app permissions failed", it) }.getOrDefault(emptyList())
     }
 
@@ -2019,12 +2029,6 @@ class KsuCliRepository(context: Context) {
             true
         }.onFailure { Log.w(TAG, "sui set default mode failed", it) }.getOrDefault(false)
     }
-
-    private fun requestsShizuku(pm: PackageManager, packageName: String): Boolean = runCatching {
-        pm.getPackageInfo(packageName, PackageManager.GET_PERMISSIONS)
-            .requestedPermissions
-            ?.contains(SuiApp.PERMISSION_API_V23) == true
-    }.getOrDefault(false)
 
 
     private fun deployOriginZygisk(): Boolean {

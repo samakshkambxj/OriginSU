@@ -31,6 +31,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -48,11 +49,15 @@ import com.originsu.manager.ui.component.settings.SettingsJumpPageWidget
 import com.originsu.manager.ui.component.settings.lazySegmentColumn
 import com.originsu.manager.ui.navigation.LocalNavigator
 import com.originsu.manager.ui.navigation.Route
+import com.originsu.manager.ui.theme.CardConfig
+import com.originsu.manager.ui.theme.ThemeConfig
 import com.originsu.manager.ui.theme.blurEffect
+import com.originsu.manager.ui.theme.blurSource
 import com.originsu.manager.ui.util.ActivityResumeEffect
 import com.originsu.manager.ui.util.adaptiveScaffoldWindowInsets
 import com.originsu.manager.ui.viewmodel.CurtainTemplatesViewModel
 import kotlinx.coroutines.launch
+import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 
 /** Manage the reusable app lists Origin Curtain applies to target apps. */
@@ -64,6 +69,8 @@ fun CurtainTemplatesScreen(viewModel: CurtainTemplatesViewModel = koinViewModel(
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
     val scope = rememberCoroutineScope()
     val confirmDialog = rememberConfirmDialog()
+    val themeConfig: ThemeConfig = koinInject()
+    val cardConfig: CardConfig = koinInject()
 
     val deleteTitle = stringResource(R.string.origin_curtain_template_delete)
     val confirm = stringResource(R.string.confirm)
@@ -111,15 +118,27 @@ fun CurtainTemplatesScreen(viewModel: CurtainTemplatesViewModel = koinViewModel(
                 },
                 scrollBehavior = scrollBehavior,
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                    scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainer,
+                    containerColor = if (themeConfig.isEnableBlur) {
+                        Color.Transparent
+                    } else {
+                        MaterialTheme.colorScheme.surfaceContainer.copy(cardConfig.cardAlpha)
+                    },
+                    scrolledContainerColor = if (themeConfig.isEnableBlur) {
+                        Color.Transparent
+                    } else {
+                        MaterialTheme.colorScheme.surfaceContainer.copy(cardConfig.cardAlpha)
+                    },
                 ),
             )
         },
         contentWindowInsets = adaptiveScaffoldWindowInsets(),
+        containerColor = Color.Transparent,
+        contentColor = MaterialTheme.colorScheme.onSurface,
     ) { innerPadding ->
         LazyColumn(
-            modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
+            modifier = Modifier
+                .nestedScroll(scrollBehavior.nestedScrollConnection)
+                .blurSource(),
             contentPadding = PaddingValues(
                 top = innerPadding.calculateTopPadding() + 5.dp,
                 bottom = innerPadding.calculateBottomPadding() + 24.dp,

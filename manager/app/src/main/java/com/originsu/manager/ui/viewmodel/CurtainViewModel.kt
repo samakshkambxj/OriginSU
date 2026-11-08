@@ -46,6 +46,7 @@ data class CurtainUiState(
     val installedApps: List<CurtainInstalledApp> = emptyList(),
     val templates: List<CurtainTemplate> = emptyList(),
     val search: String = "",
+    val showSystemApps: Boolean = false,
     val filterCount: Int? = null,
     val workMode: Int? = null,
     val upstreamInstalled: Boolean = false,
@@ -59,10 +60,11 @@ data class CurtainUiState(
     val visibleApps: List<CurtainAppRow>
         get() {
             val query = search.trim()
-            if (query.isEmpty()) return apps
-            return apps.filter {
-                it.label.contains(query, ignoreCase = true) ||
-                    it.packageName.contains(query, ignoreCase = true)
+            return apps.filter { app ->
+                (showSystemApps || !app.isSystem) &&
+                    (query.isEmpty() ||
+                        app.label.contains(query, ignoreCase = true) ||
+                        app.packageName.contains(query, ignoreCase = true))
             }
         }
 
@@ -127,6 +129,10 @@ class CurtainViewModel(
 
     fun search(query: String) {
         mutableState.update { it.copy(search = query) }
+    }
+
+    fun setShowSystemApps(show: Boolean) {
+        mutableState.update { it.copy(showSystemApps = show) }
     }
 
     fun setGlobal(transform: (CurtainGlobalConfig) -> CurtainGlobalConfig) {

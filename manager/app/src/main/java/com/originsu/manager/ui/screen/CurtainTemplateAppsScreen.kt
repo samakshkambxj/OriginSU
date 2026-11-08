@@ -13,6 +13,7 @@ import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberTopAppBarState
@@ -21,6 +22,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -38,6 +40,7 @@ import com.originsu.manager.ui.component.settings.SettingsBaseWidget
 import com.originsu.manager.ui.component.settings.SettingsChooseWidget
 import com.originsu.manager.ui.component.settings.lazySegmentColumn
 import com.originsu.manager.ui.navigation.LocalNavigator
+import com.originsu.manager.ui.theme.blurSource
 import com.originsu.manager.ui.util.LocalSnackbarHost
 import com.originsu.manager.ui.util.adaptiveScaffoldWindowInsets
 import com.originsu.manager.ui.util.showReplacingSnackbar
@@ -139,10 +142,14 @@ fun CurtainTemplateAppsScreen(templateName: String) {
             )
         },
         contentWindowInsets = adaptiveScaffoldWindowInsets(),
+        containerColor = Color.Transparent,
+        contentColor = MaterialTheme.colorScheme.onSurface,
     ) { innerPadding ->
         LazyColumn(
             state = rememberLazyListState(),
-            modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
+            modifier = Modifier
+                .nestedScroll(scrollBehavior.nestedScrollConnection)
+                .blurSource(),
             contentPadding = PaddingValues(
                 top = innerPadding.calculateTopPadding() + 5.dp,
                 bottom = innerPadding.calculateBottomPadding() + 24.dp,

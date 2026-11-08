@@ -1,6 +1,9 @@
 package com.originsu.manager.ui.screen
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -8,15 +11,20 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.twotone.Article
+import androidx.compose.material.icons.twotone.Android
 import androidx.compose.material.icons.twotone.BugReport
+import androidx.compose.material.icons.twotone.Folder
 import androidx.compose.material.icons.twotone.Groups
 import androidx.compose.material.icons.twotone.Info
 import androidx.compose.material.icons.twotone.OpenInNew
 import androidx.compose.material.icons.twotone.RestartAlt
+import androidx.compose.material.icons.twotone.Storage
 import androidx.compose.material.icons.twotone.Visibility
 import androidx.compose.material.icons.twotone.Warning
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
@@ -29,6 +37,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -51,6 +60,7 @@ import com.originsu.manager.ui.component.settings.SettingsSwitchWidget
 import com.originsu.manager.ui.component.settings.lazySegmentColumn
 import com.originsu.manager.ui.navigation.LocalNavigator
 import com.originsu.manager.ui.navigation.Route
+import com.originsu.manager.ui.theme.blurSource
 import com.originsu.manager.ui.util.ActivityResumeEffect
 import com.originsu.manager.ui.util.LocalSnackbarHost
 import com.originsu.manager.ui.util.adaptiveScaffoldWindowInsets
@@ -68,7 +78,7 @@ import org.koin.compose.viewmodel.koinViewModel
  * It edits the upstream HMA-OSS module's config directly, so users get a
  * native, Origin-styled UI instead of the separate HMA-OSS config app.
  */
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun CurtainScreen(viewModel: CurtainViewModel = koinViewModel()) {
     val navigator = LocalNavigator.current
@@ -150,10 +160,14 @@ fun CurtainScreen(viewModel: CurtainViewModel = koinViewModel()) {
             )
         },
         contentWindowInsets = adaptiveScaffoldWindowInsets(),
+        containerColor = Color.Transparent,
+        contentColor = MaterialTheme.colorScheme.onSurface,
     ) { innerPadding ->
         LazyColumn(
             state = rememberLazyListState(),
-            modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
+            modifier = Modifier
+                .nestedScroll(scrollBehavior.nestedScrollConnection)
+                .blurSource(),
             contentPadding = PaddingValues(
                 top = innerPadding.calculateTopPadding() + 5.dp,
                 start = 0.dp,
@@ -297,6 +311,7 @@ fun CurtainScreen(viewModel: CurtainViewModel = koinViewModel()) {
                     SegmentedColumn(title = stringResource(R.string.origin_curtain_global)) {
                         item {
                             SettingsSwitchWidget(
+                                icon = Icons.TwoTone.Storage,
                                 title = stringResource(R.string.origin_curtain_force_mount),
                                 description = stringResource(R.string.origin_curtain_force_mount_summary),
                                 enabled = !uiState.busy,
@@ -308,6 +323,7 @@ fun CurtainScreen(viewModel: CurtainViewModel = koinViewModel()) {
                         }
                         item {
                             SettingsSwitchWidget(
+                                icon = Icons.TwoTone.OpenInNew,
                                 title = stringResource(R.string.origin_curtain_disable_activity_launch),
                                 description = stringResource(
                                     R.string.origin_curtain_disable_activity_launch_summary,
@@ -323,6 +339,7 @@ fun CurtainScreen(viewModel: CurtainViewModel = koinViewModel()) {
                         }
                         item {
                             SettingsSwitchWidget(
+                                icon = Icons.TwoTone.Folder,
                                 title = stringResource(R.string.origin_curtain_alt_app_data),
                                 description = stringResource(R.string.origin_curtain_alt_app_data_summary),
                                 enabled = !uiState.busy,
@@ -334,6 +351,7 @@ fun CurtainScreen(viewModel: CurtainViewModel = koinViewModel()) {
                         }
                         item {
                             SettingsSwitchWidget(
+                                icon = Icons.TwoTone.Storage,
                                 title = stringResource(R.string.origin_curtain_alt_vold_data),
                                 description = stringResource(R.string.origin_curtain_alt_vold_data_summary),
                                 enabled = !uiState.busy,
@@ -345,6 +363,7 @@ fun CurtainScreen(viewModel: CurtainViewModel = koinViewModel()) {
                         }
                         item {
                             SettingsSwitchWidget(
+                                icon = Icons.TwoTone.Android,
                                 title = stringResource(R.string.origin_curtain_skip_system_data),
                                 description = stringResource(
                                     R.string.origin_curtain_skip_system_data_summary,
@@ -360,6 +379,7 @@ fun CurtainScreen(viewModel: CurtainViewModel = koinViewModel()) {
                         }
                         item {
                             SettingsSwitchWidget(
+                                icon = Icons.AutoMirrored.TwoTone.Article,
                                 title = stringResource(R.string.origin_curtain_detail_log),
                                 description = stringResource(R.string.origin_curtain_detail_log_summary),
                                 enabled = !uiState.busy,
@@ -371,6 +391,7 @@ fun CurtainScreen(viewModel: CurtainViewModel = koinViewModel()) {
                         }
                         item {
                             SettingsSwitchWidget(
+                                icon = Icons.TwoTone.BugReport,
                                 title = stringResource(R.string.origin_curtain_error_only_log),
                                 description = stringResource(
                                     R.string.origin_curtain_error_only_log_summary,
@@ -386,12 +407,34 @@ fun CurtainScreen(viewModel: CurtainViewModel = koinViewModel()) {
                 }
             }
 
+            item(key = "app-filter") {
+                SegmentedColumn(title = appsSummary) {
+                    item {
+                        FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            FilterChip(
+                                selected = !uiState.showSystemApps,
+                                onClick = { viewModel.setShowSystemApps(false) },
+                                label = { Text(stringResource(R.string.origin_curtain_filter_user)) },
+                            )
+                            FilterChip(
+                                selected = uiState.showSystemApps,
+                                onClick = { viewModel.setShowSystemApps(true) },
+                                label = { Text(stringResource(R.string.origin_curtain_filter_all)) },
+                            )
+                        }
+                    }
+                }
+            }
+
             if (uiState.visibleApps.isEmpty()) {
                 item(key = "no-apps") { SearchNoMatch() }
             } else {
                 lazySegmentColumn(
                     items = uiState.visibleApps,
-                    title = appsSummary,
+                    title = null,
                     key = { _, app -> app.packageName },
                 ) { _, app ->
                     SettingsBaseWidget(

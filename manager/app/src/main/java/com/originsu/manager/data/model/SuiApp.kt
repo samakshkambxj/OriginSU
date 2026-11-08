@@ -11,6 +11,8 @@ data class SuiApp(
     val applicationInfo: ApplicationInfo? = null,
     /** True when the app asks for Shizuku in its manifest, whether or not Sui has a rule for it. */
     val requestsShizuku: Boolean = false,
+    /** True for preinstalled/updated system apps. */
+    val isSystem: Boolean = false,
 ) {
     val suiMode: SuiMode get() = SuiMode.of(mode)
 

@@ -834,6 +834,7 @@
     <string name="sui_detail_daemon_ok">healthy</string>
     <string name="sui_detail_daemon_bad">not running</string>
     <string name="sui_filter_all">All</string>
+    <string name="sui_filter_system">System apps</string>
     <string name="sui_filter_shizuku">Shizuku apps</string>
     <string name="sui_filter_configured">Configured</string>
     <string name="sui_apps_count">%1$d app(s)</string>
@@ -1487,6 +1488,8 @@
 
     <string name="origin_curtain_search">Search</string>
     <string name="origin_curtain_search_apps">Search apps</string>
+    <string name="origin_curtain_filter_user">User apps</string>
+    <string name="origin_curtain_filter_all">All apps</string>
     <string name="origin_curtain_no_apps">No apps match</string>
     <string name="origin_curtain_picker_apply">Apply</string>
 
