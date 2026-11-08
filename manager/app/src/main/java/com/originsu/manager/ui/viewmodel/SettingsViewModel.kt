@@ -265,6 +265,7 @@ sealed interface SettingsUiEvent {
     data class Message(val stringResource: Int, val formatArg: Int? = null) : SettingsUiEvent
     data object RestartActivity : SettingsUiEvent
     data object OpenOverlayPermission : SettingsUiEvent
+    data object RequestNotificationPermission : SettingsUiEvent
 }
 
 class SettingsViewModel(
@@ -843,6 +844,23 @@ class SettingsViewModel(
         if (checked && !grantToastRepository.hasOverlayPermission()) {
             mutableEvents.tryEmit(SettingsUiEvent.OpenOverlayPermission)
         }
+        if (checked && !grantToastRepository.hasNotificationPermission()) {
+            mutableEvents.tryEmit(SettingsUiEvent.RequestNotificationPermission)
+        }
+    }
+
+    /**
+     * Asks for notification access when a notification-backed feature was
+     * enabled before the permission was granted (e.g. after an app update).
+     * The prompt is shown once per install; toggling the feature re-arms it.
+     */
+    fun requestNotificationPermissionIfNeeded() {
+        val state = mutableState.value
+        if (!state.isGrantToastEnabled && !state.isSuPromptEnabled) return
+        if (grantToastRepository.hasNotificationPermission()) return
+        if (getBooleanPreference(PREF_NOTIFICATION_PERMISSION_ASKED, false)) return
+        setBooleanPreference(PREF_NOTIFICATION_PERMISSION_ASKED, true)
+        mutableEvents.tryEmit(SettingsUiEvent.RequestNotificationPermission)
     }
 
     fun handleSuPromptChange(checked: Boolean) {
@@ -857,6 +875,9 @@ class SettingsViewModel(
                 isSuPromptEnabled = checked,
                 isSuPromptSupported = suRequestRepository.isSupported(),
             )
+        }
+        if (checked && !grantToastRepository.hasNotificationPermission()) {
+            mutableEvents.tryEmit(SettingsUiEvent.RequestNotificationPermission)
         }
     }
 
@@ -1149,6 +1170,7 @@ fun dispatch(action: SettingsUiAction) {
 
     private companion object {
         const val PANIC_DURATION_MILLIS = 15 * 60 * 1000L
+        const val PREF_NOTIFICATION_PERMISSION_ASKED = "notification_permission_asked"
         val THEME_OPTIONS = listOf(
             R.string.theme_follow_system,
             R.string.theme_light,

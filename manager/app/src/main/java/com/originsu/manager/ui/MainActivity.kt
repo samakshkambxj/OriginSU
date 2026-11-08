@@ -2,6 +2,8 @@ package com.originsu.manager.ui
 
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.Manifest
 import android.provider.Settings
 import android.net.Uri
 import android.os.Build
@@ -128,6 +130,9 @@ class MainActivity : FragmentActivity() {
                         SettingsUiEvent.OpenOverlayPermission -> startActivity(
                             Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION)
                         )
+
+                        SettingsUiEvent.RequestNotificationPermission ->
+                            requestNotificationPermission()
                     }
                 }
             }
@@ -283,7 +288,21 @@ class MainActivity : FragmentActivity() {
         if (!isInitialized) return
 
         settingsViewModel.dispatch(SettingsUiAction.Initialize)
+        settingsViewModel.requestNotificationPermissionIfNeeded()
         moduleViewModel.dispatch(ModuleUiAction.ReloadSettings)
+    }
+
+    private fun requestNotificationPermission() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
+        if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) ==
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            return
+        }
+        requestPermissions(
+            arrayOf(Manifest.permission.POST_NOTIFICATIONS),
+            REQUEST_NOTIFICATION_PERMISSION,
+        )
     }
 
     override fun onPause() {
@@ -302,6 +321,10 @@ class MainActivity : FragmentActivity() {
         } catch (e: Exception) {
             e.printStackTrace()
         }
+    }
+
+    private companion object {
+        const val REQUEST_NOTIFICATION_PERMISSION = 1001
     }
 }
 

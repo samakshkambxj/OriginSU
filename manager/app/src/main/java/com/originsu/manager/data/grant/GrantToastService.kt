@@ -142,6 +142,10 @@ class GrantToastService : Service() {
             stopSelf()
             return
         }
+        // The kernel clears the sulog feature on every boot. Re-arm it here so
+        // the monitor keeps receiving grants after a reboot, not only until the
+        // first restart.
+        runCatching { Natives.setSuLogEnabled(true) }
         if (monitorJob?.isActive == true) return
         monitorJob = serviceScope.launch {
             // Prefer the live kernel event stream (real-time, no root needed,
