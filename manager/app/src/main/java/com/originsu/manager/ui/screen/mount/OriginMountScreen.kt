@@ -1,15 +1,25 @@
 package com.originsu.manager.ui.screen.mount
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.twotone.Dashboard
 import androidx.compose.material.icons.twotone.Delete
@@ -45,10 +55,15 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.originsu.manager.R
@@ -65,6 +80,8 @@ import com.originsu.manager.ui.component.rememberLoadingDialog
 import com.originsu.manager.ui.component.popupBlur
 import com.originsu.manager.ui.component.popupContainerColor
 import com.originsu.manager.ui.component.settings.AppBackButton
+import com.originsu.manager.ui.component.settings.BentoCard
+import com.originsu.manager.ui.component.settings.BentoStatusChip
 import com.originsu.manager.ui.component.settings.SegmentedColumn
 import com.originsu.manager.ui.component.settings.SettingsBaseWidget
 import com.originsu.manager.ui.component.settings.SettingsChooseWidget
@@ -184,6 +201,24 @@ fun OriginMountScreen() {
         uiState.uidState.stored.size,
     )
     val runtimeFailed = runtime?.result == "failed"
+    val modeLabel = modeLabels[modeOptions.indexOf(mode).coerceAtLeast(0)]
+    val backendLabel = when (status?.backend) {
+        "overlay" -> stringResource(R.string.magic_mount_backend_overlay)
+        "bind" -> stringResource(R.string.magic_mount_backend_bind)
+        else -> stringResource(R.string.magic_mount_backend_auto)
+    }
+    val runtimeResultLabel = when (runtime?.result) {
+        "disabled" -> stringResource(R.string.origin_mount_runtime_disabled)
+        "delegated" -> stringResource(R.string.origin_mount_runtime_delegated)
+        "mounted" -> stringResource(R.string.origin_mount_runtime_mounted)
+        "noop" -> stringResource(R.string.origin_mount_runtime_noop)
+        "failed" -> stringResource(R.string.origin_mount_runtime_failed)
+        else -> null
+    }
+    val runtimeChipActive = runtime?.result == "mounted" ||
+        runtime?.result == "noop" ||
+        runtime?.result == "delegated"
+    val runtimeChipWarning = runtime?.result == "failed"
     val nomountUnavailable = nomount != null && !nomount.isReady && !nomount.isDeferred
     val showNomount = nomount != null &&
         (mode == OriginMountMode.Nomount || nomount.isReady || nomount.isDeferred ||
@@ -303,6 +338,24 @@ fun OriginMountScreen() {
                     .nestedScroll(scrollBehavior.nestedScrollConnection),
                 contentPadding = PaddingValues(top = 8.dp, bottom = 24.dp),
             ) {
+                item(key = "origin-mount-hero") {
+                    OriginMountHeroCard(
+                        eyebrow = stringResource(R.string.origin_mount_hero_eyebrow),
+                        provider = resolvedProviderLabel,
+                        modeSummary = modeSummary,
+                        modeLabel = modeLabel,
+                        showBackend = showMagicMountSection,
+                        backendLabel = backendLabel,
+                        backendActive = status?.magicMountEnabled == true,
+                        runtimeLabel = runtimeResultLabel ?: knownValue,
+                        runtimeDetail = runtimeText,
+                        runtimeActive = runtimeChipActive,
+                        runtimeWarning = runtimeChipWarning,
+                        lastBootLabel = stringResource(R.string.origin_mount_runtime),
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                    )
+                }
+
                 item {
                     SegmentedColumn(title = stringResource(R.string.origin_mount_provider_section)) {
                         item {
@@ -518,6 +571,124 @@ fun OriginMountScreen() {
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun OriginMountHeroCard(
+    eyebrow: String,
+    provider: String,
+    modeSummary: String,
+    modeLabel: String,
+    showBackend: Boolean,
+    backendLabel: String,
+    backendActive: Boolean,
+    runtimeLabel: String,
+    runtimeDetail: String,
+    runtimeActive: Boolean,
+    runtimeWarning: Boolean,
+    lastBootLabel: String,
+    modifier: Modifier = Modifier,
+) {
+    BentoCard(
+        modifier = modifier,
+        contentPadding = PaddingValues(0.dp),
+    ) {
+        Box(modifier = Modifier.fillMaxWidth()) {
+            Box(
+                modifier = Modifier
+                    .matchParentSize()
+                    .background(
+                        Brush.linearGradient(
+                            colors = listOf(
+                                MaterialTheme.colorScheme.primary.copy(alpha = 0.16f),
+                                Color.Transparent,
+                            ),
+                        ),
+                    ),
+            )
+            Icon(
+                painter = painterResource(R.drawable.topbar_leaf),
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.10f),
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .offset(x = 28.dp, y = 34.dp)
+                    .size(150.dp),
+            )
+            Column(modifier = Modifier.padding(20.dp)) {
+                Row(verticalAlignment = Alignment.Top) {
+                    Box(
+                        modifier = Modifier
+                            .size(56.dp)
+                            .clip(RoundedCornerShape(18.dp))
+                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.16f)),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            imageVector = Icons.TwoTone.Extension,
+                            contentDescription = null,
+                            modifier = Modifier.size(28.dp),
+                            tint = MaterialTheme.colorScheme.primary,
+                        )
+                    }
+                    Spacer(Modifier.width(14.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = eyebrow,
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Spacer(Modifier.height(2.dp))
+                        Text(
+                            text = provider,
+                            style = MaterialTheme.typography.headlineMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        Spacer(Modifier.height(6.dp))
+                        Text(
+                            text = modeSummary,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 3,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                }
+                Spacer(Modifier.height(18.dp))
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    BentoStatusChip(text = modeLabel, active = true)
+                    if (showBackend) {
+                        BentoStatusChip(text = backendLabel, active = backendActive)
+                    }
+                    BentoStatusChip(
+                        text = runtimeLabel,
+                        active = runtimeActive,
+                        isWarning = runtimeWarning,
+                    )
+                }
+                Spacer(Modifier.height(16.dp))
+                Text(
+                    text = lastBootLabel,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    text = runtimeDetail,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
             }
         }
     }

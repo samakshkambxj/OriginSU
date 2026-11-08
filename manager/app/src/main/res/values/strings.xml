@@ -509,6 +509,7 @@
     <string name="settings_magic_mount_backend">Mount backend</string>
     <string name="settings_magic_mount_backend_summary">Automatic prefers overlayfs and falls back to bind mounts</string>
     <string name="origin_mount_title">OriginMount</string>
+    <string name="origin_mount_hero_eyebrow">Origin Mount</string>
     <string name="origin_mount_provider_section">Provider</string>
     <string name="origin_mount_magic_mount_section">Magic Mount</string>
     <string name="origin_mount_magic_mount_changed">Magic Mount updated; takes effect on next boot</string>
