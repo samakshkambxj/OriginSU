@@ -523,6 +523,18 @@ private fun AppearanceSettings(
             )
         }
 
+        item {
+            SettingsSwitchWidget(
+                icon = Icons.TwoTone.Contrast,
+                title = stringResource(id = R.string.settings_custom_enable_amoled),
+                description = stringResource(id = R.string.settings_custom_enable_amoled_summary),
+                checked = themeConfig.isAmoledMode,
+                onCheckedChange = { isChecked ->
+                    backgroundManager.saveEnableAmoledMode(isChecked)
+                }
+            )
+        }
+
         expandableItem(
             expanded = !state.useDynamicColor,
             topContent = {

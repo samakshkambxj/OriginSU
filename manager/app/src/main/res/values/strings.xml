@@ -602,6 +602,8 @@
     <string name="settings_config_use_custom_background_seed_color_summary">Extract dynamic color seed color from custom background</string>
     <string name="settings_custom_enable_high_contrast">High Contrast Mode</string>
     <string name="settings_custom_enable_high_contrast_summary">Render shadow around text</string>
+    <string name="settings_custom_enable_amoled">AMOLED Dark Mode</string>
+    <string name="settings_custom_enable_amoled_summary">Use true black backgrounds in dark mode</string>
     <string name="settings_card_alpha">Card transparency</string>
     <string name="home_android_version">Android version</string>
     <string name="home_device_model">Device model</string>

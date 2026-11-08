@@ -141,6 +141,7 @@ class ThemeConfig(
     var isThemeChanging by mutableStateOf(false)
     var preventBackgroundRefresh by mutableStateOf(false)
     var isHighContrastMode by mutableStateOf(false)
+    var isAmoledMode by mutableStateOf(false)
     private val _isEnableBlur = mutableStateOf(false)
     var isEnableBlur: Boolean
         get() = _isEnableBlur.value && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
@@ -180,6 +181,7 @@ class ThemeConfig(
         monetCompatSeedColor = defaultSeedColor()
         dynamicColorSpec = ColorSpec.SpecVersion.SPEC_2021
         dynamicPaletteStyle = PaletteStyle.TonalSpot
+        isAmoledMode = false
         backgroundImageLoaded = false
         isThemeChanging = false
         preventBackgroundRefresh = false
@@ -254,6 +256,11 @@ class BackgroundManager(
         settings.putBoolean("high_contrast_mode", enable)
     }
 
+    fun saveEnableAmoledMode(enable: Boolean) {
+        config.isAmoledMode = enable
+        settings.putBoolean("amoled_mode", enable)
+    }
+
     suspend fun saveAndApplyCustomBackground(
         context: Context,
         uri: Uri
@@ -307,6 +314,7 @@ class BackgroundManager(
         config.isEnableBlurExp = prefs.getBoolean("enable_blur_exp", false)
         config.isUseBackgroundSeedColor = prefs.getBoolean("use_background_seed_color", false)
         config.isHighContrastMode = prefs.getBoolean("high_contrast_mode", false)
+        config.isAmoledMode = prefs.getBoolean("amoled_mode", false)
     }
 
     private fun saveBackgroundUri(uri: Uri?) {
@@ -2097,11 +2105,26 @@ private fun createColorScheme(
             }
         }
 
-    return dynamicColorScheme(
+    val scheme = dynamicColorScheme(
         seedColor = Color(seedColor),
         isDark = darkTheme,
         style = themeConfig.dynamicPaletteStyle,
         specVersion = themeConfig.dynamicColorSpec,
+    )
+
+    // AMOLED mode replaces the dark surfaces with true black so that OLED
+    // panels can switch those pixels off, while cards stay slightly raised.
+    if (!darkTheme || !themeConfig.isAmoledMode) return scheme
+    return scheme.copy(
+        background = Color.Black,
+        surface = Color.Black,
+        surfaceDim = Color.Black,
+        surfaceContainerLowest = Color.Black,
+        surfaceContainerLow = Color.Black,
+        surfaceContainer = Color.Black,
+        surfaceContainerHigh = Color(0xFF0B0B0B),
+        surfaceContainerHighest = Color(0xFF141414),
+        surfaceBright = Color(0xFF0B0B0B),
     )
 }
 
