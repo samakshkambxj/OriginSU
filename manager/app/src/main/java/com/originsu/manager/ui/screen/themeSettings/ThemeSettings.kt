@@ -800,6 +800,16 @@ private fun CustomizationSettings(
                 }
             )
         }
+
+        item(visible = moduleUiState.showBanners) {
+            // 模块横幅透明度
+            ModuleBannerAlphaSlider(
+                alpha = moduleUiState.bannerAlpha,
+                onAlphaChange = { alpha ->
+                    moduleViewModel.dispatch(ModuleUiAction.SetBannerAlpha(alpha))
+                },
+            )
+        }
         
         item {
             // 使用内置Mono字体开关
@@ -1177,6 +1187,42 @@ private fun AlphaSlider(
             )
             Text(
                 text = "${(state.cardAlpha * 100).roundToInt()}%",
+                style = MaterialTheme.typography.labelMediumEmphasized
+            )
+        }
+    }
+}
+
+@Composable
+private fun ModuleBannerAlphaSlider(
+    alpha: Float,
+    onAlphaChange: (Float) -> Unit,
+) {
+    SettingsBaseWidget(
+        icon = Icons.TwoTone.Image,
+        title = stringResource(R.string.settings_module_banner_alpha),
+        descriptionColumnContent = {
+            val animatedAlpha by animateFloatAsState(
+                targetValue = alpha,
+                label = "Module Banner Alpha Slider Animation"
+            )
+
+            KeyPointSlider(
+                value = animatedAlpha,
+                onValueChange = onAlphaChange,
+                valueRange = 0f..1f,
+                keyPoints = listOf(0.25f, 0.5f, 0.75f),
+            )
+        }
+    ) {
+        Box(contentAlignment = Alignment.CenterEnd) {
+            Text(
+                text = "100%",
+                style = MaterialTheme.typography.labelMediumEmphasized,
+                modifier = Modifier.alpha(0f)
+            )
+            Text(
+                text = "${(alpha * 100).roundToInt()}%",
                 style = MaterialTheme.typography.labelMediumEmphasized
             )
         }

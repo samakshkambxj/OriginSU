@@ -43,6 +43,7 @@ data class ModuleUiState(
     val isNeedRefresh: Boolean = false,
     val showMoreModuleInfo: Boolean = false,
     val showBanners: Boolean = true,
+    val bannerAlpha: Float = 0.18f,
     val selectedModuleIds: Set<String> = emptySet(),
 )
 
@@ -54,6 +55,7 @@ sealed interface ModuleUiAction {
     data class Sort(val enabledFirst: Boolean, val actionFirst: Boolean) : ModuleUiAction
     data class SetShowMoreInfo(val enabled: Boolean) : ModuleUiAction
     data class SetShowBanners(val enabled: Boolean) : ModuleUiAction
+    data class SetBannerAlpha(val alpha: Float) : ModuleUiAction
     data class ToggleSelect(val moduleId: String) : ModuleUiAction
     data object ClearSelection : ModuleUiAction
     data class BatchSetEnabled(val enabled: Boolean) : ModuleUiAction
@@ -137,6 +139,7 @@ class ModuleViewModel(
             isNeedRefresh = local.isNeedRefresh,
             showMoreModuleInfo = preferences.showMoreModuleInfo,
             showBanners = preferences.showBanners,
+            bannerAlpha = preferences.bannerAlpha,
             selectedModuleIds = local.selectedModuleIds,
         )
     }.stateIn(viewModelScope, SharingStarted.Eagerly, ModuleUiState())
@@ -160,6 +163,10 @@ class ModuleViewModel(
 
             is ModuleUiAction.SetShowBanners -> {
                 modulePreferences.setShowBanners(action.enabled)
+            }
+
+            is ModuleUiAction.SetBannerAlpha -> {
+                modulePreferences.setBannerAlpha(action.alpha)
             }
 
             is ModuleUiAction.ToggleSelect -> controls.update { current ->

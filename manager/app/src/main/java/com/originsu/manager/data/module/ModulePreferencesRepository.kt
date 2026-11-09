@@ -35,11 +35,18 @@ class ModulePreferencesRepository(
         settings.putBoolean(PREF_SHOW_BANNERS, enabled)
     }
 
+    fun setBannerAlpha(alpha: Float) {
+        val clamped = alpha.coerceIn(0f, 1f)
+        mutablePreferences.update { it.copy(bannerAlpha = clamped) }
+        settings.putFloat(PREF_BANNER_ALPHA, clamped)
+    }
+
     private fun readPreferences() = ModulePreferences(
         sortEnabledFirst = settings.getBoolean(PREF_SORT_ENABLED, false),
         sortActionFirst = settings.getBoolean(PREF_SORT_ACTION, false),
         showMoreModuleInfo = settings.getBoolean(PREF_SHOW_MORE_INFO, false),
         showBanners = settings.getBoolean(PREF_SHOW_BANNERS, true),
+        bannerAlpha = settings.getFloat(PREF_BANNER_ALPHA, 0.18f).coerceIn(0f, 1f),
     )
 
     private companion object {
@@ -47,5 +54,6 @@ class ModulePreferencesRepository(
         const val PREF_SORT_ACTION = "module_sort_action_first"
         const val PREF_SHOW_MORE_INFO = "show_more_module_info"
         const val PREF_SHOW_BANNERS = "show_module_banners"
+        const val PREF_BANNER_ALPHA = "module_banner_alpha"
     }
 }

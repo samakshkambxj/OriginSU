@@ -39,6 +39,7 @@ data class ModulePreferences(
     val sortActionFirst: Boolean = false,
     val showMoreModuleInfo: Boolean = false,
     val showBanners: Boolean = true,
+    val bannerAlpha: Float = 0.18f,
 )
 
 enum class MetaModuleStatus {

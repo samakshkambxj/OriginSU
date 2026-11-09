@@ -1727,6 +1727,7 @@ private fun ModuleList(
                     },
                     showMoreModuleInfo = uiState.showMoreModuleInfo,
                     showBanners = uiState.showBanners,
+                    bannerAlpha = uiState.bannerAlpha,
                     selected = module.dirId in uiState.selectedModuleIds,
                     selectionMode = uiState.selectedModuleIds.isNotEmpty(),
                     onToggleSelect = {
@@ -1953,6 +1954,7 @@ private fun ModuleBannerBackdrop(
     modifier: Modifier = Modifier,
     moduleId: String,
     banner: String,
+    alpha: Float,
 ) {
     val context = LocalContext.current
     val fadeColor = MaterialTheme.colorScheme.surface
@@ -1968,7 +1970,7 @@ private fun ModuleBannerBackdrop(
                     .fillMaxWidth()
                     .fillMaxHeight(),
                 contentScale = ContentScale.Crop,
-                alpha = 0.18f
+                alpha = alpha
             )
         } else {
             val bannerData = remember(moduleId, banner) {
@@ -1992,7 +1994,7 @@ private fun ModuleBannerBackdrop(
                         .fillMaxWidth()
                         .fillMaxHeight(),
                     contentScale = ContentScale.Crop,
-                    alpha = 0.18f
+                    alpha = alpha
                 )
             }
         }
@@ -2031,6 +2033,7 @@ fun ModuleItem(
     selected: Boolean,
     selectionMode: Boolean,
     onToggleSelect: () -> Unit,
+    bannerAlpha: Float = 0.18f,
 ) {
     val themeConfig: ThemeConfig = koinInject()
     val cardConfig: CardConfig = koinInject()
@@ -2072,6 +2075,7 @@ fun ModuleItem(
                     modifier = Modifier.matchParentSize(),
                     moduleId = module.dirId,
                     banner = module.banner,
+                    alpha = bannerAlpha,
                 )
             }
         Row(
