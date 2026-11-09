@@ -1781,7 +1781,8 @@ long ksu_supercall_handle_ioctl(const struct file *filp, unsigned int cmd, void 
             // Check permission first
             if (ksu_ioctl_handlers[i].perm_check && !ksu_ioctl_handlers[i].perm_check() &&
                 !(ksu_ioctl_handlers[i].allow_su_session && ksu_is_su_session_fd(filp))) {
-                pr_warn_ratelimited("ksu ioctl: permission denied for cmd=0x%x uid=%d\n", cmd, ksu_get_uid_t(current_uid()));
+                pr_warn_ratelimited("ksu ioctl: permission denied for cmd=0x%x uid=%d\n", cmd,
+                                    ksu_get_uid_t(current_uid()));
                 return -EPERM;
             }
             // Execute handler
