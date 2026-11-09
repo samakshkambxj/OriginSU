@@ -551,6 +551,21 @@ private fun MonetCompatInitializer(context: Context, themeConfig: ThemeConfig) {
     }
 }
 
+/**
+ * Window background behind all content.
+ *
+ * AMOLED mode keeps the window true black so OLED pixels switch off, while
+ * cards and list rows use the raised surface-container tones. Regular themes
+ * keep the previous surface-container background.
+ */
+@Composable
+fun appBackgroundColor(themeConfig: ThemeConfig): Color =
+    if (themeConfig.isAmoledMode && isInDarkTheme(themeConfig.forceDarkMode)) {
+        MaterialTheme.colorScheme.background
+    } else {
+        MaterialTheme.colorScheme.surfaceContainer
+    }
+
 @Composable
 private fun BackgroundLayer(
     themeConfig: ThemeConfig,
@@ -611,7 +626,7 @@ private fun BackgroundLayer(
                 }
             }
             .background(
-                MaterialTheme.colorScheme.surfaceContainer
+                appBackgroundColor(themeConfig)
             )
     )
 
@@ -743,7 +758,7 @@ private fun Modifier.renderBackgroundFallback(
         mutableStateOf<LayoutCoordinates?>(null)
     }
 
-    val backgroundColor = MaterialTheme.colorScheme.surfaceContainer
+    val backgroundColor = appBackgroundColor(themeConfig)
     val dimColor = backgroundColor.copy(alpha = themeConfig.backgroundDim)
     val backgroundBitmap = renderState.imageBitmap
     val backgroundAnchor = LocalBackgroundBlurAnchor.current

@@ -104,6 +104,7 @@ import com.originsu.manager.ui.screen.themeSettings.ThemeSettingsScreen
 import com.originsu.manager.ui.theme.BackgroundRenderState
 import com.originsu.manager.ui.theme.LocalBackgroundRenderState
 import com.originsu.manager.ui.theme.ThemeConfig
+import com.originsu.manager.ui.theme.appBackgroundColor
 import com.originsu.manager.ui.util.LocalBackgroundBlurAnchor
 import com.originsu.manager.ui.util.LocalBlurState
 import com.originsu.manager.ui.util.LocalHapticsEnabled
@@ -377,7 +378,7 @@ fun NavContainer(
             settings.predictiveBackAnimation == PredictiveBackAnimation.AOSP ||
                 settings.predictiveBackAnimation == PredictiveBackAnimation.Scale ||
                 settings.predictiveBackAnimation == PredictiveBackAnimation.KernelSUClassic
-        val backdropColor = MaterialTheme.colorScheme.surfaceContainer
+        val backdropColor = appBackgroundColor(themeConfig)
         val effects = remember(navCornerRadius, roundAllCorners, backdropColor) {
             NavDisplayEffects(
                 enableCornerClip = true,
@@ -888,13 +889,13 @@ private fun ManagerNavEntry(
             .fillMaxSize()
             .then(
                 if (!themeConfig.backgroundImageLoaded) Modifier.background(
-                    MaterialTheme.colorScheme.surfaceContainer
+                    appBackgroundColor(themeConfig)
                 ) else Modifier
             )
     ) {
         val isPortrait = maxWidth < maxHeight || (maxHeight / maxWidth > 1.4f)
         val surfaceContainer =
-            MaterialTheme.colorScheme.surfaceContainer
+            appBackgroundColor(themeConfig)
 
         CompositionLocalProvider(
             LocalPortraitState provides isPortrait,
@@ -988,7 +989,7 @@ fun rememberMaterial3BlurBackdrop(
     if (!enableBlur || !isRenderEffectSupported()) return null
 
     val backgroundColor =
-        MaterialTheme.colorScheme.surfaceContainer
+        appBackgroundColor(themeConfig)
     val layoutDirection = LocalLayoutDirection.current
     val backgroundAnchor = LocalBackgroundBlurAnchor.current
 
