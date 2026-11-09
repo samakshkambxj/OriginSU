@@ -1,5 +1,6 @@
 package com.originsu.manager.ui.screen.mount
 
+import android.content.Intent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -60,11 +61,13 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.core.net.toUri
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.originsu.manager.R
 import com.originsu.manager.domain.model.InstalledPackageInfo
@@ -98,6 +101,7 @@ import com.originsu.manager.ui.util.showReplacingSnackbar
 import com.originsu.manager.ui.viewmodel.OriginMountUiAction
 import com.originsu.manager.ui.viewmodel.OriginMountUiEvent
 import com.originsu.manager.ui.viewmodel.OriginMountViewModel
+import com.originsu.manager.ui.webui.WebUIActivity
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
@@ -110,6 +114,7 @@ fun OriginMountScreen() {
     val cardConfig: CardConfig = koinInject()
     val viewModel = koinViewModel<OriginMountViewModel>()
     val uiState by viewModel.state.collectAsStateWithLifecycle()
+    val context = LocalContext.current
     val navigator = LocalNavigator.current
     val snackBarHost = LocalSnackbarHost.current
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
@@ -141,6 +146,7 @@ fun OriginMountScreen() {
         stringResource(R.string.origin_mount_mode_auto),
         stringResource(R.string.origin_mount_mode_builtin),
         stringResource(R.string.origin_mount_mode_metamodule),
+        stringResource(R.string.origin_mount_mode_zeromount),
         stringResource(R.string.origin_mount_mode_nomount),
         stringResource(R.string.origin_mount_mode_off),
     )
@@ -148,11 +154,13 @@ fun OriginMountScreen() {
         OriginMountMode.Auto -> stringResource(R.string.origin_mount_mode_summary_auto)
         OriginMountMode.Builtin -> stringResource(R.string.origin_mount_mode_summary_builtin)
         OriginMountMode.Metamodule -> stringResource(R.string.origin_mount_mode_summary_metamodule)
+        OriginMountMode.Zeromount -> stringResource(R.string.origin_mount_mode_summary_zeromount)
         OriginMountMode.Nomount -> stringResource(R.string.origin_mount_mode_summary_nomount)
         OriginMountMode.Off -> stringResource(R.string.origin_mount_mode_summary_off)
     }
     val resolvedProviderLabel = providerLabel(status?.provider.orEmpty(), knownValue)
-    val metamoduleOwnsMounting = status?.provider == "metamodule"
+    val metamoduleOwnsMounting = status?.provider == "metamodule" ||
+        status?.provider == "zeromount"
     val magicMountHandoffOwner = status?.metamoduleId
         ?.takeIf { it.isNotBlank() }
         ?: resolvedProviderLabel
@@ -169,10 +177,11 @@ fun OriginMountScreen() {
     val magicMountFallbackOnly = mode == OriginMountMode.Nomount
     val runtimeText = runtimeSummary(runtime, status, knownValue)
     val nomountLabel = stringResource(R.string.origin_mount_provider_nomount)
+    val zeromountLabel = stringResource(R.string.origin_mount_provider_zeromount)
     val kernelLabels = status?.kernelEngines.orEmpty().map { engine ->
         when (engine) {
             "nomount" -> nomountLabel
-            "zeromount" -> "ZeroMount"
+            "zeromount" -> zeromountLabel
             "kasumi" -> "Kasumi"
             else -> engine
         }
@@ -223,6 +232,20 @@ fun OriginMountScreen() {
     val showNomount = nomount != null &&
         (mode == OriginMountMode.Nomount || nomount.isReady || nomount.isDeferred ||
             nomount.ownsInjection)
+    val zeromountModuleId = status?.metamoduleId
+        ?.takeIf { it == "meta-zeromount" || it == "zeromount" }
+    val zeromountActive = status?.provider == "zeromount"
+    val showZeromount = mode == OriginMountMode.Zeromount || zeromountActive ||
+        zeromountModuleId != null || uiState.zeromountVersion.isNotBlank() ||
+        uiState.zeromountDriverPresent
+    val zeromountDriverText = if (uiState.zeromountDriverPresent) {
+        stringResource(R.string.origin_mount_zeromount_driver_ready)
+    } else {
+        stringResource(R.string.origin_mount_zeromount_driver_absent)
+    }
+    val zeromountVersionText = uiState.zeromountVersion.ifBlank { knownValue }
+    val zeromountModuleText = zeromountModuleId ?: knownValue
+    val zeromountWebUiModuleId = zeromountModuleId ?: "meta-zeromount"
 
     val refreshFailed = stringResource(R.string.origin_mount_refresh_failed)
     val modeChanged = stringResource(R.string.origin_mount_mode_changed)
@@ -557,6 +580,81 @@ fun OriginMountScreen() {
                     }
                 }
 
+                if (showZeromount) {
+                    item {
+                        SegmentedColumn(
+                            title = stringResource(R.string.origin_mount_zeromount_section)
+                        ) {
+                            item {
+                                SettingsBaseWidget(
+                                    icon = Icons.TwoTone.Security,
+                                    title = stringResource(R.string.origin_mount_zeromount_driver),
+                                    description = zeromountDriverText,
+                                    isError = !uiState.zeromountDriverPresent,
+                                )
+                            }
+                            item {
+                                SettingsBaseWidget(
+                                    icon = Icons.TwoTone.Info,
+                                    title = stringResource(R.string.origin_mount_zeromount_version),
+                                    description = zeromountVersionText,
+                                )
+                            }
+                            item {
+                                SettingsBaseWidget(
+                                    icon = Icons.TwoTone.Extension,
+                                    title = stringResource(R.string.origin_mount_zeromount_metamodule),
+                                    description = zeromountModuleText,
+                                )
+                            }
+                            item(visible = mode == OriginMountMode.Zeromount && !zeromountActive) {
+                                SettingsBaseWidget(
+                                    icon = Icons.TwoTone.Warning,
+                                    title = stringResource(
+                                        R.string.origin_mount_zeromount_unavailable
+                                    ),
+                                    description = if (!uiState.zeromountDriverPresent) {
+                                        stringResource(
+                                            R.string.origin_mount_zeromount_driver_absent_summary
+                                        )
+                                    } else {
+                                        stringResource(R.string.origin_mount_zeromount_not_active)
+                                    },
+                                    isError = true,
+                                )
+                            }
+                            item {
+                                SettingsJumpPageWidget(
+                                    icon = Icons.TwoTone.Dashboard,
+                                    title = stringResource(R.string.origin_mount_zeromount_webui),
+                                    description = stringResource(
+                                        R.string.origin_mount_zeromount_webui_summary
+                                    ),
+                                    enabled = !uiState.isWorking &&
+                                        uiState.zeromountVersion.isNotBlank(),
+                                    onClick = {
+                                        runCatching {
+                                            context.startActivity(
+                                                Intent(context, WebUIActivity::class.java)
+                                                    .setData(
+                                                        "kernelsu://webui/$zeromountWebUiModuleId"
+                                                            .toUri()
+                                                    )
+                                                    .putExtra("id", zeromountWebUiModuleId)
+                                                    .putExtra("name", zeromountLabel)
+                                            )
+                                        }.onFailure { error ->
+                                            snackBarHost.showReplacingSnackbar(
+                                                error.message.ifBlank { actionFailed }
+                                            )
+                                        }
+                                    },
+                                )
+                            }
+                        }
+                    }
+                }
+
                 item {
                     SegmentedColumn(title = stringResource(R.string.origin_mount_actions_section)) {
                         item {
@@ -698,6 +796,7 @@ private fun OriginMountHeroCard(
 private fun providerLabel(provider: String, unknown: String): String = when (provider) {
     "builtin" -> stringResource(R.string.origin_mount_provider_builtin)
     "metamodule" -> stringResource(R.string.origin_mount_provider_metamodule)
+    "zeromount" -> stringResource(R.string.origin_mount_provider_zeromount)
     "nomount" -> stringResource(R.string.origin_mount_provider_nomount)
     "none" -> stringResource(R.string.origin_mount_provider_none)
     else -> unknown

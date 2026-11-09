@@ -5,16 +5,18 @@
 //! - [`Provider::Builtin`] runs OriginSU's built-in Magic Mount executor
 //!   (overlayfs with a bind-mount fallback).
 //! - [`Provider::Metamodule`] runs the installed metamodule's `metamount.sh`
-//!   (ZeroMount, Kagami, Hybrid Mount, ...).
+//!   (Kagami, Hybrid Mount, ...).
+//! - [`Provider::Zeromount`] delegates to the installed ZeroMount metamodule
+//!   and requires its VFS kernel driver.
 //! - [`Provider::Nomount`] loads the vendored NoMount VFS driver and writes its
 //!   own redirection rules.
 //! - [`Provider::None`] leaves modules inert.
 //!
 //! The provider is selected by a persisted mode (`auto`, `builtin`,
-//! `metamodule`, `nomount`, `off`). NoMount and the metamodule step aside on a
-//! failure so a bad driver never leaves a device with unmounted modules; a
-//! metamodule failure is reported and never silently replaced, because the
-//! user explicitly delegated mounting to it.
+//! `metamodule`, `zeromount`, `nomount`, `off`). NoMount and the metamodule
+//! step aside on a failure so a bad driver never leaves a device with unmounted
+//! modules; a metamodule failure is reported and never silently replaced,
+//! because the user explicitly delegated mounting to it.
 //!
 //! The legacy `ksud module magic-mount` commands remain supported: they drive
 //! the same Magic Mount executor and keep the old enable flag in sync with the
@@ -41,6 +43,7 @@ pub enum Mode {
     Auto,
     Builtin,
     Metamodule,
+    Zeromount,
     Nomount,
     /// Inject nothing: modules stay inert until a provider is chosen.
     Off,
@@ -53,6 +56,7 @@ impl Mode {
             Self::Auto => "auto",
             Self::Builtin => "builtin",
             Self::Metamodule => "metamodule",
+            Self::Zeromount => "zeromount",
             Self::Nomount => "nomount",
             Self::Off => "off",
         }
@@ -65,6 +69,7 @@ impl Mode {
             "auto" => Some(Self::Auto),
             "builtin" => Some(Self::Builtin),
             "metamodule" => Some(Self::Metamodule),
+            "zeromount" => Some(Self::Zeromount),
             "nomount" => Some(Self::Nomount),
             "off" => Some(Self::Off),
             _ => None,
@@ -77,6 +82,7 @@ impl Mode {
 pub enum Provider {
     Builtin,
     Metamodule,
+    Zeromount,
     Nomount,
     /// No provider runs this boot.
     None,
@@ -88,6 +94,7 @@ impl Provider {
         match self {
             Self::Builtin => "builtin",
             Self::Metamodule => "metamodule",
+            Self::Zeromount => "zeromount",
             Self::Nomount => "nomount",
             Self::None => "none",
         }
@@ -162,7 +169,9 @@ pub fn write_mode(mode: Mode) -> Result<()> {
 /// Returns an error for an unknown token or when the mode cannot be written.
 pub fn set_mode(value: &str) -> Result<()> {
     let mode = Mode::parse(value).ok_or_else(|| {
-        anyhow::anyhow!("unknown mount mode {value:?} (want auto/builtin/metamodule/nomount/off)")
+        anyhow::anyhow!(
+            "unknown mount mode {value:?} (want auto/builtin/metamodule/zeromount/nomount/off)"
+        )
     })?;
     write_mode(mode)?;
     if mode == Mode::Nomount
@@ -191,10 +200,22 @@ fn metamodule_state() -> (Option<String>, bool) {
     (id, enabled)
 }
 
+/// Whether the active, enabled metamodule is ZeroMount and can run its mount
+/// pipeline. ZeroMount ships as a metamodule, not as an OriginSU LKM, so the
+/// provider only delegates to it.
+fn is_zeromount_metamodule() -> bool {
+    let (id, enabled) = metamodule_state();
+    enabled
+        && matches!(id.as_deref(), Some("meta-zeromount" | "zeromount"))
+        && metamodule::get_metamodule_path()
+            .is_some_and(|path| path.join(defs::METAMODULE_MOUNT_SCRIPT).exists())
+}
+
 const fn provider_for(mode: Mode, metamodule_enabled: bool, magic_mount_enabled: bool) -> Provider {
     match mode {
         Mode::Off => Provider::None,
         Mode::Metamodule => Provider::Metamodule,
+        Mode::Zeromount => Provider::Zeromount,
         Mode::Nomount => Provider::Nomount,
         Mode::Builtin => Provider::Builtin,
         // Preserve the historical default: a metamodule wins, then the Magic
@@ -228,7 +249,11 @@ pub fn resolve_provider() -> Result<Provider> {
 /// alongside the built-in executor or the NoMount backend.
 #[must_use]
 pub fn should_run_metamodule_mount() -> bool {
-    matches!(resolve_provider(), Ok(Provider::Metamodule))
+    match resolve_provider() {
+        Ok(Provider::Metamodule) => true,
+        Ok(Provider::Zeromount) => is_zeromount_metamodule(),
+        _ => false,
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -372,18 +397,57 @@ fn record(
 // Boot pass
 // ---------------------------------------------------------------------------
 
+/// Mount with the built-in engine after another provider declined the boot.
+fn fallback_to_builtin(
+    boot_id: &str,
+    configured: Provider,
+    warning: String,
+    warning_code: &'static str,
+) -> Result<()> {
+    warn!("OriginMount: {warning}");
+    write_inflight(boot_id, configured)?;
+    let result = magic_mount::run_magic_mount_forced();
+    clear_inflight();
+    match result {
+        Ok(()) => {
+            record(
+                boot_id,
+                configured,
+                Provider::Builtin,
+                "mounted",
+                None,
+                None,
+                Some((warning, warning_code)),
+            );
+            Ok(())
+        }
+        Err(error) => {
+            record(
+                boot_id,
+                configured,
+                Provider::Builtin,
+                "failed",
+                None,
+                Some(format!("{error:#}")),
+                Some((warning, warning_code)),
+            );
+            Err(error).context("fallback to the built-in engine failed")
+        }
+    }
+}
+
 /// Run the selected provider for this boot.
 ///
 /// This is the boot-stage entry point. It executes the built-in executor or
-/// the NoMount backend and records the outcome. The metamodule provider is
-/// recorded as delegated and its script is executed later by
+/// the NoMount backend and records the outcome. The metamodule and ZeroMount
+/// providers are recorded as delegated and their script is executed later by
 /// [`run_metamodule_mount`] so its historical position in `post-fs-data` is
 /// preserved.
 ///
 /// # Errors
 /// Returns an error only when the mode cannot be read or the built-in fallback
-/// itself fails. A NoMount failure is recorded and falls back to the built-in
-/// executor instead.
+/// itself fails. A NoMount or ZeroMount failure is recorded and falls back to
+/// the built-in executor instead.
 pub fn run_boot_pass() -> Result<()> {
     if utils::has_magisk() {
         warn!("OriginMount: Magisk detected, skip module mount");
@@ -422,6 +486,28 @@ pub fn run_boot_pass() -> Result<()> {
                 &boot_id,
                 configured,
                 Provider::Metamodule,
+                "delegated",
+                None,
+                None,
+                None,
+            );
+            Ok(())
+        }
+        Provider::Zeromount => {
+            if !is_zeromount_metamodule() {
+                return fallback_to_builtin(
+                    &boot_id,
+                    configured,
+                    "ZeroMount is not the active metamodule; mounted with the built-in engine"
+                        .to_string(),
+                    "zeromount_fallback",
+                );
+            }
+            info!("OriginMount: delegating module mounting to ZeroMount");
+            record(
+                &boot_id,
+                configured,
+                Provider::Zeromount,
                 "delegated",
                 None,
                 None,
@@ -539,6 +625,10 @@ pub fn run_boot_pass() -> Result<()> {
 /// Returns an error when the script exists but fails.
 pub fn run_metamodule_mount() -> Result<()> {
     let boot_id = current_boot_id();
+    // `Auto` resolves to `Metamodule` when a metamodule is installed, so this
+    // is the engine that is actually about to run, not necessarily the mode
+    // token the user picked.
+    let provider = resolve_provider().unwrap_or(Provider::Metamodule);
     let has_script = metamodule::get_metamodule_path()
         .is_some_and(|path| path.join(defs::METAMODULE_MOUNT_SCRIPT).exists());
     let result = metamodule::exec_mount_script(defs::MODULE_DIR);
@@ -546,8 +636,8 @@ pub fn run_metamodule_mount() -> Result<()> {
         Ok(()) => {
             record(
                 &boot_id,
-                Provider::Metamodule,
-                Provider::Metamodule,
+                provider,
+                provider,
                 if has_script { "mounted" } else { "noop" },
                 None,
                 None,
@@ -558,8 +648,8 @@ pub fn run_metamodule_mount() -> Result<()> {
         Err(error) => {
             record(
                 &boot_id,
-                Provider::Metamodule,
-                Provider::Metamodule,
+                provider,
+                provider,
                 "failed",
                 None,
                 Some(format!("{error:#}")),
@@ -581,7 +671,9 @@ pub fn run_now() -> Result<()> {
     clear_inflight();
     let provider = resolve_provider()?;
     run_boot_pass()?;
-    if provider == Provider::Metamodule {
+    let run_metamodule = provider == Provider::Metamodule
+        || (provider == Provider::Zeromount && is_zeromount_metamodule());
+    if run_metamodule {
         run_metamodule_mount()?;
     }
     Ok(())
@@ -846,6 +938,7 @@ mod tests {
             Mode::Auto,
             Mode::Builtin,
             Mode::Metamodule,
+            Mode::Zeromount,
             Mode::Nomount,
             Mode::Off,
         ] {
@@ -860,6 +953,10 @@ mod tests {
         assert_eq!(provider_for(Mode::Auto, false, true), Provider::Builtin);
         assert_eq!(provider_for(Mode::Auto, false, false), Provider::None);
         assert_eq!(provider_for(Mode::Nomount, true, true), Provider::Nomount);
+        assert_eq!(
+            provider_for(Mode::Zeromount, true, true),
+            Provider::Zeromount
+        );
         assert_eq!(provider_for(Mode::Off, true, true), Provider::None);
     }
 }

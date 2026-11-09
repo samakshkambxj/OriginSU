@@ -5,6 +5,7 @@ enum class OriginMountMode(val id: String) {
     Auto("auto"),
     Builtin("builtin"),
     Metamodule("metamodule"),
+    Zeromount("zeromount"),
     Nomount("nomount"),
     Off("off");
 

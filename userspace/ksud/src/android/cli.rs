@@ -522,9 +522,9 @@ enum OriginMountCmd {
         json: bool,
     },
 
-    /// set the provider mode: auto | builtin | metamodule | nomount | off
+    /// set the provider mode: auto | builtin | metamodule | zeromount | nomount | off
     SetMode {
-        /// one of: auto, builtin, metamodule, nomount, off
+        /// one of: auto, builtin, metamodule, zeromount, nomount, off
         mode: String,
     },
 

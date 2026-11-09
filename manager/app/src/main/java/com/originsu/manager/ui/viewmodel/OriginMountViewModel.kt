@@ -8,6 +8,7 @@ import com.originsu.manager.domain.model.InstalledPackageInfo
 import com.originsu.manager.domain.model.NomountUidState
 import com.originsu.manager.domain.model.OriginMountMode
 import com.originsu.manager.domain.model.OriginMountStatus
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -15,11 +16,14 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 data class OriginMountUiState(
     val status: OriginMountStatus? = null,
     val uidState: NomountUidState = NomountUidState(),
     val apps: List<InstalledPackageInfo> = emptyList(),
+    val zeromountDriverPresent: Boolean = false,
+    val zeromountVersion: String = "",
     val isLoading: Boolean = true,
     val isWorking: Boolean = false,
     val loadingApps: Boolean = false,
@@ -121,6 +125,11 @@ class OriginMountViewModel(
             }
             val status = runCatching { ksuCli.getOriginMountStatus() }.getOrNull()
             val uidState = runCatching { ksuCli.getNomountUidState() }.getOrNull()
+            val zeromount = runCatching {
+                withContext(Dispatchers.IO) {
+                    ksuCli.isZeromountDriverPresent() to ksuCli.getZeromountVersion()
+                }
+            }.getOrElse { false to "" }
             if (status == null) {
                 mutableState.value = mutableState.value.copy(isLoading = false)
                 mutableEvents.tryEmit(OriginMountUiEvent.RefreshFailed)
@@ -129,6 +138,8 @@ class OriginMountViewModel(
             mutableState.value = mutableState.value.copy(
                 status = status,
                 uidState = uidState ?: mutableState.value.uidState,
+                zeromountDriverPresent = zeromount.first,
+                zeromountVersion = zeromount.second,
                 isLoading = false,
                 lastCheckedAt = System.currentTimeMillis(),
             )

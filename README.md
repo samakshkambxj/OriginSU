@@ -37,8 +37,11 @@ module hunting, no one-app-per-feature patchwork.
 ## The Origin stack
 
 - **OriginMount** — the mount control room. Pick the engine that mounts your
-  modules: Automatic, Built-in Magic Mount, a metamodule, NoMount or Off, and
-  remount without rebooting.
+  modules: Automatic, Built-in Magic Mount, a metamodule, ZeroMount, NoMount or
+  Off, and remount without rebooting.
+- **ZeroMount** — first-class support for the ZeroMount metamodule: hands the
+  boot pass to its VFS pipeline, reports driver/module state and opens its
+  WebUI, falling back to Magic Mount when ZeroMount is not active.
 - **NoMount** — kernel-side path redirection with per-app exclusions,
   active/planned rule counters and isolated-process handling. Falls back to
   Magic Mount when it cannot run.

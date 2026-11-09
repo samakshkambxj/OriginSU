@@ -95,7 +95,7 @@ mod android {
     pub const MAGIC_MOUNT_WORK_DIR: &str = concatcp!(WORKING_DIR, "magic_mount/");
 
     // OriginMount provider selection and runtime records.
-    /// Selected provider: one of `auto`, `builtin`, `metamodule`, `nomount`, `off`.
+    /// Selected provider: one of `auto`, `builtin`, `metamodule`, `zeromount`, `nomount`, `off`.
     pub const MOUNT_MODE_FILE: &str = concatcp!(WORKING_DIR, "mount_mode");
     /// Result of the last boot's mounting attempt.
     pub const MOUNT_RUNTIME: &str = concatcp!(WORKING_DIR, "mount_runtime");
