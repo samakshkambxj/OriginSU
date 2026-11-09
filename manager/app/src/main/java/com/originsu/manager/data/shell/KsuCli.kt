@@ -1842,7 +1842,11 @@ class KsuCliRepository(context: Context) {
 
         val shell = getRootShell()
         val deployed = isOriginZygiskDeployed()
-        val running = ShellUtils.fastCmdResult(shell, "pgrep -f '[z]ygisk-ptrace' >/dev/null 2>&1")
+        // A lingering daemon is not "running" when the engine is disabled:
+        // stop can race with process teardown, and the UI must follow the
+        // enable flag so the switch and the status tile agree.
+        val running = deployed &&
+            ShellUtils.fastCmdResult(shell, "pgrep -f '[z]ygisk-ptrace' >/dev/null 2>&1")
         val raw = runCatching {
             runCmd(shell, "cat /data/adb/rezygisk/state.json 2>/dev/null")
         }.getOrDefault("")
