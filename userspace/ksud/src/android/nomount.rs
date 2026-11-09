@@ -1827,17 +1827,16 @@ fn unavailable_reason(probe: &DriverProbe) -> (&'static str, Option<String>) {
     match probe.state {
         DriverState::Ready => ("ready", None),
         DriverState::Outdated => ("outdated", probe.version.clone()),
-        DriverState::Absent => crate::boot_patch::get_current_kmi().map_or_else(
-            |_| ("unknown_kmi", None),
-            |kmi| {
+        DriverState::Absent => {
+            crate::boot_patch::get_current_kmi().map_or(("unknown_kmi", None), |kmi| {
                 let name = format!("{kmi}{ASSET_SUFFIX}");
                 if crate::assets::get_asset_data(&name).is_ok() {
                     ("not_loaded", Some(kmi))
                 } else {
                     ("no_asset_for_kmi", Some(kmi))
                 }
-            },
-        ),
+            })
+        }
     }
 }
 

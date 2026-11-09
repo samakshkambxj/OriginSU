@@ -644,9 +644,11 @@ fun OriginMountScreen() {
                                                     .putExtra("name", zeromountLabel)
                                             )
                                         }.onFailure { error ->
-                                            snackBarHost.showReplacingSnackbar(
-                                                error.message.ifBlank { actionFailed }
-                                            )
+                                            coroutineScope.launch {
+                                                snackBarHost.showReplacingSnackbar(
+                                                    error.message.orEmpty().ifBlank { actionFailed }
+                                                )
+                                            }
                                         }
                                     },
                                 )
