@@ -141,15 +141,25 @@ fun OriginMountScreen() {
     val runtime = status?.runtime
     val knownValue = stringResource(R.string.origin_mount_value_unknown)
 
-    val modeOptions = OriginMountMode.entries
-    val modeLabels = listOf(
-        stringResource(R.string.origin_mount_mode_auto),
-        stringResource(R.string.origin_mount_mode_builtin),
-        stringResource(R.string.origin_mount_mode_metamodule),
-        stringResource(R.string.origin_mount_mode_zeromount),
-        stringResource(R.string.origin_mount_mode_nomount),
-        stringResource(R.string.origin_mount_mode_off),
-    )
+    // ZeroMount is only offered when its VFS driver is present. Keep it
+    // visible when it is already selected so the active mode can still be
+    // changed, even if the driver disappeared after the fact.
+    val modeOptions = OriginMountMode.entries.filter { option ->
+        option != OriginMountMode.Zeromount ||
+            uiState.zeromountDriverPresent ||
+            mode == OriginMountMode.Zeromount ||
+            status?.provider == "zeromount"
+    }
+    val modeLabels = modeOptions.map { option ->
+        when (option) {
+            OriginMountMode.Auto -> stringResource(R.string.origin_mount_mode_auto)
+            OriginMountMode.Builtin -> stringResource(R.string.origin_mount_mode_builtin)
+            OriginMountMode.Metamodule -> stringResource(R.string.origin_mount_mode_metamodule)
+            OriginMountMode.Zeromount -> stringResource(R.string.origin_mount_mode_zeromount)
+            OriginMountMode.Nomount -> stringResource(R.string.origin_mount_mode_nomount)
+            OriginMountMode.Off -> stringResource(R.string.origin_mount_mode_off)
+        }
+    }
     val modeSummary = when (mode) {
         OriginMountMode.Auto -> stringResource(R.string.origin_mount_mode_summary_auto)
         OriginMountMode.Builtin -> stringResource(R.string.origin_mount_mode_summary_builtin)
