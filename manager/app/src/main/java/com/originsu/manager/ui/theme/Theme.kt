@@ -2113,18 +2113,19 @@ private fun createColorScheme(
     )
 
     // AMOLED mode replaces the dark surfaces with true black so that OLED
-    // panels can switch those pixels off, while cards stay slightly raised.
+    // panels can switch those pixels off. Raised surfaces must stay visibly
+    // above black, otherwise cards and list rows blend into the background.
     if (!darkTheme || !themeConfig.isAmoledMode) return scheme
     return scheme.copy(
         background = Color.Black,
         surface = Color.Black,
         surfaceDim = Color.Black,
         surfaceContainerLowest = Color.Black,
-        surfaceContainerLow = Color.Black,
-        surfaceContainer = Color.Black,
-        surfaceContainerHigh = Color(0xFF0B0B0B),
-        surfaceContainerHighest = Color(0xFF141414),
-        surfaceBright = Color(0xFF0B0B0B),
+        surfaceContainerLow = Color(0xFF0D0D0D),
+        surfaceContainer = Color(0xFF141414),
+        surfaceContainerHigh = Color(0xFF202020),
+        surfaceContainerHighest = Color(0xFF2A2A2A),
+        surfaceBright = Color(0xFF323232),
     )
 }
 
