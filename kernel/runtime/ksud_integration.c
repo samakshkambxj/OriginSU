@@ -46,8 +46,8 @@
 #if defined(CONFIG_KSU_TRACEPOINT_HOOK) || defined(CONFIG_KSU_TAMPER_SYSCALL_TABLE)
 #include "hook/syscall_hook.h"
 #include "hook/syscall_event_bridge.h"
-#include "preinit/preinit.h"
 #endif
+#include "preinit/preinit.h"
 
 // clang-format off
 static const char KERNEL_SU_RC[] = 
