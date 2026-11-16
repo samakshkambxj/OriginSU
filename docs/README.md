@@ -1,12 +1,15 @@
 # OriginSU
-<img align='right' src='OriginSU-mini.svg' width='220px' alt="OriginSU logo">
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="OriginSU.svg">
+  <img align="right" src="OriginSU-light.svg" width="220px" alt="OriginSU logo">
+</picture>
 
-**English** [简体中文](./README_zh.md) |
+**English** [简体中文](./zh/README.md) |
 
 A kernel-based root solution for Android, evolved from [`tiann/KernelSU`](https://github.com/tiann/KernelSU) with some interesting changes added.
 
 [![Latest Release](https://img.shields.io/github/v/release/samakshkambxj/OriginSU?label=Release&logo=github)](https://github.com/samakshkambxj/OriginSU/releases/latest)
-[![Channel](https://img.shields.io/badge/Follow-Telegram-blue.svg?logo=telegram)](https://t.me/Sukiksu)
+[![Channel](https://img.shields.io/badge/Follow-Telegram-blue.svg?logo=telegram)](https://t.me/ReSukiSU)
 [![License: GPL 3.0 or later](https://img.shields.io/badge/License-GPL%203.0%20or%20later-orange.svg?logo=gnu)](https://www.gnu.org/licenses/gpl-3.0.html)
 [![GitHub License](https://img.shields.io/github/license/samakshkambxj/OriginSU?logo=gnu)](/LICENSE)
 
@@ -71,7 +74,7 @@ To translate OriginSU into your language, or improve existing translations, plea
 ## License
 
 - All files under the `kernel` directory are licensed under [GPL-2.0-only](https://www.gnu.org/licenses/old-licenses/gpl-2.0.en.html).
-- The `ic_launcher(?!.*alt.*).*` icon files featuring anime character images are licensed in a special form: drawn by 怡子曰曰 (Yizi Yueyue), copyright owned by 明风OuO (Mingfeng OuO). The vectorized icons are provided by this project. See [`LICENSE_icon_English`](./LICENSE_icon_English) and [`LICENSE_icon_SC`](./LICENSE_icon_SC) for details.
+- The `ic_launcher(?!.*alt.*).*` icon files featuring anime character images are licensed in a special form: drawn by 怡子曰曰 (Yizi Yueyue), copyright owned by 明风OuO (Mingfeng OuO). The vectorized icons are provided by this project. See [`LICENSE_icon_English`](../LICENSE_icon_English) and [`LICENSE_icon_SC`](../LICENSE_icon_SC) for details.
 - All other parts, except the files and directories mentioned above, are licensed under [GPL-3.0-or-later](https://www.gnu.org/licenses/gpl-3.0.html).
 
 ## Sponsors

@@ -38,8 +38,8 @@ fun AboutScreen() {
     val settingsState by viewModel.uiState.collectAsStateWithLifecycle()
     val htmlString = stringResource(
         id = R.string.about_source_code,
-        "<b><a href=\"https://github.com/ShirkNeko/OriginSU\">GitHub</a></b>",
-        "<b><a href=\"https://t.me/SukiKSU\">Telegram</a></b>",
+        "<b><a href=\"https://github.com/samakshkambxj/OriginSU\">GitHub</a></b>",
+        "<b><a href=\"https://t.me/ReSukiSU\">Telegram</a></b>",
     )
     val state = AboutUiState(
         title = customText(CustomTextKey.PAGE_ABOUT),

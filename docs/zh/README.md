@@ -1,12 +1,15 @@
 # OriginSU
-<img align='right' src='OriginSU-mini.svg' width='220px' alt="OriginSU logo">
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../OriginSU.svg">
+  <img align="right" src="../OriginSU-light.svg" width="220px" alt="OriginSU logo">
+</picture>
 
-**简体中文** [English](./README.md) |
+**简体中文** [English](../README.md) |
 
 一个 Android 上基于内核的 root 方案，由 [`tiann/KernelSU`](https://github.com/tiann/KernelSU) 进化而来，添加了一些有趣的变更。
 
 [![最新发行](https://img.shields.io/github/v/release/samakshkambxj/OriginSU?label=Release&logo=github)](https://github.com/samakshkambxj/OriginSU/releases/latest)
-[![频道](https://img.shields.io/badge/Follow-Telegram-blue.svg?logo=telegram)](https://t.me/Sukiksu)
+[![频道](https://img.shields.io/badge/Follow-Telegram-blue.svg?logo=telegram)](https://t.me/ReSukiSU)
 [![协议: GPL 3.0 or later](https://img.shields.io/badge/License-GPL%203.0%20or%20later-orange.svg?logo=gnu)](https://www.gnu.org/licenses/gpl-3.0.html)
 [![GitHub 协议](https://img.shields.io/github/license/samakshkambxj/OriginSU?logo=gnu)](/LICENSE)
 
@@ -33,8 +36,8 @@
 
 | 场景 | 方式 | 说明 |
 |------|------|------|
-| GKI 设备（内核 5.10+） | 推荐使用LKM模式
-| 非 GKI / 旧内核（3.0+） | 手动编译内核 | 请参考网站集成指南
+| GKI 设备（内核 5.10+） | 推荐使用 LKM 模式 | |
+| 非 GKI / 旧内核（3.0+） | 手动编译内核 | 请参考网站集成指南 |
 | 需要使用 KPM 功能 | 需开启 `CONFIG_KPM=y` | 见下方「KPM 支持」 |
 
 
@@ -71,7 +74,7 @@
 ## 许可证
 
 - 目录 `kernel` 下所有文件为 [GPL-2.0-only](https://www.gnu.org/licenses/old-licenses/gpl-2.0.en.html)。
-- 有动漫人物图片表情包的这些文件 `ic_launcher(?!.*alt.*).*` 图标以特别的形式授权，怡子曰曰绘制，版权明风OuO所有。矢量化图标由本项目提供。详见 [`LICENSE_icon_English`](./LICENSE_icon_English) 与 [`LICENSE_icon_SC`](./LICENSE_icon_SC)。
+- 有动漫人物图片表情包的这些文件 `ic_launcher(?!.*alt.*).*` 图标以特别的形式授权，怡子曰曰绘制，版权明风OuO所有。矢量化图标由本项目提供。详见 [`LICENSE_icon_English`](../../LICENSE_icon_English) 与 [`LICENSE_icon_SC`](../../LICENSE_icon_SC)。
 - 除上述文件及目录的其他部分均为 [GPL-3.0-or-later](https://www.gnu.org/licenses/gpl-3.0.html)。
 
 ## 赞助
