@@ -9,7 +9,7 @@
 A kernel-based root solution for Android, evolved from [`tiann/KernelSU`](https://github.com/tiann/KernelSU) with some interesting changes added.
 
 [![Latest Release](https://img.shields.io/github/v/release/samakshkambxj/OriginSU?label=Release&logo=github)](https://github.com/samakshkambxj/OriginSU/releases/latest)
-[![Channel](https://img.shields.io/badge/Follow-Telegram-blue.svg?logo=telegram)](https://t.me/ReSukiSU)
+[![Channel](https://img.shields.io/badge/Follow-Telegram-blue.svg?logo=telegram)](https://t.me/OriginKSU)
 [![License: GPL 3.0 or later](https://img.shields.io/badge/License-GPL%203.0%20or%20later-orange.svg?logo=gnu)](https://www.gnu.org/licenses/gpl-3.0.html)
 [![GitHub License](https://img.shields.io/github/license/samakshkambxj/OriginSU?logo=gnu)](/LICENSE)
 

@@ -39,7 +39,7 @@ fun AboutScreen() {
     val htmlString = stringResource(
         id = R.string.about_source_code,
         "<b><a href=\"https://github.com/samakshkambxj/OriginSU\">GitHub</a></b>",
-        "<b><a href=\"https://t.me/ReSukiSU\">Telegram</a></b>",
+        "<b><a href=\"https://t.me/OriginKSU\">Telegram</a></b>",
     )
     val state = AboutUiState(
         title = customText(CustomTextKey.PAGE_ABOUT),

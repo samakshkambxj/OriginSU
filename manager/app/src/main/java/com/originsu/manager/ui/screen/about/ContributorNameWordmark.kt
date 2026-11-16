@@ -62,7 +62,7 @@ import kotlinx.coroutines.withContext
 import kotlin.math.min
 import androidx.core.graphics.withClip
 
-private const val WordmarkWord = "SUKISU"
+private const val WordmarkWord = "ORIGINSU"
 private const val WordmarkWidth = 1000f
 private const val WordmarkHeight = 300f
 private const val MaxWordmarkZoom = 8f

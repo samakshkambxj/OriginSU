@@ -11,6 +11,7 @@
 
 [Releases](https://github.com/samakshkambxj/OriginSU/releases) ·
 [Documentation](https://samakshkambxj.github.io/OriginSU/) ·
+[Telegram](https://t.me/OriginKSU) ·
 [Issues](https://github.com/samakshkambxj/OriginSU/issues)
 
 [![Latest release](https://img.shields.io/github/v/release/samakshkambxj/OriginSU?label=Release&logo=github)](https://github.com/samakshkambxj/OriginSU/releases/latest)
