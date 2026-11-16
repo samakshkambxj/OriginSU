@@ -772,7 +772,8 @@ jobs:
             -S "$PROD_KEY_PASSWORD"
       - name: Publish rolling CI prerelease
         env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          # The workflow token already has contents: write for this job.
+          GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         shell: bash
         run: |
