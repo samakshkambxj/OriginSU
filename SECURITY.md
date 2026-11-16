@@ -1,7 +1,18 @@
 # Reporting Security Issues
 
-The KernelSU team and community take security bugs in KernelSU seriously. We appreciate your efforts to responsibly disclose your findings, and will make every effort to acknowledge your contributions.
+The OriginSU maintainers take security bugs seriously. We appreciate your
+efforts to responsibly disclose your findings, and will make every effort to
+acknowledge your contributions.
 
-To report a security issue, please use the GitHub Security Advisory ["Report a Vulnerability"](https://github.com/tiann/KernelSU/security/advisories/new) tab, or you can mailto [weishu](mailto:twsxtd@gmail.com) directly.
+To report a security issue, please use the GitHub Security Advisory
+["Report a Vulnerability"](https://github.com/samakshkambxj/OriginSU/security/advisories/new)
+tab. For non-sensitive questions you can also open a regular
+[Issue](https://github.com/samakshkambxj/OriginSU/issues).
 
-The KernelSU team will send a response indicating the next steps in handling your report. After the initial reply to your report, the security team will keep you informed of the progress towards a fix and full announcement, and may ask for additional information or guidance.
+The maintainers will send a response indicating the next steps in handling your
+report. After the initial reply, we will keep you informed of the progress
+towards a fix and a full announcement, and may ask for additional information
+or guidance.
+
+Please do not disclose the vulnerability publicly until a fix has been
+released.

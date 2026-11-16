@@ -3,7 +3,6 @@ name: Build Manager
 on:
   workflow_dispatch:
   push:
-    branches: [ "main", "dev" ]
     paths:
       - '.github/workflows/build-manager.yml'
       - '.github/workflows/build-lkm.yml'
@@ -25,7 +24,6 @@ on:
       - 'Cargo.toml'
 
   pull_request:
-    branches: [ "main", "dev" ]
     paths:
       - '.github/workflows/build-manager.yml'
       - '.github/workflows/build-lkm.yml'

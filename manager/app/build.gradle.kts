@@ -306,7 +306,7 @@ val downloadKpmTools = tasks.register("downloadKpmTools") {
             root.resolve("assets/kpm/kpimg").isFile
     }
     doLast {
-        val baseUrl = "https://raw.githubusercontent.com/ShirkNeko/SukiSU_patch/refs/heads/main/kpm"
+        val baseUrl = "https://raw.githubusercontent.com/SukiSU-Nova/SukiSU_patch/refs/heads/main/kpm"
         val downloads = listOf("kptools-android", "kpimg").associateWith { name ->
             val target = temporaryDir.resolve(name)
             val url = "$baseUrl/$name"
