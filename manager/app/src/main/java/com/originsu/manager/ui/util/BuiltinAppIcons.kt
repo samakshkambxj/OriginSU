@@ -24,8 +24,6 @@ data class BuiltinAppIcon(
 object BuiltinAppIcons {
     const val DEFAULT_ID = "default"
     const val KERNELSU_ID = "kernelsu"
-    const val LOGO_ID = "originsu_logo"
-    const val ZAKO_ID = "zako"
 
     private const val TAG = "BuiltinAppIcons"
     private val mainActivityName = MainActivity::class.java.name
@@ -44,20 +42,6 @@ object BuiltinAppIcons {
             iconRes = R.mipmap.ic_launcher_alt,
             foregroundRes = R.drawable.ic_launcher_foreground_alt,
             aliasClassName = mainActivityName + "Alias",
-        ),
-        BuiltinAppIcon(
-            id = LOGO_ID,
-            nameRes = R.string.app_icon_builtin_logo,
-            iconRes = R.mipmap.ic_launcher_logo,
-            foregroundRes = R.drawable.ic_launcher_foreground_logo,
-            aliasClassName = mainActivityName + "AliasLogo",
-        ),
-        BuiltinAppIcon(
-            id = ZAKO_ID,
-            nameRes = R.string.app_icon_builtin_zako,
-            iconRes = R.mipmap.ic_launcher_zako,
-            foregroundRes = R.drawable.ic_launcher_foreground_zako,
-            aliasClassName = mainActivityName + "AliasZako",
         ),
     )
 
@@ -156,8 +140,6 @@ object BuiltinAppIcons {
     private fun aliasSuffix(icon: BuiltinAppIcon): String = when (icon.id) {
         DEFAULT_ID -> "Default"
         KERNELSU_ID -> ""
-        LOGO_ID -> "Logo"
-        ZAKO_ID -> "Zako"
         else -> "Default"
     }
 

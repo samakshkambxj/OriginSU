@@ -174,34 +174,6 @@
             </intent-filter>
         </activity-alias>
 
-        <!-- 切换图标：OriginSU 标志 -->
-        <activity-alias
-            android:name=".ui.MainActivityAliasLogo"
-            android:targetActivity=".ui.MainActivity"
-            android:exported="true"
-            android:enabled="false"
-            android:icon="@mipmap/ic_launcher_logo"
-            android:roundIcon="@mipmap/ic_launcher_logo_round">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity-alias>
-
-        <!-- 切换图标：OriginSU 线稿 -->
-        <activity-alias
-            android:name=".ui.MainActivityAliasZako"
-            android:targetActivity=".ui.MainActivity"
-            android:exported="true"
-            android:enabled="false"
-            android:icon="@mipmap/ic_launcher_zako"
-            android:roundIcon="@mipmap/ic_launcher_zako_round">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity-alias>
-
         <activity-alias
             android:name=".ui.MainActivityAliasDefaultStatic"
             android:targetActivity=".ui.MainActivity"
@@ -226,29 +198,6 @@
             </intent-filter>
         </activity-alias>
 
-        <activity-alias
-            android:name=".ui.MainActivityAliasLogoStatic"
-            android:targetActivity=".ui.MainActivity"
-            android:exported="true"
-            android:enabled="false"
-            android:icon="@mipmap/ic_launcher_logo_static">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity-alias>
-
-        <activity-alias
-            android:name=".ui.MainActivityAliasZakoStatic"
-            android:targetActivity=".ui.MainActivity"
-            android:exported="true"
-            android:enabled="false"
-            android:icon="@mipmap/ic_launcher_zako_static">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity-alias>
 
         <activity
             android:name=".ui.AppIconShortcutActivity"

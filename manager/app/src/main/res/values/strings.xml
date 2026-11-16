@@ -1331,7 +1331,6 @@
     <string name="app_icon_builtin_section">Built-in icons</string>
     <string name="app_icon_builtin_default">OriginSU</string>
     <string name="app_icon_builtin_kernelsu">KernelSU</string>
-    <string name="app_icon_builtin_logo">OriginSU Logo</string>
     <string name="app_icon_import_title">Import icon pack</string>
     <string name="app_icon_import_summary">Import a ZIP archive containing PNG, WebP or JPG icons</string>
     <string name="app_icon_import_button">Import</string>
@@ -1349,7 +1348,6 @@
     <string name="app_icon_delete_pack_failed">Could not delete the icon pack</string>
     <string name="app_icon_empty_custom">No custom icons yet</string>
     <string name="app_icon_empty_custom_summary">Import a ZIP archive to add your own icons</string>
-    <string name="app_icon_builtin_zako">OriginSU Line Art</string>
     <string name="app_icon_dynamic_color_title">Dynamic color</string>
     <string name="app_icon_dynamic_color_summary">Allow supported launchers to tint the icon with wallpaper colors (Android 13+)</string>
     <string name="app_icon_selected">Selected</string>
