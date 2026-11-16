@@ -273,7 +273,7 @@ jobs:
 
       - name: Write key
         if: ${{ (github.event_name != 'pull_request' &&
-          (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev' || github.event_name == 'workflow_dispatch'))
+          (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'))
           || github.ref_type == 'tag' }}
 
         run: |
@@ -463,8 +463,7 @@ jobs:
         if: ${{ github.event_name == 'pull_request' ||
           github.event_name == 'workflow_dispatch' ||
           (github.event_name != 'pull_request' &&
-          (github.ref == 'refs/heads/main' ||
-           github.ref == 'refs/heads/dev')) ||
+          (github.ref == 'refs/heads/main')) ||
           github.ref_type == 'tag' }}
 
         uses: actions/upload-artifact@v7
@@ -481,7 +480,6 @@ jobs:
       - name: Upload mappings
         if: ${{ (github.event_name != 'pull_request' &&
           (github.ref == 'refs/heads/main' ||
-           github.ref == 'refs/heads/dev' ||
            github.event_name == 'workflow_dispatch'))
           || github.ref_type == 'tag' }}
 
@@ -638,8 +636,7 @@ jobs:
         if: ${{ github.event_name == 'pull_request' ||
           github.event_name == 'workflow_dispatch' ||
           (github.event_name != 'pull_request' &&
-          (github.ref == 'refs/heads/main' ||
-           github.ref == 'refs/heads/dev')) ||
+          (github.ref == 'refs/heads/main')) ||
           github.ref_type == 'tag' }}
 
         env:
@@ -684,8 +681,7 @@ jobs:
         if: ${{ github.event_name == 'pull_request' ||
           github.event_name == 'workflow_dispatch' ||
           (github.event_name != 'pull_request' &&
-          (github.ref == 'refs/heads/main' ||
-           github.ref == 'refs/heads/dev')) ||
+          (github.ref == 'refs/heads/main')) ||
           github.ref_type == 'tag' }}
 
         run: |
@@ -719,8 +715,7 @@ jobs:
         if: ${{ github.event_name == 'pull_request' ||
           github.event_name == 'workflow_dispatch' ||
           (github.event_name != 'pull_request' &&
-          (github.ref == 'refs/heads/main' ||
-           github.ref == 'refs/heads/dev')) ||
+          (github.ref == 'refs/heads/main')) ||
           github.ref_type == 'tag' }}
 
         uses: actions/upload-artifact@v7
@@ -860,8 +855,8 @@ jobs:
       # --------------------------------------------------------
       # Pick the artifact, title and forum topic for this variant.
       # MANAGER_TOPIC_* repository variables override the defaults,
-      # which match the OriginSU forum topics. Anything that is not
-      # main or a tag is routed to the dev topic.
+      # which match the OriginSU forum topics. Pushes to other
+      # branches (feature branches, legacy) go to the fallback topic.
       # --------------------------------------------------------
 
       - name: Determine manager variant
