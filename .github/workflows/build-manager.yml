@@ -943,9 +943,13 @@ jobs:
         if: steps.need_upload.outputs.UPLOAD == 'true'
         timeout-minutes: 10
         env:
-          CHAT_ID: ${{ secrets.CHAT_ID }}
+          # Posts to the official OriginSU channel unless the repository
+          # overrides it with the MANAGER_CHAT_ID variable. Topic variables are
+          # optional: leave them unset for a plain channel, set them when the
+          # target is a forum group.
+          CHAT_ID: ${{ vars.MANAGER_CHAT_ID || '@OriginKSU' }}
           BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
-          MESSAGE_THREAD_ID: ${{ inputs.release_upload && secrets.MESSAGE_RELEASES_THREAD_ID || secrets.MESSAGE_THREAD_ID }}
+          MESSAGE_THREAD_ID: ${{ inputs.release_upload && vars.MANAGER_TOPIC_RELEASES || (github.ref == 'refs/heads/dev' && vars.MANAGER_TOPIC_DEV || vars.MANAGER_TOPIC_NORMAL) }}
           GITHUB_EVENT: ${{ toJson(github.event) }}
 
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
@@ -970,9 +974,9 @@ jobs:
         if: steps.need_upload.outputs.UPLOAD == 'true' && (github.event_name == 'push' && github.ref == 'refs/heads/main')
         timeout-minutes: 10
         env:
-          CHAT_ID: ${{ secrets.CHAT_ID }}
+          CHAT_ID: ${{ vars.MANAGER_CHAT_ID || '@OriginKSU' }}
           BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
-          MESSAGE_THREAD_ID: ${{ inputs.release_upload && secrets.MESSAGE_RELEASES_THREAD_ID || secrets.MESSAGE_SPOOFED_THREAD_ID }}
+          MESSAGE_THREAD_ID: ${{ vars.MANAGER_TOPIC_SPOOFED }}
           GITHUB_EVENT: ${{ toJson(github.event) }}
 
           COMMIT_URL: ${{ github.event.head_commit.url }}
