@@ -191,7 +191,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        spoofed: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main') && fromJson('["false", "true"]') || fromJson('["false"]') }}
+        # Build the spoofed variant for every push/tag, not only main.
+        spoofed: [ "false", "true" ]
 
     defaults:
       run:
@@ -508,7 +509,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        spoofed: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main') && fromJson('["false", "true"]') || fromJson('["false"]') }}
+        # Build the spoofed variant for every push/tag, not only main.
+        spoofed: [ "false", "true" ]
 
     steps:
 
@@ -814,8 +816,9 @@ jobs:
 
 
   # ------------------------------------------------------------
-  # Telegram upload (separate threads for normal / spoofed,
-  # split per-arch before upload)
+  # Telegram upload: one job per Manager variant (normal / spoofed).
+  # Each variant is split per-arch and posted into its own forum
+  # topic, so the channel stays sorted by build type.
   # ------------------------------------------------------------
 
   upload-telegram:
@@ -826,6 +829,11 @@ jobs:
         needs.repack-manager.result == 'success'
 
     runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        manager_type: [ "normal", "spoofed" ]
 
     steps:
 
@@ -850,24 +858,42 @@ jobs:
 
 
       # --------------------------------------------------------
-      # Download APK artifacts (keep variants in separate dirs)
+      # Pick the artifact, title and forum topic for this variant.
+      # MANAGER_TOPIC_* repository variables override the defaults,
+      # which match the OriginSU forum topics. Anything that is not
+      # main or a tag is routed to the dev topic.
+      # --------------------------------------------------------
+
+      - name: Determine manager variant
+        id: determine
+        run: |
+          if [ "${{ matrix.manager_type }}" = "spoofed" ]; then
+            echo "artifact=Manager-spoofed" >> "$GITHUB_OUTPUT"
+            echo "title=Manager-spoofed" >> "$GITHUB_OUTPUT"
+            echo "topicid=${{ vars.MANAGER_TOPIC_SPOOFED || '3' }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "artifact=Manager" >> "$GITHUB_OUTPUT"
+            echo "title=Manager" >> "$GITHUB_OUTPUT"
+            echo "topicid=${{ vars.MANAGER_TOPIC_NORMAL || '2' }}" >> "$GITHUB_OUTPUT"
+          fi
+
+          if [[ "${{ github.ref }}" != "refs/heads/main" && "${{ github.ref_type }}" != "tag" ]]; then
+            echo "topicid=${{ vars.MANAGER_TOPIC_DEV || '4' }}" >> "$GITHUB_OUTPUT"
+          fi
+
+
+      # --------------------------------------------------------
+      # Download the APK artifact for this variant
       # --------------------------------------------------------
 
       - name: Download manager apk
         if: steps.need_upload.outputs.UPLOAD == 'true'
         uses: actions/download-artifact@v8
         with:
-          name: Manager
+          name: ${{ steps.determine.outputs.artifact }}
           path: apks/manager
 
-      - name: Download manager-spoofed apk
-        if: steps.need_upload.outputs.UPLOAD == 'true' && (github.event_name == 'push' && github.ref == 'refs/heads/main')
-        uses: actions/download-artifact@v8
-        with:
-          name: Manager-spoofed
-          path: apks/manager-spoofed
 
-      
       # --------------------------------------------------------
       # Prepare signing inputs (needed by split + apksigner)
       # --------------------------------------------------------
@@ -892,7 +918,7 @@ jobs:
       # Split per-arch before uploading (keep full original name)
       # --------------------------------------------------------
 
-      - name: Split Manager APK by arch
+      - name: Split APK by arch
         if: steps.need_upload.outputs.UPLOAD == 'true'
         run: |
           APK=$(find apks/manager -type f -name "*.apk" | head -n 1)
@@ -900,19 +926,6 @@ jobs:
           python3 split_apk_by_arch.py \
             -i "$APK" \
             -o apks/split-manager \
-            -K "$SIGN_KEYSTORE_FILE" \
-            -A "$SIGN_KEY_ALIAS" \
-            -P "$SIGN_KEYSTORE_PASSWORD" \
-            -S "$SIGN_KEY_PASSWORD"
-
-      - name: Split Manager-spoofed APK by arch
-        if: steps.need_upload.outputs.UPLOAD == 'true' && (github.event_name == 'push' && github.ref == 'refs/heads/main')
-        run: |
-          APK=$(find apks/manager-spoofed -type f -name "*.apk" | head -n 1)
-          test -n "$APK"
-          python3 split_apk_by_arch.py \
-            -i "$APK" \
-            -o apks/split-manager-spoofed \
             -K "$SIGN_KEYSTORE_FILE" \
             -A "$SIGN_KEY_ALIAS" \
             -P "$SIGN_KEYSTORE_PASSWORD" \
@@ -926,7 +939,7 @@ jobs:
       - name: Verify split APK arch
         if: steps.need_upload.outputs.UPLOAD == 'true'
         run: |
-          for apk in apks/split-manager/*.apk apks/split-manager-spoofed/*.apk; do
+          for apk in apks/split-manager/*.apk; do
             [ -f "$apk" ] || continue
             echo "== $apk =="
             unzip -l "$apk" | grep ' lib/' | awk -F/ '{print $2}' | sort -u
@@ -934,25 +947,24 @@ jobs:
 
 
       # --------------------------------------------------------
-      # Telegram upload - normal Manager (all per-arch APKs)
+      # Telegram upload into this variant's topic
       # --------------------------------------------------------
 
-      - name: Upload Manager to telegram
+      - name: Upload to telegram
         if: steps.need_upload.outputs.UPLOAD == 'true'
         timeout-minutes: 10
         env:
-          # Posts to the official OriginSU channel unless the repository
-          # overrides it with the MANAGER_CHAT_ID variable. Topic variables are
-          # optional: leave them unset for a plain channel, set them when the
-          # target is a forum group.
+          # The official OriginSU channel unless MANAGER_CHAT_ID overrides it.
           CHAT_ID: ${{ vars.MANAGER_CHAT_ID || '@OriginKSU' }}
           BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
-          MESSAGE_THREAD_ID: ${{ inputs.release_upload && vars.MANAGER_TOPIC_RELEASES || (github.ref == 'refs/heads/dev' && vars.MANAGER_TOPIC_DEV || vars.MANAGER_TOPIC_NORMAL) }}
+          # Release uploads go to the changelog topic; everything else goes to
+          # the topic picked for this variant/branch above.
+          MESSAGE_THREAD_ID: ${{ inputs.release_upload && (vars.MANAGER_TOPIC_CHANGELOG || '112') || steps.determine.outputs.topicid }}
           GITHUB_EVENT: ${{ toJson(github.event) }}
 
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
-          TITLE: Manager
+          TITLE: ${{ steps.determine.outputs.title }}
           BRANCH: ${{ github.ref_name }}
 
         shell: bash
@@ -960,33 +972,5 @@ jobs:
           set -euo pipefail
           export VERSION="$(git rev-list --count HEAD)"
           mapfile -d '' APKS < <(find ./apks/split-manager -type f -name '*.apk' -print0 | sort -z)
-          test "${#APKS[@]}" -gt 0
-          bash scripts/upload-telegram.sh "${APKS[@]}"
-
-
-      # --------------------------------------------------------
-      # Telegram upload - spoofed Manager (separate thread)
-      # --------------------------------------------------------
-
-      - name: Upload Manager-spoofed to telegram
-        if: steps.need_upload.outputs.UPLOAD == 'true' && (github.event_name == 'push' && github.ref == 'refs/heads/main')
-        timeout-minutes: 10
-        env:
-          CHAT_ID: ${{ vars.MANAGER_CHAT_ID || '@OriginKSU' }}
-          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
-          MESSAGE_THREAD_ID: ${{ vars.MANAGER_TOPIC_SPOOFED }}
-          GITHUB_EVENT: ${{ toJson(github.event) }}
-
-          COMMIT_URL: ${{ github.event.head_commit.url }}
-          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-
-          TITLE: Manager-spoofed
-          BRANCH: ${{ github.ref_name }}
-
-        shell: bash
-        run: |
-          set -euo pipefail
-          export VERSION="$(git rev-list --count HEAD)"
-          mapfile -d '' APKS < <(find ./apks/split-manager-spoofed -type f -name '*.apk' -print0 | sort -z)
           test "${#APKS[@]}" -gt 0
           bash scripts/upload-telegram.sh "${APKS[@]}"
