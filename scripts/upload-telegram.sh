@@ -68,16 +68,19 @@ trap 'rm -f "$response"' EXIT
 # then receives attach://fileN references without the actual file data and
 # replies 400 "media not found". Only retry on connection failures, which
 # happen before any request body is sent.
+# Chat ids may be channel usernames such as @OriginKSU. Plain -F treats a
+# leading @ as "read this file", which fails with curl error 26, so every
+# text field goes through --form-string.
 common_args=(
   --silent --show-error --fail-with-body
   --retry 2 --retry-delay 2 --retry-connrefused
   --connect-timeout 30 --max-time 1800
   -H "Expect:"
   -o "$response"
-  -F "chat_id=${CHAT_ID}"
+  --form-string "chat_id=${CHAT_ID}"
 )
 if [[ -n "${MESSAGE_THREAD_ID:-}" ]]; then
-  common_args+=(-F "message_thread_id=${MESSAGE_THREAD_ID}")
+  common_args+=(--form-string "message_thread_id=${MESSAGE_THREAD_ID}")
 fi
 
 # Helper: run curl, and on failure print the Telegram response body so the
@@ -94,8 +97,8 @@ if (( $# == 1 )); then
   echo "[+] Uploading 1 APK through Telegram Bot API"
   run_curl \
     -F "document=@$1;type=application/vnd.android.package-archive" \
-    -F "caption=${caption}" \
-    -F "parse_mode=HTML" \
+    --form-string "caption=${caption}" \
+    --form-string "parse_mode=HTML" \
     "${api}/sendDocument"
 else
   upload_args=()
@@ -122,7 +125,7 @@ else
 
   echo "[+] Uploading $# APKs in one Telegram media group"
   run_curl \
-    -F "media=${media}" \
+    --form-string "media=${media}" \
     "${upload_args[@]}" \
     "${api}/sendMediaGroup"
 fi

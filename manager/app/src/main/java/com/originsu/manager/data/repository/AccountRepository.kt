@@ -60,7 +60,7 @@ class AccountRepository(
         const val KEY_SESSIONS = "sessions"
         const val KEY_SESSION_LEGACY = "session"
         const val CSRF_HEADER = "X-Requested-With"
-        const val CSRF_VALUE = "OriginSUThemeAdmin"
+        const val CSRF_VALUE = "SukiSUThemeAdmin"
         const val CLIENT_HEADER = "X-Client"
         const val HISTORY_KIND_VIEW = "view"
         const val HISTORY_KIND_DOWNLOAD = "download"

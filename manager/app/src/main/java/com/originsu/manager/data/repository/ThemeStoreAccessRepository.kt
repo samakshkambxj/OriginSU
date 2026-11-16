@@ -110,7 +110,7 @@ class ThemeStoreAccessRepository internal constructor(
         val rotating=saved!=null
         val payload=if(saved!=null) json.encodeToString(mapOf("refreshToken" to saved.refreshToken)) else json.encodeToString(mapOf("name" to "OriginSU Android"))
         val request=Request.Builder().url(base+if(rotating)"client/refresh" else "client/access")
-            .header("X-Requested-With","OriginSUThemeAdmin").header("Cache-Control","no-store")
+            .header("X-Requested-With","SukiSUThemeAdmin").header("Cache-Control","no-store")
             .post(payload.toRequestBody("application/json".toMediaType()))
         if(!rotating && identity!=null) request.header("Authorization","Bearer "+identity.second)
         client.newCall(request.build()).execute().use { response ->
