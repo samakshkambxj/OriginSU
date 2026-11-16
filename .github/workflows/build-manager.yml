@@ -222,7 +222,7 @@ jobs:
 
 
       # --------------------------------------------------------
-      # Reproduce the original SukiSU randomizer
+      # Reproduce the original OriginSU randomizer
       #
       # This is intentionally executed BEFORE Gradle.
       # --------------------------------------------------------
@@ -234,38 +234,30 @@ jobs:
 
           echo "Building spoofed Manager"
 
-          # Generate four random lowercase words.
+          # Generate three random lowercase words.
           word1=$(tr -dc 'a-z' </dev/urandom | head -c6)
           word2=$(tr -dc 'a-z' </dev/urandom | head -c6)
           word3=$(tr -dc 'a-z' </dev/urandom | head -c6)
-          word4=$(tr -dc 'a-z' </dev/urandom | head -c6)
 
           echo "Generated randomized package components."
 
-          export word1 word2 word3 word4
+          export word1 word2 word3
 
           # Rename package directories.
           find . -depth -type d -name 'com' \
             -execdir mv {} "$word1" \;
 
-          find . -depth -type d -name 'sukisu' \
+          find . -depth -type d -name 'originsu' \
             -execdir mv {} "$word2" \;
 
-          find . -depth -type d -name 'nova' \
+          find . -depth -type d -name 'manager' \
             -execdir mv {} "$word3" \;
-
-          find . -depth -type d -name 'io' \
-            -execdir mv {} "$word4" \;
 
           # Replace package references inside files.
           find . -type f -exec sed -i \
-            -e "s/com\.sukisu\.nova/$word1.$word2.$word3/g" \
-            -e "s/io\.sukisu\.nova/$word4.$word2.$word3/g" \
-            -e "s/com\.sukisu\.zako/$word1.$word2.zako/g" \
-            -e "s/com\/sukisu\/nova/$word1\/$word2\/$word3/g" \
-            -e "s/io\/sukisu\/nova/$word4\/$word2\/$word3/g" \
-            -e "s/io_sukisu_nova/${word4}_${word2}_${word3}/g" \
-            -e "s/com_sukisu_nova/${word1}_${word2}_${word3}/g" \
+            -e "s/com\.originsu\.manager/$word1.$word2.$word3/g" \
+            -e "s/com\/originsu\/manager/$word1\/$word2\/$word3/g" \
+            -e "s/com_originsu_manager/${word1}_${word2}_${word3}/g" \
             {} +
 
           # Add -spoofed to getGitDescribe().

@@ -1,19 +1,19 @@
-# SukiSU Nova
-<img align='right' src='SukiSU-mini.svg' width='220px' alt="SukiSU Nova logo">
+# OriginSU
+<img align='right' src='OriginSU-mini.svg' width='220px' alt="OriginSU logo">
 
 **English** [简体中文](./README_zh.md) |
 
 A kernel-based root solution for Android, evolved from [`tiann/KernelSU`](https://github.com/tiann/KernelSU) with some interesting changes added.
 
-[![Latest Release](https://img.shields.io/github/v/release/SukiSU-Nova/SukiSU-Nova?label=Release&logo=github)](https://github.com/SukiSU-Nova/SukiSU-Nova/releases/latest)
+[![Latest Release](https://img.shields.io/github/v/release/samakshkambxj/OriginSU?label=Release&logo=github)](https://github.com/samakshkambxj/OriginSU/releases/latest)
 [![Channel](https://img.shields.io/badge/Follow-Telegram-blue.svg?logo=telegram)](https://t.me/Sukiksu)
 [![License: GPL 3.0 or later](https://img.shields.io/badge/License-GPL%203.0%20or%20later-orange.svg?logo=gnu)](https://www.gnu.org/licenses/gpl-3.0.html)
-[![GitHub License](https://img.shields.io/github/license/SukiSU-Nova/SukiSU-Nova?logo=gnu)](/LICENSE)
+[![GitHub License](https://img.shields.io/github/license/samakshkambxj/OriginSU?logo=gnu)](/LICENSE)
 
 ## Features
 
 1. Kernel-based `su` and permission management.
-2. [App Profile](https://sukisu.org/guide/app-profile): keep root access in a cage.
+2. [App Profile](https://samakshkambxj.github.io/OriginSU/guide/app-profile): keep root access in a cage.
 3. KPM support.
 4. Built-in Zygisk (NyaZygisk) — no separate Zygisk module needed; running status is shown right on the home screen.
 5. Theme Store: browse, install and submit themes, with multi-source mirrors, author authorization and review.
@@ -23,7 +23,7 @@ A kernel-based root solution for Android, evolved from [`tiann/KernelSU`](https:
 
 ## Compatibility
 
-- SukiSU Nova supports GKI 2.0 devices (kernel version 5.10 and above).
+- OriginSU supports GKI 2.0 devices (kernel version 5.10 and above).
 - Older kernels are also compatible (minimum 4.14+), but you need to compile the kernel yourself.
 - With additional backports, 3.x kernels (3.4–3.18) can be supported.
 - Currently supported architectures: `arm64-v8a`, `armeabi-v7a (bare)`, `X86_64`, `riscv64`.
@@ -64,7 +64,7 @@ Developed based on [KernelPatch](https://github.com/bmax121/KernelPatch), with f
 
 ## Contributing Translations
 
-To translate SukiSU Nova into your language, or improve existing translations, please use [Weblate](https://hosted.weblate.org/projects/sukisu-ultra/).
+To translate OriginSU into your language, or improve existing translations, please use [Weblate](https://hosted.weblate.org/projects/sukisu-ultra/).
 
 <a href="https://hosted.weblate.org/engage/sukisu-ultra/"><img src="https://hosted.weblate.org/widget/sukisu-ultra/multi-auto.svg" alt="Translation status"></a>
 
@@ -76,7 +76,7 @@ To translate SukiSU Nova into your language, or improve existing translations, p
 
 ## Sponsors
 
-- [ShirkNeko](https://afdian.com/a/shirkneko) (lead maintainer of SukiSU)
+- [ShirkNeko](https://afdian.com/a/shirkneko) (lead maintainer of OriginSU)
 - [weishu](https://github.com/sponsors/tiann) (author of KernelSU)
 
 <details>
@@ -100,7 +100,7 @@ To translate SukiSU Nova into your language, or improve existing translations, p
 - [KernelPatch](https://github.com/bmax121/KernelPatch): KernelPatch is a key part of the kernel module implementation in APatch
 - NyaZygisk: built-in Zygisk implementation
 
-PRs are welcome; for translations please go to [Weblate](https://hosted.weblate.org/projects/sukisu-ultra/); for issue reports please open an [Issue](https://github.com/SukiSU-Nova/SukiSU-Nova/issues).
+PRs are welcome; for translations please go to [Weblate](https://hosted.weblate.org/projects/sukisu-ultra/); for issue reports please open an [Issue](https://github.com/samakshkambxj/OriginSU/issues).
 
 <details>
 <summary>KernelSU acknowledgements</summary>

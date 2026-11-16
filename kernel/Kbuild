@@ -176,8 +176,8 @@ obj-$(CONFIG_KSU) += kernelsu.o
 
 MDIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 
-REPO_OWNER  := SukiSU-Nova
-REPO_NAME   := SukiSU-Nova
+REPO_OWNER  := samakshkambxj
+REPO_NAME   := OriginSU
 REPO_BRANCH := main
 
 VERSION_BASE    := 30000
@@ -210,9 +210,9 @@ ccflags-y += -DKSU_VERSION_FULL=\"$(KSU_VERSION_FULL)\"
 
 KSU_IS_PR_BUILD ?= 0
 ifeq ($(KSU_IS_PR_BUILD),0)
-KSU_PACKAGE_NAME ?= com.sukisu.nova
+KSU_PACKAGE_NAME ?= com.originsu.manager
 else
-KSU_PACKAGE_NAME ?= com.sukisu.nova.pr
+KSU_PACKAGE_NAME ?= com.originsu.manager.pr
 endif
 KSU_EXPECTED_SIZE ?= 0x35c
 KSU_EXPECTED_HASH ?= 947ae944f3de4ed4c21a7e4f7953ecf351bfa2b36239da37a34111ad29993eef

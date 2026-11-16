@@ -8,7 +8,7 @@
     <string name="home_lkm_update_available">A newer bundled LKM is available. Tap to update.</string>
     <string name="home_lkm_custom">Custom</string>
     <string name="home_unsupported">Unsupported</string>
-    <string name="home_unsupported_reason">No SukiSU driver detected on your kernel, wrong kernel?</string>
+    <string name="home_unsupported_reason">No OriginSU driver detected on your kernel, wrong kernel?</string>
     <string name="home_device_model">Device model</string>
     <string name="home_kernel">Kernel version</string>
     <string name="home_manager_version">Manager version</string>
@@ -58,7 +58,7 @@
     <string name="module_repo_update_available">Update</string>
     <string name="module_repo_installed">Installed</string>
     <string name="module_repo_using_cache">Couldn\'t refresh the repository, showing the last downloaded copy</string>
-    <string name="module_repo_unsupported_schema">The module repository uses a newer format. Please update SukiSU Manager.</string>
+    <string name="module_repo_unsupported_schema">The module repository uses a newer format. Please update OriginSU Manager.</string>
     <string name="module_repo_load_failed">Failed to load the module repository</string>
     <string name="module_repo_empty">No modules available</string>
     <string name="module_repo_not_in_index">This module is not in the repository index right now and can\'t be installed from here.</string>
@@ -147,11 +147,11 @@
     <string name="safe_mode_module_disabled">Module installation is disabled in safe mode</string>
     <string name="reboot_to_apply">Reboot to take effect</string>
     <string name="module_magisk_conflict">Modules are unavailable due to a conflict with Magisk!</string>
-    <string name="home_learn_kernelsu">Learn SukiSU</string>
-    <string name="home_learn_kernelsu_url">https://sukisu.org/guide/</string>
-    <string name="home_click_to_learn_kernelsu">Learn how to install SukiSU and use modules.</string>
+    <string name="home_learn_kernelsu">Learn OriginSU</string>
+    <string name="home_learn_kernelsu_url">https://samakshkambxj.github.io/OriginSU/guide/</string>
+    <string name="home_click_to_learn_kernelsu">Learn how to install OriginSU and use modules.</string>
     <string name="home_support_title">Support Us</string>
-    <string name="home_support_content">SukiSU is, and always will be, free, and open source. However, you can show us that you care by making a donation.</string>
+    <string name="home_support_content">OriginSU is, and always will be, free, and open source. However, you can show us that you care by making a donation.</string>
     <string name="about_contributors">Main contributors</string>
     <string name="about_contributors_hint">Drag to explore, pinch to zoom, tap an avatar to open the profile.</string>
     <string name="about_wordmark_hint">Every letter is a contributor\'s name. Pinch to zoom in.</string>
@@ -176,7 +176,7 @@
     <string name="require_kernel_version_gki">Kernel update required</string>
     <string name="settings_umount_modules_default">Umount modules by default</string>
     <string name="settings_umount_modules_default_summary">The global default value for \"Umount modules\" in App Profile. If enabled, it will remove all module modifications to the system for apps that don\'t have a profile set.</string>
-    <string name="profile_umount_modules_summary">Enabling this option will allow SukiSU to restore any modified files by the modules for this app.</string>
+    <string name="profile_umount_modules_summary">Enabling this option will allow OriginSU to restore any modified files by the modules for this app.</string>
     <string name="profile_selinux_domain">Domain</string>
     <string name="profile_selinux_rules">Rules</string>
     <string name="recently_installed">Recently installed</string>
@@ -260,9 +260,9 @@
     <string name="settings_uninstall_temporary">Uninstall temporarily</string>
     <string name="settings_uninstall_permanent">Uninstall permanently</string>
     <string name="settings_restore_stock_image">Restore stock image</string>
-    <string name="settings_uninstall_temporary_message">Temporarily uninstall SukiSU, restore to original state after next reboot.</string>
-    <string name="settings_uninstall_permanent_message">Uninstalling SukiSU (Root and all modules) completely and permanently.</string>
-    <string name="settings_restore_stock_image_message">Restore the stock factory image (if a backup exists), usually used before OTA; if you need to uninstall SukiSU, please use \"Uninstall permanently\".</string>
+    <string name="settings_uninstall_temporary_message">Temporarily uninstall OriginSU, restore to original state after next reboot.</string>
+    <string name="settings_uninstall_permanent_message">Uninstalling OriginSU (Root and all modules) completely and permanently.</string>
+    <string name="settings_restore_stock_image_message">Restore the stock factory image (if a backup exists), usually used before OTA; if you need to uninstall OriginSU, please use \"Uninstall permanently\".</string>
     <string name="flashing">Flashing</string>
     <string name="flash_success">Flash success</string>
     <string name="flash_failed">Flash failed</string>
@@ -278,11 +278,11 @@
     <string name="settings_selinux_hide_reboot_required">Reboot to take effect</string>
     <string name="settings_selinux_hide_failed">Error: %d</string>
     <string name="settings_mount_hide">Hide suspicious mounts</string>
-    <string name="settings_mount_hide_summary">Filter SukiSU and module mount records from the /proc mount views of isolated and app processes</string>
+    <string name="settings_mount_hide_summary">Filter OriginSU and module mount records from the /proc mount views of isolated and app processes</string>
     <string name="settings_mount_hide_reboot_required">Reboot to take effect</string>
     <string name="settings_mount_hide_failed">Error: %d</string>
     <string name="settings_sulog">SU Log</string>
-    <string name="settings_sulog_summary">Record Root-related events into SukiSU sulog files</string>
+    <string name="settings_sulog_summary">Record Root-related events into OriginSU sulog files</string>
     <string name="feature_status_unsupported_summary">Kernel does not support this feature</string>
     <string name="feature_status_managed_summary">This feature is managed by a module</string>
     <string name="feature_status_forced_summary">This feature is forced by boot config</string>
@@ -404,14 +404,14 @@
     <string name="settings_adb_root" translatable="false">ADB Root</string>
     <string name="settings_adb_root_summary">Run adbd daemon with Root privileges</string>
     <string name="settings_shell_su_adb_only">Restrict shell root to ADB</string>
-    <string name="settings_shell_su_adb_only_summary">Extra check when Shell is granted root: only processes spawned by adbd or a SukiSU root process (e.g. an ADB module) can use it, preventing apps that obtain shell privileges from escalating to root</string>
+    <string name="settings_shell_su_adb_only_summary">Extra check when Shell is granted root: only processes spawned by adbd or a OriginSU root process (e.g. an ADB module) can use it, preventing apps that obtain shell privileges from escalating to root</string>
     <string name="menu_sort">Sort</string>
     <string name="sort_by_name">Application name</string>
     <string name="sort_by_package_name">Package name</string>
     <string name="sort_by_install_time">Install time</string>
     <string name="sort_by_update_time">Update time</string>
     <string name="sort_reverse">Reverse</string>
-    <string name="profile_flags_desc_no_new_privs">Prevent further privilege escalation via SukiSU from within the context of this root profile</string>
+    <string name="profile_flags_desc_no_new_privs">Prevent further privilege escalation via OriginSU from within the context of this root profile</string>
     <string name="module_shortcut_copy_scheme">Copy URL scheme</string>
     <string name="module_shortcut_scheme_copied">URL scheme copied</string>
     <string name="nav_rail_expand">Expand navigation rail</string>
@@ -562,7 +562,7 @@
     <string name="kpm_args">Parameters</string>
     <string name="kpm_control">Execute</string>
     <string name="close_notice">Close</string>
-    <string name="kernel_module_notice">The following kernel module functions were developed by KernelPatch and modified to include the kernel module functions of SukiSU</string>
+    <string name="kernel_module_notice">The following kernel module functions were developed by KernelPatch and modified to include the kernel module functions of OriginSU</string>
     <string name="kpm_control_success">Success</string>
     <string name="not_supported">Unsupported</string>
     <string name="kpm_install_mode">KPM Install</string>
@@ -900,7 +900,7 @@
     <string name="appearance_overlay_invalid">Invalid appearance JSON: %1$s</string>
     <string name="appearance_overlay_read_failed">Could not read the selected file</string>
     <string name="appearance_overlay_write_failed">Could not write the appearance file</string>
-    <string name="appearance_overlay_file_name">sukisu-appearance.json</string>
+    <string name="appearance_overlay_file_name">originsu-appearance.json</string>
     <string name="appearance_overlay_presets">Presets</string>
     <string name="appearance_overlay_preset_dark_background">Dark background: white text</string>
     <string name="appearance_overlay_preset_light_background">Light background: black text</string>
@@ -1096,7 +1096,7 @@
     <string name="account_forgot_send">Send reset email</string>
     <string name="account_forgot_sent">If the account exists, a reset email has been sent.</string>
     <string name="account_forgot_mail_unavailable">Email service is not configured on this server, so reset emails cannot be sent.</string>
-    <string name="account_device_name">SukiSU Manager (Android)</string>
+    <string name="account_device_name">OriginSU Manager (Android)</string>
     <string name="account_device_login">One-time key sign-in</string>
     <string name="account_device_title">One-time key sign-in</string>
     <string name="account_device_hint">Sign in to the web account center in the browser, then confirm this key. The app polls automatically.</string>
@@ -1166,7 +1166,7 @@
     <string name="theme_store_upload_markdown_hint">Supports Markdown: **bold**, *italic*, `code`, [link](https://example.com). Use username@github (usernames may use any language, for example 小明@github) to link a platform user; @github still links to the site.</string>
     <string name="theme_store_upload_markdown_hint_short">Markdown and @ website mentions are supported here too.</string>
     <string name="theme_store_upload_changelog">Changelog</string>
-    <string name="theme_store_upload_package">Theme package (required, .sukisu)</string>
+    <string name="theme_store_upload_package">Theme package (required, .originsu)</string>
     <string name="theme_store_upload_preview">Preview image (required)</string>
     <string name="theme_store_upload_screenshots">Screenshots (optional, up to 6)</string>
     <string name="theme_store_upload_choose_file">Choose file</string>
@@ -1329,9 +1329,9 @@
     <string name="theme_store_source_unnamed">Unnamed source</string>
     <string name="theme_store_source_invalid">Invalid address</string>
     <string name="app_icon_builtin_section">Built-in icons</string>
-    <string name="app_icon_builtin_default">SukiSU</string>
+    <string name="app_icon_builtin_default">OriginSU</string>
     <string name="app_icon_builtin_kernelsu">KernelSU</string>
-    <string name="app_icon_builtin_logo">SukiSU Logo</string>
+    <string name="app_icon_builtin_logo">OriginSU Logo</string>
     <string name="app_icon_import_title">Import icon pack</string>
     <string name="app_icon_import_summary">Import a ZIP archive containing PNG, WebP or JPG icons</string>
     <string name="app_icon_import_button">Import</string>
@@ -1349,7 +1349,7 @@
     <string name="app_icon_delete_pack_failed">Could not delete the icon pack</string>
     <string name="app_icon_empty_custom">No custom icons yet</string>
     <string name="app_icon_empty_custom_summary">Import a ZIP archive to add your own icons</string>
-    <string name="app_icon_builtin_zako">SukiSU Line Art</string>
+    <string name="app_icon_builtin_zako">OriginSU Line Art</string>
     <string name="app_icon_dynamic_color_title">Dynamic color</string>
     <string name="app_icon_dynamic_color_summary">Allow supported launchers to tint the icon with wallpaper colors (Android 13+)</string>
     <string name="app_icon_selected">Selected</string>
@@ -1367,9 +1367,9 @@
     <string name="superuser_filter_system">System</string>
     <string name="superuser_granted_summary">%1$d of %2$d apps granted</string>
     <string name="module_summary">%1$d enabled · %2$d updatable</string>
-    <string name="home_preview_mode">No SukiSU kernel detected. Root access is available, so the pages open in preview mode; kernel features do nothing.</string>
+    <string name="home_preview_mode">No OriginSU kernel detected. Root access is available, so the pages open in preview mode; kernel features do nothing.</string>
     <string name="dynamic_manager_title">Dynamic managers</string>
-    <string name="dynamic_manager_summary">Manage additional trusted SukiSU managers</string>
+    <string name="dynamic_manager_summary">Manage additional trusted OriginSU managers</string>
     <string name="dynamic_manager_enabled">Dynamic managers enabled</string>
     <string name="dynamic_manager_add">Add manager</string>
     <string name="dynamic_manager_remove">Remove manager</string>
@@ -1397,11 +1397,11 @@
     <string name="extension_umount_paths_title">Umount path manager</string>
     <string name="extension_umount_paths_summary">Manage the list of mount points the kernel will umount when an app starts.</string>
     <string name="extension_dynamic_manager_title">Dynamic manager</string>
-    <string name="extension_dynamic_manager_summary">Allow more than one app to act as the SukiSU manager, authenticated by signing certificate.</string>
+    <string name="extension_dynamic_manager_summary">Allow more than one app to act as the OriginSU manager, authenticated by signing certificate.</string>
     <string name="extension_susfs_title">SuSFS</string>
     <string name="extension_susfs_summary">Configure hide-mount, spoof uname, redirect-open, kstat and other low-level kernel tricks. Requires the SuSFS kernel module to be installed.</string>
-    <string name="extension_version_spoof_title">SukiSU version overrides</string>
-    <string name="extension_version_spoof_summary">Customize the reported SukiSU version code, full version and UAPI version.</string>
+    <string name="extension_version_spoof_title">OriginSU version overrides</string>
+    <string name="extension_version_spoof_summary">Customize the reported OriginSU version code, full version and UAPI version.</string>
     <string name="extension_open_details">Open details</string>
     <!-- Fallback card for a handler the kernel reports but this manager has
          no dedicated page for. Keeps new extensions visible and, when they
@@ -1544,11 +1544,11 @@
     <string name="theme_category_details">Details</string>
     <string name="theme_category_theme_package">Theme</string>
     <string name="theme_export">Export theme package</string>
-    <string name="theme_export_summary">Save the current theme and background as a .sukisu theme package</string>
-    <string name="theme_export_dialog_message">Choose what to include in this .sukisu theme package:</string>
+    <string name="theme_export_summary">Save the current theme and background as a .originsu theme package</string>
+    <string name="theme_export_dialog_message">Choose what to include in this .originsu theme package:</string>
     <string name="theme_package_format_version">Package format v%1$d</string>
     <string name="theme_import">Import theme package</string>
-    <string name="theme_import_summary">Apply a .sukisu theme package exported from SukiSU</string>
+    <string name="theme_import_summary">Apply a .originsu theme package exported from OriginSU</string>
     <string name="theme_reset">Restore Defaults</string>
     <string name="theme_reset_summary">Reset card opacity, background blur and scrim</string>
     <string name="theme_clear_all">Clear all appearance</string>
@@ -1568,7 +1568,7 @@
     <string name="version_spoof_warning">Warning: these are real kernel API response overrides, not cosmetic labels. Changing UAPI or version values can break Manager compatibility checks, installation and updates. Reset remains available through ksud.</string>
     <string name="version_spoof_hint">Blank fields use build values. Saved overrides are restored at boot except in safe mode. Other apps may cache versions; restart them after changing values. Full version: up to 254 UTF-8 bytes.</string>
     <string name="version_spoof_code">Working version code</string>
-    <string name="version_spoof_full">Full SukiSU version</string>
+    <string name="version_spoof_full">Full OriginSU version</string>
     <string name="version_spoof_uapi">Reported UAPI version</string>
     <string name="version_spoof_ack">I understand the compatibility risks</string>
     <string name="version_spoof_reset">Restore build values</string>
@@ -1576,7 +1576,7 @@
     <string name="version_spoof_compiled_target">Compiled Manager reference: version %1$s, UAPI %2$s. Custom values may differ; confirm the compatibility warning before saving.</string>
     <string name="version_spoof_original_value">Original: %1$s</string>
     <string name="version_spoof_back">Back</string>
-    <string name="version_spoof_home_warning">SukiSU version or UAPI differs from this Manager build. Tap to review version settings and recovery instructions.</string>
+    <string name="version_spoof_home_warning">OriginSU version or UAPI differs from this Manager build. Tap to review version settings and recovery instructions.</string>
     <string name="version_spoof_hide_warning">Hide home-page version warnings</string>
     <string name="version_spoof_hide_warning_summary">Off by default. Hides version mismatch notices only; compatibility checks remain active.</string>
     <string name="version_spoof_section_info">Compatibility and build information</string>

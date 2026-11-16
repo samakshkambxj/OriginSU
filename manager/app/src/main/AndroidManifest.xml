@@ -27,7 +27,7 @@
         android:name="${applicationId}.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
         android:protectionLevel="signature" />
 
-    <uses-sdk tools:overrideLibrary="top.yukonga.miuix.kmp.blur,com.sukisu.nova.ai" />
+    <uses-sdk tools:overrideLibrary="top.yukonga.miuix.kmp.blur,com.originsu.manager.ai" />
 
     <!-- Android 11 package visibility: needed to resolve the vendor gallery's crop screen. -->
     <queries>
@@ -49,7 +49,7 @@
         android:networkSecurityConfig="@xml/network_security_config"
         android:supportsRtl="true"
         android:theme="@style/Theme.KernelSU"
-        android:zygotePreloadName="com.sukisu.nova.magica.AppZygotePreload"
+        android:zygotePreloadName="com.originsu.manager.magica.AppZygotePreload"
         tools:targetApi="R">
         <activity
             android:name=".ui.MainActivity"
@@ -61,7 +61,7 @@
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="sukisu-theme" android:host="open" />
+                <data android:scheme="originsu-theme" android:host="open" />
             </intent-filter>
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
@@ -97,7 +97,7 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="content" />
                 <data android:scheme="file" />
-                <data android:mimeType="application/x-sukisu-theme" />
+                <data android:mimeType="application/x-originsu-theme" />
             </intent-filter>
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
@@ -107,11 +107,11 @@
                 <data android:scheme="file" />
                 <data android:mimeType="*/*" />
                 <data android:mimeType="application/octet-stream" />
-                <data android:pathPattern=".*\.sukisu" />
-                <data android:pathPattern=".*\..*\.sukisu" />
-                <data android:pathPattern=".*\..*\..*\.sukisu" />
-                <data android:pathPattern=".*\..*\..*\..*\.sukisu" />
-                <data android:pathSuffix=".sukisu" />
+                <data android:pathPattern=".*\.originsu" />
+                <data android:pathPattern=".*\..*\.originsu" />
+                <data android:pathPattern=".*\..*\..*\.originsu" />
+                <data android:pathPattern=".*\..*\..*\..*\.originsu" />
+                <data android:pathSuffix=".originsu" />
             </intent-filter>
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
@@ -119,16 +119,16 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="content" />
                 <data android:scheme="file" />
-                <data android:pathPattern=".*\.sukisu" />
-                <data android:pathPattern=".*\..*\.sukisu" />
-                <data android:pathPattern=".*\..*\..*\.sukisu" />
-                <data android:pathPattern=".*\..*\..*\..*\.sukisu" />
-                <data android:pathSuffix=".sukisu" />
+                <data android:pathPattern=".*\.originsu" />
+                <data android:pathPattern=".*\..*\.originsu" />
+                <data android:pathPattern=".*\..*\..*\.originsu" />
+                <data android:pathPattern=".*\..*\..*\..*\.originsu" />
+                <data android:pathSuffix=".originsu" />
             </intent-filter>
             <intent-filter>
                 <action android:name="android.intent.action.SEND" />
                 <category android:name="android.intent.category.DEFAULT" />
-                <data android:mimeType="application/x-sukisu-theme" />
+                <data android:mimeType="application/x-originsu-theme" />
             </intent-filter>
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
@@ -174,7 +174,7 @@
             </intent-filter>
         </activity-alias>
 
-        <!-- 切换图标：SukiSU 标志 -->
+        <!-- 切换图标：OriginSU 标志 -->
         <activity-alias
             android:name=".ui.MainActivityAliasLogo"
             android:targetActivity=".ui.MainActivity"
@@ -188,7 +188,7 @@
             </intent-filter>
         </activity-alias>
 
-        <!-- 切换图标：SukiSU 线稿 -->
+        <!-- 切换图标：OriginSU 线稿 -->
         <activity-alias
             android:name=".ui.MainActivityAliasZako"
             android:targetActivity=".ui.MainActivity"
@@ -311,7 +311,7 @@
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
             </intent-filter>
             <intent-filter>
-                <action android:name="com.sukisu.nova.magica.LAUNCH" />
+                <action android:name="com.originsu.manager.magica.LAUNCH" />
             </intent-filter>
         </receiver>
     </application>

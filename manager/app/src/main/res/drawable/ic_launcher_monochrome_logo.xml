@@ -5,7 +5,7 @@
     android:viewportWidth="512"
     android:viewportHeight="512">
 
-    <!-- Wordmark extracted from docs/SukiSU.svg for Android 13+ themed icons. -->
+    <!-- Wordmark extracted from docs/OriginSU.svg for Android 13+ themed icons. -->
     <group
         android:scaleX="0.335937"
         android:scaleY="0.335937"

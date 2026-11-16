@@ -8,10 +8,10 @@ the remaining entries are copied verbatim, then the result is zipaligned
 Output naming keeps the full original name and inserts the arch before the
 build type, e.g.:
 
-    SukiSU_v4.2.1-r1_41050-release.apk
-        -> SukiSU_v4.2.1-r1_41050-arm64-v8a-release.apk
-    SukiSU_v4.2.1-r1_41050-release-spoofed.apk
-        -> SukiSU_v4.2.1-r1_41050-arm64-v8a-release-spoofed.apk
+    OriginSU_v4.2.1-r1_41050-release.apk
+        -> OriginSU_v4.2.1-r1_41050-arm64-v8a-release.apk
+    OriginSU_v4.2.1-r1_41050-release-spoofed.apk
+        -> OriginSU_v4.2.1-r1_41050-arm64-v8a-release-spoofed.apk
 
 Signing options mirror repack_apk.py so existing secrets/keys keep working.
 """
@@ -95,11 +95,11 @@ def resolve_arches(apk_path: Path, requested: List[str]) -> List[str]:
 def build_output_name(apk: Path, arch: str, override_prefix: Optional[str]) -> str:
     """Build '<base>-<arch>-<buildType>[-spoofed].apk' from the input APK name.
 
-    Input  : SukiSU_v4.2.1-r1_41050-release.apk
-    Output : SukiSU_v4.2.1-r1_41050-arm64-v8a-release.apk
+    Input  : OriginSU_v4.2.1-r1_41050-release.apk
+    Output : OriginSU_v4.2.1-r1_41050-arm64-v8a-release.apk
 
-    Input  : SukiSU_v4.2.1-r1_41050-release-spoofed.apk
-    Output : SukiSU_v4.2.1-r1_41050-arm64-v8a-release-spoofed.apk
+    Input  : OriginSU_v4.2.1-r1_41050-release-spoofed.apk
+    Output : OriginSU_v4.2.1-r1_41050-arm64-v8a-release-spoofed.apk
 
     If the input has no recognizable build type, fall back to
     '<stem>-<arch>.apk'.

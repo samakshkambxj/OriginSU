@@ -26,11 +26,11 @@ config KSU_MANUAL_SU
       Use manual su and authorize the corresponding command line and application via prctl
 
 config KPM
-    bool "Enable SukiSU KPM"
+    bool "Enable OriginSU KPM"
     depends on KSU && 64BIT
     default n
     help
-      Enabling this option will activate the KPM feature of SukiSU.
+      Enabling this option will activate the KPM feature of OriginSU.
       This option is suitable for scenarios where you need to force KPM to be enabled.
       but it may affect system stability.
     select KALLSYMS

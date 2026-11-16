@@ -73,7 +73,7 @@ int ksu_extension_kpm_io(u32 id, void __user *raw)
     return do_kpm(raw);
 #else
     (void)raw;
-    pr_warn_once("extension/kpm: IO disabled: rebuild SukiSU with CONFIG_KPM=y\n");
+    pr_warn_once("extension/kpm: IO disabled: rebuild OriginSU with CONFIG_KPM=y\n");
     return -EOPNOTSUPP;
 #endif
 }
