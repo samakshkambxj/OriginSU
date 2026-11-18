@@ -1034,7 +1034,10 @@ pub fn run() -> Result<()> {
         }
 
         Commands::Bootloop { command } => match command {
-            BootloopOp::Status => crate::bootloop::status(),
+            BootloopOp::Status => {
+                crate::bootloop::status();
+                Ok(())
+            }
             BootloopOp::Enable => crate::bootloop::set_enabled(true),
             BootloopOp::Disable => crate::bootloop::set_enabled(false),
             BootloopOp::SetMax { count } => crate::bootloop::set_max(count),

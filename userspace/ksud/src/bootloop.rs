@@ -70,8 +70,7 @@ fn write_count(count: u32) -> Result<()> {
 fn unix_now() -> u64 {
     SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_secs())
-        .unwrap_or(0)
+        .map_or(0, |d| d.as_secs())
 }
 
 /// Called from `post-fs-data`: count this boot attempt and, when too many
@@ -130,7 +129,7 @@ pub fn on_boot_completed() -> Result<()> {
 }
 
 /// Print protection status as JSON for the manager.
-pub fn status() -> Result<()> {
+pub fn status() {
     let config = read_config();
     let rescued: Option<RescuedInfo> = fs::read_to_string(RESCUED_PATH)
         .ok()
@@ -145,7 +144,6 @@ pub fn status() -> Result<()> {
         "rescued_rolled_back": rescued.as_ref().map(|r| r.rolled_back),
     });
     println!("{output}");
-    Ok(())
 }
 
 pub fn set_enabled(enabled: bool) -> Result<()> {
