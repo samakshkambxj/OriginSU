@@ -48,6 +48,16 @@ kernel extension center, without a pile of companion apps.
 7. Built-in SUSFS management with one-tap root hiding configuration.
 8. Dual UI: Miuix / Material 3 Expressive, Miuix splash screen, module banners
    and sorting, and a kernel-free preview mode.
+9. KazeGuard pre-install audit: reviews module ZIPs for known malware
+   signatures and destructive commands before they flash. Extreme findings block
+   the install until you confirm; high findings warn loudly but don't stop a
+   normal install; audit failures fail open so a scanner bug can never break
+   installs. Rule catalog is bundled, cached on the device, and refreshable with
+   `ksud module guard update`.
+10. Bootloop protection: ksud counts boots that reach `post-fs-data` but never
+    finish, and disables every module once the threshold (2–10, default 3) is
+    crossed. A rescue notice with Dismiss tells you what happened so you can
+    re-enable modules one by one to find the culprit.
 
 ## Compatibility
 
