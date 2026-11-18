@@ -6,9 +6,9 @@ name: Release
 # a stage can reuse an earlier result by dispatching the workflow that needs it
 # with artifacts_run=<id>.
 on:
-  push:
-    tags:
-      - "v*"
+  # The tag trigger lives in release-hosted.yml; this pipeline needs the
+  # self-hosted runner and its /ci volume, so it is dispatch-only until that
+  # runner is registered again.
   workflow_dispatch:
     inputs:
       artifacts_run:
