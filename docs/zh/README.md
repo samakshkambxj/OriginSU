@@ -28,6 +28,7 @@
 - 通过更多反向移植，可支持 3.x 内核（3.4–3.18）。
 - 目前支持架构：`arm64-v8a`、`armeabi-v7a (bare)`、`X86_64`、`riscv64`。
 - **注意**：本项目自 `tiann/KernelSU` 分叉后独立演进，兼容性以本仓库实测为准，不再等同于 KernelSU 官方支持范围。
+- 已集成 KazeSU 的社区内核列在[非官方支持设备](https://kazesu.github.io/zh-Hans/guide/unofficial-devices)页面。
 
 ## 内核兼容性状态
 

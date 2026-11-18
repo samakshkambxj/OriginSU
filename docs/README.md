@@ -28,6 +28,7 @@ A kernel-based root solution for Android, evolved from [`tiann/KernelSU`](https:
 - With additional backports, 3.x kernels (3.4–3.18) can be supported.
 - Currently supported architectures: `arm64-v8a`, `armeabi-v7a (bare)`, `X86_64`, `riscv64`.
 - **Note**: This project has evolved independently since forking from `tiann/KernelSU`; compatibility is based on testing in this repository and no longer equals the official KernelSU support scope.
+- Community kernels that already integrate KazeSU are listed on the [unofficial supported devices](https://kazesu.github.io/guide/unofficial-devices) page.
 
 ## Kernel Compatibility Status
 
