@@ -27,6 +27,7 @@ import com.kazesu.manager.R
 import com.kazesu.manager.ui.component.material.ExpressiveScaffold
 import com.kazesu.manager.ui.component.material.LocalListItemShapes
 import com.kazesu.manager.ui.component.material.SegmentedColumn
+import com.kazesu.manager.ui.component.material.SegmentedDropdownItem
 import com.kazesu.manager.ui.component.material.SegmentedListItem
 import com.kazesu.manager.ui.component.material.SegmentedSwitchItem
 import com.kazesu.manager.ui.component.material.TopBarBackButton
@@ -45,6 +46,10 @@ internal fun BuiltinZygiskMaterial(
     onToggleInjected: (String) -> Unit,
     onSetOption: (String, String) -> Unit,
     onToggleGroup: () -> Unit,
+    onClearGuard: () -> Unit,
+    onVerify: () -> Unit,
+    onReport: () -> Unit,
+    onSetQuarantine: (String, Boolean) -> Unit,
 ) {
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
 
@@ -338,9 +343,162 @@ internal fun BuiltinZygiskMaterial(
                                     checked = uiState.config.pltEngine == "lsplt",
                                     onCheckedChange = { onSetOption("plt_engine", if (it) "lsplt" else "bytehook") }
                                 )
+                            },
+                            {
+                                SegmentedDropdownItem(
+                                    title = stringResource(R.string.builtin_zygisk_opt_denylist),
+                                    summary = stringResource(R.string.builtin_zygisk_opt_denylist_summary),
+                                    items = listOf("0", "1", "2"),
+                                    selectedIndex = (uiState.config.denylistMode.toIntOrNull() ?: 0)
+                                        .coerceIn(0, 2),
+                                    onItemSelected = { onSetOption("denylist_mode", it.toString()) }
+                                )
+                            },
+                            {
+                                SegmentedSwitchItem(
+                                    title = stringResource(R.string.builtin_zygisk_opt_crash_protection),
+                                    summary = stringResource(R.string.builtin_zygisk_opt_crash_protection_summary),
+                                    checked = uiState.config.crashProtection,
+                                    onCheckedChange = { onSetOption("crash_protection", if (it) "1" else "0") }
+                                )
+                            },
+                            {
+                                SegmentedSwitchItem(
+                                    title = stringResource(R.string.builtin_zygisk_opt_dmesg),
+                                    summary = stringResource(R.string.builtin_zygisk_opt_dmesg_summary),
+                                    checked = uiState.config.dmesgLog,
+                                    onCheckedChange = { onSetOption("dmesg_log", if (it) "1" else "0") }
+                                )
+                            },
+                            {
+                                val levels = listOf("debug", "info", "warn", "error")
+                                SegmentedDropdownItem(
+                                    title = stringResource(R.string.builtin_zygisk_opt_log_level),
+                                    summary = stringResource(R.string.builtin_zygisk_opt_log_level_summary),
+                                    items = levels,
+                                    selectedIndex = levels.indexOf(uiState.config.logLevel)
+                                        .coerceAtLeast(0),
+                                    onItemSelected = { onSetOption("log_level", levels[it]) }
+                                )
                             }
                         )
                     )
+                }
+
+                item {
+                    Text(
+                        text = stringResource(R.string.builtin_zygisk_health_title),
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(bottom = 4.dp)
+                    )
+                    Text(
+                        text = stringResource(
+                            R.string.builtin_zygisk_health_summary,
+                            stringResource(healthStatusText(uiState.health.lastStatus))
+                        ),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+
+                    SegmentedColumn(
+                        modifier = Modifier.fillMaxWidth(),
+                        content = listOf(
+                            {
+                                StatusRow(
+                                    title = stringResource(R.string.builtin_zygisk_health_title),
+                                    summary = uiState.health.lastReason.ifEmpty {
+                                        stringResource(R.string.builtin_zygisk_health_unknown)
+                                    },
+                                    ok = uiState.health.lastStatus == "healthy"
+                                )
+                            },
+                            {
+                                SegmentedListItem(
+                                    headlineContent = {
+                                        Text(stringResource(R.string.builtin_zygisk_guard_failures,
+                                            uiState.health.failures,
+                                            uiState.health.failureLimit))
+                                    },
+                                    supportingContent = if (uiState.health.blocked) {
+                                        {
+                                            Text(
+                                                text = stringResource(R.string.builtin_zygisk_guard_blocked),
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.error
+                                            )
+                                        }
+                                    } else {
+                                        null
+                                    }
+                                )
+                            },
+                            {
+                                SegmentedListItem(
+                                    onClick = onClearGuard,
+                                    headlineContent = {
+                                        Text(stringResource(R.string.builtin_zygisk_guard_clear))
+                                    }
+                                )
+                            },
+                            {
+                                SegmentedListItem(
+                                    onClick = onVerify,
+                                    headlineContent = {
+                                        Text(stringResource(R.string.builtin_zygisk_verify))
+                                    }
+                                )
+                            },
+                            {
+                                SegmentedListItem(
+                                    onClick = onReport,
+                                    headlineContent = {
+                                        Text(stringResource(R.string.builtin_zygisk_report))
+                                    }
+                                )
+                            }
+                        )
+                    )
+                }
+
+                item {
+                    Text(
+                        text = stringResource(R.string.builtin_zygisk_quarantine_title),
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(bottom = 4.dp)
+                    )
+                    Text(
+                        text = stringResource(R.string.builtin_zygisk_quarantine_hint),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+
+                    if (uiState.zygiskModules.isEmpty()) {
+                        Text(
+                            text = stringResource(R.string.builtin_zygisk_quarantine_empty),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    } else {
+                        SegmentedColumn(
+                            modifier = Modifier.fillMaxWidth(),
+                            content = uiState.zygiskModules.map { module ->
+                                @Composable {
+                                    SegmentedSwitchItem(
+                                        title = module.name,
+                                        summary = module.id,
+                                        checked = uiState.quarantine.contains(module.id),
+                                        onCheckedChange = {
+                                            onSetQuarantine(module.id, it)
+                                        }
+                                    )
+                                }
+                            }
+                        )
+                    }
                 }
 
                 item {

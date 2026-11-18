@@ -1547,6 +1547,10 @@ data class ZygoteAbiStatus(
 
 data class BuiltinZygiskStatus(
     val enabled: Boolean = false,
+    /// Enabled, not latched off and not in safe mode.
+    val operational: Boolean = true,
+    /// The boot guard has latched the engine off.
+    val blocked: Boolean = false,
     val monitorRunning: Boolean = false,
     val daemonRunning: Boolean = false,
     /// Whether any ABI's zygote carries the loader. Without it the modules are not
@@ -1566,17 +1570,27 @@ data class BuiltinZygiskConfig(
     val customLinker: Boolean = false,
     // "bytehook" or "lsplt"
     val pltEngine: String = "bytehook",
+    // 0 = unmount for denylisted apps, 1 = also skip module loading, 2 = ignore.
+    val denylistMode: String = "0",
+    val crashProtection: Boolean = true,
+    val dmesgLog: Boolean = false,
+    // "debug", "info", "warn" or "error".
+    val logLevel: String = "info",
 )
 
 fun getBuiltinZygiskConfig(): BuiltinZygiskConfig {
     return runCatching {
         val shell = getRootShell()
-        val out = ShellUtils.fastCmd(shell, "${getKsuDaemonPath()} zygisk config get").trim()
+        val out = ShellUtils.fastCmd(shell, "${getKsuDaemonPath()} kazezygisk config get").trim()
         val json = org.json.JSONObject(out)
         BuiltinZygiskConfig(
             anonymousMemory = json.optString("anonymous_memory") == "1",
             customLinker = json.optString("custom_linker") == "1",
             pltEngine = json.optString("plt_engine", "bytehook").ifEmpty { "bytehook" },
+            denylistMode = json.optString("denylist_mode", "0").ifEmpty { "0" },
+            crashProtection = json.optString("crash_protection", "1") != "0",
+            dmesgLog = json.optString("dmesg_log") == "1",
+            logLevel = json.optString("log_level", "info").ifEmpty { "info" },
         )
     }.getOrDefault(BuiltinZygiskConfig())
 }
@@ -1584,7 +1598,7 @@ fun getBuiltinZygiskConfig(): BuiltinZygiskConfig {
 fun setBuiltinZygiskConfig(key: String, value: String): Boolean {
     return runCatching {
         val shell = getRootShell()
-        val out = ShellUtils.fastCmd(shell, "${getKsuDaemonPath()} zygisk config set $key $value").trim()
+        val out = ShellUtils.fastCmd(shell, "${getKsuDaemonPath()} kazezygisk config set $key $value").trim()
         out == "true"
     }.getOrDefault(false)
 }
@@ -1592,7 +1606,7 @@ fun setBuiltinZygiskConfig(key: String, value: String): Boolean {
 fun getBuiltinZygiskStatus(): BuiltinZygiskStatus {
     return runCatching {
         val shell = getRootShell()
-        val out = ShellUtils.fastCmd(shell, "${getKsuDaemonPath()} zygisk status").trim()
+        val out = ShellUtils.fastCmd(shell, "${getKsuDaemonPath()} kazezygisk status").trim()
         val json = org.json.JSONObject(out)
         val daemons = json.optJSONArray("daemons")?.let { array ->
             (0 until array.length()).mapNotNull { index ->
@@ -1611,6 +1625,8 @@ fun getBuiltinZygiskStatus(): BuiltinZygiskStatus {
         }.orEmpty()
         BuiltinZygiskStatus(
             enabled = json.optBoolean("enabled", false),
+            operational = json.optBoolean("operational", true),
+            blocked = json.optBoolean("blocked", false),
             monitorRunning = json.optBoolean("monitor_running", false),
             daemonRunning = json.optBoolean("daemon_running", false),
             zygoteInjected = json.optBoolean("zygote_injected", false),
@@ -1640,7 +1656,7 @@ fun getZygiskProcesses(target: String): ZygiskProcesses {
         val shell = getRootShell()
         val out = ShellUtils.fastCmd(
             shell,
-            "${getKsuDaemonPath()} zygisk processes ${target.ksudShellArg()}"
+            "${getKsuDaemonPath()} kazezygisk processes ${target.ksudShellArg()}"
         ).trim()
         val json = org.json.JSONObject(out)
         ZygiskProcesses(
@@ -1687,7 +1703,7 @@ data class InjectedZygiskProcess(
 fun getInjectedZygiskModules(): List<InjectedZygiskModule> {
     return runCatching {
         val shell = getRootShell()
-        val out = ShellUtils.fastCmd(shell, "${getKsuDaemonPath()} zygisk modules").trim()
+        val out = ShellUtils.fastCmd(shell, "${getKsuDaemonPath()} kazezygisk modules").trim()
         val modules = org.json.JSONObject(out).optJSONArray("modules") ?: return emptyList()
         (0 until modules.length()).mapNotNull { index ->
             modules.optJSONObject(index)?.toInjectedZygiskModule()
@@ -1728,7 +1744,7 @@ private fun org.json.JSONArray?.toStringList(): List<String> =
 fun setBuiltinZygiskEnabled(enabled: Boolean): Boolean {
     val shell = getRootShell()
     val action = if (enabled) "on" else "off"
-    val out = ShellUtils.fastCmd(shell, "${getKsuDaemonPath()} zygisk $action").trim()
+    val out = ShellUtils.fastCmd(shell, "${getKsuDaemonPath()} kazezygisk $action").trim()
     return out == "true"
 }
 
@@ -1742,7 +1758,7 @@ fun switchToZygisk(target: String): Boolean {
         val shell = getRootShell()
         val out = ShellUtils.fastCmd(
             shell,
-            "${getKsuDaemonPath()} zygisk switch ${target.ksudShellArg()}"
+            "${getKsuDaemonPath()} kazezygisk switch ${target.ksudShellArg()}"
         ).trim()
         out == "true"
     }.getOrDefault(false)
@@ -1765,7 +1781,7 @@ data class ZygiskImplementationInfo(
 fun getZygiskImplementationInfo(): ZygiskImplementationInfo {
     return runCatching {
         val shell = getRootShell()
-        val out = ShellUtils.fastCmd(shell, "${getKsuDaemonPath()} zygisk info").trim()
+        val out = ShellUtils.fastCmd(shell, "${getKsuDaemonPath()} kazezygisk info").trim()
         val json = org.json.JSONObject(out)
         ZygiskImplementationInfo(
             state = json.optString("state", "none"),
@@ -1775,4 +1791,113 @@ fun getZygiskImplementationInfo(): ZygiskImplementationInfo {
             providers = json.optJSONArray("providers").toStringList(),
         )
     }.getOrDefault(ZygiskImplementationInfo())
+}
+
+// --- KazeZygisk health, guard, quarantine and diagnostics -------------------
+
+/// Last completed boot plus live status, from `ksud kazezygisk health`.
+data class ZygiskHealth(
+    val enabled: Boolean = false,
+    val operational: Boolean = false,
+    val blocked: Boolean = false,
+    val failures: Int = 0,
+    val failureLimit: Int = 3,
+    val monitorRunning: Boolean = false,
+    val daemonRunning: Boolean = false,
+    val zygoteInjected: Boolean = false,
+    /// Healthy, failed, blocked, disabled, provider or safe_mode.
+    val lastStatus: String = "",
+    val lastReason: String = "",
+    val lastTimestamp: Long = 0,
+    val monitorPid: Int = 0,
+)
+
+fun getZygiskHealth(): ZygiskHealth {
+    return runCatching {
+        val shell = getRootShell()
+        val out = ShellUtils.fastCmd(shell, "${getKsuDaemonPath()} kazezygisk health").trim()
+        val json = org.json.JSONObject(out)
+        val last = json.optJSONObject("last")
+        ZygiskHealth(
+            enabled = json.optBoolean("enabled", false),
+            operational = json.optBoolean("operational", false),
+            blocked = json.optBoolean("blocked", false),
+            failures = json.optInt("failures", 0),
+            failureLimit = json.optInt("failure_limit", 3),
+            monitorRunning = json.optBoolean("monitor_running", false),
+            daemonRunning = json.optBoolean("daemon_running", false),
+            zygoteInjected = json.optBoolean("zygote_injected", false),
+            lastStatus = last?.optString("status", "").orEmpty(),
+            lastReason = last?.optString("reason", "").orEmpty(),
+            lastTimestamp = last?.optLong("timestamp", 0) ?: 0,
+            monitorPid = json.optInt("monitor_pid", 0),
+        )
+    }.getOrDefault(ZygiskHealth())
+}
+
+/// Drop the boot guard latch so the next boot starts the engine again.
+fun clearZygiskGuard(): Boolean {
+    return runCatching {
+        val shell = getRootShell()
+        val out = ShellUtils.fastCmd(shell, "${getKsuDaemonPath()} kazezygisk guard clear").trim()
+        out == "true"
+    }.getOrDefault(false)
+}
+
+/// Tail of the evidence log, newest last.
+fun getZygiskEvidence(limit: Int = 50): List<String> {
+    return runCatching {
+        val shell = getRootShell()
+        val out = ShellUtils.fastCmd(
+            shell,
+            "${getKsuDaemonPath()} kazezygisk evidence --limit $limit"
+        ).trim()
+        val lines = org.json.JSONObject(out).optJSONArray("lines") ?: return emptyList()
+        (0 until lines.length()).mapNotNull { index ->
+            lines.optString(index).ifEmpty { null }
+        }
+    }.getOrDefault(emptyList())
+}
+
+/// Verify the staged engine payload against the build-time manifest.
+fun verifyKazeZygisk(): Boolean {
+    return runCatching {
+        val shell = getRootShell()
+        val out = ShellUtils.fastCmd(shell, "${getKsuDaemonPath()} kazezygisk verify").trim()
+        out == "true"
+    }.getOrDefault(false)
+}
+
+/// Module ids kept out of injection.
+fun getZygiskQuarantine(): List<String> {
+    return runCatching {
+        val shell = getRootShell()
+        val out = ShellUtils.fastCmd(shell, "${getKsuDaemonPath()} kazezygisk quarantine list").trim()
+        val modules = org.json.JSONObject(out).optJSONArray("modules") ?: return emptyList()
+        (0 until modules.length()).mapNotNull { index ->
+            modules.optString(index).ifEmpty { null }
+        }
+    }.getOrDefault(emptyList())
+}
+
+/// Add or remove one module from quarantine.
+fun setZygiskQuarantine(id: String, quarantined: Boolean): Boolean {
+    return runCatching {
+        val shell = getRootShell()
+        val action = if (quarantined) "add" else "remove"
+        val out = ShellUtils.fastCmd(
+            shell,
+            "${getKsuDaemonPath()} kazezygisk quarantine $action ${id.ksudShellArg()}"
+        ).trim()
+        out == "true"
+    }.getOrDefault(false)
+}
+
+/// Collect a diagnostics ZIP on the device and return its path.
+fun createZygiskReport(): String? {
+    return runCatching {
+        val shell = getRootShell()
+        ShellUtils.fastCmd(shell, "${getKsuDaemonPath()} kazezygisk report").trim()
+            .ifEmpty { null }
+    }.getOrNull()
 }

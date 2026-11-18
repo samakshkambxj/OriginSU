@@ -39,8 +39,8 @@ kernel extension center, without a pile of companion apps.
 1. Kernel-based `su` with per-app profiles and temporary root grants.
 2. [App Profile](https://sukisu.org/guide/app-profile): keep root access in a cage.
 3. KPM support (`CONFIG_KPM=y`), with an APatch compatibility layer in progress.
-4. Built-in Zygisk (NyaZygisk) — no separate Zygisk module needed, status shown
-   right on the home screen.
+4. KazeZygisk — a built-in Zygisk engine, so no separate Zygisk module is
+   needed; running status is shown right on the home screen.
 5. Theme Store: browse, install and submit themes, with multi-source mirrors,
    author authorization and review.
 6. Kernel Extension Center: CPU/vvar spoofing, AVC log spoofing, version

@@ -9,6 +9,7 @@ on:
       - '.github/workflows/build-lkm.yml'
       - '.github/workflows/ddk-lkm.yml'
       - '.github/workflows/ksud.yml'
+      - '.github/workflows/kazezygisk.yml'
       - '.github/workflows/ksuinit.yml'
       - '.github/riscv64-cargo.toml'
       - 'manager/**'
@@ -109,15 +110,13 @@ jobs:
   build-ksuinit:
     uses: ./.github/workflows/ksuinit.yml
 
-  # BuiltZygisk is not built any more: it is being replaced by the OriginZygisk
-  # port, and its hosted build needs cargo-ndk plus a nightly toolchain. Until
-  # that lands, ksud simply ships without an embedded zygisk payload.
-  #
-  # build-builtzygisk:
-  #   uses: ./.github/workflows/builtzygisk.yml
+  # KazeZygisk is the built-in engine. ksud embeds its per-ABI payload, so this
+  # job has to finish before ksud builds.
+  build-kazezygisk:
+    uses: ./.github/workflows/kazezygisk.yml
 
   build-ksud:
-    needs: [build-lkm, build-ksuinit]
+    needs: [build-lkm, build-ksuinit, build-kazezygisk]
     strategy:
       matrix:
         target:

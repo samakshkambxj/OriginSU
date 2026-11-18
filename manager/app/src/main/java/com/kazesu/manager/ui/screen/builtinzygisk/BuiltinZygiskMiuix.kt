@@ -43,6 +43,7 @@ import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Back
 import top.yukonga.miuix.kmp.icon.extended.Refresh
+import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
 import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme.colorScheme
 import top.yukonga.miuix.kmp.theme.MiuixTheme.textStyles
@@ -58,6 +59,10 @@ fun BuiltinZygiskMiuix(
     onToggleInjected: (String) -> Unit,
     onSetOption: (String, String) -> Unit,
     onToggleGroup: () -> Unit,
+    onClearGuard: () -> Unit,
+    onVerify: () -> Unit,
+    onReport: () -> Unit,
+    onSetQuarantine: (String, Boolean) -> Unit,
 ) {
     val scrollBehavior = MiuixScrollBehavior()
     val hasCustomBackground = LocalBackgroundImagePath.current.isNotEmpty()
@@ -317,6 +322,126 @@ fun BuiltinZygiskMiuix(
                         checked = uiState.config.pltEngine == "lsplt",
                         onCheckedChange = { onSetOption("plt_engine", if (it) "lsplt" else "bytehook") }
                     )
+                    OverlayDropdownPreference(
+                        title = stringResource(R.string.builtin_zygisk_opt_denylist),
+                        items = listOf("0", "1", "2"),
+                        selectedIndex = (uiState.config.denylistMode.toIntOrNull() ?: 0)
+                            .coerceIn(0, 2),
+                        onSelectedIndexChange = { onSetOption("denylist_mode", it.toString()) }
+                    )
+                    SwitchPreference(
+                        title = stringResource(R.string.builtin_zygisk_opt_crash_protection),
+                        summary = stringResource(R.string.builtin_zygisk_opt_crash_protection_summary),
+                        checked = uiState.config.crashProtection,
+                        onCheckedChange = { onSetOption("crash_protection", if (it) "1" else "0") }
+                    )
+                    SwitchPreference(
+                        title = stringResource(R.string.builtin_zygisk_opt_dmesg),
+                        summary = stringResource(R.string.builtin_zygisk_opt_dmesg_summary),
+                        checked = uiState.config.dmesgLog,
+                        onCheckedChange = { onSetOption("dmesg_log", if (it) "1" else "0") }
+                    )
+                    val levels = listOf("debug", "info", "warn", "error")
+                    OverlayDropdownPreference(
+                        title = stringResource(R.string.builtin_zygisk_opt_log_level),
+                        summary = stringResource(R.string.builtin_zygisk_opt_log_level_summary),
+                        items = levels,
+                        selectedIndex = levels.indexOf(uiState.config.logLevel).coerceAtLeast(0),
+                        onSelectedIndexChange = { onSetOption("log_level", levels[it]) }
+                    )
+                }
+            }
+
+            item {
+                Text(
+                    text = stringResource(R.string.builtin_zygisk_health_title),
+                    style = textStyles.title4,
+                    color = colorScheme.primary,
+                    modifier = Modifier.padding(start = 12.dp, bottom = 4.dp)
+                )
+                Text(
+                    text = stringResource(
+                        R.string.builtin_zygisk_health_summary,
+                        stringResource(healthStatusText(uiState.health.lastStatus))
+                    ),
+                    style = textStyles.footnote1,
+                    color = colorScheme.onSurfaceVariantSummary,
+                    modifier = Modifier.padding(start = 12.dp, bottom = 8.dp)
+                )
+
+                AppCard(modifier = Modifier.fillMaxWidth()) {
+                    BasicComponent(
+                        title = stringResource(healthStatusText(uiState.health.lastStatus)),
+                        summary = uiState.health.lastReason.ifEmpty {
+                            stringResource(R.string.builtin_zygisk_health_unknown)
+                        }
+                    )
+                    HorizontalDivider()
+                    BasicComponent(
+                        title = stringResource(
+                            R.string.builtin_zygisk_guard_failures,
+                            uiState.health.failures,
+                            uiState.health.failureLimit
+                        ),
+                        summary = if (uiState.health.blocked) {
+                            stringResource(R.string.builtin_zygisk_guard_blocked)
+                        } else {
+                            null
+                        }
+                    )
+                    HorizontalDivider()
+                    BasicComponent(
+                        title = stringResource(R.string.builtin_zygisk_guard_clear),
+                        onClick = onClearGuard
+                    )
+                    HorizontalDivider()
+                    BasicComponent(
+                        title = stringResource(R.string.builtin_zygisk_verify),
+                        onClick = onVerify
+                    )
+                    HorizontalDivider()
+                    BasicComponent(
+                        title = stringResource(R.string.builtin_zygisk_report),
+                        onClick = onReport
+                    )
+                }
+            }
+
+            item {
+                Text(
+                    text = stringResource(R.string.builtin_zygisk_quarantine_title),
+                    style = textStyles.title4,
+                    color = colorScheme.primary,
+                    modifier = Modifier.padding(start = 12.dp, bottom = 4.dp)
+                )
+                Text(
+                    text = stringResource(R.string.builtin_zygisk_quarantine_hint),
+                    style = textStyles.footnote1,
+                    color = colorScheme.onSurfaceVariantSummary,
+                    modifier = Modifier.padding(start = 12.dp, bottom = 8.dp)
+                )
+
+                if (uiState.zygiskModules.isEmpty()) {
+                    AppCard(modifier = Modifier.fillMaxWidth()) {
+                        Text(
+                            text = stringResource(R.string.builtin_zygisk_quarantine_empty),
+                            style = textStyles.body2,
+                            color = colorScheme.onBackground.copy(alpha = 0.75f),
+                            modifier = Modifier.padding(24.dp)
+                        )
+                    }
+                } else {
+                    AppCard(modifier = Modifier.fillMaxWidth()) {
+                        uiState.zygiskModules.forEachIndexed { index, module ->
+                            if (index > 0) HorizontalDivider()
+                            SwitchPreference(
+                                title = module.name,
+                                summary = module.id,
+                                checked = uiState.quarantine.contains(module.id),
+                                onCheckedChange = { onSetQuarantine(module.id, it) }
+                            )
+                        }
+                    }
                 }
             }
 

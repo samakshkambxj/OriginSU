@@ -78,13 +78,22 @@ mod android {
 
     pub const UMOUNT_CONFIG_PATH: &str = concatcp!(WORKING_DIR, ".umount");
 
-    pub const BUILTIN_ZYGISK_FLAG: &str = concatcp!(WORKING_DIR, ".builtin_zygisk");
+    pub const KAZEZYGISK_FLAG: &str = concatcp!(WORKING_DIR, ".kazezygisk");
+    /// Flag used by the NyaZygisk-backed built-in. Renamed in place on the first
+    /// KazeZygisk start so an upgrade does not silently turn Zygisk off.
+    pub const LEGACY_KAZEZYGISK_FLAG: &str = concatcp!(WORKING_DIR, ".builtin_zygisk");
     /// Where ksud stages the built-in Zygisk binaries and its `module.prop`,
     /// the role `$MODDIR` plays for the standalone module.
-    pub const BUILTIN_ZYGISK_DIR: &str = concatcp!(WORKING_DIR, "zygisk/");
+    pub const KAZEZYGISK_DIR: &str = concatcp!(WORKING_DIR, "kazezygisk/");
+    /// Staging directory the NyaZygisk-backed built-in used. Removed after the
+    /// monitor it may still belong to has exited.
+    pub const LEGACY_KAZEZYGISK_DIR: &str = concatcp!(WORKING_DIR, "zygisk/");
     /// The directory the tracer, daemon and injected library use at runtime.
-    /// Must match `workDirectory` in BuiltZygisk's build.gradle.kts.
-    pub const BUILTIN_ZYGISK_WORK_DIR: &str = "/data/system/nyazygisk";
+    /// Must match `workDirectory` in KazeZygisk's build.gradle.kts.
+    pub const KAZEZYGISK_WORK_DIR: &str = "/data/system/kazezygisk";
+    /// Work directory of the NyaZygisk-backed built-in, kept only for migration
+    /// and cleanup.
+    pub const LEGACY_KAZEZYGISK_WORK_DIR: &str = "/data/system/nyazygisk";
 }
 
 #[allow(unused)]

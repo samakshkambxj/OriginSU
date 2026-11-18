@@ -165,13 +165,13 @@ pub fn soft_reboot() -> Result<()> {
     if let Err(e) = reset_boot_completed() {
         warn!("reset boot completed failed: {e}");
     }
-    if let Err(e) = crate::builtin_zygisk::shutdown() {
+    if let Err(e) = crate::kazezygisk::shutdown() {
         warn!("shutdown builtin zygisk failed: {e}");
     }
     // A soft reboot is one of the two points at which a disabled built-in stops: the
     // monitor is gone above, so its files can go too. An enabled one is restaged by
     // the post-fs-data replay below, which is why this is a no-op then.
-    if let Err(e) = crate::builtin_zygisk::cleanup_disabled() {
+    if let Err(e) = crate::kazezygisk::cleanup_disabled() {
         warn!("cleanup builtin zygisk failed: {e}");
     }
     run_stage(

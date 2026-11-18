@@ -15,7 +15,7 @@ A kernel-based root solution for Android, evolved from [`tiann/KernelSU`](https:
 1. Kernel-based `su` and permission management.
 2. [App Profile](https://sukisu.org/guide/app-profile): keep root access in a cage.
 3. KPM support.
-4. Built-in Zygisk (NyaZygisk) — no separate Zygisk module needed; running status is shown right on the home screen.
+4. KazeZygisk — a built-in Zygisk engine, so no separate Zygisk module is needed; running status is shown right on the home screen.
 5. Theme Store: browse, install and submit themes, with multi-source mirrors, author authorization and review.
 6. Kernel Extension Center: CPU/vvar spoofing, AVC log spoofing, version spoofing, SUSFS and mount view hiding — all in one place.
 7. Built-in SUSFS management tools with one-tap root hiding configuration.
@@ -99,7 +99,8 @@ To translate KazeSU into your language, or improve existing translations, please
 - [/xxksu](https://github.com/backslashxx/KernelSU): reference for kernel compatibility support
 - [susfs](https://gitlab.com/simonpunk/susfs4ksu): KernelSU addon with hiding kernel patches and userspace modules
 - [KernelPatch](https://github.com/bmax121/KernelPatch): KernelPatch is a key part of the kernel module implementation in APatch
-- NyaZygisk: built-in Zygisk implementation
+- KazeZygisk: built-in Zygisk engine, forked from NyaZygisk/BuiltZygisk and
+  incorporating ideas from YukiSU and FinaSU.
 
 PRs are welcome; for translations please go to [Weblate](https://hosted.weblate.org/projects/sukisu-ultra/); for issue reports please open an [Issue](https://github.com/KazeSU/KazeSU/issues).
 

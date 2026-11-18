@@ -4,12 +4,18 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.kazesu.manager.data.repository.ModuleRepository
 import com.kazesu.manager.data.repository.ModuleRepositoryImpl
+import com.kazesu.manager.ui.util.clearZygiskGuard
+import com.kazesu.manager.ui.util.createZygiskReport
 import com.kazesu.manager.ui.util.getBuiltinZygiskConfig
 import com.kazesu.manager.ui.util.getBuiltinZygiskStatus
 import com.kazesu.manager.ui.util.getInjectedZygiskModules
+import com.kazesu.manager.ui.util.getZygiskHealth
 import com.kazesu.manager.ui.util.getZygiskImplementationInfo
+import com.kazesu.manager.ui.util.getZygiskQuarantine
 import com.kazesu.manager.ui.util.setBuiltinZygiskConfig
+import com.kazesu.manager.ui.util.setZygiskQuarantine
 import com.kazesu.manager.ui.util.switchToZygisk
+import com.kazesu.manager.ui.util.verifyKazeZygisk
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -30,6 +36,8 @@ class BuiltinZygiskViewModel(
             val status = withContext(Dispatchers.IO) { getBuiltinZygiskStatus() }
             val implementation = withContext(Dispatchers.IO) { getZygiskImplementationInfo() }
             val config = withContext(Dispatchers.IO) { getBuiltinZygiskConfig() }
+            val health = withContext(Dispatchers.IO) { getZygiskHealth() }
+            val quarantine = withContext(Dispatchers.IO) { getZygiskQuarantine() }
             val injectedModules = withContext(Dispatchers.IO) { getInjectedZygiskModules() }
             val modulesResult = moduleRepo.getModules()
             val zygiskModules = modulesResult.getOrDefault(emptyList()).filter {
@@ -41,6 +49,8 @@ class BuiltinZygiskViewModel(
                     status = status,
                     implementation = implementation,
                     config = config,
+                    health = health,
+                    quarantine = quarantine,
                     injectedModules = injectedModules,
                     zygiskModules = zygiskModules,
                     expandedInjectedId = null
@@ -84,5 +94,41 @@ class BuiltinZygiskViewModel(
     /** Opens or closes the served-module rows of the status card. */
     fun toggleInjectedGroup() {
         _uiState.update { it.copy(injectedGroupExpanded = !it.injectedGroupExpanded) }
+    }
+
+    /** Drops the boot guard latch and reloads the health receipt. */
+    fun clearGuard(onResult: (Boolean) -> Unit) {
+        viewModelScope.launch {
+            val ok = withContext(Dispatchers.IO) { clearZygiskGuard() }
+            val health = withContext(Dispatchers.IO) { getZygiskHealth() }
+            _uiState.update { it.copy(health = health) }
+            withContext(Dispatchers.Main) { onResult(ok) }
+        }
+    }
+
+    /** Checks the staged payload against the manifest baked in at build time. */
+    fun verifyPayload(onResult: (Boolean) -> Unit) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val ok = verifyKazeZygisk()
+            withContext(Dispatchers.Main) { onResult(ok) }
+        }
+    }
+
+    /** Writes a diagnostics ZIP on the device and hands its path back to the UI. */
+    fun createReport(onResult: (String?) -> Unit) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val path = createZygiskReport()
+            withContext(Dispatchers.Main) { onResult(path) }
+        }
+    }
+
+    /** Adds or removes one module from the quarantine, then re-reads the list. */
+    fun setQuarantine(id: String, quarantined: Boolean, onFailure: () -> Unit) {
+        viewModelScope.launch {
+            val ok = withContext(Dispatchers.IO) { setZygiskQuarantine(id, quarantined) }
+            val list = withContext(Dispatchers.IO) { getZygiskQuarantine() }
+            _uiState.update { it.copy(quarantine = list) }
+            if (!ok) withContext(Dispatchers.Main) { onFailure() }
+        }
     }
 }

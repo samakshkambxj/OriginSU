@@ -1706,11 +1706,11 @@
     <string name="theme_store_comments_format_link">插入链接</string>
     <string name="theme_store_comments_login_to_reply">登录后回复</string>
     <string name="theme_store_device_reauthorize">重置设备授权（下次连接时重新申请）</string>
-    <!-- Built-in Zygisk -->
-    <string name="settings_builtin_zygisk">内置 Zygisk</string>
-    <string name="settings_builtin_zygisk_summary">内置 Zygisk (BuiltZygisk)，详情见 Zygisk 面板</string>
-    <string name="settings_builtin_zygisk_dashboard">BuiltZygisk 面板</string>
-    <string name="settings_builtin_zygisk_dashboard_summary">查看内置 Zygisk 运行状态与已加载模块</string>
+    <!-- KazeZygisk -->
+    <string name="settings_builtin_zygisk">KazeZygisk</string>
+    <string name="settings_builtin_zygisk_summary">KazeZygisk 内置引擎，详情见 Zygisk 面板</string>
+    <string name="settings_builtin_zygisk_dashboard">KazeZygisk 面板</string>
+    <string name="settings_builtin_zygisk_dashboard_summary">查看KazeZygisk 运行状态与已加载模块</string>
     <string name="builtin_zygisk_status_title">状态</string>
     <string name="builtin_zygisk_daemon_status">守护进程 (Daemon)</string>
     <string name="builtin_zygisk_monitor_status">监控进程 (Monitor)</string>
@@ -1736,7 +1736,7 @@
     <string name="builtin_zygisk_targets">目标: %1$s</string>
     <string name="builtin_zygisk_process_count">%1$d 个进程</string>
     <string name="builtin_zygisk_no_processes">暂无关联进程</string>
-    <string name="builtin_zygisk_suppressed_hint">此模块为外部 Zygisk 实现，已被内置 Zygisk 自动抑制接管</string>
+    <string name="builtin_zygisk_suppressed_hint">此模块为外部 Zygisk 实现，已被KazeZygisk 自动抑制接管</string>
     <string name="module_suppressed_by_builtin">已由内置接管</string>
     <string name="builtin_zygisk_options_title">选项</string>
     <string name="builtin_zygisk_options_hint">更改对之后启动的应用生效，请重启应用以套用。</string>
@@ -1747,4 +1747,37 @@
     <string name="builtin_zygisk_opt_custom_linker_summary">使用内置 ELF 加载器加载模块，使其不进入系统链接器的 solist。模块无法这样加载时会回退到系统链接器。</string>
     <string name="builtin_zygisk_opt_lsplt">使用 LSPLT 进行 PLT Hook</string>
     <string name="builtin_zygisk_opt_lsplt_summary">关闭时使用 ByteHook，开启时使用 LSPLT。</string>
+    <string name="builtin_zygisk_opt_denylist">拒绝名单处理</string>
+    <string name="builtin_zygisk_opt_denylist_summary">0 为拒绝名单应用还原模块挂载，1 还跳过模块加载，2 完全忽略拒绝名单。</string>
+    <string name="builtin_zygisk_opt_crash_protection">统计崩溃的守护进程</string>
+    <string name="builtin_zygisk_opt_crash_protection_summary">开启后，即使 zygote 已注入，守护进程崩溃的启动仍会计入启动保护。</string>
+    <string name="builtin_zygisk_opt_dmesg">在报告中包含 dmesg</string>
+    <string name="builtin_zygisk_opt_dmesg_summary">将内核日志末尾加入诊断 ZIP。其中可能包含设备相关路径。</string>
+    <string name="builtin_zygisk_opt_log_level">日志级别</string>
+    <string name="builtin_zygisk_opt_log_level_summary">引擎写入日志的详细程度。Debug 最详细，仅在排查问题时使用。</string>
+    <string name="builtin_zygisk_health_title">健康状态与启动保护</string>
+    <string name="builtin_zygisk_health_summary">上次完成的启动：%1$s</string>
+    <string name="builtin_zygisk_health_reason">原因：%1$s</string>
+    <string name="builtin_zygisk_health_healthy">正常</string>
+    <string name="builtin_zygisk_health_failed">失败</string>
+    <string name="builtin_zygisk_health_blocked">已被启动保护阻止</string>
+    <string name="builtin_zygisk_health_disabled">已停用</string>
+    <string name="builtin_zygisk_health_provider">其他 Zygisk 提供者正在运行</string>
+    <string name="builtin_zygisk_health_safe_mode">安全模式</string>
+    <string name="builtin_zygisk_health_unknown">未知</string>
+    <string name="builtin_zygisk_guard_failures">%1$d / %2$d 次启动失败</string>
+    <string name="builtin_zygisk_guard_blocked">启动保护已锁定并停用 KazeZygisk，清除后可重试。</string>
+    <string name="builtin_zygisk_guard_clear">清除启动保护</string>
+    <string name="builtin_zygisk_guard_cleared">已清除启动保护</string>
+    <string name="builtin_zygisk_guard_clear_failed">无法清除启动保护</string>
+    <string name="builtin_zygisk_verify">校验引擎载荷</string>
+    <string name="builtin_zygisk_verify_ok">引擎载荷校验通过</string>
+    <string name="builtin_zygisk_verify_failed">引擎载荷校验失败</string>
+    <string name="builtin_zygisk_report">收集诊断信息</string>
+    <string name="builtin_zygisk_report_ok">报告已保存至 %1$s</string>
+    <string name="builtin_zygisk_report_failed">无法收集诊断报告</string>
+    <string name="builtin_zygisk_quarantine_title">隔离</string>
+    <string name="builtin_zygisk_quarantine_hint">被隔离的模块仍保持安装和启用，但永远不会被注入。</string>
+    <string name="builtin_zygisk_quarantine_empty">没有模块被隔离</string>
+    <string name="builtin_zygisk_quarantine_failed">无法更改隔离状态</string>
 </resources>

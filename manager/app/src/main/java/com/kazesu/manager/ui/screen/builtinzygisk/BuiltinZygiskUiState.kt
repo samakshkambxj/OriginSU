@@ -5,6 +5,7 @@ import com.kazesu.manager.data.model.Module
 import com.kazesu.manager.ui.util.BuiltinZygiskConfig
 import com.kazesu.manager.ui.util.BuiltinZygiskStatus
 import com.kazesu.manager.ui.util.InjectedZygiskModule
+import com.kazesu.manager.ui.util.ZygiskHealth
 import com.kazesu.manager.ui.util.ZygiskImplementationInfo
 
 @Immutable
@@ -13,6 +14,10 @@ data class BuiltinZygiskUiState(
     val status: BuiltinZygiskStatus = BuiltinZygiskStatus(),
     val implementation: ZygiskImplementationInfo = ZygiskImplementationInfo(),
     val config: BuiltinZygiskConfig = BuiltinZygiskConfig(),
+    // Receipt of the last completed boot plus the guard counters.
+    val health: ZygiskHealth = ZygiskHealth(),
+    // Module ids the engine is told to skip.
+    val quarantine: List<String> = emptyList(),
     val zygiskModules: List<Module> = emptyList(),
     // Modules the built-in is serving, with the processes each one reaches.
     val injectedModules: List<InjectedZygiskModule> = emptyList(),
@@ -21,6 +26,17 @@ data class BuiltinZygiskUiState(
     // Whether the served modules are listed in the status card.
     val injectedGroupExpanded: Boolean = true,
 )
+
+/// The localized outcome of the last completed boot.
+internal fun healthStatusText(status: String): Int = when (status) {
+    "healthy" -> com.kazesu.manager.R.string.builtin_zygisk_health_healthy
+    "failed" -> com.kazesu.manager.R.string.builtin_zygisk_health_failed
+    "blocked" -> com.kazesu.manager.R.string.builtin_zygisk_health_blocked
+    "disabled" -> com.kazesu.manager.R.string.builtin_zygisk_health_disabled
+    "provider" -> com.kazesu.manager.R.string.builtin_zygisk_health_provider
+    "safe_mode" -> com.kazesu.manager.R.string.builtin_zygisk_health_safe_mode
+    else -> com.kazesu.manager.R.string.builtin_zygisk_health_unknown
+}
 
 /// The localized state ksud reported for an injected module.
 internal fun injectedStateText(state: String): Int = when (state) {

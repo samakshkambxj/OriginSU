@@ -37,7 +37,8 @@ enum Commands {
         command: Module,
     },
 
-    /// Manage built-in Zygisk
+    /// Manage KazeZygisk, the built-in Zygisk engine
+    #[command(name = "kazezygisk", alias = "zygisk")]
     Zygisk {
         #[command(subcommand)]
         command: ZygiskCommand,
@@ -225,11 +226,11 @@ enum Commands {
 
 #[derive(clap::Subcommand, Debug)]
 enum ZygiskCommand {
-    /// Enable built-in Zygisk and start it now
+    /// Enable KazeZygisk and start it now
     On,
-    /// Disable built-in Zygisk
+    /// Disable KazeZygisk
     Off,
-    /// Check built-in Zygisk status
+    /// Check KazeZygisk status
     Status,
     /// Report the active Zygisk implementation (running, reboot, disabled or none)
     Info,
@@ -247,9 +248,31 @@ enum ZygiskCommand {
     },
     /// List the Zygisk modules the built-in is serving, with their processes, as JSON
     Modules,
-    /// Reload built-in Zygisk
+    /// Reload KazeZygisk
     Rearm,
-    /// Read or change NyaZygisk options (`config.prop`)
+    /// Last completed boot, guard state and live health as JSON
+    Health,
+    /// Inspect or reset the boot guard
+    Guard {
+        #[command(subcommand)]
+        command: ZygiskGuardCommand,
+    },
+    /// Print the tail of the evidence log as JSON
+    Evidence {
+        /// Number of lines to print, newest last
+        #[arg(long, default_value_t = 50)]
+        limit: usize,
+    },
+    /// Check the staged engine payload against the build-time manifest
+    Verify,
+    /// Keep a module out of injection without disabling it
+    Quarantine {
+        #[command(subcommand)]
+        command: ZygiskQuarantineCommand,
+    },
+    /// Collect a diagnostics ZIP and print its path
+    Report,
+    /// Read or change KazeZygisk options (`config.prop`)
     Config {
         #[command(subcommand)]
         command: ZygiskConfigCommand,
@@ -260,8 +283,28 @@ enum ZygiskCommand {
 enum ZygiskConfigCommand {
     /// Print all options as JSON
     Get,
-    /// Set one option, e.g. `ksud zygisk config set custom_linker 1`
+    /// Set one option, e.g. `ksud kazezygisk config set custom_linker 1`
     Set { key: String, value: String },
+}
+
+#[derive(clap::Subcommand, Debug)]
+enum ZygiskGuardCommand {
+    /// Print the guard state as JSON
+    Status,
+    /// Drop the latch and the failure counter
+    Clear,
+}
+
+#[derive(clap::Subcommand, Debug)]
+enum ZygiskQuarantineCommand {
+    /// Print the quarantined module ids as JSON
+    List,
+    /// Keep a module out of injection
+    Add { id: String },
+    /// Allow a module again
+    Remove { id: String },
+    /// Release every quarantined module
+    Clear,
 }
 
 #[derive(clap::Subcommand, Debug)]
@@ -1397,30 +1440,30 @@ pub fn run() -> Result<()> {
             ZygiskCommand::On => {
                 // The flag alone would only count from the next boot; turning it on also
                 // hands the running system over.
-                crate::builtin_zygisk::switch_to(crate::builtin_zygisk::BUILTIN_TARGET)?;
+                crate::kazezygisk::switch_to(crate::kazezygisk::BUILTIN_TARGET)?;
                 println!("true");
                 Ok(())
             }
             ZygiskCommand::Off => {
-                crate::builtin_zygisk::disable()?;
+                crate::kazezygisk::disable()?;
                 println!("true");
                 Ok(())
             }
             ZygiskCommand::Status => {
-                let enabled = crate::builtin_zygisk::is_enabled();
+                let enabled = crate::kazezygisk::is_enabled();
                 // The report in module.prop identifies the built-in; process names
                 // alone are shared with the standalone builds.
-                let monitor_running = crate::builtin_zygisk::is_monitor_active();
-                let daemon_running = crate::builtin_zygisk::is_daemon_active();
-                let zygote_injected = crate::builtin_zygisk::is_zygote_injected();
-                let fully_active = crate::builtin_zygisk::is_fully_active();
-                let zygotes: Vec<_> = crate::builtin_zygisk::zygote_states()
+                let monitor_running = crate::kazezygisk::is_monitor_active();
+                let daemon_running = crate::kazezygisk::is_daemon_active();
+                let zygote_injected = crate::kazezygisk::is_zygote_injected();
+                let fully_active = crate::kazezygisk::is_fully_active();
+                let zygotes: Vec<_> = crate::kazezygisk::zygote_states()
                     .into_iter()
                     .map(|(abi, status)| serde_json::json!({ "abi": abi, "status": status }))
                     .collect();
-                let monitor = crate::builtin_zygisk::monitor_process();
-                let daemons = crate::builtin_zygisk::daemon_processes();
-                let (version, version_code) = crate::builtin_zygisk::version().unwrap_or_default();
+                let monitor = crate::kazezygisk::monitor_process();
+                let daemons = crate::kazezygisk::daemon_processes();
+                let (version, version_code) = crate::kazezygisk::version().unwrap_or_default();
                 let monitor_json =
                     monitor.map(|(pid, name)| serde_json::json!({ "name": name, "pid": pid }));
                 let daemons_json: Vec<_> = daemons
@@ -1431,6 +1474,8 @@ pub fn run() -> Result<()> {
                     "{}",
                     serde_json::json!({
                         "enabled": enabled,
+                        "operational": crate::kazezygisk::is_operational(),
+                        "blocked": crate::kazezygisk::guard_blocked(),
                         "monitor_running": monitor_running,
                         "daemon_running": daemon_running,
                         "zygote_injected": zygote_injected,
@@ -1445,7 +1490,7 @@ pub fn run() -> Result<()> {
                 Ok(())
             }
             ZygiskCommand::Info => {
-                let info = crate::builtin_zygisk::implementation_info();
+                let info = crate::kazezygisk::implementation_info();
                 println!(
                     "{}",
                     serde_json::json!({
@@ -1453,18 +1498,18 @@ pub fn run() -> Result<()> {
                         "id": info.id,
                         "name": info.name,
                         "version": info.version,
-                        "providers": crate::builtin_zygisk::provider_ids(),
+                        "providers": crate::kazezygisk::provider_ids(),
                     })
                 );
                 Ok(())
             }
             ZygiskCommand::Switch { target } => {
-                crate::builtin_zygisk::switch_to(&target)?;
+                crate::kazezygisk::switch_to(&target)?;
                 println!("true");
                 Ok(())
             }
             ZygiskCommand::Processes { target } => {
-                let procs = crate::builtin_zygisk::processes(&target)?;
+                let procs = crate::kazezygisk::processes(&target)?;
                 let list = |entries: Vec<(i32, String)>| {
                     entries
                         .into_iter()
@@ -1481,7 +1526,7 @@ pub fn run() -> Result<()> {
                 Ok(())
             }
             ZygiskCommand::Modules => {
-                let modules: Vec<serde_json::Value> = crate::builtin_zygisk::injected_modules()
+                let modules: Vec<serde_json::Value> = crate::kazezygisk::injected_modules()
                     .into_iter()
                     .map(|module| {
                         let processes: Vec<serde_json::Value> = module
@@ -1512,13 +1557,74 @@ pub fn run() -> Result<()> {
                 Ok(())
             }
             ZygiskCommand::Rearm => {
-                crate::builtin_zygisk::rearm()?;
+                crate::kazezygisk::rearm()?;
                 println!("true");
+                Ok(())
+            }
+            ZygiskCommand::Health => {
+                println!("{}", crate::kazezygisk::health_report());
+                Ok(())
+            }
+            ZygiskCommand::Guard { command } => match command {
+                ZygiskGuardCommand::Status => {
+                    println!(
+                        "{}",
+                        serde_json::json!({
+                            "blocked": crate::kazezygisk::guard_blocked(),
+                            "failures": crate::kazezygisk::guard_failures(),
+                            "failure_limit": 3,
+                        })
+                    );
+                    Ok(())
+                }
+                ZygiskGuardCommand::Clear => {
+                    crate::kazezygisk::clear_guard_latch();
+                    println!("true");
+                    Ok(())
+                }
+            },
+            ZygiskCommand::Evidence { limit } => {
+                let lines = crate::kazezygisk::evidence_tail(limit);
+                println!("{}", serde_json::json!({ "lines": lines }));
+                Ok(())
+            }
+            ZygiskCommand::Verify => {
+                crate::kazezygisk::verify_payload()?;
+                println!("true");
+                Ok(())
+            }
+            ZygiskCommand::Quarantine { command } => match command {
+                ZygiskQuarantineCommand::List => {
+                    println!(
+                        "{}",
+                        serde_json::json!({ "modules": crate::kazezygisk::quarantine_list() })
+                    );
+                    Ok(())
+                }
+                ZygiskQuarantineCommand::Add { id } => {
+                    crate::kazezygisk::quarantine_add(&id)?;
+                    println!("true");
+                    Ok(())
+                }
+                ZygiskQuarantineCommand::Remove { id } => {
+                    crate::kazezygisk::quarantine_remove(&id)?;
+                    println!("true");
+                    Ok(())
+                }
+                ZygiskQuarantineCommand::Clear => {
+                    crate::kazezygisk::quarantine_clear()?;
+                    println!("true");
+                    Ok(())
+                }
+            },
+            ZygiskCommand::Report => {
+                let path = crate::kazezygisk::create_report()?;
+                println!("{}", path.display());
                 Ok(())
             }
             ZygiskCommand::Config { command } => match command {
                 ZygiskConfigCommand::Get => {
-                    let fields: Vec<String> = crate::builtin_zygisk::config_get_all()
+                    let fields: Vec<String> = crate::kazezygisk::config_get_all()
                         .into_iter()
                         .map(|(k, v)| format!(r#""{k}":"{v}""#))
                         .collect();
@@ -1526,7 +1632,7 @@ pub fn run() -> Result<()> {
                     Ok(())
                 }
                 ZygiskConfigCommand::Set { key, value } => {
-                    crate::builtin_zygisk::config_set(&key, &value)?;
+                    crate::kazezygisk::config_set(&key, &value)?;
                     println!("true");
                     Ok(())
                 }

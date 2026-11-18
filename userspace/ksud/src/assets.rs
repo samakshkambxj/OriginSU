@@ -17,8 +17,8 @@ mod android {
             if file == "ksuinit"
                 || file == "waitsys"
                 || file.ends_with(".ko")
-                || file.starts_with("zygisk")
-                || file.starts_with("libzygisk")
+                || file.starts_with("kazezygisk")
+                || file.starts_with("libkazezygisk")
             {
                 // don't extract internal executables, kernel modules, and built-in zygisk assets
                 continue;

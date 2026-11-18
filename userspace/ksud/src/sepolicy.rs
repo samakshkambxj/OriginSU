@@ -379,6 +379,7 @@ enum PolicyObject {
     None,
 }
 
+#[allow(clippy::try_from_instead_of_from_str)]
 impl TryFrom<&str> for PolicyObject {
     type Error = anyhow::Error;
     fn try_from(s: &str) -> Result<Self> {

@@ -159,7 +159,7 @@ pub fn foreach_module(
             continue;
         }
 
-        if module_type == Active && crate::builtin_zygisk::suppresses_module_dir(&path) {
+        if module_type == Active && crate::kazezygisk::suppresses_module_dir(&path) {
             info!("{} is suppressed by built-in zygisk, skip", path.display());
             continue;
         }
@@ -1270,26 +1270,24 @@ fn list_module(path: &str) -> Vec<HashMap<String, String>> {
         let action = path.join(defs::MODULE_ACTION_SH).exists();
         let is_provider = module_prop_map
             .get("id")
-            .is_some_and(|id| crate::builtin_zygisk::is_provider_id(id));
-        // Built-in Zygisk runs the same zygiskd/zygisk-ptrace binaries the
+            .is_some_and(|id| crate::kazezygisk::is_provider_id(id));
+        // KazeZygisk runs the same kazezygiskd/kazezygisk-ptrace binaries the
         // standalone providers use, so a suppressed provider must never be
         // reported as running.
-        let suppressed_by_builtin = is_provider && crate::builtin_zygisk::is_enabled();
+        let suppressed_by_builtin = is_provider && crate::kazezygisk::is_enabled();
         // A provider packs its build details into parentheses ("v1.2.0 (1234-hash)");
         // only the version itself is worth showing.
         if is_provider && let Some(version) = module_prop_map.get("version").cloned() {
             module_prop_map.insert(
                 "version".to_owned(),
-                crate::builtin_zygisk::short_version(&version),
+                crate::kazezygisk::short_version(&version),
             );
         }
-        let zygisk_running = if is_provider && !suppressed_by_builtin {
-            module_prop_map
+        let zygisk_running = is_provider
+            && !suppressed_by_builtin
+            && module_prop_map
                 .get("id")
-                .is_some_and(|id| crate::builtin_zygisk::is_provider_running(id))
-        } else {
-            false
-        };
+                .is_some_and(|id| crate::kazezygisk::is_provider_running(id));
         let need_mount = path.join("system").exists() && !path.join("skip_mount").exists();
 
         module_prop_map.insert("enabled".to_owned(), enabled.to_string());

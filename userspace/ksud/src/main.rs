@@ -18,8 +18,6 @@ mod boot_patch;
 #[cfg(target_os = "android")]
 mod bootloop;
 #[cfg(target_os = "android")]
-pub mod builtin_zygisk;
-#[cfg(target_os = "android")]
 mod cli;
 #[cfg(not(target_os = "android"))]
 mod cli_non_android;
@@ -39,6 +37,8 @@ mod guard;
 mod hot_install;
 #[cfg(target_os = "android")]
 mod init_event;
+#[cfg(target_os = "android")]
+pub mod kazezygisk;
 #[cfg(target_arch = "aarch64")]
 mod kpm;
 #[cfg(target_os = "android")]

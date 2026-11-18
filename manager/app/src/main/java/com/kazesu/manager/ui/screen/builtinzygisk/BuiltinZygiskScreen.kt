@@ -76,6 +76,39 @@ fun BuiltinZygiskScreen() {
     val onToggleGroup = {
         viewModel.toggleInjectedGroup()
     }
+    val onClearGuard = {
+        viewModel.clearGuard { ok ->
+            Toast.makeText(
+                context,
+                if (ok) R.string.builtin_zygisk_guard_cleared else R.string.builtin_zygisk_guard_clear_failed,
+                Toast.LENGTH_SHORT
+            ).show()
+        }
+    }
+    val onVerify = {
+        viewModel.verifyPayload { ok ->
+            Toast.makeText(
+                context,
+                if (ok) R.string.builtin_zygisk_verify_ok else R.string.builtin_zygisk_verify_failed,
+                Toast.LENGTH_SHORT
+            ).show()
+        }
+    }
+    val onReport = {
+        viewModel.createReport { path ->
+            val message = if (path != null) {
+                context.getString(R.string.builtin_zygisk_report_ok, path)
+            } else {
+                context.getString(R.string.builtin_zygisk_report_failed)
+            }
+            Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+        }
+    }
+    val onSetQuarantine = { id: String, quarantined: Boolean ->
+        viewModel.setQuarantine(id, quarantined) {
+            Toast.makeText(context, R.string.builtin_zygisk_quarantine_failed, Toast.LENGTH_SHORT).show()
+        }
+    }
 
     exitTarget?.let { name ->
         SwitchRestartDialog(
@@ -100,6 +133,10 @@ fun BuiltinZygiskScreen() {
             onToggleInjected = onToggleInjected,
             onSetOption = onSetOption,
             onToggleGroup = onToggleGroup,
+            onClearGuard = onClearGuard,
+            onVerify = onVerify,
+            onReport = onReport,
+            onSetQuarantine = onSetQuarantine,
         )
         UiMode.Material -> BuiltinZygiskMaterial(
             uiState = state,
@@ -109,6 +146,10 @@ fun BuiltinZygiskScreen() {
             onToggleInjected = onToggleInjected,
             onSetOption = onSetOption,
             onToggleGroup = onToggleGroup,
+            onClearGuard = onClearGuard,
+            onVerify = onVerify,
+            onReport = onReport,
+            onSetQuarantine = onSetQuarantine,
         )
     }
 }

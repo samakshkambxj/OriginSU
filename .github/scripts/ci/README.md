@@ -129,9 +129,10 @@ Renamed to `*.yml.disabled`; Forgejo and GitHub both ignore those names.
   from GitHub that does not exist here.
 - `ksud-extra.yml` builds with `cross`, installed from a pinned `github.com`
   commit, and needs a Docker socket inside the job container. Nothing calls it.
-- `builtzygisk.yml` builds `external/BuiltZygisk`, a submodule hosted on
-  `github.com`. `ksud.yml` therefore runs with `pack_builtzygisk: false` and ksud
-  is built without the embedded zygisk payload.
+- `kazezygisk.yml` builds the KazeZygisk engine in `external/BuiltZygisk`, a
+  submodule hosted on `github.com`. `ksud.yml` runs with
+  `pack_kazezygisk: true` and embeds the resulting payload, so the manager and
+  ksud ship with a working built-in Zygisk.
 
 ## Commit signing
 

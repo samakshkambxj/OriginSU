@@ -17,7 +17,7 @@ on:
         required: false
         type: boolean
         default: true
-      pack_builtzygisk:
+      pack_kazezygisk:
         required: false
         type: boolean
         default: true
@@ -59,12 +59,12 @@ jobs:
           mv ksuinit-x86_64/ksuinit ./userspace/ksud/bin/x86_64/
           mv ksuinit-riscv64/ksuinit ./userspace/ksud/bin/riscv64/
 
-      - name: Prepare BuiltZygisk
-        if: ${{ inputs.pack_builtzygisk }}
+      - name: Prepare KazeZygisk
+        if: ${{ inputs.pack_kazezygisk }}
         run: |
           set -eux
           for arch in aarch64 arm x86_64 riscv64; do
-            src="builtzygisk-$arch"
+            src="kazezygisk-$arch"
             [ -d "$src" ] || continue
             [ -d "$src/$arch" ] && src="$src/$arch"
             cp -rf "$src"/. "./userspace/ksud/bin/$arch/"
