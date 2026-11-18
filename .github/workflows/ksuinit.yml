@@ -50,7 +50,7 @@ jobs:
       uses: actions/upload-artifact@v7
       with:
         name: ksuinit-aarch64
-        path: userspace/ksuinit/target/aarch64-linux-android/release/ksuinit
+        path: target/aarch64-linux-android/release/ksuinit
 
   build-x86_64:
     runs-on: ${{ inputs.os }}
@@ -95,7 +95,7 @@ jobs:
       uses: actions/upload-artifact@v7
       with:
         name: ksuinit-x86_64
-        path: userspace/ksuinit/target/x86_64-linux-android/release/ksuinit
+        path: target/x86_64-linux-android/release/ksuinit
 
   build-riscv64:
     runs-on: ${{ inputs.os }}
@@ -137,4 +137,4 @@ jobs:
       uses: actions/upload-artifact@v7
       with:
         name: ksuinit-riscv64
-        path: userspace/ksuinit/target/riscv64-linux-android/release/ksuinit
+        path: target/riscv64-linux-android/release/ksuinit
