@@ -9,54 +9,11 @@ name: CI
 # produces a key for pull requests; the rest of the chain relies on step-level
 # conditions inside each called workflow.
 on:
-  push:
-    branches: [ "main", "dev" ]
-    paths:
-      - '.github/workflows/ci.yml'
-      - '.github/workflows/build-lkm.yml'
-      - '.github/workflows/ddk-lkm.yml'
-      - '.github/workflows/ksud.yml'
-      - '.github/workflows/ksuinit.yml'
-      - '.github/workflows/manager.yml'
-      - '.github/workflows/publish.yml'
-      - '.github/ci/**'
-      - '.github/scripts/ci/**'
-      - '.github/scripts/setup-rust-build.sh'
-      - '.github/riscv64-cargo.toml'
-      - 'scripts/upload-telegram.sh'
-      - 'scripts/telegram-notify.sh'
-      - 'repack_apk.py'
-      - 'split_apk_by_arch.py'
-      - 'manager/**'
-      - 'kernel/**'
-      - 'userspace/**'
-      - 'external/BuiltZygisk/**'
-      - 'Cargo.lock'
-      - 'Cargo.toml'
-  pull_request:
-    branches: [ "main", "dev" ]
-    paths:
-      - '.github/workflows/ci.yml'
-      - '.github/workflows/build-lkm.yml'
-      - '.github/workflows/ddk-lkm.yml'
-      - '.github/workflows/ksud.yml'
-      - '.github/workflows/ksuinit.yml'
-      - '.github/workflows/manager.yml'
-      - '.github/workflows/publish.yml'
-      - '.github/ci/**'
-      - '.github/scripts/ci/**'
-      - '.github/scripts/setup-rust-build.sh'
-      - '.github/riscv64-cargo.toml'
-      - 'scripts/upload-telegram.sh'
-      - 'scripts/telegram-notify.sh'
-      - 'repack_apk.py'
-      - 'split_apk_by_arch.py'
-      - 'manager/**'
-      - 'kernel/**'
-      - 'userspace/**'
-      - 'external/BuiltZygisk/**'
-      - 'Cargo.lock'
-      - 'Cargo.toml'
+  # This pipeline needs the self-hosted runner: it keeps rustup at
+  # /usr/local/rustup, caches in /ci and passes artifacts through /ci/runs.
+  # None of that exists on a GitHub-hosted VM, so pushing to dev only produced
+  # a red X. The tag build lives in release-hosted.yml; run this by hand once a
+  # runner is registered again.
   workflow_dispatch:
 
 jobs:
