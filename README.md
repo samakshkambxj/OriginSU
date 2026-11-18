@@ -12,7 +12,7 @@
 
 [![Latest release](https://img.shields.io/github/v/release/KazeSU/KazeSU?label=Release&logo=github)](https://github.com/KazeSU/KazeSU/releases/latest)
 [![Downloads](https://img.shields.io/github/downloads/KazeSU/KazeSU/total?label=Downloads&logo=github)](https://github.com/KazeSU/KazeSU/releases)
-[![Build](https://img.shields.io/github/actions/workflow/status/KazeSU/KazeSU/manager.yml?label=Build&logo=github)](https://github.com/KazeSU/KazeSU/actions/workflows/manager.yml)
+[![Build](https://img.shields.io/github/actions/workflow/status/KazeSU/KazeSU/build-manager.yml?label=Build&logo=github)](https://github.com/KazeSU/KazeSU/actions/workflows/build-manager.yml)
 [![Kernel License: GPL v2](https://img.shields.io/badge/Kernel-GPL%20v2-orange.svg?logo=gnu)](https://www.gnu.org/licenses/old-licenses/gpl-2.0.en.html)
 [![Manager License: GPL v3](https://img.shields.io/github/license/KazeSU/KazeSU?label=Manager&logo=gnu)](/LICENSE)
 
