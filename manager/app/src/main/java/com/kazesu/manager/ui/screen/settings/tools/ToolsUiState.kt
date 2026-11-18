@@ -6,6 +6,12 @@ import androidx.compose.runtime.Immutable
 data class ToolsUiState(
     val selinuxEnforcing: Boolean = true,
     val selinuxLoading: Boolean = true,
+    val bootloopEnabled: Boolean = true,
+    val bootloopMaxFailed: Int = 3,
+    val bootloopFailedCount: Int = 0,
+    val bootloopRescued: Boolean = false,
+    val bootloopRescuedFailedBoots: Int? = null,
+    val bootloopLoading: Boolean = true,
 )
 
 @Immutable
@@ -15,6 +21,9 @@ data class ToolsActions(
     val onBackupAllowlist: () -> Unit = {},
     val onRestoreAllowlist: () -> Unit = {},
     val onOpenKernelModules: () -> Unit = {},
+    val onBootloopToggle: (Boolean) -> Unit = {},
+    val onBootloopThresholdChange: (Int) -> Unit = {},
+    val onBootloopDismissRescued: () -> Unit = {},
 )
 
 @Immutable

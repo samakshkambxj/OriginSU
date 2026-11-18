@@ -16,6 +16,8 @@ mod apk_sign;
 mod assets;
 mod boot_patch;
 #[cfg(target_os = "android")]
+mod bootloop;
+#[cfg(target_os = "android")]
 pub mod builtin_zygisk;
 #[cfg(target_os = "android")]
 mod cli;

@@ -13,6 +13,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import com.kazesu.manager.R
+import com.kazesu.manager.data.bootloop.BootloopRepository
+import com.kazesu.manager.data.bootloop.BootloopStatus
 import com.kazesu.manager.ui.LocalUiMode
 import com.kazesu.manager.ui.UiMode
 import com.kazesu.manager.ui.navigation3.LocalNavigator
@@ -30,6 +32,10 @@ fun ToolsScreen() {
 
     var selinuxEnforcing by remember { mutableStateOf(true) }
     var selinuxLoading by remember { mutableStateOf(true) }
+
+    val bootloopRepository = remember { BootloopRepository() }
+    var bootloopStatus by remember { mutableStateOf(BootloopStatus()) }
+    var bootloopLoading by remember { mutableStateOf(true) }
 
     val backupLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("application/octet-stream")
@@ -69,6 +75,11 @@ fun ToolsScreen() {
         selinuxLoading = false
     }
 
+    LaunchedEffect(Unit) {
+        bootloopStatus = bootloopRepository.getStatus()
+        bootloopLoading = false
+    }
+
     val actions = ToolsActions(
         onBack = { navigator.pop() },
         onSelinuxToggle = { target ->
@@ -103,11 +114,58 @@ fun ToolsScreen() {
         onOpenKernelModules = {
             navigator.push(Route.KernelModules)
         },
+        onBootloopToggle = { enabled ->
+            val previous = bootloopStatus
+            bootloopStatus = bootloopStatus.copy(
+                enabled = enabled,
+                failedCount = if (enabled) bootloopStatus.failedCount else 0,
+            )
+            scope.launch {
+                if (!bootloopRepository.setEnabled(enabled)) {
+                    bootloopStatus = previous
+                    Toast.makeText(
+                        context,
+                        R.string.settings_bootloop_apply_failed,
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+            }
+        },
+        onBootloopThresholdChange = { count ->
+            val previous = bootloopStatus.maxFailed
+            bootloopStatus = bootloopStatus.copy(maxFailed = count)
+            scope.launch {
+                if (!bootloopRepository.setMaxFailed(count)) {
+                    bootloopStatus = bootloopStatus.copy(maxFailed = previous)
+                    Toast.makeText(
+                        context,
+                        R.string.settings_bootloop_apply_failed,
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+            }
+        },
+        onBootloopDismissRescued = {
+            scope.launch {
+                if (bootloopRepository.clearRescued()) {
+                    bootloopStatus = bootloopStatus.copy(
+                        rescued = false,
+                        rescuedFailedBoots = null,
+                    )
+                }
+            }
+        },
     )
 
     val state = ToolsUiState(
         selinuxEnforcing = selinuxEnforcing,
         selinuxLoading = selinuxLoading,
+        bootloopEnabled = bootloopStatus.enabled,
+        bootloopMaxFailed = bootloopStatus.maxFailed,
+        bootloopFailedCount = bootloopStatus.failedCount,
+        bootloopRescued = bootloopStatus.rescued,
+        bootloopRescuedFailedBoots = bootloopStatus.rescuedFailedBoots,
+        bootloopLoading = bootloopLoading,
     )
 
     when (LocalUiMode.current) {

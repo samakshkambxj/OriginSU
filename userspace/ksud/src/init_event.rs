@@ -46,6 +46,12 @@ pub fn on_post_fs_data() -> Result<()> {
         return Ok(());
     }
 
+    // Automatic bootloop protection: counts boots that reach post-fs-data
+    // but never complete, disabling all modules after too many failures.
+    if let Err(e) = crate::bootloop::on_post_fs_data() {
+        warn!("bootloop protection failed: {e:#}");
+    }
+
     let safe_mode = crate::utils::is_safe_mode();
     let wait = ScriptWait::Until(Instant::now() + defs::BOOT_STAGE_TIMEOUT);
 
@@ -250,6 +256,11 @@ pub fn on_boot_completed() {
     builtin_zygisk_step("arm", crate::builtin_zygisk::ensure_armed);
 
     crate::preinit::on_boot_completed();
+
+    // This boot succeeded: reset the bootloop-protection counter.
+    if let Err(e) = crate::bootloop::on_boot_completed() {
+        warn!("bootloop protection reset failed: {e:#}");
+    }
 
     run_stage("boot-completed", ScriptWait::NoWait);
 }

@@ -164,6 +164,12 @@ enum Commands {
         command: BootInfo,
     },
 
+    /// Manage automatic bootloop protection
+    Bootloop {
+        #[command(subcommand)]
+        command: BootloopOp,
+    },
+
     /// For developers
     Debug {
         #[command(subcommand)]
@@ -743,6 +749,23 @@ enum Initrc {
 }
 
 #[derive(clap::Subcommand, Debug)]
+enum BootloopOp {
+    /// Show protection status as JSON
+    Status,
+    /// Enable protection
+    Enable,
+    /// Disable protection
+    Disable,
+    /// Set failed-boot threshold (2-10)
+    SetMax {
+        /// consecutive incomplete boots before all modules are disabled
+        count: u32,
+    },
+    /// Dismiss the rescue notice shown by the manager
+    ClearRescued,
+}
+
+#[derive(clap::Subcommand, Debug)]
 enum Umount {
     /// Add mount point to umount list
     Add {
@@ -1009,6 +1032,14 @@ pub fn run() -> Result<()> {
             init_event::on_boot_completed();
             Ok(())
         }
+
+        Commands::Bootloop { command } => match command {
+            BootloopOp::Status => crate::bootloop::status(),
+            BootloopOp::Enable => crate::bootloop::set_enabled(true),
+            BootloopOp::Disable => crate::bootloop::set_enabled(false),
+            BootloopOp::SetMax { count } => crate::bootloop::set_max(count),
+            BootloopOp::ClearRescued => crate::bootloop::clear_rescued(),
+        },
 
         Commands::SoftReboot => crate::soft_reboot::soft_reboot(),
 

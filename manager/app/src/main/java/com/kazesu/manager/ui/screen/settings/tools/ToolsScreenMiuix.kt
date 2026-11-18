@@ -13,36 +13,44 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Backup
 import androidx.compose.material.icons.rounded.Memory
+import androidx.compose.material.icons.rounded.RestartAlt
 import androidx.compose.material.icons.rounded.Restore
 import androidx.compose.material.icons.rounded.Security
+import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
-import com.kazesu.manager.ui.util.customText
-import com.kazesu.manager.ui.util.CustomTextKey
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import com.kazesu.manager.R
 import com.kazesu.manager.ui.component.KsuIsValid
+import com.kazesu.manager.ui.component.WarningLevel
 import com.kazesu.manager.ui.component.miuix.AppCard
 import com.kazesu.manager.ui.component.miuix.AppScaffold
+import com.kazesu.manager.ui.component.miuix.WarningCard
 import com.kazesu.manager.ui.theme.LocalBackgroundImagePath
 import com.kazesu.manager.ui.theme.LocalEnableBlur
 import com.kazesu.manager.ui.util.BlurredBar
+import com.kazesu.manager.ui.util.CustomTextKey
+import com.kazesu.manager.ui.util.customText
 import com.kazesu.manager.ui.util.getSELinuxStatusRaw
 import com.kazesu.manager.ui.util.rememberBlurBackdrop
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
+import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.basic.TopAppBar
 import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Back
 import top.yukonga.miuix.kmp.preference.ArrowPreference
+import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
 import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme.colorScheme
 import top.yukonga.miuix.kmp.utils.overScrollVertical
@@ -104,6 +112,22 @@ fun ToolsMiuix(
                         onSelinuxToggle = actions.onSelinuxToggle
                     )
 
+                    BootloopSectionMiuix(
+                        enabled = state.bootloopEnabled,
+                        maxFailed = state.bootloopMaxFailed,
+                        loading = state.bootloopLoading,
+                        onEnabledChange = actions.onBootloopToggle,
+                        onThresholdChange = actions.onBootloopThresholdChange,
+                    )
+
+                    if (state.bootloopRescued) {
+                        BootloopRescuedCardMiuix(
+                            failedBoots = state.bootloopRescuedFailedBoots
+                                ?: state.bootloopMaxFailed,
+                            onDismiss = actions.onBootloopDismissRescued,
+                        )
+                    }
+
                     KernelModulesSectionMiuix(
                         onOpen = actions.onOpenKernelModules
                     )
@@ -146,6 +170,79 @@ private fun SelinuxToggleSectionMiuix(
             onCheckedChange = onSelinuxToggle
         )
     }
+}
+
+@Composable
+private fun BootloopSectionMiuix(
+    enabled: Boolean,
+    maxFailed: Int,
+    loading: Boolean,
+    onEnabledChange: (Boolean) -> Unit,
+    onThresholdChange: (Int) -> Unit,
+) {
+    val thresholdItems = remember { (2..10).map { it.toString() } }
+    AppCard(
+        modifier = Modifier
+            .padding(top = 12.dp)
+            .fillMaxWidth(),
+    ) {
+        SwitchPreference(
+            title = stringResource(R.string.settings_bootloop_protection),
+            summary = stringResource(
+                R.string.settings_bootloop_protection_summary,
+                maxFailed
+            ),
+            startAction = {
+                Icon(
+                    imageVector = Icons.Rounded.RestartAlt,
+                    modifier = Modifier.padding(end = 6.dp),
+                    contentDescription = null,
+                    tint = colorScheme.onBackground
+                )
+            },
+            checked = enabled,
+            enabled = !loading,
+            onCheckedChange = onEnabledChange
+        )
+
+        OverlayDropdownPreference(
+            title = stringResource(R.string.settings_bootloop_threshold),
+            summary = stringResource(R.string.settings_bootloop_threshold_summary, maxFailed),
+            items = thresholdItems,
+            selectedIndex = (maxFailed - 2).coerceIn(0, thresholdItems.lastIndex),
+            enabled = !loading && enabled,
+            onSelectedIndexChange = { onThresholdChange(it + 2) },
+            startAction = {
+                Icon(
+                    imageVector = Icons.Rounded.Timer,
+                    modifier = Modifier.padding(end = 6.dp),
+                    contentDescription = null,
+                    tint = colorScheme.onBackground
+                )
+            }
+        )
+    }
+}
+
+@Composable
+private fun BootloopRescuedCardMiuix(
+    failedBoots: Int,
+    onDismiss: () -> Unit,
+) {
+    val message = stringResource(R.string.settings_bootloop_rescued_title) + "\n" +
+        stringResource(R.string.settings_bootloop_rescued_summary, failedBoots)
+    WarningCard(
+        message = message,
+        modifier = Modifier
+            .padding(top = 12.dp)
+            .fillMaxWidth(),
+        level = WarningLevel.Error,
+        action = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.settings_bootloop_dismiss))
+            }
+        }
+    )
 }
 
 @Composable
