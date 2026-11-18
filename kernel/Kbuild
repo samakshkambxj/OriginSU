@@ -214,8 +214,13 @@ KSU_PACKAGE_NAME ?= com.kazesu.manager
 else
 KSU_PACKAGE_NAME ?= com.kazesu.manager.pr
 endif
-KSU_EXPECTED_SIZE ?= 0x35c
-KSU_EXPECTED_HASH ?= 947ae944f3de4ed4c21a7e4f7953ecf351bfa2b36239da37a34111ad29993eef
+# KazeSU manager signing certificate. The manager APK is signed with the
+# OriginSU keystore, so the kernel has to pin that certificate; with the old
+# SukiSU hash the module loaded fine but is_manager_apk() always returned false
+# and the manager reported "Not installed". Override either value to pin a
+# different manager build.
+KSU_EXPECTED_SIZE ?= 0x51c
+KSU_EXPECTED_HASH ?= d91ed440459ff575f9bbdb0b294f8d679b1591a37538aafcf1d0073da5dbe968
 
 $(info -- KernelSU Manager package name: $(KSU_PACKAGE_NAME))
 $(info -- KernelSU Manager signature size: $(KSU_EXPECTED_SIZE))
