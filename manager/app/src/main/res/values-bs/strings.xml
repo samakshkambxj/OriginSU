@@ -43,7 +43,7 @@
     <string name="safe_mode">Sigurnosni mod</string>
     <string name="reboot_to_apply">Ponovo pokrenite da bi proradilo</string>
     <string name="module_magisk_conflict">"Moduli su nedostupni  jer su u sukobu sa Magisk-om!"</string>
-    <string name="home_learn_kernelsu_url">https://sukisu.org/guide/</string>
+    <string name="home_learn_kernelsu_url">https://kazesu.github.io/guide/install</string>
     <string name="home_click_to_learn_kernelsu">Naučite kako da instalirate KazeSU i da koristite module</string>
     <string name="home_support_title">Podržite Nas</string>
     <string name="send_log">Pošaljite Izvještaj</string>

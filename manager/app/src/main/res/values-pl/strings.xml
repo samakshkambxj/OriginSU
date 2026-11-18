@@ -42,7 +42,7 @@
     <string name="reboot_to_apply">Uruchom ponownie, aby zastosować zmiany</string>
     <string name="module_magisk_conflict">Moduły są niedostępne z powodu konfliktu z Magiskiem!</string>
     <string name="home_learn_kernelsu">Poznaj KazeSU</string>
-    <string name="home_learn_kernelsu_url">https://sukisu.org/guide/</string>
+    <string name="home_learn_kernelsu_url">https://kazesu.github.io/guide/install</string>
     <string name="home_click_to_learn_kernelsu">Dowiedz się jak zainstalować KazeSU i jak korzystać z modułów.</string>
     <string name="home_support_title">Wesprzyj nas</string>
     <string name="home_support_content">KazeSU jest i zawsze będzie darmowy oraz otwarty. Niemniej jednak możesz nam pokazać, że Ci zależy, wysyłając darowiznę.</string>

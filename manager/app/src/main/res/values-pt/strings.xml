@@ -69,7 +69,7 @@ Junte-se ao nosso canal %2$s</string>
     <string name="module_start_downloading">Iniciar o download: %s</string>
     <string name="module_downloading">Baixando módulo: %s</string>
     <string name="failed_to_update_sepolicy">Falha ao atualizar as regras do SELinux para: %s</string>
-    <string name="home_learn_kernelsu_url">https://sukisu.org/guide/</string>
+    <string name="home_learn_kernelsu_url">https://kazesu.github.io/guide/install</string>
     <string name="restart_app">Reiniciar</string>
     <string name="launch_app">Lançar</string>
     <string name="force_stop_app">Forçar parada</string>

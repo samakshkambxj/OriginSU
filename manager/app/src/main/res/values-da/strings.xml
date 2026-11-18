@@ -28,7 +28,7 @@
     <string name="safe_mode">Sikker tilstand</string>
     <string name="reboot_to_apply">Genstart for at tage effekt</string>
     <string name="home_learn_kernelsu">Lær KazeSU</string>
-    <string name="home_learn_kernelsu_url">https://sukisu.org/guide/</string>
+    <string name="home_learn_kernelsu_url">https://kazesu.github.io/guide/install</string>
     <string name="home_click_to_learn_kernelsu">Lær hvordan man installerer KazeSU og moduler.</string>
     <string name="about_source_code"><![CDATA[View source code at %1$s<br/>Join our %2$s channel]]></string>
     <string name="profile_default">Standard</string>

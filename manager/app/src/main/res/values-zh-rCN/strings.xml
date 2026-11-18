@@ -138,7 +138,7 @@
     <string name="reboot_to_apply">重启生效</string>
     <string name="module_magisk_conflict">因与 Magisk 有冲突，所有模块不可用！</string>
     <string name="home_learn_kernelsu">了解 KazeSU</string>
-    <string name="home_learn_kernelsu_url">https://sukisu.org/zh/guide/</string>
+    <string name="home_learn_kernelsu_url">https://kazesu.github.io/zh-Hans/guide/install</string>
     <string name="home_click_to_learn_kernelsu">了解如何安装 KazeSU 以及如何开发模块</string>
     <string name="home_support_title">支持开发</string>
     <string name="home_support_content">KazeSU 将保持免费开源，向开发者捐赠以表示支持</string>

@@ -27,7 +27,7 @@ Csatlakozzon a %2$s csatornánkhoz</string>
     <string name="profile_name">Profil neve</string>
     <string name="profile_namespace">Névtér csatlakoztatása</string>
     <string name="profile_namespace_inherited">Örökölt</string>
-    <string name="home_learn_kernelsu_url">https://sukisu.org/guide/</string>
+    <string name="home_learn_kernelsu_url">https://kazesu.github.io/guide/install</string>
     <string name="profile_namespace_individual">Különálló</string>
     <string name="profile_groups">Csoportok</string>
     <string name="profile_capabilities">Jogosultságok</string>

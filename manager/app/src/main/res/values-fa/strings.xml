@@ -42,7 +42,7 @@
     <string name="reboot_to_apply">راه‌اندازی مجدد برای تاثیرگذاری</string>
     <string name="module_magisk_conflict">مازول به دلیل تعارض با مجیسک غیرفعال شده اند\'s!</string>
     <string name="home_learn_kernelsu">یادگیری کرنل اس یو</string>
-    <string name="home_learn_kernelsu_url">https://sukisu.org/guide/</string>
+    <string name="home_learn_kernelsu_url">https://kazesu.github.io/guide/install</string>
     <string name="home_click_to_learn_kernelsu">یاد بگیرید چگونه از کرنل اس یو و ماژول ها استفاده کنید</string>
     <string name="home_support_title">از ما حمایت کنید</string>
     <string name="home_support_content">KazeSU رایگان است و همیشه خواهد بود و منبع باز است. با این حال، می توانید با اهدای کمک مالی به ما نشان دهید که برایتان مهم است.</string>

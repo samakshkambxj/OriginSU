@@ -43,7 +43,7 @@
     <string name="send_log">Sūtīt žurnālus</string>
     <string name="reboot_to_apply">Restartējiet, lai stātos spēkā</string>
     <string name="home_learn_kernelsu">Uzzināt par KazeSU</string>
-    <string name="home_learn_kernelsu_url">https://sukisu.org/guide/</string>
+    <string name="home_learn_kernelsu_url">https://kazesu.github.io/guide/install</string>
     <string name="home_click_to_learn_kernelsu">Uzzināt, kā instalēt KazeSU un izmantot moduļus</string>
     <string name="home_support_title">Atbalsti mūs</string>
     <string name="about_source_code">Skatiet avota kodu vietnē %1$s<br/> Pievienojies mūsu %2$s kanālam</string>

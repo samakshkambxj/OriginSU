@@ -25,7 +25,7 @@
     <string name="safe_mode">Saugus rėžimas</string>
     <string name="reboot_to_apply">Paleiskite iš naujo, kad įsigaliotų</string>
     <string name="module_magisk_conflict">Moduliai yra išjungti, nes jie konfliktuoja su Magisk\'s!</string>
-    <string name="home_learn_kernelsu_url">https://sukisu.org/guide/</string>
+    <string name="home_learn_kernelsu_url">https://kazesu.github.io/guide/install</string>
     <string name="home_learn_kernelsu">Sužinokite apie KazeSU</string>
     <string name="home_click_to_learn_kernelsu">Sužinokite, kaip įdiegti KazeSU ir naudoti modulius</string>
     <string name="about_source_code">Peržiūrėkite šaltinio kodą %1$s<br/>Prisijunkite prie mūsų %2$s kanalo</string>

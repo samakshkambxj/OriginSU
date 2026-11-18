@@ -148,7 +148,7 @@
     <string name="reboot_to_apply">Reboot to take effect</string>
     <string name="module_magisk_conflict">Modules are unavailable due to a conflict with Magisk!</string>
     <string name="home_learn_kernelsu">Learn KazeSU</string>
-    <string name="home_learn_kernelsu_url">https://sukisu.org/guide/</string>
+    <string name="home_learn_kernelsu_url">https://kazesu.github.io/guide/install</string>
     <string name="home_click_to_learn_kernelsu">Learn how to install KazeSU and use modules.</string>
     <string name="home_support_title">Support Us</string>
     <string name="home_support_content">KazeSU is, and always will be, free, and open source. However, you can show us that you care by making a donation.</string>
