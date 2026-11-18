@@ -43,7 +43,6 @@ import com.kazesu.manager.ui.util.rememberBlurBackdrop
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
-import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.basic.TopAppBar
 import top.yukonga.miuix.kmp.blur.layerBackdrop
@@ -238,9 +237,10 @@ private fun BootloopRescuedCardMiuix(
             .fillMaxWidth(),
         level = WarningLevel.Error,
         action = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.settings_bootloop_dismiss))
-            }
+            TextButton(
+                text = stringResource(R.string.settings_bootloop_dismiss),
+                onClick = onDismiss,
+            )
         }
     )
 }
