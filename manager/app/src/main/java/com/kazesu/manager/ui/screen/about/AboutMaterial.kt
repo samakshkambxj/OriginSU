@@ -2,7 +2,6 @@ package com.kazesu.manager.ui.screen.about
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -18,12 +17,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Science
 import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material.icons.filled.SystemUpdateAlt
+import androidx.compose.material3.Icon
 import androidx.compose.material3.LargeFlexibleTopAppBar
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -34,8 +34,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -49,7 +49,6 @@ import com.kazesu.manager.ui.component.material.SegmentedSwitchItem
 import com.kazesu.manager.ui.component.material.TonalCard
 import com.kazesu.manager.ui.component.material.TopBarBackButton
 import com.kazesu.manager.ui.component.material.expressiveTopAppBarColors
-import com.kazesu.manager.ui.screen.appicon.BuiltinAppIconPreview
 
 @Composable
 fun AboutScreenMaterial(
@@ -94,18 +93,15 @@ fun AboutScreenMaterial(
                             .padding(24.dp),
                         verticalArrangement = Arrangement.SpaceBetween,
                     ) {
-                        Box(
-                            contentAlignment = Alignment.Center,
-                            modifier = Modifier
-                                .size(64.dp)
-                                .clip(RoundedCornerShape(20.dp))
-                                .background(Color.White)
-                        ) {
-                            BuiltinAppIconPreview(
-                                icon = state.icon,
-                                modifier = Modifier.fillMaxSize(),
-                            )
-                        }
+                        // The hero shows the KazeSU leaf mark itself. The launcher icon depends on
+                        // the selected app-icon pack, which made the about page advertise whichever
+                        // icon was active instead of the brand.
+                        Icon(
+                            painter = painterResource(R.drawable.ic_launcher_monochrome),
+                            contentDescription = null,
+                            modifier = Modifier.size(96.dp),
+                            tint = LocalContentColor.current,
+                        )
                         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                             Text(
                                 text = state.appName,

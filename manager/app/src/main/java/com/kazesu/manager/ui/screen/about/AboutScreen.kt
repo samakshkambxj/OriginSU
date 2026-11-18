@@ -22,7 +22,6 @@ import com.kazesu.manager.ui.theme.ThemeController
 import com.kazesu.manager.ui.theme.Typography
 import com.kazesu.manager.ui.theme.animateAsState
 import com.kazesu.manager.ui.theme.rememberKernelSUColorScheme
-import com.kazesu.manager.ui.util.BuiltinAppIcons
 import com.kazesu.manager.ui.util.customText
 import com.kazesu.manager.ui.util.CustomTextKey
 import com.kazesu.manager.ui.viewmodel.SettingsViewModel
@@ -45,7 +44,6 @@ fun AboutScreen() {
         title = customText(CustomTextKey.PAGE_ABOUT),
         appName = stringResource(R.string.app_name),
         versionName = BuildConfig.VERSION_NAME,
-        icon = BuiltinAppIcons.find(settingsState.appIconId),
         links = extractLinks(htmlString),
         checkUpdate = settingsState.checkUpdate,
         checkCiUpdate = settingsState.checkCiUpdate,
