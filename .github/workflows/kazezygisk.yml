@@ -28,6 +28,7 @@ jobs:
         with:
           distribution: temurin
           java-version: 21
+          cache: gradle
 
       - name: Set up Android SDK
         run: |
@@ -62,8 +63,8 @@ jobs:
           ANDROID_NDK_ROOT: ${{ env.ANDROID_HOME }}/ndk/27.2.12479018
         run: |
           set -eux
-          gradle --version | head -3
-          gradle --build-cache zipRelease \
+          ./gradlew --version | head -3
+          ./gradlew --build-cache zipRelease \
             -Porg.gradle.parallel=true \
             -Dorg.gradle.jvmargs=-Xmx2048m
 
