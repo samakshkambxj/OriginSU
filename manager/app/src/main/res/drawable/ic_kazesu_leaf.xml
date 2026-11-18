@@ -1,8 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Standalone KazeSU leaf mark.
-     Same geometry as the adaptive-icon foreground, but without the launcher
-     mask: the monochrome layer omits the pivot compensation and renders only
-     a clipped corner when used outside an adaptive icon. -->
+<!-- Standalone KazeSU leaf mark for in-app use (About hero, KazeTune card).
+     Shares the leaf path with the adaptive-icon foreground but keeps its own
+     scale so it renders correctly outside a launcher mask. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
