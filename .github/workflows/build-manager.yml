@@ -91,14 +91,19 @@ jobs:
       expected_pr_build_hash: ${{ needs.prepare.outputs.expected_hash || '' }}
     secrets: inherit
 
-  build-lkm-tamper:
-    needs: prepare
-    uses: ./.github/workflows/build-lkm.yml
-    with:
-      expected_pr_build_size: ${{ needs.prepare.outputs.expected_size || '' }}
-      expected_pr_build_hash: ${{ needs.prepare.outputs.expected_hash || '' }}
-      hook: TAMPER_SYSCALL_TABLE
-    secrets: inherit
+  # The tamper syscall-table hook is a legacy-only kernel feature: dev's
+  # Kconfig has no KSU_TAMPER_SYSCALL_TABLE, so a second matrix with that hook
+  # would just rebuild the normal module under a misleading "-tamper" name.
+  # Re-enable this job once the kernel side is ported.
+  #
+  # build-lkm-tamper:
+  #   needs: prepare
+  #   uses: ./.github/workflows/build-lkm.yml
+  #   with:
+  #     expected_pr_build_size: ${{ needs.prepare.outputs.expected_size || '' }}
+  #     expected_pr_build_hash: ${{ needs.prepare.outputs.expected_hash || '' }}
+  #     hook: TAMPER_SYSCALL_TABLE
+  #   secrets: inherit
 
   build-ksuinit:
     uses: ./.github/workflows/ksuinit.yml
@@ -111,7 +116,7 @@ jobs:
   #   uses: ./.github/workflows/builtzygisk.yml
 
   build-ksud:
-    needs: [build-lkm, build-lkm-tamper, build-ksuinit]
+    needs: [build-lkm, build-ksuinit]
     strategy:
       matrix:
         target:
