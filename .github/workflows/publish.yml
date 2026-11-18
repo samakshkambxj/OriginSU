@@ -35,7 +35,15 @@ jobs:
           set -eux
           remote="https://git.zako.shirkneko.top:20004"
           mirror="/ci/repo-cache/${GITHUB_REPOSITORY}.git"
-          mkdir -p "$(dirname "$mirror")"
+          # New repositories may not be writable under /ci on shared runners.
+          if ! mkdir -p "$(dirname "$mirror")" 2>/dev/null; then
+            mirror="${RUNNER_TEMP:-/tmp}/repo-cache/${GITHUB_REPOSITORY}.git"
+            mkdir -p "$(dirname "$mirror")"
+          fi
+          # Missing mirrors (new or renamed repositories) fall back to GitHub.
+          if ! timeout 15 git ls-remote "$remote/${GITHUB_REPOSITORY}.git" >/dev/null 2>&1; then
+            remote="https://github.com"
+          fi
           if [ ! -d "$mirror" ]; then
             # The token must not appear in the trace of `set -x`.
             set +x
