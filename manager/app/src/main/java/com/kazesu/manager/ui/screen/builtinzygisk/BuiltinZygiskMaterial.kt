@@ -411,7 +411,8 @@ internal fun BuiltinZygiskMaterial(
                                     summary = uiState.health.lastReason.ifEmpty {
                                         stringResource(R.string.builtin_zygisk_health_unknown)
                                     },
-                                    ok = uiState.health.lastStatus == "healthy"
+                                    ok = uiState.health.lastStatus == "ok" ||
+                                        uiState.health.lastStatus == "healthy"
                                 )
                             },
                             {

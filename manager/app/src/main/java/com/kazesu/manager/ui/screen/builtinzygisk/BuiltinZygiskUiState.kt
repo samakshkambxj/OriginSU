@@ -29,7 +29,7 @@ data class BuiltinZygiskUiState(
 
 /// The localized outcome of the last completed boot.
 internal fun healthStatusText(status: String): Int = when (status) {
-    "healthy" -> com.kazesu.manager.R.string.builtin_zygisk_health_healthy
+    "ok", "healthy" -> com.kazesu.manager.R.string.builtin_zygisk_health_healthy
     "failed" -> com.kazesu.manager.R.string.builtin_zygisk_health_failed
     "blocked" -> com.kazesu.manager.R.string.builtin_zygisk_health_blocked
     "disabled" -> com.kazesu.manager.R.string.builtin_zygisk_health_disabled

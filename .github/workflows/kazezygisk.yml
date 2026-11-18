@@ -40,6 +40,21 @@ jobs:
             "ndk;27.2.12479018" \
             "cmake;4.1.2"
 
+      # kazezygiskd is cross-compiled by Gradle through `cargo ndk`, and its
+      # riscv64 build uses -Zbuild-std, so the engine needs a nightly toolchain.
+      - name: Set up Rust
+        working-directory: external/BuiltZygisk
+        run: |
+          set -eux
+          rustup override set nightly
+          rustup component add rust-src
+          rustup target add aarch64-linux-android x86_64-linux-android armv7-linux-androideabi
+
+      - name: Install cargo-ndk
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-ndk
+
       - name: Build KazeZygisk
         working-directory: external/BuiltZygisk
         env:
