@@ -145,8 +145,35 @@ jobs:
         working-directory: manager
         run: |
           set -eux
+          mkdir -p ../dist
           ./gradlew --no-daemon --build-cache assembleRelease
-          find app/build/outputs/apk/release -type f -name '*.apk' -exec ls -lh {} +
+          find app/build/outputs/apk/release -type f -name '*.apk' -exec cp -f {} ../dist/ \;
+          ls -lh ../dist
+
+      - name: Build spoofed APK
+        working-directory: manager
+        run: |
+          set -eux
+          # Random package name per build, same scheme the legacy pipeline used:
+          # three lowercase words so the manager installs beside the real one.
+          word1=$(tr -dc 'a-z' </dev/urandom | head -c6)
+          word2=$(tr -dc 'a-z' </dev/urandom | head -c6)
+          word3=$(tr -dc 'a-z' </dev/urandom | head -c6)
+          export KSU_PACKAGE_NAME="${word1}.${word2}.${word3}"
+          echo "spoofed package: ${KSU_PACKAGE_NAME}"
+          ./gradlew --no-daemon --build-cache assembleRelease \
+            -PKSU_PACKAGE_NAME="$KSU_PACKAGE_NAME" -PIS_SPOOFED_BUILD=true
+          APK=$(find app/build/outputs/apk/release -type f -name '*.apk' | head -n1)
+          test -n "$APK"
+          cp -f "$APK" ../dist/spoofed.apk
+          ls -lh ../dist
+
+      - name: Upload APK artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: KazeSU-${{ github.ref_name }}
+          path: dist/*.apk
+          if-no-files-found: error
 
       - name: Build changelog
         if: github.ref_type == 'tag'
@@ -173,4 +200,19 @@ jobs:
           generate_release_notes: false
           body_path: CHANGELOG.md
           files: |
-            manager/app/build/outputs/apk/release/*.apk
+            dist/KazeSU_*.apk
+
+      - name: Post to Telegram
+        if: github.ref_type == 'tag'
+        env:
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+          CHAT_ID: ${{ vars.CHAT_ID }}
+          TITLE: KazeSU ${{ github.ref_name }}
+          VERSION: ${{ github.ref_name }}
+          BRANCH: ${{ github.ref_name }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -eux
+          # Both variants: the spoofed APK only ships through Telegram and the
+          # workflow artifacts, exactly like the legacy pipeline.
+          bash scripts/upload-telegram.sh dist/*.apk

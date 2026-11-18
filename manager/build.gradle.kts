@@ -5,6 +5,8 @@ plugins {
     alias(libs.plugins.compose.compiler) apply false
 }
 
+val isSpoofedBuild = project.findProperty("IS_SPOOFED_BUILD")?.toString()?.toBoolean() ?: false
+
 extra["androidMinSdkVersion"] = 24
 extra["androidTargetSdkVersion"] = 37
 extra["androidCompileSdkVersion"] = 37
@@ -50,5 +52,8 @@ fun getVersionCode(): Int {
 }
 
 fun getVersionName(): String {
-    return getGitDescribe()
+    val described = getGitDescribe()
+    // The spoofed variant ships from the same commit, so the name carries the
+    // marker instead of a tag of its own.
+    return if (isSpoofedBuild) "$described-spoofed" else described
 }
