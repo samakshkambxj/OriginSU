@@ -1,19 +1,22 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Signature-fallback manager crown.
+ * Signature-based manager collection.
  *
- * track_throne() only crowns KSU_PACKAGE_NAME. This file supplies the
- * second chance: re-scan /data/app and crown *any* APK signed with the
- * canonical built-in KernelSU signature, regardless of its package name.
+ * track_throne() calls this on every scan, independently of KSU_PACKAGE_NAME.
+ * It walks /data/app and registers *every* APK signed with the canonical
+ * built-in KernelSU signature as a manager, whatever its package name is.
+ * That is how the spoofed manager works out of the box: matching the package
+ * name is not required, only the build certificate.
+ *
  * It is reached through the ksu_sig_fallback static key (see
- * dynamic_sig_fallback.h) rather than a weak symbol, so the call site is
- * an indirect branch with a real default target and an uninstalled
- * fallback can never deref NULL.
+ * dynamic_sig_fallback.h) rather than a weak symbol, so the call site is an
+ * indirect branch with a real default target and an uninstalled fallback can
+ * never deref NULL.
  *
  * The scanner is deliberately self-contained: its own dir_context, its own
- * path list, and it caches nothing. It is an independent pass over
- * /data/app and must not touch track_throne()'s cached_manager_apk_path
- * or its KSU_PACKAGE_NAME bookkeeping.
+ * path list, and it caches nothing. It is an independent pass over /data/app
+ * and must not touch track_throne()'s cached_manager_apk_path or its
+ * KSU_PACKAGE_NAME bookkeeping.
  *
  * Security note: the s_magic pinning below is load-bearing, not an
  * optimisation. Without it an attacker able to bind-mount a filesystem
@@ -67,8 +70,8 @@ struct fb_dir_ctx {
     struct dir_context ctx;
     struct list_head *path_list;
     char *parent_dir;
+    char *candidate_path;
     int depth;
-    bool matched;
 };
 
 static FILLDIR_RETURN_TYPE fb_actor(struct dir_context *ctx, const char *name, int namelen, loff_t off, u64 ino,
@@ -91,8 +94,11 @@ static FILLDIR_RETURN_TYPE fb_actor(struct dir_context *ctx, const char *name, i
     }
 
     if (d_type == DT_REG && namelen == 8 && !memcmp(name, "base.apk", 8)) {
-        if (!c->matched && is_manager_apk(dirpath))
-            c->matched = true;
+        /*
+         * Only record the path here. Signature verification opens the APK,
+         * which must not happen while the directory is being iterated.
+         */
+        snprintf(c->candidate_path, DATA_PATH_LEN, "%s", dirpath);
         return FILLDIR_ACTOR_CONTINUE;
     }
 
@@ -119,7 +125,7 @@ static bool fb_crown_by_pkg(const char *pkg, struct list_head *uid_data)
     list_for_each_entry (np, uid_data, list) {
         if (strncmp(np->package, pkg, KSU_MAX_PACKAGE_NAME) == 0) {
             pr_info("sig_fallback: crowning %s(uid=%u)\n", pkg, np->uid);
-            ksu_set_manager_appid(np->uid);
+            ksu_signature_manager_register(np->uid);
             return true;
         }
     }
@@ -143,19 +149,17 @@ static bool fb_crown_by_signature(struct list_head *uid_data)
     root.depth = SIG_FALLBACK_DEPTH;
     list_add_tail(&root.list, &data_path_list);
 
-    for (i = SIG_FALLBACK_DEPTH; i >= 0 && !crowned; i--) {
+    for (i = SIG_FALLBACK_DEPTH; i >= 0; i--) {
         list_for_each_entry_safe (pos, n, &data_path_list, list) {
+            char candidate_path[DATA_PATH_LEN] = {};
             struct fb_dir_ctx ctx = {
                 .ctx.actor = fb_actor,
                 .path_list = &data_path_list,
                 .parent_dir = pos->dirpath,
+                .candidate_path = candidate_path,
                 .depth = pos->depth,
-                .matched = false,
             };
             struct file *file;
-
-            if (crowned)
-                goto skip_iterate;
 
             file = ksu_filp_open_nonotify(pos->dirpath, O_RDONLY | O_NOFOLLOW | O_NOATIME | O_DIRECTORY);
             if (IS_ERR(file)) {
@@ -183,16 +187,21 @@ static bool fb_crown_by_signature(struct list_head *uid_data)
             iterate_dir(file, &ctx.ctx);
             filp_close(file, NULL);
 
-            if (!ctx.matched)
+            if (!candidate_path[0])
                 goto skip_iterate;
 
-            pr_info("sig_fallback: signed apk found at %s\n", pos->dirpath);
+            if (!is_manager_apk(candidate_path)) {
+                pr_info("sig_fallback: %s is not a manager apk\n", candidate_path);
+                goto skip_iterate;
+            }
+
+            pr_info("sig_fallback: signed apk found at %s\n", candidate_path);
 
             {
                 char pkg[KSU_MAX_PACKAGE_NAME];
 
-                if (get_pkg_from_apk_dir_path(pkg, pos->dirpath) >= 0)
-                    crowned = fb_crown_by_pkg(pkg, uid_data);
+                if (get_pkg_from_apk_dir_path(pkg, pos->dirpath) >= 0 && fb_crown_by_pkg(pkg, uid_data))
+                    crowned = true;
             }
 
         skip_iterate:
@@ -203,7 +212,7 @@ static bool fb_crown_by_signature(struct list_head *uid_data)
     }
 
     if (crowned)
-        pr_info("sig_fallback: crowned manager by signature\n");
+        pr_info("sig_fallback: crowned manager(s) by signature\n");
     else
         pr_info("sig_fallback: no signed manager under " SIG_FALLBACK_ROOT "\n");
 

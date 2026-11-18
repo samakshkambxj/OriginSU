@@ -11,6 +11,18 @@
 bool ksu_manager_enabled(void);
 bool ksu_manager_uid_authorized(uid_t uid);
 bool ksu_manager_package_authorized(const char *package, uid_t uid);
+
+/*
+ * Managers regrown from an APK signature. Every package signed with the
+ * canonical build certificate is a manager, whatever its package name is, so
+ * the spoofed manager needs no manual registration. The set is rebuilt by
+ * track_throne() on every scan and authorizes independently of the dynamic
+ * manager list.
+ */
+bool ksu_signature_manager_contains(uid_t uid);
+void ksu_signature_manager_register(uid_t appid);
+void ksu_signature_manager_clear(void);
+unsigned int ksu_signature_manager_count(void);
 #endif
 
 #ifdef CONFIG_KSU_DISABLE_MANAGER
@@ -33,6 +45,25 @@ static inline bool ksu_manager_package_authorized(const char *package, uid_t uid
 {
     (void)package;
     return uid == 0;
+}
+
+static inline bool ksu_signature_manager_contains(uid_t uid)
+{
+    return uid == 0;
+}
+
+static inline void ksu_signature_manager_register(uid_t appid)
+{
+    (void)appid;
+}
+
+static inline void ksu_signature_manager_clear(void)
+{
+}
+
+static inline unsigned int ksu_signature_manager_count(void)
+{
+    return 0;
 }
 
 static inline bool is_manager()

@@ -107,14 +107,15 @@ bool ksu_manager_package_authorized(const char *package, uid_t uid)
     int index;
     bool found = false;
 
-    if (ksu_manager_appid != KSU_INVALID_APPID &&
-        ksu_manager_appid == uid % KSU_PER_USER_RANGE)
+    if (ksu_manager_appid != KSU_INVALID_APPID && ksu_manager_appid == uid % KSU_PER_USER_RANGE)
+        return true;
+    if (ksu_signature_manager_contains(uid))
         return true;
     read_lock(&dynamic_manager_lock);
     if (READ_ONCE(dynamic_manager_enabled)) {
         index = find_manager_locked(package);
-        found = index >= 0 && dynamic_manager_verified[index] &&
-                dynamic_managers[index].uid == uid % KSU_PER_USER_RANGE;
+        found =
+            index >= 0 && dynamic_manager_verified[index] && dynamic_managers[index].uid == uid % KSU_PER_USER_RANGE;
     }
     read_unlock(&dynamic_manager_lock);
     return found;
@@ -143,6 +144,13 @@ bool ksu_manager_uid_authorized(uid_t uid)
 
     if (ksu_manager_appid != KSU_INVALID_APPID && ksu_manager_appid == appid)
         return true;
+    /*
+     * Signature managers are authorized unconditionally: they matched the
+     * built-in certificate, so they do not depend on the dynamic manager
+     * list being enabled.
+     */
+    if (ksu_signature_manager_contains(uid))
+        return true;
     return ksu_manager_enabled() && ksu_dynamic_manager_uid_registered(uid);
 }
 
@@ -162,17 +170,15 @@ void ksu_dynamic_manager_load(void)
         goto out;
     read = kernel_read(fp, state, sizeof(*state), &pos);
     filp_close(fp, NULL);
-    if (read != sizeof(*state) || state->magic != DYNAMIC_MANAGER_MAGIC ||
-        state->version != DYNAMIC_MANAGER_VERSION ||
+    if (read != sizeof(*state) || state->magic != DYNAMIC_MANAGER_MAGIC || state->version != DYNAMIC_MANAGER_VERSION ||
         state->count > KSU_MAX_DYNAMIC_MANAGERS || state->enabled > 1)
         goto out;
 
     for (i = 0; i < state->count; ++i) {
         const struct ksu_manager_entry *entry = &state->entries[i];
 
-        if (!entry->cert_size ||
-            entry->cert_size > DYNAMIC_MANAGER_MAX_CERT_SIZE ||
-            !package_valid(entry->package) || !hash_valid(entry->hash))
+        if (!entry->cert_size || entry->cert_size > DYNAMIC_MANAGER_MAX_CERT_SIZE || !package_valid(entry->package) ||
+            !hash_valid(entry->hash))
             goto out;
     }
     write_lock(&dynamic_manager_lock);
@@ -203,13 +209,10 @@ int ksu_dynamic_manager_set(struct ksu_manager_cmd *cmd)
         return -EINVAL;
 
     if (cmd->operation == KSU_MANAGER_ADD) {
-        if (!cmd->cert_size ||
-            cmd->cert_size > DYNAMIC_MANAGER_MAX_CERT_SIZE ||
-            strnlen(cmd->package, sizeof(cmd->package)) >=
-                sizeof(cmd->package) ||
-            strnlen(cmd->hash, sizeof(cmd->hash)) >= sizeof(cmd->hash) ||
-            !package_valid(cmd->package) || !hash_valid(cmd->hash) ||
-            cmd->uid == KSU_INVALID_APPID)
+        if (!cmd->cert_size || cmd->cert_size > DYNAMIC_MANAGER_MAX_CERT_SIZE ||
+            strnlen(cmd->package, sizeof(cmd->package)) >= sizeof(cmd->package) ||
+            strnlen(cmd->hash, sizeof(cmd->hash)) >= sizeof(cmd->hash) || !package_valid(cmd->package) ||
+            !hash_valid(cmd->hash) || cmd->uid == KSU_INVALID_APPID)
             return -EINVAL;
         package_uid = cmd->uid % KSU_PER_USER_RANGE;
     }
@@ -239,26 +242,20 @@ int ksu_dynamic_manager_set(struct ksu_manager_cmd *cmd)
         dynamic_manager_verified[dynamic_manager_count - 1] = false;
         break;
     case KSU_MANAGER_REMOVE:
-        if (strnlen(cmd->package, sizeof(cmd->package)) >=
-                sizeof(cmd->package) ||
-            !package_valid(cmd->package)) {
+        if (strnlen(cmd->package, sizeof(cmd->package)) >= sizeof(cmd->package) || !package_valid(cmd->package)) {
             ret = -EINVAL;
             break;
         }
-        if (cmd->hash[0] &&
-            strnlen(cmd->hash, sizeof(cmd->hash)) >= sizeof(cmd->hash)) {
+        if (cmd->hash[0] && strnlen(cmd->hash, sizeof(cmd->hash)) >= sizeof(cmd->hash)) {
             ret = -EINVAL;
             break;
         }
         i = find_manager_locked(cmd->package);
         if (i >= 0) {
             --dynamic_manager_count;
-            dynamic_managers[i] =
-                dynamic_managers[dynamic_manager_count];
-            dynamic_manager_verified[i] =
-                dynamic_manager_verified[dynamic_manager_count];
-            memset(&dynamic_managers[dynamic_manager_count], 0,
-                   sizeof(dynamic_managers[0]));
+            dynamic_managers[i] = dynamic_managers[dynamic_manager_count];
+            dynamic_manager_verified[i] = dynamic_manager_verified[dynamic_manager_count];
+            memset(&dynamic_managers[dynamic_manager_count], 0, sizeof(dynamic_managers[0]));
             dynamic_manager_verified[dynamic_manager_count] = false;
         }
         break;
@@ -288,8 +285,7 @@ int ksu_dynamic_manager_get(struct ksu_manager_cmd *cmd)
     return 0;
 }
 
-bool ksu_dynamic_manager_match(const char *package, unsigned int size,
-                               const char *hash)
+bool ksu_dynamic_manager_match(const char *package, unsigned int size, const char *hash)
 {
     unsigned int i;
     bool found = false;
@@ -299,10 +295,8 @@ bool ksu_dynamic_manager_match(const char *package, unsigned int size,
 
     read_lock(&dynamic_manager_lock);
     for (i = 0; i < dynamic_manager_count; ++i) {
-        if (dynamic_managers[i].cert_size == size &&
-            !strcmp(dynamic_managers[i].package, package) &&
-            !strncasecmp(dynamic_managers[i].hash, hash,
-                         KSU_MANAGER_HASH_LENGTH)) {
+        if (dynamic_managers[i].cert_size == size && !strcmp(dynamic_managers[i].package, package) &&
+            !strncasecmp(dynamic_managers[i].hash, hash, KSU_MANAGER_HASH_LENGTH)) {
             found = true;
             break;
         }
@@ -353,16 +347,14 @@ bool ksu_dynamic_manager_verify_apk(char *path, const char *package, uid_t uid)
 
     read_lock(&dynamic_manager_lock);
     for (i = 0; i < dynamic_manager_count; ++i) {
-        if (!strcmp(dynamic_managers[i].package, package) &&
-            dynamic_managers[i].uid == uid % KSU_PER_USER_RANGE) {
+        if (!strcmp(dynamic_managers[i].package, package) && dynamic_managers[i].uid == uid % KSU_PER_USER_RANGE) {
             entry = dynamic_managers[i];
             found = true;
             break;
         }
     }
     read_unlock(&dynamic_manager_lock);
-    if (!found ||
-        !ksu_check_apk_signature(path, entry.cert_size, entry.hash))
+    if (!found || !ksu_check_apk_signature(path, entry.cert_size, entry.hash))
         return false;
 
     write_lock(&dynamic_manager_lock);

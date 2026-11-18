@@ -15,6 +15,12 @@ DECLARE_STATIC_KEY_FALSE(ksu_sig_fallback_key);
 
 extern ksu_sig_fallback_fn ksu_sig_fallback_current;
 
+/*
+ * Register every package whose APK carries the canonical build certificate.
+ * Returns true when at least one manager was registered. The caller rebuilds
+ * the set (ksu_signature_manager_clear()) before invoking it.
+ */
+
 static inline bool ksu_sig_fallback_run(struct list_head *uid_data)
 {
     ksu_sig_fallback_fn fn;

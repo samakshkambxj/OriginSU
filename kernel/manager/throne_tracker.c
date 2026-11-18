@@ -6,6 +6,7 @@
 #include <linux/fs.h>
 #include <linux/list.h>
 #include <linux/slab.h>
+#include <linux/spinlock.h>
 #include <linux/string.h>
 #include <linux/types.h>
 #include <linux/version.h>
@@ -20,6 +21,75 @@
 static DEFINE_MUTEX(throne_tracker_mutex);
 
 uid_t ksu_manager_appid = KSU_INVALID_APPID;
+
+/*
+ * Managers authorized by APK signature rather than by package name. Mirrors
+ * the legacy manager list: any APK signed with the canonical certificate is a
+ * manager, so a spoofed manager works without being registered first. The set
+ * is owned by track_throne() and rebuilt from /data/app on every scan.
+ */
+#define KSU_MAX_SIGNATURE_MANAGERS 16
+
+static DEFINE_SPINLOCK(signature_manager_lock);
+static uid_t signature_manager_appids[KSU_MAX_SIGNATURE_MANAGERS];
+static unsigned int signature_manager_registered;
+
+bool ksu_signature_manager_contains(uid_t uid)
+{
+    uid_t appid = uid % KSU_PER_USER_RANGE;
+    unsigned int i;
+    bool found = false;
+
+    spin_lock(&signature_manager_lock);
+    for (i = 0; i < signature_manager_registered; ++i) {
+        if (signature_manager_appids[i] == appid) {
+            found = true;
+            break;
+        }
+    }
+    spin_unlock(&signature_manager_lock);
+
+    return found;
+}
+
+void ksu_signature_manager_register(uid_t appid)
+{
+    unsigned int i;
+
+    spin_lock(&signature_manager_lock);
+    for (i = 0; i < signature_manager_registered; ++i) {
+        if (signature_manager_appids[i] == appid) {
+            spin_unlock(&signature_manager_lock);
+            return;
+        }
+    }
+    if (signature_manager_registered < KSU_MAX_SIGNATURE_MANAGERS) {
+        signature_manager_appids[signature_manager_registered++] = appid;
+        spin_unlock(&signature_manager_lock);
+        pr_info("signature manager registered: appid=%u\n", appid);
+        return;
+    }
+    spin_unlock(&signature_manager_lock);
+    pr_warn("signature manager list full, ignoring appid=%u\n", appid);
+}
+
+void ksu_signature_manager_clear(void)
+{
+    spin_lock(&signature_manager_lock);
+    signature_manager_registered = 0;
+    spin_unlock(&signature_manager_lock);
+}
+
+unsigned int ksu_signature_manager_count(void)
+{
+    unsigned int count;
+
+    spin_lock(&signature_manager_lock);
+    count = signature_manager_registered;
+    spin_unlock(&signature_manager_lock);
+
+    return count;
+}
 
 #define DATA_PATH_LEN 384 // 384 is enough for /data/app/<package>/base.apk
 
@@ -290,6 +360,18 @@ void track_throne(bool prune_only)
     if (prune_only)
         goto prune;
 
+    /*
+     * Rebuild the signature manager set before anything else. Every APK
+     * signed with the canonical build certificate is a manager, whatever its
+     * package name is, so the spoofed manager is crowned even when
+     * KSU_PACKAGE_NAME is installed alongside it. The branch is a static key,
+     * so it is patched out entirely when no fallback implementation is
+     * registered.
+     */
+    ksu_signature_manager_clear();
+    ksu_sig_fallback_run(&uid_list);
+    pr_info("signature managers registered: %u\n", ksu_signature_manager_count());
+
     // first, check if manager_uid exist!
     uid_t manager_package_uid = KSU_INVALID_APPID;
     bool need_rescan = false;
@@ -301,38 +383,34 @@ void track_throne(bool prune_only)
     }
 
     if (manager_package_uid == KSU_INVALID_APPID) {
-		cached_manager_apk_path[0] = 0;
-		if (ksu_is_manager_appid_valid()) {
-			struct uid_data *cur;
-			bool still_installed = false;
+        cached_manager_apk_path[0] = 0;
+        if (ksu_is_manager_appid_valid()) {
+            struct uid_data *cur;
+            bool still_installed = false;
 
-			list_for_each_entry (cur, &uid_list, list) {
-				if (cur->uid == ksu_get_manager_appid()) {
-					still_installed = true;
-					break;
-				}
-			}
+            list_for_each_entry (cur, &uid_list, list) {
+                if (cur->uid == ksu_get_manager_appid()) {
+                    still_installed = true;
+                    break;
+                }
+            }
 
-			if (still_installed) {
-				pr_info("manager uid=%u still installed (signature fallback), skip search!\n",
-						ksu_get_manager_appid());
-				goto prune;
-			}
+            if (still_installed) {
+                pr_info("manager uid=%u still installed (signature fallback), skip search!\n", ksu_get_manager_appid());
+                goto prune;
+            }
 
-			pr_info("manager is uninstalled, invalidate it!\n");
-			ksu_invalidate_manager_uid();
-		}
+            pr_info("manager is uninstalled, invalidate it!\n");
+            ksu_invalidate_manager_uid();
+        }
 
-		/*
-		 * Signature fallback: crown any APK signed with the canonical
-		 * KernelSU signature, whatever its package name is. The branch
-		 * is a static key, so it is patched out entirely when no
-		 * fallback implementation is registered.
+        /*
+		 * KSU_PACKAGE_NAME is not installed. There is no package-name
+		 * manager left to find; the signature scan above already
+		 * authorized every signed manager.
 		 */
-		if (ksu_sig_fallback_run(&uid_list))
-			goto prune;
-
-	} else {
+        goto prune;
+    } else {
         if (!ksu_is_manager_appid_valid()) {
             need_rescan = true;
         } else if (unlikely(np->uid != ksu_get_manager_appid())) {
