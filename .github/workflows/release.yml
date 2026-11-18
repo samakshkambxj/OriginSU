@@ -68,7 +68,7 @@ jobs:
         id: version
         run: |
           set -eux
-          COMMIT_COUNT=$(git rev-list --count refs/remotes/origin/main)
+          COMMIT_COUNT=$(git rev-list --count HEAD)
           VERSION_CODE=$((30000 + COMMIT_COUNT + 996))
           echo "version_code=$VERSION_CODE" >> "$GITHUB_OUTPUT"
           echo "KernelSU version code: $VERSION_CODE (main commits: $COMMIT_COUNT)"
