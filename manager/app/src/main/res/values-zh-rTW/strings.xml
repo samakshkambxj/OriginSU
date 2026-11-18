@@ -366,6 +366,17 @@
     <string name="horizon_kernel_summary">刷入AnyKernel3格式的內核zip包</string>
     <string name="external_kernel_flash_prompt">是否刷寫 AnyKernel3 核心「%1$s」？請確認核心適用於目前裝置，接下來將選擇槽位及 KPM 模式。</string>
     <string name="external_kernel_separate_files">請單獨開啟一個核心 ZIP，不要與模組檔案一起選取。</string>
+    <!-- GKI -->
+    <string name="install_section_gki">GKI</string>
+    <string name="install_section_gki_summary">GKI 核心映像操作：AnyKernel3 刷寫與啟動映像補丁。</string>
+    <string name="patch_boot_anykernel">使用 AnyKernel ZIP 補丁啟動映像</string>
+    <string name="patch_boot_anykernel_summary">使用 AnyKernel ZIP 中的核心替換原廠啟動映像核心，生成可刷寫的已補丁啟動映像。</string>
+    <string name="patch_boot_picked">%1$s + %2$s</string>
+    <string name="select_boot_image_first">請先選擇啟動映像</string>
+    <string name="select_anykernel_zip_next">現在請選擇 AnyKernel ZIP</string>
+    <string name="invalid_anykernel_kernel">AnyKernel ZIP 中未找到有效核心（Image/Image.gz/zImage）。</string>
+    <string name="patch_boot_failed">啟動映像補丁失敗：%1$s</string>
+    <string name="patch_boot_saved">已補丁的啟動映像已儲存至 %1$s</string>
     <!-- KPM -->
     <string name="kpm_title">KPM</string>
     <string name="kpm_modules_title">核心模組</string>

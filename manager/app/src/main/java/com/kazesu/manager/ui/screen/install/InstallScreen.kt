@@ -17,6 +17,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.dropUnlessResumed
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import com.kazesu.manager.R
@@ -40,6 +41,7 @@ import com.kazesu.manager.ui.util.getLoadedBlockableModules
 import com.kazesu.manager.ui.util.isBlockModulesValid
 import com.kazesu.manager.ui.util.getSlotSuffix
 import com.kazesu.manager.ui.util.isAbDevice
+import com.kazesu.manager.ui.util.patchBootWithAnyKernel
 import android.net.Uri
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.rememberCoroutineScope
@@ -82,6 +84,9 @@ fun InstallScreen(
     val isStandaloneKpm = installMethod == null && canPatchKpm && kpmEnabled
     var kpmBootExpanded by rememberSaveable { mutableStateOf(false) }
     var kpmBootUri by rememberSaveable { mutableStateOf<Uri?>(null) }
+    // GKI section: patch a boot image with the kernel from an AnyKernel zip.
+    var patchBootUri by rememberSaveable { mutableStateOf<Uri?>(null) }
+    var patchBootZipUri by rememberSaveable { mutableStateOf<Uri?>(null) }
     var blockModulesEnabled by rememberSaveable { mutableStateOf(false) }
     var blockModules by rememberSaveable { mutableStateOf("") }
     var blockModulesPrefilled by rememberSaveable { mutableStateOf(false) }
@@ -144,8 +149,15 @@ fun InstallScreen(
                     if (isAbDevice) add(InstallMethod.DirectInstallToInactiveSlot)
                 }
             }
+        }
+    }
+
+    // GKI section: kernel image operations that work on any device with root.
+    val gkiMethodOptions = remember(rootAvailable, horizonKernelSummary) {
+        buildList {
             if (rootAvailable) {
                 add(InstallMethod.HorizonKernel(summary = horizonKernelSummary))
+                add(InstallMethod.PatchBootImage())
             }
         }
     }
@@ -224,6 +236,57 @@ fun InstallScreen(
                                 kpmPatchEnabled = kpmPatchOption == KpmPatchOption.PATCH_KPM,
                                 kpmUndoPatch = kpmPatchOption == KpmPatchOption.UNDO_PATCH_KPM
                             )
+                        )
+                    }
+                }
+                is InstallMethod.PatchBootImage -> {
+                    // Patch a stock boot image with the kernel from an AnyKernel zip,
+                    // then offer to flash the resulting image.
+                    if (patchBootUri == null || patchBootZipUri == null) {
+                        showMessage(resources.getString(R.string.select_boot_image_first))
+                        return@let
+                    }
+                    loadingDialog.showLoading()
+                    scope.launch(Dispatchers.IO) {
+                        patchBootWithAnyKernel(
+                            context = context,
+                            bootUri = patchBootUri,
+                            zipUri = patchBootZipUri,
+                            onStdout = { /* log */ },
+                            onStderr = { err ->
+                                withContext(Dispatchers.Main) {
+                                    loadingDialog.hide()
+                                    showMessage(resources.getString(R.string.patch_boot_failed, err))
+                                }
+                            },
+                            onFinished = { success, patchedUri ->
+                                withContext(Dispatchers.Main) {
+                                    loadingDialog.hide()
+                                    if (success && patchedUri != null) {
+                                        navigator.push(
+                                            Route.Flash(
+                                                FlashIt.FlashBoot(
+                                                    boot = patchedUri,
+                                                    kpmEnabled = false,
+                                                    kpmUndo = false,
+                                                    kpmBoot = null,
+                                                    lkm = LkmSelection.KmiNone,
+                                                    ota = false,
+                                                    partition = null,
+                                                    allowShell = false,
+                                                    enableAdb = false,
+                                                    backup = false,
+                                                    blockModules = "",
+                                                    spoofRelease = "",
+                                                    spoofVersion = "",
+                                                )
+                                            )
+                                        )
+                                    } else {
+                                        showMessage(resources.getString(R.string.patch_boot_failed, "unknown error"))
+                                    }
+                                }
+                            }
                         )
                     }
                 }
@@ -351,6 +414,46 @@ fun InstallScreen(
         }
     }
 
+    // GKI: pick a stock boot image to patch with an AnyKernel zip.
+    val selectPatchBootLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) {
+        if (it.resultCode == Activity.RESULT_OK) {
+            it.data?.data?.let { uri ->
+                patchBootUri = uri
+                installMethod = InstallMethod.PatchBootImage(
+                    bootUri = uri,
+                    zipUri = patchBootZipUri,
+                    summary = patchBootSummary()
+                )
+            }
+        }
+    }
+
+    // GKI: pick the AnyKernel zip whose kernel will replace the boot image's.
+    val selectPatchZipLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) {
+        if (it.resultCode == Activity.RESULT_OK) {
+            it.data?.data?.let { uri ->
+                patchBootZipUri = uri
+                installMethod = InstallMethod.PatchBootImage(
+                    bootUri = patchBootUri,
+                    zipUri = uri,
+                    summary = patchBootSummary()
+                )
+            }
+        }
+    }
+
+    private fun patchBootSummary(): String {
+        val bootName = patchBootUri?.lastPathSegment ?: getString(R.string.select_boot_image_first)
+        val zipName = patchBootZipUri?.lastPathSegment ?: getString(R.string.select_anykernel_zip_next)
+        return getString(R.string.patch_boot_picked, bootName, zipName)
+    }
+
+    private fun getString(resId: Int): String = resources.getString(resId)
+
     val selectKpmBootLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
     ) { result ->
@@ -371,6 +474,7 @@ fun InstallScreen(
         currentKmi = currentKmi,
         slotSuffix = slotSuffix,
         installMethodOptions = installMethodOptions,
+        gkiMethodOptions = gkiMethodOptions,
         canSelectPartition = installMethod is InstallMethod.DirectInstall ||
             installMethod is InstallMethod.DirectInstallToInactiveSlot ||
             installMethod is InstallMethod.DownloadFile,
@@ -402,11 +506,34 @@ fun InstallScreen(
         onDownloadFile = { downloadDialogShown = true },
         onSelectBootImage = { method ->
             // 在打开文件选择器之前，先设置 installMethod
-            installMethod = method
-            selectImageLauncher.launch(Intent(Intent.ACTION_GET_CONTENT).apply {
-                type = "application/*"
-                putExtra(Intent.EXTRA_MIME_TYPES, arrayOf("application/octet-stream", "application/zip"))
-            })
+            when (method) {
+                is InstallMethod.PatchBootImage -> {
+                    // Two-step pick: boot image first, then the AnyKernel zip.
+                    if (patchBootUri == null) {
+                        installMethod = method
+                        selectPatchBootLauncher.launch(Intent(Intent.ACTION_GET_CONTENT).apply {
+                            type = "application/*"
+                            putExtra(
+                                Intent.EXTRA_MIME_TYPES,
+                                arrayOf("application/octet-stream", "application/x-boot-image")
+                            )
+                        })
+                    } else if (patchBootZipUri == null) {
+                        installMethod = method
+                        selectPatchZipLauncher.launch(Intent(Intent.ACTION_GET_CONTENT).apply {
+                            type = "application/zip"
+                            addCategory(Intent.CATEGORY_OPENABLE)
+                        })
+                    }
+                }
+                else -> {
+                    installMethod = method
+                    selectImageLauncher.launch(Intent(Intent.ACTION_GET_CONTENT).apply {
+                        type = "application/*"
+                        putExtra(Intent.EXTRA_MIME_TYPES, arrayOf("application/octet-stream", "application/zip"))
+                    })
+                }
+            }
         },
         onUploadLkm = {
             selectLkmLauncher.launch(Intent(Intent.ACTION_GET_CONTENT).apply { type = "application/octet-stream" })
@@ -430,6 +557,8 @@ fun InstallScreen(
                 // selection needed.
                 is InstallMethod.DownloadFile -> false
                 is InstallMethod.SelectFile -> true
+                // Patching a boot image file doesn't need the device KMI.
+                is InstallMethod.PatchBootImage -> false
                 else -> isKmiUnknown
             }
             if (!isStandaloneKpm && isGkiDevice && !isLkmSelected && isKmiUnresolved && installMethod !is InstallMethod.HorizonKernel) {

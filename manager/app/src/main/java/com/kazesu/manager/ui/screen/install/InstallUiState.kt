@@ -15,6 +15,7 @@ internal data class InstallUiState(
     val currentKmi: String,
     val slotSuffix: String,
     val installMethodOptions: List<InstallMethod>,
+    val gkiMethodOptions: List<InstallMethod>,
     val canSelectPartition: Boolean,
     val advancedOptionsShown: Boolean,
     val allowShell: Boolean,
@@ -34,7 +35,12 @@ internal data class InstallUiState(
 ) {
     val kpmEnabled: Boolean get() = kpmPatchOption.enabled
     val canInstall: Boolean
-        get() = if (installMethod == null) canPatchKpm && kpmEnabled else blockModulesValid
+        get() = when {
+            installMethod == null -> canPatchKpm && kpmEnabled
+            installMethod is InstallMethod.PatchBootImage ->
+                installMethod.bootUri != null && installMethod.zipUri != null
+            else -> blockModulesValid
+        }
     val canSelectKpmBoot: Boolean
         get() = kpmEnabled && installMethod !is InstallMethod.HorizonKernel
 }

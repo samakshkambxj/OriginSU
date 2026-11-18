@@ -159,6 +159,7 @@ internal fun InstallScreenMiuix(
                             onSelected = actions.onSelectMethod,
                             onDownloadFile = actions.onDownloadFile,
                             onSelectBootImage = actions.onSelectBootImage,
+                            gkiMethodOptions = uiState.gkiMethodOptions,
                         )
                     }
                     AnimatedVisibility(
@@ -462,7 +463,73 @@ internal fun InstallScreenMiuix(
                             }
                         }
                     }
-                    
+
+                    // GKI: patch boot with AnyKernel zip - show the selected files.
+                    (uiState.installMethod as? InstallMethod.PatchBootImage)?.let { method ->
+                        AppCard(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 12.dp),
+                        ) {
+                            Column {
+                                BasicComponent(
+                                    title = stringResource(R.string.select_file),
+                                    summary = method.bootUri?.lastPathSegment
+                                        ?: stringResource(R.string.select_boot_image_first),
+                                    onClick = { actions.onSelectBootImage(method) },
+                                    startAction = {
+                                        Icon(
+                                            Icons.Filled.SdStorage,
+                                            tint = colorScheme.primary,
+                                            modifier = Modifier.padding(end = 16.dp),
+                                            contentDescription = null
+                                        )
+                                    },
+                                    endActions = {
+                                        if (method.bootUri != null) {
+                                            Icon(
+                                                MiuixIcons.Basic.ArrowRight,
+                                                modifier = Modifier.size(16.dp),
+                                                contentDescription = null,
+                                                tint = colorScheme.onSurfaceVariantActions,
+                                            )
+                                        }
+                                    }
+                                )
+                                BasicComponent(
+                                    title = stringResource(R.string.patch_boot_anykernel),
+                                    summary = method.zipUri?.lastPathSegment
+                                        ?: stringResource(R.string.select_anykernel_zip_next),
+                                    onClick = { actions.onSelectBootImage(method) },
+                                    startAction = {
+                                        Icon(
+                                            Icons.Filled.Zip,
+                                            tint = colorScheme.primary,
+                                            modifier = Modifier.padding(end = 16.dp),
+                                            contentDescription = null
+                                        )
+                                    },
+                                    endActions = {
+                                        if (method.zipUri != null) {
+                                            Icon(
+                                                MiuixIcons.Basic.ArrowRight,
+                                                modifier = Modifier.size(16.dp),
+                                                contentDescription = null,
+                                                tint = colorScheme.onSurfaceVariantActions,
+                                            )
+                                        }
+                                    }
+                                )
+                                Text(
+                                    text = stringResource(R.string.patch_boot_anykernel_summary),
+                                    fontSize = 12.sp,
+                                    color = colorScheme.onSurfaceVariantSummary,
+                                    modifier = Modifier.padding(horizontal = 16.dp, top = 4.dp, bottom = 8.dp),
+                                )
+                            }
+                        }
+                    }
+
                     TextButton(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -492,6 +559,7 @@ private fun SelectInstallMethod(
     onSelected: (InstallMethod) -> Unit,
     onDownloadFile: () -> Unit,
     onSelectBootImage: (InstallMethod) -> Unit,
+    gkiMethodOptions: List<InstallMethod>,
 ) {
     val confirmDialog = rememberConfirmDialog(
         onConfirm = {
@@ -505,6 +573,7 @@ private fun SelectInstallMethod(
         when (option) {
             is InstallMethod.SelectFile -> onSelectBootImage(option)
             is InstallMethod.HorizonKernel -> onSelectBootImage(option)
+            is InstallMethod.PatchBootImage -> onSelectBootImage(option)
             is InstallMethod.DownloadFile -> onDownloadFile()
             is InstallMethod.DirectInstall -> onSelected(option)
             is InstallMethod.DirectInstallToInactiveSlot -> confirmDialog.showConfirm(dialogTitle, dialogContent)
@@ -515,6 +584,7 @@ private fun SelectInstallMethod(
         modifier = Modifier.selectableGroup(),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
+        // --- LKM section ---
         state.installMethodOptions.forEach { option ->
             val selected = state.installMethod?.let { option::class == it::class } ?: false
             AppCard(
@@ -561,6 +631,67 @@ private fun SelectInstallMethod(
                             contentDescription = null,
                             tint = colorScheme.primary,
                         )
+                    }
+                }
+            }
+        }
+
+        // --- GKI section ---
+        if (gkiMethodOptions.isNotEmpty()) {
+            Text(
+                text = stringResource(R.string.install_section_gki),
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold,
+                color = colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 12.dp, bottom = 8.dp, start = 16.dp),
+            )
+            gkiMethodOptions.forEach { option ->
+                val selected = state.installMethod?.let { option::class == it::class } ?: false
+                AppCard(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .semantics { role = Role.RadioButton; this.selected = selected },
+                    colors = CardDefaults.defaultColors(
+                        color = if (selected) colorScheme.secondaryContainer else backgroundAwareColor(colorScheme.surfaceContainer)
+                    ),
+                    insideMargin = PaddingValues(0.dp),
+                    onClick = { onClick(option) },
+                    pressFeedbackType = PressFeedbackType.Sink,
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .border(
+                                width = 2.dp,
+                                color = if (selected) colorScheme.primary else Color.Transparent,
+                                shape = RoundedCornerShape(CardDefaults.CornerRadius),
+                            )
+                            .padding(horizontal = 16.dp, vertical = 14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Text(
+                                text = stringResource(id = option.label),
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = colorScheme.onSurface,
+                            )
+                            if (!option.summary.isNullOrBlank()) {
+                                Text(
+                                    text = option.summary.orEmpty(),
+                                    fontSize = 13.sp,
+                                    color = colorScheme.onSurfaceVariantSummary,
+                                )
+                            }
+                        }
+                        if (selected) {
+                            Icon(
+                                imageVector = Icons.Rounded.CheckCircleOutline,
+                                contentDescription = null,
+                                tint = colorScheme.primary,
+                            )
+                        }
                     }
                 }
             }

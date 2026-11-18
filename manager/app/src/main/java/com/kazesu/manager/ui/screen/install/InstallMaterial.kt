@@ -117,6 +117,7 @@ internal fun InstallScreenMaterial(
                 onSelected = actions.onSelectMethod,
                 onDownloadFile = actions.onDownloadFile,
                 onSelectBootImage = actions.onSelectBootImage,
+                gkiMethodOptions = uiState.gkiMethodOptions,
             )
 
             SegmentedColumn(
@@ -357,6 +358,71 @@ internal fun InstallScreenMaterial(
                     }
                 }
             }
+            // GKI: patch boot with AnyKernel zip - show the selected files.
+            (uiState.installMethod as? InstallMethod.PatchBootImage)?.let { method ->
+                SegmentedColumn(
+                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 13.dp),
+                ) {
+                    item {
+                        SegmentedListItem(
+                            onClick = { actions.onSelectBootImage(method) },
+                            leadingContent = {
+                                IconTile(Icons.AutoMirrored.Filled.SdStorage, null)
+                            },
+                            headlineContent = {
+                                Text(
+                                    text = method.bootUri?.lastPathSegment
+                                        ?: stringResource(R.string.select_boot_image_first)
+                                )
+                            },
+                            supportingContent = {
+                                Text(
+                                    text = stringResource(R.string.patch_boot_anykernel_summary),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            },
+                            trailingContent = {
+                                if (method.bootUri != null) {
+                                    Icon(
+                                        Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                                        null,
+                                    )
+                                }
+                            },
+                        )
+                    }
+                    item {
+                        SegmentedListItem(
+                            onClick = { actions.onSelectBootImage(method) },
+                            leadingContent = {
+                                IconTile(Icons.Filled.Zip, null)
+                            },
+                            headlineContent = {
+                                Text(
+                                    text = method.zipUri?.lastPathSegment
+                                        ?: stringResource(R.string.select_anykernel_zip_next)
+                                )
+                            },
+                            supportingContent = {
+                                Text(
+                                    text = stringResource(R.string.patch_boot_anykernel_summary),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            },
+                            trailingContent = {
+                                if (method.zipUri != null) {
+                                    Icon(
+                                        Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                                        null,
+                                    )
+                                }
+                            },
+                        )
+                    }
+                }
+            }
             Button(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -374,6 +440,7 @@ private fun SelectInstallMethod(
     onSelected: (InstallMethod) -> Unit,
     onDownloadFile: () -> Unit,
     onSelectBootImage: (InstallMethod) -> Unit,
+    gkiMethodOptions: List<InstallMethod>,
 ) {
     val confirmDialog = rememberConfirmDialog(
         onConfirm = {
@@ -388,6 +455,7 @@ private fun SelectInstallMethod(
         when (option) {
             is InstallMethod.SelectFile -> onSelectBootImage(option)
             is InstallMethod.HorizonKernel -> onSelectBootImage(option)
+            is InstallMethod.PatchBootImage -> onSelectBootImage(option)
             is InstallMethod.DownloadFile -> onDownloadFile()
             is InstallMethod.DirectInstall -> onSelected(option)
             is InstallMethod.DirectInstallToInactiveSlot -> confirmDialog.showConfirm(dialogTitle, dialogContent)
@@ -395,14 +463,34 @@ private fun SelectInstallMethod(
     }
 
     val haptic = LocalHapticFeedback.current
-    key(state.installMethodOptions.size) {
-        Column(
-            modifier = Modifier
-                .padding(horizontal = 16.dp)
-                .selectableGroup(),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            state.installMethodOptions.forEach { option ->
+    Column(
+        modifier = Modifier
+            .padding(horizontal = 16.dp)
+            .selectableGroup(),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        // --- LKM section ---
+        state.installMethodOptions.forEach { option ->
+            InstallMethodCard(
+                title = stringResource(option.label),
+                summary = option.summary,
+                selected = state.installMethod?.let { option::class == it::class } ?: false,
+                onClick = {
+                    haptic.performHapticFeedback(HapticFeedbackType.VirtualKey)
+                    onClick(option)
+                },
+            )
+        }
+
+        // --- GKI section ---
+        if (gkiMethodOptions.isNotEmpty()) {
+            Text(
+                text = stringResource(R.string.install_section_gki),
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 12.dp, bottom = 4.dp),
+            )
+            gkiMethodOptions.forEach { option ->
                 InstallMethodCard(
                     title = stringResource(option.label),
                     summary = option.summary,
