@@ -58,6 +58,10 @@ kernel extension center, without a pile of companion apps.
     finish, and disables every module once the threshold (2–10, default 3) is
     crossed. A rescue notice with Dismiss tells you what happened so you can
     re-enable modules one by one to find the culprit.
+11. KazeTune kernel tuning: live read/write of CPU frequency, GPU clocks, block
+    I/O, VM presets, scheduler extras, LMK levels, TCP congestion control, BORE
+    scheduler, ZRAM and a generic sysctl editor. Tunables can be persisted so
+    they re-apply on every boot through ksud's boot-completed hook.
 
 ## Compatibility
 
