@@ -127,6 +127,14 @@ fun ToolsMiuix(
                         )
                     }
 
+                    GuardSectionMiuix(
+                        enabled = state.guardEnabled,
+                        loading = state.guardLoading,
+                        updating = state.guardUpdating,
+                        onEnabledChange = actions.onGuardToggle,
+                        onUpdate = actions.onGuardUpdate,
+                    )
+
                     KernelModulesSectionMiuix(
                         onOpen = actions.onOpenKernelModules
                     )
@@ -218,6 +226,55 @@ private fun BootloopSectionMiuix(
                     contentDescription = null,
                     tint = colorScheme.onBackground
                 )
+            }
+        )
+    }
+}
+
+@Composable
+private fun GuardSectionMiuix(
+    enabled: Boolean,
+    loading: Boolean,
+    updating: Boolean,
+    onEnabledChange: (Boolean) -> Unit,
+    onUpdate: () -> Unit,
+) {
+    AppCard(
+        modifier = Modifier
+            .padding(top = 12.dp)
+            .fillMaxWidth(),
+    ) {
+        SwitchPreference(
+            title = stringResource(R.string.settings_guard_title),
+            summary = stringResource(R.string.settings_guard_summary),
+            startAction = {
+                Icon(
+                    imageVector = Icons.Rounded.Security,
+                    modifier = Modifier.padding(end = 6.dp),
+                    contentDescription = null,
+                    tint = colorScheme.onBackground
+                )
+            },
+            checked = enabled,
+            enabled = !loading,
+            onCheckedChange = onEnabledChange
+        )
+
+        ArrowPreference(
+            title = stringResource(R.string.settings_guard_update),
+            summary = stringResource(R.string.settings_guard_update_summary),
+            startAction = {
+                Icon(
+                    imageVector = Icons.Rounded.Restore,
+                    modifier = Modifier.padding(end = 6.dp),
+                    contentDescription = null,
+                    tint = colorScheme.onBackground
+                )
+            },
+            onClick = {
+                if (!updating) {
+                    onUpdate()
+                }
             }
         )
     }

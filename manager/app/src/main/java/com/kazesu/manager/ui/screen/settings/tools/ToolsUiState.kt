@@ -12,6 +12,9 @@ data class ToolsUiState(
     val bootloopRescued: Boolean = false,
     val bootloopRescuedFailedBoots: Int? = null,
     val bootloopLoading: Boolean = true,
+    val guardEnabled: Boolean = true,
+    val guardLoading: Boolean = true,
+    val guardUpdating: Boolean = false,
 )
 
 @Immutable
@@ -24,6 +27,8 @@ data class ToolsActions(
     val onBootloopToggle: (Boolean) -> Unit = {},
     val onBootloopThresholdChange: (Int) -> Unit = {},
     val onBootloopDismissRescued: () -> Unit = {},
+    val onGuardToggle: (Boolean) -> Unit = {},
+    val onGuardUpdate: () -> Unit = {},
 )
 
 @Immutable

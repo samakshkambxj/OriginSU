@@ -1946,4 +1946,17 @@
     <string name="kernel_tuning_temporary">Temporary</string>
     <string name="kernel_tuning_sysctl_delete">Remove %1$s?</string>
     <string name="kernel_tuning_no_device">No tunables reported by the kernel</string>
+    <string name="guard_dialog_title">KazeGuard found risks</string>
+    <string name="guard_dialog_summary">KazeGuard found risky code in this module before installation.</string>
+    <string name="guard_dialog_blocks">KazeGuard blocks this module by default because it was flagged as extreme. Only continue if you trust its source.</string>
+    <string name="guard_continue">Continue</string>
+    <string name="guard_install_anyway">Install anyway</string>
+    <string name="settings_guard_title">KazeGuard</string>
+    <string name="settings_guard_summary">Reviews modules for known malware signatures and destructive commands before installing them. Extreme findings block the install until you confirm.</string>
+    <string name="settings_guard_update">Update rules</string>
+    <string name="settings_guard_update_summary">Download the latest KazeGuard rule catalog.</string>
+    <string name="settings_guard_update_action">Update</string>
+    <string name="settings_guard_update_success">KazeGuard rules updated</string>
+    <string name="settings_guard_update_failed">Could not update KazeGuard rules</string>
+    <string name="settings_guard_apply_failed">Failed to update KazeGuard</string>
 </resources>

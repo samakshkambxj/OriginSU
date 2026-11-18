@@ -1,0 +1,75 @@
+{
+  "version": 1,
+  "updated": "2026-11-18",
+  "rules": [
+    {
+      "id": "KG-MAL-001",
+      "severity": "extreme",
+      "title": "Bank overlay / OTP grabber",
+      "reason": "Known signature of a module that draws overlays over banking apps or steals one-time passwords.",
+      "patterns": [
+        "zygisk floating overlay menu",
+        "zygisk floating menu"
+      ]
+    },
+    {
+      "id": "KG-MAL-002",
+      "severity": "extreme",
+      "title": "Partition destroyer",
+      "reason": "Known signature of a module that wipes or corrupts system partitions.",
+      "patterns": [
+        "fakelook1337",
+        "superpupermodule"
+      ]
+    },
+    {
+      "id": "KG-MAL-003",
+      "severity": "high",
+      "title": "Known spyware module",
+      "reason": "Known signature of a module that collects device and account data.",
+      "patterns": [
+        "fateh7",
+        "professorroot dz",
+        "root phantom fateh"
+      ]
+    },
+    {
+      "id": "KG-MAL-004",
+      "severity": "high",
+      "title": "Wallet or seed-phrase stealer",
+      "reason": "Strings associated with stealing crypto wallets or recovery phrases.",
+      "patterns": [
+        "seed phrase stealer",
+        "wallet drainer",
+        "recovery phrase exfiltrator"
+      ]
+    },
+    {
+      "id": "KG-SLOP-001",
+      "severity": "medium",
+      "title": "Likely AI-generated module",
+      "reason": "Common marker of hastily generated modules that are known to bootloop devices.",
+      "patterns": [
+        "integrity box"
+      ]
+    },
+    {
+      "id": "KG-SLOP-002",
+      "severity": "low",
+      "title": "Known VFS conflict",
+      "reason": "This module is known to conflict with overlay/VFS based module mounting.",
+      "patterns": [
+        "zeromount"
+      ]
+    },
+    {
+      "id": "KG-SLOP-003",
+      "severity": "low",
+      "title": "Experimental SuSFS clone",
+      "reason": "Early SuSFS re-implementation that is known to break other modules.",
+      "patterns": [
+        "resusfs"
+      ]
+    }
+  ]
+}

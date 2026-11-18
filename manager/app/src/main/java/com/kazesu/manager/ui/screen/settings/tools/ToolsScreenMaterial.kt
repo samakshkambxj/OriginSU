@@ -104,6 +104,14 @@ fun ToolsMaterial(
                         )
                     }
 
+                    GuardSectionMaterial(
+                        enabled = state.guardEnabled,
+                        loading = state.guardLoading,
+                        updating = state.guardUpdating,
+                        onEnabledChange = actions.onGuardToggle,
+                        onUpdate = actions.onGuardUpdate,
+                    )
+
                     KernelModulesSectionMaterial(
                         onOpen = actions.onOpenKernelModules
                     )
@@ -223,6 +231,47 @@ private fun BootloopRescuedCardMaterial(
             }
         }
     }
+}
+
+@Composable
+private fun GuardSectionMaterial(
+    enabled: Boolean,
+    loading: Boolean,
+    updating: Boolean,
+    onEnabledChange: (Boolean) -> Unit,
+    onUpdate: () -> Unit,
+) {
+    SegmentedColumn(
+        modifier = Modifier.padding(top = 12.dp),
+        content = listOf({
+            SegmentedSwitchItem(
+                icon = Icons.Rounded.Security,
+                title = stringResource(R.string.settings_guard_title),
+                summary = stringResource(R.string.settings_guard_summary),
+                enabled = !loading,
+                checked = enabled,
+                onCheckedChange = onEnabledChange,
+            )
+        }, {
+            SegmentedListItem(
+                headlineContent = { Text(stringResource(R.string.settings_guard_update)) },
+                supportingContent = {
+                    Text(stringResource(R.string.settings_guard_update_summary))
+                },
+                leadingContent = {
+                    IconTile(
+                        Icons.Rounded.Security,
+                        stringResource(R.string.settings_guard_update)
+                    )
+                },
+                trailingContent = {
+                    TextButton(onClick = onUpdate, enabled = !updating) {
+                        Text(stringResource(R.string.settings_guard_update_action))
+                    }
+                }
+            )
+        })
+    )
 }
 
 @Composable

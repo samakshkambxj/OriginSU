@@ -5,6 +5,11 @@ import android.os.Environment
 import android.os.Handler
 import android.os.Looper
 import android.os.Parcelable
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Adb
 import androidx.compose.material.icons.rounded.DeleteForever
@@ -21,7 +26,9 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -31,6 +38,7 @@ import kotlinx.parcelize.Parcelize
 import com.kazesu.manager.R
 import com.kazesu.manager.data.repository.isAutoDeleteModuleZipEnabled
 import com.kazesu.manager.ui.util.FlashResult
+import com.kazesu.manager.ui.util.GuardReport
 import com.kazesu.manager.ui.util.LkmSelection
 import com.kazesu.manager.ui.util.downloadBoot
 import com.kazesu.manager.ui.util.flashModule
@@ -122,10 +130,17 @@ fun flashModulesSequentially(
     onStdout: (String) -> Unit,
     onStderr: (String) -> Unit,
     deleteInstalledZips: Boolean = false,
+    guardConfirmed: Boolean = false,
 ): FlashResult {
     var needsReboot = false
     for (uri in uris) {
-        flashModule(uri, onStdout, onStderr, deleteSourceOnSuccess = deleteInstalledZips).apply {
+        flashModule(
+            uri,
+            onStdout,
+            onStderr,
+            deleteSourceOnSuccess = deleteInstalledZips,
+            guardConfirmed = guardConfirmed,
+        ).apply {
             needsReboot = needsReboot || showReboot
             if (code != 0) {
                 return FlashResult(code, err, needsReboot)
@@ -138,7 +153,8 @@ fun flashModulesSequentially(
 fun flashIt(
     flashIt: FlashIt,
     onStdout: (String) -> Unit,
-    onStderr: (String) -> Unit
+    onStderr: (String) -> Unit,
+    guardConfirmed: Boolean = false,
 ): FlashResult {
     return when (flashIt) {
         is FlashIt.FlashBoot -> installBoot(
@@ -182,6 +198,7 @@ fun flashIt(
                 onStdout = onStdout,
                 onStderr = onStderr,
                 deleteInstalledZips = isAutoDeleteModuleZipEnabled(),
+                guardConfirmed = guardConfirmed,
             )
         }
 
@@ -199,7 +216,8 @@ fun FlashEffect(
     onTextUpdate: (String) -> Unit,
     onShowRebootChange: (Boolean) -> Unit,
     onFlashingStatusChange: (FlashingStatus) -> Unit,
-    enabled: Boolean = true
+    enabled: Boolean = true,
+    guardConfirmed: Boolean = false,
 ) {
     LaunchedEffect(enabled) {
         if (!enabled || text.isNotEmpty()) {
@@ -221,7 +239,7 @@ fun FlashEffect(
                 logContent.append(it).append("\n")
             }, onStderr = {
                 logContent.append(it).append("\n")
-            }).apply {
+            }, guardConfirmed = guardConfirmed).apply {
                 if (code != 0) {
                     currentText += "Error code: $code.\n $err Please save and check the log.\n"
                     mainHandler.post {
@@ -263,6 +281,89 @@ fun saveLog(
 }
 
 private const val JAILBREAK_WARNING_COUNTDOWN = 10
+
+@Composable
+fun KazeGuardReviewDialog(
+    reports: List<GuardReport>,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    val blocks = reports.any { it.blocks }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.guard_dialog_title)) },
+        text = {
+            Column(
+                modifier = Modifier
+                    .heightIn(max = 360.dp)
+                    .verticalScroll(rememberScrollState())
+            ) {
+                Text(
+                    stringResource(R.string.guard_dialog_summary),
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                reports.forEach { report ->
+                    if (report.moduleId != null) {
+                        Text(
+                            text = report.moduleId,
+                            style = MaterialTheme.typography.titleSmall,
+                            modifier = Modifier.padding(top = 8.dp)
+                        )
+                    }
+                    report.findings.take(4).forEach { finding ->
+                        Text(
+                            text = "• [${finding.severity.uppercase()}] ${finding.title}",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = if (finding.severity == "extreme" || finding.severity == "high") {
+                                MaterialTheme.colorScheme.error
+                            } else {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            }
+                        )
+                        val location = if (finding.line != null) {
+                            "${finding.path}:${finding.line}"
+                        } else {
+                            finding.path
+                        }
+                        Text(
+                            text = location,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    if (report.findings.size > 4) {
+                        Text(
+                            text = "+${report.findings.size - 4}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+                if (blocks) {
+                    Text(
+                        text = stringResource(R.string.guard_dialog_blocks),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onConfirm) {
+                Text(
+                    stringResource(
+                        if (blocks) R.string.guard_install_anyway else R.string.guard_continue
+                    )
+                )
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(android.R.string.cancel))
+            }
+        }
+    )
+}
 
 @Composable
 fun JailbreakFlashWarningDialog(

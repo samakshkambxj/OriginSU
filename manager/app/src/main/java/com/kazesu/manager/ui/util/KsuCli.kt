@@ -29,6 +29,7 @@ import com.kazesu.manager.ksuApp
 import com.kazesu.manager.ui.screen.susfs.util.SuSFSConfig
 import okhttp3.OkHttpClient
 import org.json.JSONArray
+import org.json.JSONObject
 import java.io.File
 import java.io.IOException
 import java.nio.ByteBuffer
@@ -219,6 +220,7 @@ fun flashModule(
     onStdout: (String) -> Unit,
     onStderr: (String) -> Unit,
     deleteSourceOnSuccess: Boolean = false,
+    guardConfirmed: Boolean = false,
 ): FlashResult {
     // Registry downloads live in app-private storage and carry their expected size + SHA-256;
     // the exact copy handed to ksud is re-hashed right before installing.
@@ -243,7 +245,11 @@ fun flashModule(
             onStderr(message)
             return FlashResult(1, message, false)
         }
-        val cmd = "module install ${file.absolutePath}"
+        val cmd = buildString {
+            append("module install ")
+            append(file.absolutePath)
+            if (guardConfirmed) append(" --guard-confirmed")
+        }
         val result = flashWithIO("${getKsuDaemonPath()} $cmd", onStdout, onStderr)
         Log.i("KernelSU", "install module $uri result: $result")
         if (shouldDeleteSourceAfterInstall(deleteSourceOnSuccess, result.isSuccess)) {
@@ -259,6 +265,85 @@ fun flashModule(
             )
         }
         return FlashResult(result, result.isSuccess && moduleNeedsReboot(file))
+    } finally {
+        file.delete()
+    }
+}
+
+data class GuardFinding(
+    val severity: String,
+    val ruleId: String,
+    val title: String,
+    val path: String,
+    val line: Int?,
+)
+
+/**
+ * Result of a KazeGuard pre-install review. [blocks] mirrors the ksud policy:
+ * only `extreme` findings stop an install that has not been confirmed.
+ */
+data class GuardReport(
+    val moduleId: String?,
+    val findings: List<GuardFinding>,
+) {
+    val blocks: Boolean get() = findings.any { it.severity == "extreme" }
+    val isEmpty: Boolean get() = findings.isEmpty()
+
+    /**
+     * Only findings the user should actually be asked about. Medium/low
+     * findings stay visible in the flash log, but never interrupt a normal
+     * install with a dialog.
+     */
+    val needsReview: Boolean
+        get() = findings.any { it.severity == "extreme" || it.severity == "high" }
+}
+
+/**
+ * Stage [uri] to a root-readable file and run `ksud module audit --json`.
+ *
+ * Returns null when the audit could not run at all; installation then proceeds
+ * and `ksud module install` still enforces the gate on its own.
+ */
+suspend fun auditModule(uri: Uri): GuardReport? = withContext(Dispatchers.IO) {
+    val file = File.createTempFile("guard-", ".zip", ksuApp.cacheDir)
+    try {
+        val input = ksuApp.contentResolver.openInputStream(uri) ?: return@withContext null
+        input.use { source -> file.outputStream().use { destination -> source.copyTo(destination) } }
+        val output = runCmd(
+            getRootShell(),
+            "${getKsuDaemonPath()} module audit --json ${file.absolutePath.shellQuote()}"
+        )
+        // The audit is the only thing printed, but tolerate log lines around it.
+        val start = output.indexOf('{')
+        val end = output.lastIndexOf('}')
+        if (start < 0 || end <= start) return@withContext null
+        val json = JSONObject(output.substring(start, end + 1))
+        val rawFindings = json.optJSONArray("findings") ?: JSONArray()
+        val findings = buildList {
+            for (index in 0 until rawFindings.length()) {
+                val item = rawFindings.optJSONObject(index) ?: continue
+                add(
+                    GuardFinding(
+                        severity = item.optString("severity", "low"),
+                        ruleId = item.optString("rule_id"),
+                        title = item.optString("title"),
+                        path = item.optString("path"),
+                        line = if (item.isNull("line")) null else item.optInt("line"),
+                    )
+                )
+            }
+        }
+        GuardReport(
+            moduleId = if (json.isNull("module_id")) {
+                null
+            } else {
+                json.optString("module_id").ifBlank { null }
+            },
+            findings = findings,
+        )
+    } catch (e: Exception) {
+        Log.w(TAG, "KazeGuard audit failed for $uri: ${e.message}")
+        null
     } finally {
         file.delete()
     }

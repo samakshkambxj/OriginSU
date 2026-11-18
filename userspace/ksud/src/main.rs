@@ -34,6 +34,7 @@ mod extension;
 mod extension_id;
 mod feature;
 mod feature_id;
+mod guard;
 #[cfg(target_os = "android")]
 mod hot_install;
 #[cfg(target_os = "android")]

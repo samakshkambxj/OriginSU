@@ -15,6 +15,7 @@ import androidx.compose.ui.platform.LocalContext
 import com.kazesu.manager.R
 import com.kazesu.manager.data.bootloop.BootloopRepository
 import com.kazesu.manager.data.bootloop.BootloopStatus
+import com.kazesu.manager.data.guard.GuardRepository
 import com.kazesu.manager.ui.LocalUiMode
 import com.kazesu.manager.ui.UiMode
 import com.kazesu.manager.ui.navigation3.LocalNavigator
@@ -36,6 +37,11 @@ fun ToolsScreen() {
     val bootloopRepository = remember { BootloopRepository() }
     var bootloopStatus by remember { mutableStateOf(BootloopStatus()) }
     var bootloopLoading by remember { mutableStateOf(true) }
+
+    val guardRepository = remember { GuardRepository() }
+    var guardEnabled by remember { mutableStateOf(true) }
+    var guardLoading by remember { mutableStateOf(true) }
+    var guardUpdating by remember { mutableStateOf(false) }
 
     val backupLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("application/octet-stream")
@@ -78,6 +84,11 @@ fun ToolsScreen() {
     LaunchedEffect(Unit) {
         bootloopStatus = bootloopRepository.getStatus()
         bootloopLoading = false
+    }
+
+    LaunchedEffect(Unit) {
+        guardEnabled = guardRepository.isEnabled()
+        guardLoading = false
     }
 
     val actions = ToolsActions(
@@ -155,6 +166,38 @@ fun ToolsScreen() {
                 }
             }
         },
+        onGuardToggle = { enabled ->
+            val previous = guardEnabled
+            guardEnabled = enabled
+            scope.launch {
+                if (!guardRepository.setEnabled(enabled)) {
+                    guardEnabled = previous
+                    Toast.makeText(
+                        context,
+                        R.string.settings_guard_apply_failed,
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+            }
+        },
+        onGuardUpdate = {
+            if (!guardUpdating) {
+                guardUpdating = true
+                scope.launch {
+                    val success = guardRepository.updateRules()
+                    guardUpdating = false
+                    Toast.makeText(
+                        context,
+                        if (success) {
+                            R.string.settings_guard_update_success
+                        } else {
+                            R.string.settings_guard_update_failed
+                        },
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+            }
+        },
     )
 
     val state = ToolsUiState(
@@ -166,6 +209,9 @@ fun ToolsScreen() {
         bootloopRescued = bootloopStatus.rescued,
         bootloopRescuedFailedBoots = bootloopStatus.rescuedFailedBoots,
         bootloopLoading = bootloopLoading,
+        guardEnabled = guardEnabled,
+        guardLoading = guardLoading,
+        guardUpdating = guardUpdating,
     )
 
     when (LocalUiMode.current) {

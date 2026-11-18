@@ -398,6 +398,30 @@ enum Module {
     Install {
         /// module zip file path
         zip: String,
+        /// continue after the user acknowledged KazeGuard findings
+        #[arg(long)]
+        guard_confirmed: bool,
+        /// skip the KazeGuard pre-install audit
+        #[arg(long)]
+        no_guard: bool,
+        /// override even extreme KazeGuard findings
+        #[arg(long)]
+        force: bool,
+    },
+
+    /// Audit a module ZIP with KazeGuard without installing it
+    Audit {
+        /// module zip file path
+        zip: String,
+        /// print the machine-readable JSON report
+        #[arg(long)]
+        json: bool,
+    },
+
+    /// Manage the KazeGuard pre-install audit
+    Guard {
+        #[command(subcommand)]
+        command: GuardCmd,
     },
 
     /// Undo module uninstall mark <id>
@@ -456,6 +480,18 @@ enum Module {
         #[command(subcommand)]
         command: ModuleConfigCmd,
     },
+}
+
+#[derive(clap::Subcommand, Debug)]
+enum GuardCmd {
+    /// Print whether KazeGuard is enabled
+    Status,
+    /// Enable the pre-install audit
+    Enable,
+    /// Disable the pre-install audit
+    Disable,
+    /// Refresh the rule catalog from the remote source
+    Update,
 }
 
 #[derive(clap::Subcommand, Debug)]
@@ -1051,7 +1087,32 @@ pub fn run() -> Result<()> {
         Commands::Module { command } => {
             utils::switch_mnt_ns(1)?;
             match command {
-                Module::Install { zip } => module::install_module(&zip),
+                Module::Install {
+                    zip,
+                    guard_confirmed,
+                    no_guard,
+                    force,
+                } => {
+                    crate::guard::enforce_install(
+                        &zip,
+                        crate::guard::GuardOptions {
+                            confirmed: guard_confirmed,
+                            skip: no_guard,
+                            force,
+                        },
+                    )?;
+                    module::install_module(&zip)
+                }
+                Module::Audit { zip, json } => crate::guard::audit(&zip, json),
+                Module::Guard { command } => match command {
+                    GuardCmd::Status => {
+                        crate::guard::print_status();
+                        Ok(())
+                    }
+                    GuardCmd::Enable => crate::guard::set_enabled(true),
+                    GuardCmd::Disable => crate::guard::set_enabled(false),
+                    GuardCmd::Update => crate::guard::update_catalog(),
+                },
                 Module::UndoUninstall { id } => module::undo_uninstall_module(&id),
                 Module::Uninstall { id } => module::uninstall_module(&id),
                 Module::Enable { id } => module::enable_module(&id),
