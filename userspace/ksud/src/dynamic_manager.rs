@@ -4,7 +4,7 @@
  * The user payload is a struct ksu_manager_cmd forwarded verbatim to
  * kernel/extension/dynamic_manager.c::ksu_dynamic_manager_set/get().
  */
-use anyhow::Result;
+use anyhow::{Context, Result, ensure};
 use std::fs;
 use std::io::Write;
 use std::path::Path;
@@ -16,6 +16,11 @@ use crate::ksucalls::{dynamic_manager_io, get_extension};
 const DYNAMIC_MANAGER_FILE: &str = "/data/adb/ksu/.dynamic_managers";
 const DYNAMIC_MANAGER_MAGIC: u32 = 0x4d53_4b44;
 const DYNAMIC_MANAGER_VERSION: u32 = 1;
+/// Mirrors DYNAMIC_MANAGER_MAX_CERT_SIZE in kernel/extension/dynamic_manager.c.
+/// Kernels built before that limit was raised still cap at 1024, so an ioctl
+/// failure remains possible; the error below says why instead of a bare EINVAL.
+const MAX_MANAGER_CERT_SIZE: u32 = 8192;
+const MANAGER_HASH_LENGTH: usize = 64;
 
 fn copy_manager_string<const N: usize>(target: &mut [libc::c_char; N], value: &str) -> Result<()> {
     anyhow::ensure!(
@@ -84,6 +89,14 @@ pub fn manager_get() -> Result<ksu_uapi::ksu_manager_cmd> {
 }
 
 pub fn manager_add(package: &str, cert_size: u32, hash: &str) -> Result<()> {
+    ensure!(
+        (1..=MAX_MANAGER_CERT_SIZE).contains(&cert_size),
+        "certificate size {cert_size} bytes is outside 1..={MAX_MANAGER_CERT_SIZE}"
+    );
+    ensure!(
+        hash.len() == MANAGER_HASH_LENGTH && hash.bytes().all(|b| b.is_ascii_hexdigit()),
+        "certificate hash must be {MANAGER_HASH_LENGTH} hex characters"
+    );
     let mut cmd: ksu_uapi::ksu_manager_cmd = unsafe { std::mem::zeroed() };
     cmd.operation = ksu_uapi::KSU_MANAGER_ADD;
     cmd.cert_size = cert_size;
@@ -91,7 +104,12 @@ pub fn manager_add(package: &str, cert_size: u32, hash: &str) -> Result<()> {
     copy_manager_string(&mut cmd.package, package)?;
     copy_manager_string(&mut cmd.hash, hash)?;
     unsafe {
-        dynamic_manager_io(&raw mut cmd)?;
+        dynamic_manager_io(&raw mut cmd).with_context(|| {
+            format!(
+                "kernel rejected dynamic manager {package} (cert {cert_size} bytes); \
+                 kernels before the cert-size fix only accept up to 1024 bytes"
+            )
+        })?;
     }
     persist()
 }

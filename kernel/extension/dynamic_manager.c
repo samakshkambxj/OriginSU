@@ -29,7 +29,13 @@
 #define DYNAMIC_MANAGER_FILE "/data/adb/ksu/.dynamic_managers"
 #define DYNAMIC_MANAGER_MAGIC 0x4d534b44
 #define DYNAMIC_MANAGER_VERSION 1
-#define DYNAMIC_MANAGER_MAX_CERT_SIZE 1024
+/*
+ * Upper bound for the signing certificate DER length. Only the size and hash are
+ * stored, so this is a sanity check rather than a buffer limit. KazeSU's release
+ * certificate is 1308 bytes (0x51c), which the old 1024 cap rejected with
+ * -EINVAL and made "Add manager" fail for every build signed with it.
+ */
+#define DYNAMIC_MANAGER_MAX_CERT_SIZE 8192
 
 struct dynamic_manager_state {
     __u32 magic;
