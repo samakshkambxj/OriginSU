@@ -1784,6 +1784,9 @@ fn bootstrap_engine() -> Result<()> {
     // Deliberately not wiped: on a late load or soft reboot a monitor from the previous
     // session may still own the control socket here.
     create_sys_perm(KAZEZYGISK_WORK_DIR)?;
+    // The engine reads its quarantine from the runtime directory; keep that copy in
+    // sync after a factory reset or a hand edit of the ksud list.
+    let _ = sync_quarantine(&quarantine_list());
     stage_assets(dir);
     if let Err(e) = verify_staged() {
         warn!("KazeZygisk payload integrity check failed: {e}");
