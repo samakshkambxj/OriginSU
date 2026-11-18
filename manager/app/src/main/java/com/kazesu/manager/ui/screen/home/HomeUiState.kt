@@ -139,4 +139,5 @@ data class HomeActions(
     val onOpenVersionSpoof: () -> Unit = {},
     val onOpenAi: () -> Unit = {},
     val onOpenThemeStore: () -> Unit = {},
+    val onOpenTune: () -> Unit = {},
 )

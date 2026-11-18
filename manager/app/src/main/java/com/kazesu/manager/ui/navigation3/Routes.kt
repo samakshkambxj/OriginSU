@@ -185,6 +185,10 @@ sealed interface Route : NavKey, Parcelable {
     
     @Parcelize
     @Serializable
+    data object Tune : Route
+
+    @Parcelize
+    @Serializable
     data object CpuSpoof : Route
 
     

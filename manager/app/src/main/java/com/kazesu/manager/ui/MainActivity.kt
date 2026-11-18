@@ -112,6 +112,7 @@ import com.kazesu.manager.ui.screen.dynamicmanagers.DynamicManagersScreen
 import com.kazesu.manager.ui.screen.extensions.ExtensionsScreen
 import com.kazesu.manager.ui.screen.extensions.CpuSpoofScreen
 import com.kazesu.manager.ui.screen.extensions.VersionSpoofScreen
+import com.kazesu.manager.ui.screen.tune.TuneScreen
 import com.kazesu.manager.ui.screen.executemoduleaction.ExecuteModuleActionScreen
 import com.kazesu.manager.ui.screen.flash.FlashScreen
 import com.kazesu.manager.ui.screen.home.HomePager
@@ -419,6 +420,7 @@ class MainActivity : ComponentActivity() {
                                 entry<Route.KernelModules>(swipeDismiss = swipeDismiss)  { KernelModulesScreen() }
                                 entry<Route.DynamicManagers>(swipeDismiss = swipeDismiss) { DynamicManagersScreen() }
                                 entry<Route.Extensions>(swipeDismiss = swipeDismiss) { ExtensionsScreen() }
+                                entry<Route.Tune>(swipeDismiss = swipeDismiss) { TuneScreen() }
                                 entry<Route.CpuSpoof>(swipeDismiss = swipeDismiss) { CpuSpoofScreen() }
                                 entry<Route.VersionSpoof>(swipeDismiss = swipeDismiss) { VersionSpoofScreen() }
                                 entry<Route.BuiltinZygisk>(swipeDismiss = swipeDismiss) { BuiltinZygiskScreen() }

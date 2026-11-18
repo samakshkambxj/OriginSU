@@ -101,6 +101,7 @@ enum class CustomTextKey(
     PAGE_DYNAMIC_MANAGERS("page.dynamic_managers", R.string.dynamic_manager_title, R.string.dynamic_manager_title, CustomTextGroup.PAGE_FEATURE),
     PAGE_MODULE_REPO("page.module_repo", R.string.module_repos, R.string.module_repos, CustomTextGroup.PAGE_FEATURE),
     PAGE_INSTALL("page.install", R.string.install, R.string.install, CustomTextGroup.PAGE_FEATURE),
+    PAGE_TUNE("page.tune", R.string.kernel_tuning, R.string.kernel_tuning, CustomTextGroup.PAGE_FEATURE),
     EXTENSION_KPM("extension.kpm", R.string.extension_kpm_title, R.string.extension_kpm_title, CustomTextGroup.PAGE_FEATURE),
     EXTENSION_CPU_SPOOF("extension.cpu_spoof", R.string.extension_cpu_spoof_title, R.string.extension_cpu_spoof_title, CustomTextGroup.PAGE_FEATURE),
     EXTENSION_SUSFS("extension.susfs", R.string.extension_susfs_title, R.string.extension_susfs_title, CustomTextGroup.PAGE_FEATURE),

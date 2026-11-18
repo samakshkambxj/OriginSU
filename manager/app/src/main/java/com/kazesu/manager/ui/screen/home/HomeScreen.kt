@@ -141,6 +141,7 @@ fun HomePager(
         onReleaseUpdateClick = { startUpdate(false) },
         onOpenVersionSpoof = { navigator.push(Route.VersionSpoof) },
         onOpenAi = { navigator.push(Route.AiAssistant) },
+        onOpenTune = { navigator.push(Route.Tune) },
         onOpenThemeStore = {
             themeStoreConfirmDialog.showConfirm(
                 title = themeStoreTitle,

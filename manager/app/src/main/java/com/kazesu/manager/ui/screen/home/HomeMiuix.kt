@@ -67,6 +67,7 @@ import com.kazesu.manager.ui.component.miuix.AppScaffold
 import com.kazesu.manager.ui.component.miuix.WarningCard
 import com.kazesu.manager.ui.component.rebootlistpopup.RebootListPopupMiuix
 import com.kazesu.manager.ui.component.statustag.StatusTag
+import com.kazesu.manager.ui.component.TuneHeroCard
 import com.kazesu.manager.ai.api.AiFeatureBridge
 import com.kazesu.manager.ui.theme.AiAssistantMaterialTheme
 import com.kazesu.manager.ui.theme.LocalBackgroundImagePath
@@ -144,6 +145,11 @@ fun HomePagerMiuix(
                         StatusCard(
                             state = state,
                             actions = actions,
+                        )
+                        TuneHeroCard(
+                            modifier = Modifier.fillMaxWidth(),
+                            onClick = if (state.isRootAvailable) actions.onOpenTune else actions.onInstallClick,
+                            locked = !state.isRootAvailable,
                         )
                 if (state.showVersionMismatchWarning) {
                     WarningCard(

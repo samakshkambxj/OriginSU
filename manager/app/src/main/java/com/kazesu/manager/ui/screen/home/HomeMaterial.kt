@@ -87,6 +87,7 @@ import com.kazesu.manager.ui.component.material.TonalCard
 import com.kazesu.manager.ui.component.material.expressiveTopAppBarColors
 import com.kazesu.manager.ui.component.rebootlistpopup.RebootListPopup
 import com.kazesu.manager.ui.component.statustag.StatusTag
+import com.kazesu.manager.ui.component.TuneHeroCard
 import com.kazesu.manager.ui.theme.LocalBackgroundImagePath
 import com.kazesu.manager.ui.theme.backgroundAwareColor
 import com.kazesu.manager.ui.util.CustomTextKey
@@ -124,6 +125,10 @@ fun HomePagerMaterial(
             StatusCard(
                 state = state,
                 actions = actions,
+            )
+            TuneHeroCard(
+                onClick = if (state.isRootAvailable) actions.onOpenTune else actions.onInstallClick,
+                locked = !state.isRootAvailable,
             )
             if (state.showVersionMismatchWarning) {
                 WarningCard(
