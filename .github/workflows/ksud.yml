@@ -132,4 +132,6 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: ksud-${{ inputs.target }}
-          path: userspace/ksud/target/**/release/ksud*
+          # ksud is a member of the root cargo workspace, so the binary
+          # lands in <repo>/target/<triple>/release, not userspace/ksud/target.
+          path: target/${{ inputs.target }}/release/ksud*
