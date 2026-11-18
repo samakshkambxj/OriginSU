@@ -773,13 +773,9 @@ pub fn print_status() {
 
 #[cfg(target_os = "android")]
 fn fetch_remote_catalog() -> Option<Vec<u8>> {
-    let script = format!(
-        "timeout 20 '{}' wget -q -O - -- '{}'",
-        crate::defs::BUSYBOX_PATH,
-        REMOTE_CATALOG_URL
-    );
-    let output = std::process::Command::new(crate::defs::BUSYBOX_PATH)
-        .args(["ash", "-c", &script])
+    // Busybox wget, invoked directly: no shell parsing and no extra timeout binary.
+    let output = std::process::Command::new(crate::assets::BUSYBOX_PATH)
+        .args(["wget", "-q", "-T", "20", "-O", "-", REMOTE_CATALOG_URL])
         .output()
         .ok()?;
     if output.status.success() {
