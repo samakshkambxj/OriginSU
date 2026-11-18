@@ -15,7 +15,7 @@
 1. 基于内核的 `su` 和权限管理。
 2. [App Profile](https://sukisu.org/zh/guide/app-profile)：把 Root 权限关进笼子里。
 3. KPM 支持。
-4. 内置 Zygisk（NyaZygisk），无需另装 Zygisk 模块，首页直接显示运行状态。
+4. KazeZygisk 内置 Zygisk 引擎，无需另装 Zygisk 模块，首页直接显示运行状态。
 5. 主题商店：浏览、安装、投稿主题，支持多来源镜像、作者授权与审核。
 6. 内核扩展中心：CPU/vvar 伪装、AVC 日志伪装、版本伪装、SUSFS 与挂载视图隐藏，集中在一个入口。
 7. 内置 SUSFS 管理工具，支持一键配置 Root 隐藏。
@@ -99,7 +99,7 @@
 - [/xxksu](https://github.com/backslashxx/KernelSU) 内核兼容性支持参考
 - [susfs](https://gitlab.com/simonpunk/susfs4ksu)：隐藏内核补丁以及用户空间模组的 KernelSU 附件
 - [KernelPatch](https://github.com/bmax121/KernelPatch)：KernelPatch 是内核模块 APatch 实现的关键部分
-- NyaZygisk：内置 Zygisk 实现
+- KazeZygisk：内置 Zygisk 引擎，派生自 NyaZygisk/BuiltZygisk，并融合 YukiSU 与 FinaSU 的思路。
 
 欢迎提交 PR；翻译请前往 [Weblate](https://hosted.weblate.org/projects/sukisu-ultra/)；问题反馈请开 [Issue](https://github.com/KazeSU/KazeSU/issues)。
 
