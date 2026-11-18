@@ -191,12 +191,24 @@ jobs:
     needs: [assemble]
     runs-on: ubuntu-latest
     steps:
+      - name: Determine pre-release
+        id: prerelease
+        run: |
+          set -eu
+          # v1.0.0-beta1/v1.0.0-rc1 must not become the stable "latest" release
+          # that the manager's update check serves.
+          case "${GITHUB_REF_NAME:-}" in
+            *-alpha* | *-beta* | *-rc*) echo "value=true" >> "$GITHUB_OUTPUT" ;;
+            *) echo "value=false" >> "$GITHUB_OUTPUT" ;;
+          esac
+
       - name: Upload the release assets
         if: github.ref_type == 'tag'
         env:
           # Dedicated token with write:repository. The built-in GITHUB_TOKEN is
           # only a fallback: it may lack release permissions on this instance.
           API_TOKEN: ${{ secrets.RELEASE_API_TOKEN || vars.RELEASE_API_TOKEN || secrets.GITHUB_TOKEN }}
+          PRERELEASE: ${{ steps.prerelease.outputs.value }}
         run: |
           set -eu
           # This job has no checkout: it only reads the files the assemble job
@@ -205,9 +217,10 @@ jobs:
           api="${site}/api/v1/repos/${GITHUB_REPOSITORY}"
           auth="Authorization: token ${API_TOKEN}"
           tag="${GITHUB_REF_NAME}"
+          prerelease="${PRERELEASE:-false}"
           dir="/ci/runs/${GITHUB_RUN_ID}/release"
           test -d "$dir"
-          echo "publishing ${tag} from ${dir}"
+          echo "publishing ${tag} from ${dir} (prerelease=${prerelease})"
 
           net() {
             curl -sS --retry 5 --retry-all-errors --retry-delay 2 \
@@ -222,10 +235,14 @@ jobs:
           status="$(net -o /tmp/release.json -w '%{http_code}' -H "$auth" "$release" || true)"
           if [ "$status" = "200" ]; then
             id="$(jq -r '.id' /tmp/release.json)"
-            echo "existing release id=${id}"
+            # A re-run must correct the flag too, not only replace the assets.
+            payload="$(jq -nc --argjson prerelease "$prerelease" '{prerelease: $prerelease}')"
+            net -f -X PATCH -H "$auth" -H 'Content-Type: application/json' \
+              -d "$payload" "$api/releases/${id}" >/dev/null
+            echo "existing release id=${id} prerelease=${prerelease}"
           else
-            payload="$(jq -nc --arg tag "$tag" --arg sha "$GITHUB_SHA" \
-              '{tag_name: $tag, target_commitish: $sha, name: $tag, prerelease: false,
+            payload="$(jq -nc --arg tag "$tag" --arg sha "$GITHUB_SHA" --argjson prerelease "$prerelease" \
+              '{tag_name: $tag, target_commitish: $sha, name: $tag, prerelease: $prerelease,
                 body: "Release assets built by CI."}')"
             net_once -X POST -H "$auth" -H 'Content-Type: application/json' \
               -d "$payload" "$api/releases" >/dev/null

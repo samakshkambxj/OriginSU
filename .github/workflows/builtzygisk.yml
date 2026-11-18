@@ -6,7 +6,7 @@ name: Build BuiltZygisk
 # submodules on github.com. All five repositories are mirrored on this instance
 # and the URLs are rewritten below, because a job container cannot reach
 # github.com. Everything the build needs (SDK 37, NDK 27.2, CMake 4.1.2,
-# cargo-ndk) is baked into the sukisu-ci image.
+# cargo-ndk) is baked into the kazesu-ci image.
 on:
   workflow_dispatch:
   workflow_call:

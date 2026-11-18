@@ -19,13 +19,13 @@ find . -depth -type d -name 'io' -execdir mv {} "$word4" \;
 
 # Replace inside files
 find . -type f -exec sed -i \
-    -e "s/com\.sukisu\.nova/$word1.$word2.$word3/g" \
-    -e "s/io\.sukisu\.nova/$word4.$word2.$word3/g" \
+    -e "s/com\.kazesu\.manager/$word1.$word2.$word3/g" \
+    -e "s/io\.kazesu\.manager/$word4.$word2.$word3/g" \
     -e "s/com\.sukisu\.zako/$word1.$word2.zako/g" \
-    -e "s/com\/sukisu\/nova/$word1\/$word2\/$word3/g" \
-    -e "s/io\/sukisu\/nova/$word4\/$word2\/$word3/g" \
-    -e "s/io_sukisu_nova/${word4}_${word2}_${word3}/g" \
-    -e "s/com_sukisu_nova/${word1}_${word2}_${word3}/g" {} +
+    -e "s/com\/kazesu\/manager/$word1\/$word2\/$word3/g" \
+    -e "s/io\/kazesu\/manager/$word4\/$word2\/$word3/g" \
+    -e "s/io_kazesu_manager/${word4}_${word2}_${word3}/g" \
+    -e "s/com_kazesu_manager/${word1}_${word2}_${word3}/g" {} +
 
 # add -spoofed on tags
 sed -i -e '/fun getGitDescribe(): String {/,/^    }/ s/\.trim()$/.trim() + "-spoofed"/' build.gradle.kts

@@ -27,7 +27,7 @@
         android:name="${applicationId}.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
         android:protectionLevel="signature" />
 
-    <uses-sdk tools:overrideLibrary="top.yukonga.miuix.kmp.blur,com.sukisu.nova.ai" />
+    <uses-sdk tools:overrideLibrary="top.yukonga.miuix.kmp.blur,com.kazesu.manager.ai" />
 
     <!-- Android 11 package visibility: needed to resolve the vendor gallery's crop screen. -->
     <queries>
@@ -49,7 +49,7 @@
         android:networkSecurityConfig="@xml/network_security_config"
         android:supportsRtl="true"
         android:theme="@style/Theme.KernelSU"
-        android:zygotePreloadName="com.sukisu.nova.magica.AppZygotePreload"
+        android:zygotePreloadName="com.kazesu.manager.magica.AppZygotePreload"
         tools:targetApi="R">
         <activity
             android:name=".ui.MainActivity"
@@ -174,7 +174,7 @@
             </intent-filter>
         </activity-alias>
 
-        <!-- 切换图标：SukiSU 标志 -->
+        <!-- 切换图标：KazeSU 标志 -->
         <activity-alias
             android:name=".ui.MainActivityAliasLogo"
             android:targetActivity=".ui.MainActivity"
@@ -188,7 +188,7 @@
             </intent-filter>
         </activity-alias>
 
-        <!-- 切换图标：SukiSU 线稿 -->
+        <!-- 切换图标：KazeSU 线稿 -->
         <activity-alias
             android:name=".ui.MainActivityAliasZako"
             android:targetActivity=".ui.MainActivity"
@@ -311,7 +311,7 @@
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
             </intent-filter>
             <intent-filter>
-                <action android:name="com.sukisu.nova.magica.LAUNCH" />
+                <action android:name="com.kazesu.manager.magica.LAUNCH" />
             </intent-filter>
         </receiver>
     </application>

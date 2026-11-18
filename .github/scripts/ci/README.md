@@ -24,7 +24,7 @@ instead of rebuilding the native chain.
 
 ## One image for everything
 
-`.github/ci/Dockerfile` builds `sukisu-ci:<tag>` from `catthehacker/ubuntu` and
+`.github/ci/Dockerfile` builds `kazesu-ci:<tag>` from `catthehacker/ubuntu` and
 bakes in JDK 21, the Android SDK (`platforms;android-37.0`,
 `build-tools;37.0.0`, `cmake;3.22.1`, `cmake;3.31.6`), NDK `29.0.14206865`,
 `libclang-21-dev`, Gradle 9.7.1, stable Rust with clippy/rustfmt plus the Android
@@ -46,7 +46,7 @@ Then point the runner at it:
 # /etc/forgejo-runner/config.yml
 runner:
   labels:
-    - "ubuntu-latest:docker://sukisu-ci:6"
+    - "ubuntu-latest:docker://kazesu-ci:6"
   capacity: 4
 container:
   options: "--add-host=host.docker.internal:host-gateway --volume /srv/forgejo-ci:/ci"
@@ -111,9 +111,15 @@ allow, and the job then writes to a throwaway `/ci` inside the container.
 
 Signing uses repository **variables** (`KEYSTORE` as base64, `KEY_ALIAS`,
 `KEYSTORE_PASSWORD`, `KEY_PASSWORD`) with the same names accepted as secrets.
-Telegram upload reads `BOT_TOKEN` and `CHAT_ID`, plus `MESSAGE_THREAD_ID` for
-normal builds and `MESSAGE_RELEASES_THREAD_ID` for releases; it is skipped when
-`BOT_TOKEN` or `CHAT_ID` is empty. Only the single Manager variant is published.
+Telegram upload reads `BOT_TOKEN` and uses `MANAGER_CHAT_ID` (or `CHAT_ID`) as
+the target chat; it is skipped when the token or chat is empty. Forum topics
+follow the legacy layout: `MANAGER_TOPIC_NORMAL` for main/tag builds,
+`MANAGER_TOPIC_DEV` for development builds, `MANAGER_TOPIC_SPOOFED` for the
+spoofed variant (main/tag only) and `MANAGER_TOPIC_CHANGELOG` for the release
+changelog. `MESSAGE_RELEASES_THREAD_ID` overrides the topic for release uploads
+and `MESSAGE_THREAD_ID` is the fallback for every case. A main/tag build also
+posts the “main updated” notice to the development topic, and a pushed tag posts
+a changelog grouped from the commits since the previous tag.
 
 ## Disabled workflows
 

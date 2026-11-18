@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Origin-style dynamic launcher background: follows the system accent. -->
+    <color name="ic_launcher_kaze_background">@android:color/system_accent1_400</color>
+</resources>

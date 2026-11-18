@@ -139,7 +139,7 @@ jobs:
         run: |
           set -eux
           if [ "${GITHUB_EVENT_NAME:-}" = "pull_request" ]; then
-            export KSU_PACKAGE_NAME="com.sukisu.nova.pr"
+            export KSU_PACKAGE_NAME="com.kazesu.manager.pr"
           fi
           if [ "${{ matrix.target }}" = riscv64-linux-android ]; then
             source .github/scripts/setup-rust-build.sh riscv64-linux-android 35

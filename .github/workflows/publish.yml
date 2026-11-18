@@ -155,7 +155,7 @@ jobs:
           }
 
           apk="$(find apks/split -type f -name '*.apk' | head -n 1)"
-          # SukiSU_Nova_<sha>_35001-arm64-v8a-release.apk -> 35001
+          # KazeSU_<sha>_35001-arm64-v8a-release.apk -> 35001
           base="$(basename "$apk")"
           code="${base##*_}"
           code="${code%%-*}"
@@ -208,7 +208,7 @@ jobs:
         id: telegram
         env:
           BOT_TOKEN: ${{ vars.BOT_TOKEN || secrets.BOT_TOKEN }}
-          CHAT_ID: ${{ vars.CHAT_ID || secrets.CHAT_ID }}
+          CHAT_ID: ${{ vars.MANAGER_CHAT_ID || secrets.MANAGER_CHAT_ID || vars.CHAT_ID || secrets.CHAT_ID }}
         run: |
           set -eu
           if [ -n "${BOT_TOKEN:-}" ] && [ -n "${CHAT_ID:-}" ]; then
@@ -219,24 +219,55 @@ jobs:
           fi
 
       - name: Upload to Telegram
-        if: github.event_name != 'pull_request' && steps.telegram.outputs.upload == 'true'
-        timeout-minutes: 20
+        # The upstream mirror branch (synced from ReSukiSU) does not announce builds.
+        if: github.event_name != 'pull_request' && github.ref_name != 'UPSTREAM' && steps.telegram.outputs.upload == 'true'
+        timeout-minutes: 30
         env:
-          CHAT_ID: ${{ vars.CHAT_ID || secrets.CHAT_ID }}
+          CHAT_ID: ${{ vars.MANAGER_CHAT_ID || secrets.MANAGER_CHAT_ID || vars.CHAT_ID || secrets.CHAT_ID }}
           BOT_TOKEN: ${{ vars.BOT_TOKEN || secrets.BOT_TOKEN }}
           GITHUB_EVENT: ${{ toJson(github.event) }}
           # The public endpoint again: github.server_url points at the tunnel address,
           # so the link in the Telegram message would not open for anyone.
           RUN_URL: https://git.zako.shirkneko.top:20004/${{ github.repository }}/actions/runs/${{ github.run_id }}
           BRANCH: ${{ github.ref_name }}
+          REF_TYPE: ${{ github.ref_type }}
+          RELEASE_UPLOAD: ${{ inputs.release_upload }}
+          # Legacy forum-topic layout: normal, development, spoofed and changelog
+          # each have their own thread. The dev-era names still work as fallbacks.
+          TOPIC_DEFAULT: ${{ vars.MESSAGE_THREAD_ID || secrets.MESSAGE_THREAD_ID }}
+          TOPIC_RELEASES: ${{ vars.MESSAGE_RELEASES_THREAD_ID || secrets.MESSAGE_RELEASES_THREAD_ID }}
+          TOPIC_NORMAL: ${{ vars.MANAGER_TOPIC_NORMAL || secrets.MANAGER_TOPIC_NORMAL }}
+          TOPIC_DEV: ${{ vars.MANAGER_TOPIC_DEV || secrets.MANAGER_TOPIC_DEV }}
+          TOPIC_CHANGELOG: ${{ vars.MANAGER_TOPIC_CHANGELOG || secrets.MANAGER_TOPIC_CHANGELOG }}
+          TOPIC_SPOOFED: ${{ vars.MANAGER_TOPIC_SPOOFED || secrets.MANAGER_TOPIC_SPOOFED }}
         run: |
           set -eu
           export VERSION="$(git rev-list --count HEAD)"
-          export TITLE="Manager"
-          # Releases go to their own topic; regular builds use the default one.
-          export MESSAGE_THREAD_ID="${{ inputs.release_upload && (vars.MESSAGE_RELEASES_THREAD_ID || secrets.MESSAGE_RELEASES_THREAD_ID) || vars.MESSAGE_THREAD_ID || secrets.MESSAGE_THREAD_ID }}"
+
+          # Releases keep their dedicated thread; main and tags share the normal
+          # manager topic; everything else is a development build.
+          if [ "$RELEASE_UPLOAD" = "true" ]; then
+            topic="${TOPIC_RELEASES:-${TOPIC_DEFAULT:-}}"
+          elif [ "$BRANCH" = "main" ] || [ "$REF_TYPE" = "tag" ]; then
+            topic="${TOPIC_NORMAL:-${TOPIC_DEFAULT:-}}"
+          else
+            topic="${TOPIC_DEV:-${TOPIC_DEFAULT:-}}"
+          fi
+          echo "telegram topic: ${topic:-<general>}"
+
           mapfile -d '' APKS < <(find ./apks/split -type f -name '*.apk' -print0 | sort -z)
           test "${#APKS[@]}" -gt 0
+
+          normal=()
+          spoofed=()
+          for apk in "${APKS[@]}"; do
+            case "$apk" in
+              *-spoofed.apk) spoofed+=("$apk") ;;
+              *) normal+=("$apk") ;;
+            esac
+          done
+
+          uploaded=0
 
           # Deleting and re-creating a tag pushes it again and re-runs the whole
           # release, so the same build must not reach the topic twice.
@@ -248,19 +279,49 @@ jobs:
           #   - the ref keeps dev, main, tags and pull requests in separate slots
           #   - the hash means a rebuild of the same commit (different signer,
           #     different toolchain, changed files in the APK) still uploads
-          code="$(basename "${APKS[0]}" | sed -E 's/.*_([0-9]+)-[a-z0-9_-]+-release\.apk$/\1/')"
-          sha="$(git rev-parse --short=8 HEAD 2>/dev/null || printf '%s' "${GITHUB_SHA:-unknown}" | cut -c1-8)"
-          ref="$(printf '%s' "${GITHUB_REF_NAME:-${GITHUB_REF:-unknown}}" | tr '/' '-')"
-          apk_hash="$(sha256sum "${APKS[0]}" | cut -c1-16)"
-          topic="${MESSAGE_THREAD_ID:-default}"
-          marker="/ci/state/telegram-${topic}-${ref}-${sha}-${apk_hash}.sent"
-          mkdir -p "$(dirname "$marker")"
-          # markers are only useful while the commit is still recent
-          find /ci/state -type f -mtime +30 -delete 2>/dev/null || true
-          if [ -f "$marker" ]; then
-            echo "build ${ref}@${sha} apk ${apk_hash} (version ${code}) was already uploaded to topic ${topic} ($(cat "$marker")), skipping"
-            exit 0
+          upload() {
+            title="$1"
+            thread="$2"
+            shift 2
+
+            code="$(basename "$1" | sed -E 's/.*_([0-9]+)-[a-z0-9_-]+-release(-spoofed)?\.apk$/\1/')"
+            sha="$(git rev-parse --short=8 HEAD 2>/dev/null || printf '%s' "${GITHUB_SHA:-unknown}" | cut -c1-8)"
+            ref="$(printf '%s' "${GITHUB_REF_NAME:-${GITHUB_REF:-unknown}}" | tr '/' '-')"
+            apk_hash="$(sha256sum "$1" | cut -c1-16)"
+            marker_topic="${thread:-default}"
+            marker="/ci/state/telegram-${marker_topic}-${ref}-${sha}-${apk_hash}.sent"
+            mkdir -p "$(dirname "$marker")"
+            # markers are only useful while the commit is still recent
+            find /ci/state -type f -mtime +30 -delete 2>/dev/null || true
+            if [ -f "$marker" ]; then
+              echo "build ${ref}@${sha} (${title}) apk ${apk_hash} (version ${code}) was already uploaded to topic ${marker_topic} ($(cat "$marker")), skipping"
+              return 0
+            fi
+
+            TITLE="$title" MESSAGE_THREAD_ID="$thread" bash scripts/upload-telegram.sh "$@"
+            date -u +%FT%TZ >"$marker"
+            uploaded=1
+          }
+
+          if [ "${#normal[@]}" -gt 0 ]; then
+            upload "Manager" "$topic" "${normal[@]}"
           fi
 
-          bash scripts/upload-telegram.sh "${APKS[@]}"
-          date -u +%FT%TZ >"$marker"
+          if [ "${#spoofed[@]}" -gt 0 ]; then
+            # The spoofed manager is only meant for stable (main/tag) installs.
+            if [ "$BRANCH" = "main" ] || [ "$REF_TYPE" = "tag" ]; then
+              upload "Spoofed Manager" "${TOPIC_SPOOFED:-$topic}" "${spoofed[@]}"
+            else
+              echo "spoofed manager is not published from ${BRANCH}, skipping"
+            fi
+          fi
+
+          # A main/tag build makes the development topic stale.
+          if [ "$uploaded" = "1" ] && { [ "$BRANCH" = "main" ] || [ "$REF_TYPE" = "tag" ]; }; then
+            MESSAGE_THREAD_ID="${TOPIC_DEV:-}" bash scripts/telegram-notify.sh main-updated
+          fi
+
+          # Only a pushed release tag announces a changelog.
+          if [ "$uploaded" = "1" ] && [ "$REF_TYPE" = "tag" ]; then
+            MESSAGE_THREAD_ID="${TOPIC_CHANGELOG:-}" bash scripts/telegram-notify.sh changelog
+          fi

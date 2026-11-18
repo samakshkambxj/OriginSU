@@ -28,7 +28,7 @@ private fun git(vararg args: String): String =
 fun getGitDescribe(): String {
     // Only version tags. The repository also carries the rolling `manager-ci`
     // tag, and without the pattern it becomes the version name, so every APK
-    // was called SukiSU_Nova_manager-ci_<code>-<abi>-release.apk.
+    // was called KazeSU_manager-ci_<code>-<abi>-release.apk.
     val described = git("describe", "--tags", "--always", "--abbrev=0", "--match", "v[0-9]*")
     // --always falls back to a commit hash when no version tag is reachable, and a
     // hash in the file name is noise: use the newest version tag instead.

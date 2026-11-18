@@ -4,7 +4,7 @@
 #   bash .github/ci/build-image.sh [tag]
 #
 # The tag is what the runner label points at:
-#   runner.labels: - "ubuntu-latest:docker://sukisu-ci:<tag>"
+#   runner.labels: - "ubuntu-latest:docker://kazesu-ci:<tag>"
 # Build a new tag after changing the Dockerfile, then update the label, so a run
 # in progress keeps using the image it started with.
 #
@@ -48,8 +48,8 @@ cp -a "$kpm_dir" "${ctx}/kpm"
 
 docker build \
 	--pull \
-	-t "sukisu-ci:${tag}" \
+	-t "kazesu-ci:${tag}" \
 	-f "${ctx}/Dockerfile" \
 	"${ctx}"
 
-docker image inspect "sukisu-ci:${tag}" --format 'built {{.RepoTags}} {{.Size}} bytes'
+docker image inspect "kazesu-ci:${tag}" --format 'built {{.RepoTags}} {{.Size}} bytes'

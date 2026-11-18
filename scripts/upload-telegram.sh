@@ -13,10 +13,6 @@ if (( $# == 0 )); then
   echo "[-] No files to upload" >&2
   exit 1
 fi
-if (( $# > 10 )); then
-  echo "[-] Telegram media groups support at most 10 files" >&2
-  exit 1
-fi
 
 for file in "$@"; do
   if [[ ! -f "$file" ]]; then
@@ -77,7 +73,9 @@ common_args=(
   --http1.1
   -H "Expect:"
   -o "$response"
-  -F "chat_id=${CHAT_ID}"
+  # --form-string keeps @channel names literal: `-F chat_id=@name` would make
+  # curl upload a local file called "name".
+  --form-string "chat_id=${CHAT_ID}"
 )
 if [[ -n "${MESSAGE_THREAD_ID:-}" ]]; then
   common_args+=(-F "message_thread_id=${MESSAGE_THREAD_ID}")
@@ -111,59 +109,37 @@ send_with_retry() {
   done
 }
 
-if (( $# == 1 )); then
-  echo "[+] Uploading 1 APK through Telegram Bot API"
-  run_curl \
-    -F "document=@$1;type=application/vnd.android.package-archive" \
-    -F "caption=${caption}" \
-    -F "parse_mode=HTML" \
-    "${api}/sendDocument"
-else
-  upload_args=()
-  json_items=()
-  index=0
-  last_index=$(($# - 1))
-
-  for file in "$@"; do
-    field="file${index}"
-    upload_args+=(-F "${field}=@${file};type=application/vnd.android.package-archive")
-    
-    # 构建单个 JSON 对象项
-    if (( index == last_index )); then
-      json_items+=("$(jq -cn --arg attachment "attach://${field}" --arg caption "$caption" \
-        '{type: "document", media: $attachment, caption: $caption, parse_mode: "HTML"}')")
-    else
-      json_items+=("$(jq -cn --arg attachment "attach://${field}" \
-        '{type: "document", media: $attachment}')")
-    fi
-    ((index += 1))
-  done
-
-  media="$(printf '%s\n' "${json_items[@]}" | jq -cs '.')"
-
-  echo "[+] Uploading $# APKs in one Telegram media group"
-  if ! send_with_retry \
-    -F "media=${media}" \
-    "${upload_args[@]}" \
-    "${api}/sendMediaGroup"; then
-    # One request carrying every APK is the fragile part; fall back to a message
-    # per file so a flaky connection still delivers them.
-    echo "[!] media group upload failed, sending the APKs one by one" >&2
-    first=1
-    for file in "$@"; do
-      caption_arg="$caption"
-      if (( first )); then
-        first=0
-      else
-        caption_arg=""
-      fi
-      send_with_retry \
-        -F "document=@${file};type=application/vnd.android.package-archive" \
-        -F "caption=${caption_arg}" \
-        -F "parse_mode=HTML" \
-        "${api}/sendDocument"
-    done
+# One document per request: a media group large enough to carry every APK is
+# what trips Telegram's request-size limit ("Request Entity Too Large"), and a
+# single multipart body that dies halfway wastes the whole upload. The caption
+# rides on the first file so it is delivered even if a later upload fails.
+echo "[+] Uploading $# APK(s) through Telegram Bot API"
+first=1
+failures=0
+for file in "$@"; do
+  name="$(basename "$file")"
+  args=(-F "document=@${file};type=application/vnd.android.package-archive")
+  if (( first )); then
+    first=0
+    # --form-string: the caption starts with "<b>", which `-F` would interpret
+    # as "read the content from this file".
+    args+=(--form-string "caption=${caption}" -F "parse_mode=HTML")
   fi
+  if ! send_with_retry "${args[@]}" "${api}/sendDocument"; then
+    echo "[-] Failed to upload ${name}" >&2
+    failures=$((failures + 1))
+    # Keep the build discoverable even when Telegram refuses the document.
+    fallback="⚠️ Could not upload <b>$(html_escape "$name")</b>. Get it from the <a href=\"$(html_escape "$RUN_URL")\">workflow run</a>."
+    send_with_retry --form-string "text=${fallback}" -F "parse_mode=HTML" \
+      "${api}/sendMessage" || true
+    continue
+  fi
+  echo "[+] uploaded ${name}"
+done
+
+if (( failures > 0 )); then
+  echo "[-] ${failures} of $# APK(s) failed to upload" >&2
+  exit 1
 fi
 
 if ! jq -e '.ok == true' "$response" >/dev/null 2>&1; then

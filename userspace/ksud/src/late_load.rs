@@ -189,7 +189,7 @@ pub fn run(
         .args([
             "start",
             "-n",
-            &format!("{package_name}/com.sukisu.nova.ui.MainActivity"),
+            &format!("{package_name}/com.kazesu.manager.ui.MainActivity"),
         ])
         .status();
 

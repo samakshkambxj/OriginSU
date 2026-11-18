@@ -25,8 +25,8 @@ val managerVersionCode = rootProject.extra["managerVersionCode"] as Int
 val managerVersionName = rootProject.extra["managerVersionName"] as String
 
 val isPrBuild = project.findProperty("IS_PR_BUILD")?.toString()?.toBoolean() ?: false
-val defaultManagerPackageName = if (isPrBuild) "com.sukisu.nova.pr" else "com.sukisu.nova"
-val defaultManagerName = if (isPrBuild) "SukiSU PR" else "SukiSU Nova"
+val defaultManagerPackageName = if (isPrBuild) "com.kazesu.manager.pr" else "com.kazesu.manager"
+val defaultManagerName = if (isPrBuild) "KazeSU PR" else "KazeSU"
 val managerPackageName = project.findProperty("KSU_PACKAGE_NAME")?.toString() ?: defaultManagerPackageName
 val managerName = project.findProperty("KSU_NAME")?.toString() ?: defaultManagerName
 
@@ -63,7 +63,7 @@ val baseCFlags = listOf(
 val baseCppFlags = baseCFlags + "-fno-rtti"
 
 android {
-    namespace = "com.sukisu.nova"
+    namespace = "com.kazesu.manager"
 
     buildTypes {
         debug {
@@ -342,7 +342,7 @@ val downloadKpmTools = tasks.register("downloadKpmTools") {
                     connection.connectTimeout = 10_000
                     connection.readTimeout = 20_000
                     connection.useCaches = false
-                    connection.setRequestProperty("User-Agent", "SukiSU-Manager-build")
+                    connection.setRequestProperty("User-Agent", "KazeSU-Manager-build")
                     check(connection.responseCode == HttpURLConnection.HTTP_OK) {
                         "HTTP ${connection.responseCode}"
                     }

@@ -1,14 +1,14 @@
-# SukiSU Nova
-<img align='right' src='SukiSU-mini.svg' width='220px' alt="SukiSU Nova logo">
+# KazeSU
+<img align='right' src='KazeSU-mini.png' width='220px' alt="KazeSU logo">
 
 **简体中文** [English](.././README.md) |
 
 一个 Android 上基于内核的 root 方案，由 [`tiann/KernelSU`](https://github.com/tiann/KernelSU) 进化而来，添加了一些有趣的变更。
 
-[![最新发行](https://img.shields.io/github/v/release/SukiSU-Nova/SukiSU-Nova?label=Release&logo=github)](https://github.com/SukiSU-Nova/SukiSU-Nova/releases/latest)
+[![最新发行](https://img.shields.io/github/v/release/KazeSU/KazeSU?label=Release&logo=github)](https://github.com/KazeSU/KazeSU/releases/latest)
 [![频道](https://img.shields.io/badge/Follow-Telegram-blue.svg?logo=telegram)](https://t.me/Sukiksu)
 [![协议: GPL 3.0 or later](https://img.shields.io/badge/License-GPL%203.0%20or%20later-orange.svg?logo=gnu)](https://www.gnu.org/licenses/gpl-3.0.html)
-[![GitHub 协议](https://img.shields.io/github/license/SukiSU-Nova/SukiSU-Nova?logo=gnu)](/LICENSE)
+[![GitHub 协议](https://img.shields.io/github/license/KazeSU/KazeSU?logo=gnu)](/LICENSE)
 
 ## 特性
 
@@ -23,7 +23,7 @@
 
 ## 兼容状态
 
-- SukiSU Nova 支持 GKI 2.0 设备（内核版本 5.10 以上）。
+- KazeSU 支持 GKI 2.0 设备（内核版本 5.10 以上）。
 - 旧内核也可兼容（最低 4.14+），但需要自行编译内核。
 - 通过更多反向移植，可支持 3.x 内核（3.4–3.18）。
 - 目前支持架构：`arm64-v8a`、`armeabi-v7a (bare)`、`X86_64`、`riscv64`。
@@ -64,7 +64,7 @@
 
 ## 参与翻译
 
-要将 SukiSU Nova 翻译成您的语言，或完善现有的翻译，请使用 [Weblate](https://hosted.weblate.org/projects/sukisu-ultra/)。
+要将 KazeSU 翻译成您的语言，或完善现有的翻译，请使用 [Weblate](https://hosted.weblate.org/projects/sukisu-ultra/)。
 
 <a href="https://hosted.weblate.org/engage/sukisu-ultra/"><img src="https://hosted.weblate.org/widget/sukisu-ultra/multi-auto.svg" alt="翻译状态"></a>
 
@@ -100,7 +100,7 @@
 - [KernelPatch](https://github.com/bmax121/KernelPatch)：KernelPatch 是内核模块 APatch 实现的关键部分
 - NyaZygisk：内置 Zygisk 实现
 
-欢迎提交 PR；翻译请前往 [Weblate](https://hosted.weblate.org/projects/sukisu-ultra/)；问题反馈请开 [Issue](https://github.com/SukiSU-Nova/SukiSU-Nova/issues)。
+欢迎提交 PR；翻译请前往 [Weblate](https://hosted.weblate.org/projects/sukisu-ultra/)；问题反馈请开 [Issue](https://github.com/KazeSU/KazeSU/issues)。
 
 <details>
 <summary>KernelSU 的鸣谢</summary>
