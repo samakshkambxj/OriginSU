@@ -4,7 +4,7 @@ import random
 import subprocess
 import sys,json
 from telegram import Bot
-from telegram.error import RetryAfter
+from telegram.error import BadRequest, RetryAfter
 from telegram.constants import ParseMode
 
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
@@ -352,6 +352,13 @@ async def send_message(bot: Bot, chat_id: int, text: str, message_thread_id=None
         print(f"[-] Hit Telegram flood limit, retrying after {e.retry_after} seconds...")
         await asyncio.sleep(e.retry_after)
         return await send_message(bot, chat_id, text, message_thread_id)
+    except BadRequest as e:
+        # A stale or wrong topic id must not drop the whole announcement: post
+        # to the chat's General topic instead and say so in the log.
+        if message_thread_id is not None and "thread" in str(e).lower():
+            print(f"[-] Topic {message_thread_id} unavailable ({e}), posting without a topic")
+            return await send_message(bot, chat_id, text, None)
+        raise
     except:
         raise
 
@@ -367,6 +374,11 @@ async def send_document(bot: Bot, chat_id: int, file: str, filename: str, captio
         print(f"[-] Hit Telegram flood limit, retrying after {e.retry_after} seconds...")
         await asyncio.sleep(e.retry_after)
         return await send_document(bot, chat_id, file, filename, caption, message_thread_id)
+    except BadRequest as e:
+        if message_thread_id is not None and "thread" in str(e).lower():
+            print(f"[-] Topic {message_thread_id} unavailable ({e}), posting without a topic")
+            return await send_document(bot, chat_id, file, filename, caption, None)
+        raise
     except:
         raise
 

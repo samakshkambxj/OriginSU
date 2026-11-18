@@ -475,14 +475,14 @@ jobs:
         run: |
           if [ "${{ matrix.manager_type }}" == "spoofed" ]; then
             echo "title=Spoofed-Manager" >> $GITHUB_OUTPUT
-            echo "topicid=${{ vars.MANAGER_TOPIC_SPOOFED }}" >> $GITHUB_OUTPUT
+            echo "topicid=${{ vars.MANAGER_TOPIC_SPOOFED || '3' }}" >> $GITHUB_OUTPUT
           else
             echo "title=Manager" >> $GITHUB_OUTPUT
-            echo "topicid=${{ vars.MANAGER_TOPIC_NORMAL }}" >> $GITHUB_OUTPUT
+            echo "topicid=${{ vars.MANAGER_TOPIC_NORMAL || '2' }}" >> $GITHUB_OUTPUT
           fi
 
           if [[ "${{ github.ref }}" != "refs/heads/main" && "${{ github.ref_type }}" != "tag" ]]; then
-            echo "topicid=${{ vars.MANAGER_TOPIC_DEV }}" >> $GITHUB_OUTPUT
+            echo "topicid=${{ vars.MANAGER_TOPIC_DEV || '4' }}" >> $GITHUB_OUTPUT
           fi
 
       - name: Download Release artifact
@@ -503,8 +503,8 @@ jobs:
           CHAT_ID: '@KazeKSU'
           BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
           MESSAGE_THREAD_ID: ${{ steps.determine.outputs.topicid }}
-          DEVELOPING_THREAD_ID: ${{ vars.MANAGER_TOPIC_DEV }}
-          CHANGELOG_THREAD_ID: ${{ vars.MANAGER_TOPIC_CHANGELOG }}
+          DEVELOPING_THREAD_ID: ${{ vars.MANAGER_TOPIC_DEV || '4' }}
+          CHANGELOG_THREAD_ID: ${{ vars.MANAGER_TOPIC_CHANGELOG || '112' }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           TITLE: ${{ steps.determine.outputs.title }}
           BRANCH: ${{ github.ref_name }}
