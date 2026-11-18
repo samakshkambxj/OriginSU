@@ -97,7 +97,7 @@ fun AboutScreenMaterial(
                         // the selected app-icon pack, which made the about page advertise whichever
                         // icon was active instead of the brand.
                         Icon(
-                            painter = painterResource(R.drawable.ic_launcher_monochrome),
+                            painter = painterResource(R.drawable.ic_kazesu_leaf),
                             contentDescription = null,
                             modifier = Modifier.size(96.dp),
                             tint = LocalContentColor.current,
