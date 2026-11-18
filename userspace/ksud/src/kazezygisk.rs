@@ -2346,6 +2346,11 @@ pub fn create_report() -> Result<PathBuf> {
     )?;
     add("evidence.log", &read(evidence_path()))?;
     add(
+        "engine-evidence.log",
+        &read(Path::new(KAZEZYGISK_WORK_DIR).join("evidence.log")),
+    )?;
+    add("quarantine.txt", &read(PathBuf::from(QUARANTINE_PATH)))?;
+    add(
         "monitor.log",
         &read(Path::new(KAZEZYGISK_DIR).join("monitor.log")),
     )?;
