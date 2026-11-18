@@ -6,7 +6,7 @@
 一个 Android 上基于内核的 root 方案，由 [`tiann/KernelSU`](https://github.com/tiann/KernelSU) 进化而来，添加了一些有趣的变更。
 
 [![最新发行](https://img.shields.io/github/v/release/KazeSU/KazeSU?label=Release&logo=github)](https://github.com/KazeSU/KazeSU/releases/latest)
-[![频道](https://img.shields.io/badge/Follow-Telegram-blue.svg?logo=telegram)](https://t.me/Sukiksu)
+[![频道](https://img.shields.io/badge/Follow-Telegram-blue.svg?logo=telegram)](https://t.me/KazeKSU)
 [![协议: GPL 3.0 or later](https://img.shields.io/badge/License-GPL%203.0%20or%20later-orange.svg?logo=gnu)](https://www.gnu.org/licenses/gpl-3.0.html)
 [![GitHub 协议](https://img.shields.io/github/license/KazeSU/KazeSU?logo=gnu)](/LICENSE)
 

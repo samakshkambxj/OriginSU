@@ -1,40 +1,36 @@
 name: Build LKM for KernelSU
-
-# Self-hosted runner variant. This file only fans the matrix out to ddk-lkm.yml,
-# which is a reusable workflow in the same repository, so it needs no rewrite:
-# local `uses:` never reaches github.com.
 on:
   workflow_call:
     inputs:
-      package_name:
-        description: 'package name of manager'
+      expected_pr_build_size:
+        description: 'Second expected signature size (for PR builds)'
         required: false
         default: ''
         type: string
-      expected_size:
-        description: 'expected signature size'
+      expected_pr_build_hash:
+        description: 'Second expected signature hash (for PR builds)'
         required: false
         default: ''
         type: string
-      expected_hash:
-        description: 'expected signature hash'
+      hook:
+        description: 'Kconfig hook flavor suffix (TRACEPOINT_HOOK or TAMPER_SYSCALL_TABLE)'
         required: false
-        default: ''
+        default: 'TRACEPOINT_HOOK'
         type: string
-      version_code:
-        description: 'Consistent KernelSU version code for all module builds'
-        required: false
-        default: ''
-        type: string
-      release_build:
-        description: 'Mark version metadata as a release build'
-        required: false
-        default: false
-        type: boolean
   workflow_dispatch:
+    inputs:
+      hook:
+        description: 'Kconfig hook flavor suffix'
+        required: false
+        default: 'TRACEPOINT_HOOK'
+        type: choice
+        options:
+          - TRACEPOINT_HOOK
+          - TAMPER_SYSCALL_TABLE
 jobs:
   build-lkm:
     strategy:
+      fail-fast: false
       matrix:
         kmi:
           - android12-5.10
@@ -45,11 +41,13 @@ jobs:
           - android15-6.6
           - android16-6.12
           - android17-6.18
+        arch:
+          - arm64
+          - x86_64
     uses: ./.github/workflows/ddk-lkm.yml
     with:
       kmi: ${{ matrix.kmi }}
-      package_name: ${{ inputs.package_name || '' }}
-      expected_size: ${{ inputs.expected_size || '' }}
-      expected_hash: ${{ inputs.expected_hash || '' }}
-      version_code: ${{ inputs.version_code || '' }}
-      release_build: ${{ inputs.release_build }}
+      arch: ${{ matrix.arch }}
+      expected_pr_build_size: ${{ inputs.expected_pr_build_size || '' }}
+      expected_pr_build_hash: ${{ inputs.expected_pr_build_hash || '' }}
+      hook: ${{ inputs.hook || 'TRACEPOINT_HOOK' }}

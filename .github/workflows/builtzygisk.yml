@@ -2,11 +2,9 @@ name: Build BuiltZygisk
 
 # Builds the NyaZygisk payload that ksud embeds as its built-in Zygisk.
 #
-# The sources are the external/BuiltZygisk submodule, which itself has four
-# submodules on github.com. All five repositories are mirrored on this instance
-# and the URLs are rewritten below, because a job container cannot reach
-# github.com. Everything the build needs (SDK 37, NDK 27.2, CMake 4.1.2,
-# cargo-ndk) is baked into the kazesu-ci image.
+# Hosted-runner variant of the old self-hosted job: the submodules come from
+# GitHub, SDK/NDK/CMake are installed with sdkmanager, and the payloads travel
+# through upload-artifact.
 on:
   workflow_dispatch:
   workflow_call:
@@ -19,94 +17,38 @@ on:
 jobs:
   build:
     runs-on: ${{ inputs.os }}
-    env:
-      GRADLE_USER_HOME: /ci/tools/gradle
-      CARGO_HOME: /ci/tools/cargo
-      RUSTUP_HOME: /usr/local/rustup
-      # zygiskd is built with -Z, so cargo must run on nightly; this toolchain
-      # also carries rust-src in the image.
-      RUSTUP_TOOLCHAIN: nightly-2026-09-23
-      ANDROID_SDK_ROOT: /opt/android-sdk
-      ANDROID_HOME: /opt/android-sdk
-      ANDROID_NDK_HOME: /opt/android-sdk/ndk/27.2.12479018
-      # Cap parallelism: several job containers run at once.
-      MAKEFLAGS: "-j6"
-      CARGO_BUILD_JOBS: "6"
+    timeout-minutes: 90
     steps:
       - name: Checkout
-        env:
-          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        uses: actions/checkout@v7
+        with:
+          submodules: recursive
+
+      - name: Set up Java
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Set up Android SDK
         run: |
           set -eux
-          remote="https://git.zako.shirkneko.top:20004"
-          mirror="/ci/repo-cache/${GITHUB_REPOSITORY}.git"
-          # New repositories may not be writable under /ci on shared runners.
-          if ! mkdir -p "$(dirname "$mirror")" 2>/dev/null; then
-            mirror="${RUNNER_TEMP:-/tmp}/repo-cache/${GITHUB_REPOSITORY}.git"
-            mkdir -p "$(dirname "$mirror")"
-          fi
-          # Missing mirrors (new or renamed repositories) fall back to GitHub.
-          if ! timeout 15 git ls-remote "$remote/${GITHUB_REPOSITORY}.git" >/dev/null 2>&1; then
-            remote="https://github.com"
-          fi
-          if [ ! -d "$mirror" ]; then
-            # The token must not appear in the trace of `set -x`.
-            set +x
-            if [ "$remote" = "https://github.com" ]; then
-              # Anonymous clone: GITHUB_TOKEN is not accepted by every runner.
-              GIT_TERMINAL_PROMPT=0 git clone -q --mirror "https://github.com/${GITHUB_REPOSITORY}.git" "$mirror"
-            else
-              git -c "http.${remote}/.extraHeader=Authorization: token ${TOKEN}" \
-                clone -q --mirror "${remote}/${GITHUB_REPOSITORY}.git" "$mirror"
-            fi
-            set -x
-          elif command -v flock >/dev/null 2>&1; then
-            (
-              flock 9
-              git --git-dir="$mirror" fetch -q --prune origin \
-                "+refs/heads/*:refs/heads/*" "+refs/tags/*:refs/tags/*"
-            ) 9>"${mirror}.lock"
-          else
-            git --git-dir="$mirror" fetch -q --prune origin \
-              "+refs/heads/*:refs/heads/*" "+refs/tags/*:refs/tags/*"
-          fi
-          git clone -q --shared --no-checkout "$mirror" .
-          git checkout -q "${GITHUB_SHA}"
-
-      - name: Fetch the submodules from the mirrors
-        run: |
-          set -eux
-          base="https://git.zako.shirkneko.top:20004/shirkneko"
-
-          # The umbrella submodule first, then its own four dependencies.
-          git submodule set-url external/BuiltZygisk "$base/BuiltZygisk.git"
-          git submodule sync -- external/BuiltZygisk
-          git submodule update --init external/BuiltZygisk
-
-          cd external/BuiltZygisk
-          # Not --recursive: LSPlt carries a docs-only submodule we never build.
-          git submodule set-url loader/src/external/lsplt "$base/LSPlt.git"
-          git submodule set-url loader/src/external/dobby "$base/Dobby.git"
-          git submodule set-url loader/src/external/rv64hook "$base/riscv64-inline-hook.git"
-          git submodule set-url loader/src/external/bhook "$base/bhook.git"
-          git submodule sync
-          git submodule update --init
-
-      - name: Check toolchain
-        run: |
-          set -eux
-          gradle --version | head -3
-          cargo ndk --version || true
-          test -d "${ANDROID_NDK_HOME}"
-          test -d /opt/android-sdk/cmake/4.1.2
+          SDKMANAGER="${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$SDKMANAGER" --licenses >/dev/null
+          "$SDKMANAGER" --install \
+            "platforms;android-37.0" \
+            "build-tools;37.0.0" \
+            "ndk;27.2.12479018" \
+            "cmake;4.1.2"
 
       - name: Build BuiltZygisk
         working-directory: external/BuiltZygisk
+        env:
+          ANDROID_NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/27.2.12479018
+          ANDROID_NDK_ROOT: ${{ env.ANDROID_HOME }}/ndk/27.2.12479018
         run: |
           set -eux
-          # --build-cache reuses the CMake/Rust task outputs from earlier runs;
-          # the cache and the dependency cache both live in GRADLE_USER_HOME
-          # (/ci/tools/gradle), which the runner keeps on a persistent volume.
+          gradle --version | head -3
           gradle --build-cache zipRelease \
             -Porg.gradle.parallel=true \
             -Dorg.gradle.jvmargs=-Xmx2048m
@@ -157,14 +99,30 @@ jobs:
             ls -l "$out/$arch"
           done
 
-      - name: Upload the zygisk payloads
-        run: |
-          set -eux
-          . .github/scripts/ci/common.sh
-          for arch in aarch64 arm x86_64 riscv64; do
-            # Pass the files, not the directory: ci_artifact_put would copy the
-            # arch directory itself, so the artifact became
-            # builtzygisk-<arch>/<arch>/... and ksud then embedded the payload
-            # under the keys aarch64/zygiskd etc, which its own lookups never find.
-            ci_artifact_put "builtzygisk-$arch" "${GITHUB_WORKSPACE}/builtzygisk/$arch"/*
-          done
+      - name: Upload aarch64 payload
+        uses: actions/upload-artifact@v7
+        with:
+          name: builtzygisk-aarch64
+          path: ${{ github.workspace }}/builtzygisk/aarch64/*
+          if-no-files-found: error
+
+      - name: Upload arm payload
+        uses: actions/upload-artifact@v7
+        with:
+          name: builtzygisk-arm
+          path: ${{ github.workspace }}/builtzygisk/arm/*
+          if-no-files-found: error
+
+      - name: Upload x86_64 payload
+        uses: actions/upload-artifact@v7
+        with:
+          name: builtzygisk-x86_64
+          path: ${{ github.workspace }}/builtzygisk/x86_64/*
+          if-no-files-found: error
+
+      - name: Upload riscv64 payload
+        uses: actions/upload-artifact@v7
+        with:
+          name: builtzygisk-riscv64
+          path: ${{ github.workspace }}/builtzygisk/riscv64/*
+          if-no-files-found: error

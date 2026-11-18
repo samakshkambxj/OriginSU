@@ -1,328 +1,112 @@
 name: Release
-
-# Assembles a release: kernel modules, ksuinit, ksud, the manager APK, then the
-# publish step. Each stage is its own workflow so any of them can be dispatched
-# alone. All of them write to /ci/runs/<run_id>/<artifact> on the runner host, and
-# a stage can reuse an earlier result by dispatching the workflow that needs it
-# with artifacts_run=<id>.
 on:
-  # The tag trigger lives in release-hosted.yml; this pipeline needs the
-  # self-hosted runner and its /ci volume, so it is dispatch-only until that
-  # runner is registered again.
+  push:
+    tags:
+      - "v*"
   workflow_dispatch:
-    inputs:
-      artifacts_run:
-        description: 'Reuse ksud/LKM/ksuinit from this run id (empty = build them)'
-        required: false
-        default: ''
-        type: string
 
 jobs:
-
-  determine-version:
+  build-manager:
+    uses: ./.github/workflows/build-manager.yml
+    secrets: inherit
+  release:
+    needs:
+      - build-manager
     runs-on: ubuntu-latest
-    outputs:
-      version_code: ${{ steps.version.outputs.version_code }}
+    permissions:
+      contents: write
     steps:
       - name: Checkout
-        env:
-          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Build changelog
+        id: changelog
         run: |
-          set -eux
-          remote="https://git.zako.shirkneko.top:20004"
-          mirror="/ci/repo-cache/${GITHUB_REPOSITORY}.git"
-          # New repositories may not be writable under /ci on shared runners.
-          if ! mkdir -p "$(dirname "$mirror")" 2>/dev/null; then
-            mirror="${RUNNER_TEMP:-/tmp}/repo-cache/${GITHUB_REPOSITORY}.git"
-            mkdir -p "$(dirname "$mirror")"
-          fi
-          # Missing mirrors (new or renamed repositories) fall back to GitHub.
-          if ! timeout 15 git ls-remote "$remote/${GITHUB_REPOSITORY}.git" >/dev/null 2>&1; then
-            remote="https://github.com"
-          fi
-          if [ ! -d "$mirror" ]; then
-            # The token must not appear in the trace of `set -x`.
-            set +x
-            if [ "$remote" = "https://github.com" ]; then
-              # Anonymous clone: GITHUB_TOKEN is not accepted by every runner.
-              GIT_TERMINAL_PROMPT=0 git clone -q --mirror "https://github.com/${GITHUB_REPOSITORY}.git" "$mirror"
-            else
-              git -c "http.${remote}/.extraHeader=Authorization: token ${TOKEN}" \
-                clone -q --mirror "${remote}/${GITHUB_REPOSITORY}.git" "$mirror"
-            fi
-            set -x
-          elif command -v flock >/dev/null 2>&1; then
-            (
-              flock 9
-              git --git-dir="$mirror" fetch -q --prune origin \
-                "+refs/heads/*:refs/heads/*" "+refs/tags/*:refs/tags/*"
-            ) 9>"${mirror}.lock"
+          CUR_TAG="${{ github.ref_name }}"
+          # Previous reachable tag; fall back to second-newest v* tag.
+          PREV_TAG=$(git describe --tags --abbrev=0 HEAD~1 2>/dev/null || git tag --list 'v*' --sort=-v:refname | sed -n '2p')
+          if [ -z "$PREV_TAG" ]; then
+            RANGE="HEAD"
           else
-            git --git-dir="$mirror" fetch -q --prune origin \
-              "+refs/heads/*:refs/heads/*" "+refs/tags/*:refs/tags/*"
+            RANGE="$PREV_TAG..HEAD"
           fi
-          git clone -q --shared --no-checkout "$mirror" .
-          git checkout -q "${GITHUB_SHA}"
+          {
+            echo "## What's changed in $CUR_TAG ($RANGE)"
+            echo ""
+            git log "$RANGE" --no-merges --pretty=format:'- %s (%h)' --reverse
+            echo ""
+          } > CHANGELOG.md
+          cat CHANGELOG.md
 
-      - name: Calculate version code
-        id: version
+      - name: Download Manager artifacts
+        uses: actions/download-artifact@v8
+        with:
+          path: manager
+          name: "Manager-release"
+          merge-multiple: true
+
+      - name: Download LKM artifacts
+        uses: actions/download-artifact@v8
+        with:
+          path: lkm
+          pattern: "*-lkm"
+
+      - name: Prepare LKM release assets
         run: |
-          set -eux
-          COMMIT_COUNT=$(git rev-list --count HEAD)
-          VERSION_CODE=$((30000 + COMMIT_COUNT + 996))
-          echo "version_code=$VERSION_CODE" >> "$GITHUB_OUTPUT"
-          echo "KernelSU version code: $VERSION_CODE (main commits: $COMMIT_COUNT)"
-
-  build-lkm:
-    needs: [determine-version]
-    uses: ./.github/workflows/build-lkm.yml
-    with:
-      version_code: ${{ needs.determine-version.outputs.version_code }}
-      release_build: true
-    secrets: inherit
-
-  build-ksuinit:
-    uses: ./.github/workflows/ksuinit.yml
-
-  build-builtzygisk:
-    uses: ./.github/workflows/builtzygisk.yml
-
-  build-ksud:
-    needs: [build-lkm, build-ksuinit, build-builtzygisk]
-    uses: ./.github/workflows/ksud.yml
-    with:
-      pack_lkm: true
-      pack_ksuinit: true
-      pack_builtzygisk: true
-
-  manager:
-    needs: build-ksud
-    uses: ./.github/workflows/manager.yml
-    with:
-      artifacts_run: ''
-      release_build: true
-    secrets: inherit
-
-  publish:
-    needs: manager
-    uses: ./.github/workflows/publish.yml
-    with:
-      release_upload: true
-    secrets: inherit
-
-  assemble:
-    needs: [build-lkm, build-ksuinit, build-ksud, manager]
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        env:
-          TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          set -eux
-          remote="https://git.zako.shirkneko.top:20004"
-          mirror="/ci/repo-cache/${GITHUB_REPOSITORY}.git"
-          # New repositories may not be writable under /ci on shared runners.
-          if ! mkdir -p "$(dirname "$mirror")" 2>/dev/null; then
-            mirror="${RUNNER_TEMP:-/tmp}/repo-cache/${GITHUB_REPOSITORY}.git"
-            mkdir -p "$(dirname "$mirror")"
-          fi
-          # Missing mirrors (new or renamed repositories) fall back to GitHub.
-          if ! timeout 15 git ls-remote "$remote/${GITHUB_REPOSITORY}.git" >/dev/null 2>&1; then
-            remote="https://github.com"
-          fi
-          if [ ! -d "$mirror" ]; then
-            # The token must not appear in the trace of `set -x`.
-            set +x
-            if [ "$remote" = "https://github.com" ]; then
-              # Anonymous clone: GITHUB_TOKEN is not accepted by every runner.
-              GIT_TERMINAL_PROMPT=0 git clone -q --mirror "https://github.com/${GITHUB_REPOSITORY}.git" "$mirror"
-            else
-              git -c "http.${remote}/.extraHeader=Authorization: token ${TOKEN}" \
-                clone -q --mirror "${remote}/${GITHUB_REPOSITORY}.git" "$mirror"
-            fi
-            set -x
-          fi
-          git clone -q --shared --no-checkout "$mirror" .
-          git checkout -q "${GITHUB_SHA}"
-
-      - name: Collect release files
-        run: |
-          set -eux
-          . .github/scripts/ci/common.sh
-          mkdir -p artifacts
-          for name in Manager \
-                      ksud-aarch64-linux-android ksud-armv7-linux-androideabi \
-                      ksud-x86_64-linux-android ksud-riscv64-linux-android \
-                      ksuinit-aarch64 ksuinit-arm ksuinit-x86_64 ksuinit-riscv64; do
-            if ci_artifact_exists "$name"; then
-              ci_artifact_get "$name" "artifacts/$name"
-            fi
-          done
-          # The LKM artifacts are named per KMI, so pick them up by pattern.
-          for dir in "$CI_ARTIFACT_ROOT"/*-android*-lkm; do
-            [ -d "$dir" ] || continue
-            name="$(basename "$dir")"
-            ci_artifact_get "$name" "artifacts/$name"
-          done
-          # The zygisk payload is what ksud embeds; publishing it as well makes the
-          # release self-explanatory instead of relying on a binary inspection.
-          for arch in aarch64 arm x86_64 riscv64; do
-            if ci_artifact_exists "builtzygisk-$arch"; then
-              ci_artifact_get "builtzygisk-$arch" "artifacts/builtzygisk-$arch"
-            fi
-          done
-
-          out="${CI_ARTIFACT_ROOT}/release"
-          mkdir -p "$out" "$out/lkm" "$out/ksud" "$out/ksuinit"
-
-          cp -f artifacts/Manager/*.apk "$out"/ 2>/dev/null || true
-
-          for d in artifacts/*-android*-lkm; do
+          mkdir -p release-lkm
+          for d in lkm/*/; do
             [ -d "$d" ] || continue
-            name="$(basename "$d")"
-            cp -f "$d"/*_kernelsu.ko "$out/lkm/lkm-${name%-lkm}_kernelsu.ko"
-          done
-
-          for d in artifacts/ksud-*; do
-            [ -d "$d" ] || continue
-            cp -f "$d"/ksud* "$out/ksud/$(basename "$d")" 2>/dev/null || true
-          done
-
-          for d in artifacts/ksuinit-*; do
-            [ -d "$d" ] || continue
-            cp -f "$d"/ksuinit "$out/ksuinit/$(basename "$d")" 2>/dev/null || true
-          done
-
-          # Flat release assets: the payload names repeat across architectures,
-          # so they are prefixed instead of kept in per-arch directories.
-          for d in artifacts/builtzygisk-*; do
-            [ -d "$d" ] || continue
-            arch="${d##*builtzygisk-}"
-            # an older builder nested the files under an arch directory
-            [ -d "$d/$arch" ] && d="$d/$arch"
-            for f in "$d"/*; do
-              [ -f "$f" ] || continue
-              cp -f "$f" "$out/zygisk-${arch}-$(basename "$f")"
+            artifact=$(basename "$d")
+            for f in $(find "$d" -type f -name "*.ko"); do
+              base=$(basename "$f")
+              cp "$f" "release-lkm/${artifact}-${base}"
             done
           done
+          echo "LKM release assets:"
+          ls -l release-lkm
+          # Fail early on duplicate basenames instead of hitting
+          # softprops "already exists (race condition)" errors.
+          test -n "$(ls release-lkm/*.ko 2>/dev/null)"
 
-          find "$out" -type f | sort
-          test -n "$(ls -A "$out")"
-          echo "release files collected in ${out}"
+      - name: Download Tamper LKM artifacts
+        uses: actions/download-artifact@v8
+        with:
+          path: lkm-tamper
+          pattern: "*-lkm-tamper"
 
-  # A tag push publishes a real release with every artifact attached: the kernel
-  # modules, ksud, ksuinit and the manager APK. Without this the release only
-  # existed on the runner host.
-  publish-release:
-    needs: [assemble]
-    runs-on: ubuntu-latest
-    steps:
-      - name: Determine pre-release
-        id: prerelease
+      - name: Prepare Tamper LKM release assets
         run: |
-          set -eu
-          # v1.0.0-beta1/v1.0.0-rc1 must not become the stable "latest" release
-          # that the manager's update check serves.
+          mkdir -p release-lkm-tamper
+          for d in lkm-tamper/*/; do
+            [ -d "$d" ] || continue
+            artifact=$(basename "$d")
+            for f in $(find "$d" -type f -name "*.ko"); do
+              base=$(basename "$f")
+              cp "$f" "release-lkm-tamper/${artifact}-${base}"
+            done
+          done
+          echo "Tamper LKM release assets:"
+          ls -l release-lkm-tamper
+          test -n "$(ls release-lkm-tamper/*.ko 2>/dev/null)"
+
+      - name: Check pre-release tag
+        id: is_rc_tag
+        run: |
           case "${GITHUB_REF_NAME:-}" in
-            *-alpha* | *-beta* | *-rc*) echo "value=true" >> "$GITHUB_OUTPUT" ;;
-            *) echo "value=false" >> "$GITHUB_OUTPUT" ;;
+            *-alpha* | *-beta* | *-rc*) echo "IS_RC_TAG=true" >> "$GITHUB_OUTPUT" ;;
+            *) echo "IS_RC_TAG=false" >> "$GITHUB_OUTPUT" ;;
           esac
 
-      - name: Upload the release assets
-        if: github.ref_type == 'tag'
-        env:
-          # Dedicated token with write:repository. The built-in GITHUB_TOKEN is
-          # only a fallback: it may lack release permissions on this instance.
-          API_TOKEN: ${{ secrets.RELEASE_API_TOKEN || vars.RELEASE_API_TOKEN || secrets.GITHUB_TOKEN }}
-          PRERELEASE: ${{ steps.prerelease.outputs.value }}
-        run: |
-          set -eu
-          # This job has no checkout: it only reads the files the assemble job
-          # wrote, so common.sh is not available and not needed here.
-          site="${FORGEJO_PUBLIC_URL:-https://git.zako.shirkneko.top:20004}"
-          api="${site}/api/v1/repos/${GITHUB_REPOSITORY}"
-          auth="Authorization: token ${API_TOKEN}"
-          tag="${GITHUB_REF_NAME}"
-          prerelease="${PRERELEASE:-false}"
-          dir="/ci/runs/${GITHUB_RUN_ID}/release"
-          test -d "$dir"
-          echo "publishing ${tag} from ${dir} (prerelease=${prerelease})"
-
-          net() {
-            curl -sS --retry 5 --retry-all-errors --retry-delay 2 \
-              --connect-timeout 10 --max-time 300 "$@"
-          }
-          net_once() {
-            curl -sS --retry 5 --retry-connrefused --retry-delay 2 \
-              --connect-timeout 10 --max-time 300 "$@"
-          }
-
-          release="$api/releases/tags/$tag"
-          status="$(net -o /tmp/release.json -w '%{http_code}' -H "$auth" "$release" || true)"
-          if [ "$status" = "200" ]; then
-            id="$(jq -r '.id' /tmp/release.json)"
-            # A re-run must correct the flag too, not only replace the assets.
-            payload="$(jq -nc --argjson prerelease "$prerelease" '{prerelease: $prerelease}')"
-            net -f -X PATCH -H "$auth" -H 'Content-Type: application/json' \
-              -d "$payload" "$api/releases/${id}" >/dev/null
-            echo "existing release id=${id} prerelease=${prerelease}"
-          else
-            payload="$(jq -nc --arg tag "$tag" --arg sha "$GITHUB_SHA" --argjson prerelease "$prerelease" \
-              '{tag_name: $tag, target_commitish: $sha, name: $tag, prerelease: $prerelease,
-                body: "Release assets built by CI."}')"
-            net_once -X POST -H "$auth" -H 'Content-Type: application/json' \
-              -d "$payload" "$api/releases" >/dev/null
-            net -H "$auth" "$release" -o /tmp/release.json
-            id="$(jq -r '.id' /tmp/release.json)"
-            echo "created release id=${id}"
-          fi
-          test -n "$id" && [ "$id" != "null" ]
-
-          # Re-runs replace the previous assets instead of piling up duplicates.
-          for asset_id in $(jq -r '.assets[].id' /tmp/release.json); do
-            net -X DELETE -H "$auth" "$api/releases/${id}/assets/$asset_id" >/dev/null
-          done
-
-          # Flat asset names: lkm-<kmi>_kernelsu.ko, ksud-<triple>,
-          # ksuinit-<arch> and the manager APK are already unique.
-          find "$dir" -type f | sort | while read -r f; do
-            name="$(basename "$f")"
-            net_once -f -X POST -H "$auth" -F "attachment=@${f}" \
-              "$api/releases/${id}/assets?name=${name}" >/dev/null
-            echo "uploaded ${name}"
-          done
-          echo "release ${tag} updated"
-
-  # The runner has no artifact service, so a build only lives in the /ci volume
-  # where nobody can reach it. This copies it to the host directory the compose
-  # stack mounts at /out and keeps the five most recent builds.
-  archive:
-    needs: [publish-release]
-    if: always()
-    runs-on: ubuntu-latest
-    steps:
-      - name: Export the build to the out directory
-        run: |
-          set -eux
-          # This job has no checkout: it only reads what the other jobs wrote.
-          CI_ARTIFACT_ROOT="/ci/runs/${GITHUB_RUN_ID:-local}"
-          if [ ! -d /out ]; then
-            echo "no /out mount on this runner, skipping the archive"
-            exit 0
-          fi
-          # Run numbers are counted per workflow, so ci and release would collide
-          # on the same number; the workflow name keeps the folders apart.
-          workflow="$(printf '%s' "${GITHUB_WORKFLOW:-run}" | tr ' ' '-')"
-          dest="/out/${workflow}-${GITHUB_RUN_NUMBER:-$GITHUB_RUN_ID}"
-          rm -rf "$dest"
-          mkdir -p "$dest"
-          cp -a "$CI_ARTIFACT_ROOT"/. "$dest"/
-          # the R8 mapping is not something to keep
-          rm -rf "$dest/Manager-mappings"
-          # keep the five most recent builds, newest first by mtime
-          ls -1t /out | tail -n +6 | while read -r old; do
-            rm -rf "/out/$old"
-          done
-          echo "archived to ${dest}"
-          du -sh "$dest"
-          echo "kept: $(ls -1t /out | tr '\n' ' ')"
+      - name: release
+        uses: softprops/action-gh-release@v3
+        with:
+          prerelease: ${{ steps.is_rc_tag.outputs.IS_RC_TAG == 'true' }}
+          generate_release_notes: true
+          body_path: CHANGELOG.md
+          files: |
+            manager/*.apk
+            release-lkm/*.ko
+            release-lkm-tamper/*.ko

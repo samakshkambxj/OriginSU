@@ -1,8 +1,5 @@
 name: Build KernelSU Kernel Module
 
-# Self-hosted runner variant: the DDK image is pulled once and reused locally,
-# checkout and artifact transport use plain scripts. Artifacts land in
-# ${CI_ARTIFACT_ROOT} on the runner host instead of the GitHub artifact service.
 on:
   workflow_call:
     inputs:
@@ -10,243 +7,180 @@ on:
         description: 'KMI version'
         required: true
         type: string
+      arch:
+        description: "target's architecture (arm64/x86_64)"
+        required: true
+        type: string
+        default: 'arm64'
       ddk_release:
         description: 'DDK release version'
         required: false
         default: '20260828'
         type: string
-      package_name:
-        description: 'package name of manager'
+      expected_pr_build_size:
+        description: 'Second expected signature size (for PR builds)'
         required: false
         default: ''
         type: string
-      expected_size:
-        description: 'expected signature size'
+      expected_pr_build_hash:
+        description: 'Second expected signature hash (for PR builds)'
         required: false
         default: ''
         type: string
-      expected_hash:
-        description: 'expected signature hash'
+      hook:
+        description: 'Kconfig hook flavor suffix (TRACEPOINT_HOOK or TAMPER_SYSCALL_TABLE)'
         required: false
-        default: ''
+        default: 'TRACEPOINT_HOOK'
         type: string
-      release_build:
-        description: 'Mark version metadata as a release build'
-        required: false
-        default: false
-        type: boolean
-      version_code:
-        description: 'Consistent KernelSU version code for all module builds'
-        required: false
-        default: ''
-        type: string
+
 
 jobs:
   build-kernelsu-ko:
-    name: Build kernelsu.ko for ${{ inputs.kmi }}
+    name: Build kernelsu.ko for ${{ inputs.kmi }} ${{ inputs.arch }}
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/ylarod/ddk-min:${{ inputs.kmi }}-${{ inputs.ddk_release }}
       options: --privileged
-    env:
-      KMI: ${{ inputs.kmi }}
-      PACKAGE_NAME: ${{ inputs.package_name }}
-      EXPECTED_SIZE: ${{ inputs.expected_size }}
-      EXPECTED_HASH: ${{ inputs.expected_hash }}
-      KSU_VERSION_CODE: ${{ inputs.version_code }}
-      RELEASE_BUILD: ${{ inputs.release_build }}
 
     steps:
-      - name: Checkout source code
-        env:
-          TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          set -eux
-          remote="https://git.zako.shirkneko.top:20004"
-          mirror="/ci/repo-cache/${GITHUB_REPOSITORY}.git"
-          # New repositories may not be writable under /ci on shared runners.
-          if ! mkdir -p "$(dirname "$mirror")" 2>/dev/null; then
-            mirror="${RUNNER_TEMP:-/tmp}/repo-cache/${GITHUB_REPOSITORY}.git"
-            mkdir -p "$(dirname "$mirror")"
-          fi
-          # Missing mirrors (new or renamed repositories) fall back to GitHub.
-          if ! timeout 15 git ls-remote "$remote/${GITHUB_REPOSITORY}.git" >/dev/null 2>&1; then
-            remote="https://github.com"
-          fi
-          # One bare mirror per repository lives on the runner host, shared by
-          # every job through the /ci volume. Re-downloading the whole history
-          # per job made parallel jobs stall on the same fetch.
-          if [ ! -d "$mirror" ]; then
-            # The token must not appear in the trace of `set -x`.
-            set +x
-            if [ "$remote" = "https://github.com" ]; then
-              # Anonymous clone: GITHUB_TOKEN is not accepted by every runner.
-              GIT_TERMINAL_PROMPT=0 git clone -q --mirror "https://github.com/${GITHUB_REPOSITORY}.git" "$mirror"
-            else
-              git -c "http.${remote}/.extraHeader=Authorization: token ${TOKEN}" \
-                clone -q --mirror "${remote}/${GITHUB_REPOSITORY}.git" "$mirror"
-            fi
-            set -x
-          elif command -v flock >/dev/null 2>&1; then
-            (
-              flock 9
-              git --git-dir="$mirror" fetch -q --prune origin \
-                "+refs/heads/*:refs/heads/*" "+refs/tags/*:refs/tags/*"
-            ) 9>"${mirror}.lock"
-          else
-            git --git-dir="$mirror" fetch -q --prune origin \
-              "+refs/heads/*:refs/heads/*" "+refs/tags/*:refs/tags/*"
-          fi
-          git clone -q --shared --no-checkout "$mirror" .
-          git checkout -q "${GITHUB_SHA}"
+    - name: Checkout source code
+      uses: actions/checkout@v7
+      with:
+        # Full history: Kbuild derives KSU_VERSION from rev-list --count.
+        fetch-depth: 0
 
-      - name: Pick make parallelism
-        run: |
-          set -eux
-          . .github/scripts/ci/parallel.sh
-          jobs=$(ci_parallel_acquire 4 "${GITHUB_RUN_ID}-${KMI}")
-          echo "MAKEFLAGS=-j$jobs" >> "$GITHUB_ENV"
-          echo "make -j$jobs, slots in use: $(find /ci/slots -type f | wc -l)"
+    - name: Add Safe Directory
+      run: |
+        git config --global --add safe.directory '*'
 
-      - name: Build kernelsu.ko
-        run: |
-          set -eux
-          cd kernel
+    - name: Build kernelsu.ko
+      if: ${{ inputs.arch == 'arm64' }}
+      env:
+        EXPECTED_PR_BUILD_SIZE: ${{ inputs.expected_pr_build_size }}
+        EXPECTED_PR_BUILD_HASH: ${{ inputs.expected_pr_build_hash }}
+      run: |
+        cd kernel
 
-          echo "=== Building kernelsu.ko for KMI: ${KMI} ==="
+        echo "=== Building kernelsu.ko for KMI: ${{ inputs.kmi }} ==="
 
-          set -- CONFIG_KSU=m CONFIG_KPM=y CC=clang
-          if [ -n "$PACKAGE_NAME" ]; then
-            set -- "$@" "KSU_PACKAGE_NAME=$PACKAGE_NAME"
-          fi
-          if [ -n "$EXPECTED_SIZE" ]; then
-            set -- "$@" "KSU_EXPECTED_SIZE=$EXPECTED_SIZE"
-          fi
-          if [ -n "$EXPECTED_HASH" ]; then
-            set -- "$@" "KSU_EXPECTED_HASH=$EXPECTED_HASH"
-          fi
-          if [ -n "$KSU_VERSION_CODE" ]; then
-            set -- "$@" "KSU_VERSION=$KSU_VERSION_CODE"
-          fi
-          if [ "$RELEASE_BUILD" = "true" ]; then
-            set -- "$@" "KSU_BUILD_REF=release"
-          fi
-          if [ "${GITHUB_EVENT_NAME:-}" = "pull_request" ]; then
-            set -- "$@" "KSU_IS_PR_BUILD=1"
-          fi
-          make "$@"
+        EXTRA_ARGS=""
+        if [ -n "$EXPECTED_PR_BUILD_SIZE" ] && [ -z "$EXPECTED_PR_BUILD_HASH" ]; then
+          echo "ERROR: expected_pr_build_hash must be provided when expected_pr_build_size is set."
+          exit 1
+        fi
+        if [ -z "$EXPECTED_PR_BUILD_SIZE" ] && [ -n "$EXPECTED_PR_BUILD_HASH" ]; then
+          echo "ERROR: expected_pr_build_size must be provided when expected_pr_build_hash is set."
+          exit 1
+        fi
+        if [ -n "$EXPECTED_PR_BUILD_SIZE" ]; then
+          EXTRA_ARGS="KSU_EXPECTED_PR_BUILD_SIZE=$EXPECTED_PR_BUILD_SIZE KSU_EXPECTED_PR_BUILD_HASH=$EXPECTED_PR_BUILD_HASH"
+        fi
 
-          echo "=== Build completed ==="
+        CONFIG_KSU=m CONFIG_KSU_MULTI_MANAGER_SUPPORT=y CONFIG_KSU_${{ inputs.hook }}=y CC=clang make $EXTRA_ARGS
+        
+        echo "=== Build completed ==="
+        # Create output directory in GitHub workspace
+        OUT_DIR=/github/workspace/out/aarch64
+        mkdir -p $OUT_DIR
 
-          OUT_DIR="${GITHUB_WORKSPACE}/out/aarch64"
-          mkdir -p "$OUT_DIR"
+        # Copy with KMI-specific naming
+        OUTPUT_NAME="${{ inputs.kmi }}_kernelsu.ko"
+        cp kernelsu.ko "$OUT_DIR/$OUTPUT_NAME"
+        
+        echo "Copied to: $OUT_DIR/$OUTPUT_NAME"
+        ls -la "$OUT_DIR/$OUTPUT_NAME"
+        echo "Size: $(du -h "$OUT_DIR/$OUTPUT_NAME" | cut -f1)"
+        llvm-strip -d "$OUT_DIR/$OUTPUT_NAME"
+        echo "Size after stripping: $(du -h "$OUT_DIR/$OUTPUT_NAME" | cut -f1)"
 
-          # Copy with KMI-specific naming
-          cp kernelsu.ko "${OUT_DIR}/${KMI}_kernelsu.ko"
+    - name: Upload kernelsu.ko artifact
+      if: ${{ inputs.arch == 'arm64' }}
+      uses: actions/upload-artifact@v7
+      with:
+        name: aarch64-${{ inputs.kmi }}-lkm${{ inputs.hook == 'TAMPER_SYSCALL_TABLE' && '-tamper' || '' }}
+        path: |
+          /github/workspace/out/aarch64/${{ inputs.kmi }}_kernelsu.ko
 
-          echo "Copied to: ${OUT_DIR}/${KMI}_kernelsu.ko"
-          ls -la "${OUT_DIR}/${KMI}_kernelsu.ko"
-          echo "Size: $(du -h "${OUT_DIR}/${KMI}_kernelsu.ko" | cut -f1)"
-          llvm-strip -d "${OUT_DIR}/${KMI}_kernelsu.ko"
-          echo "Size after stripping: $(du -h "${OUT_DIR}/${KMI}_kernelsu.ko" | cut -f1)"
-          cp "${OUT_DIR}/${KMI}_kernelsu.ko" "${GITHUB_WORKSPACE}/out/${KMI}_kernelsu.ko"
+    - name: Build kernelsu.ko for x64
+      if: ${{ inputs.arch == 'x86_64' }}
+      env:
+        EXPECTED_PR_BUILD_SIZE: ${{ inputs.expected_pr_build_size }}
+        EXPECTED_PR_BUILD_HASH: ${{ inputs.expected_pr_build_hash }}
+      run: |
+        cd kernel
 
-      - name: Upload kernelsu.ko artifact
-        run: |
-          set -eux
-          . .github/scripts/ci/common.sh
-          ci_artifact_put "aarch64-${KMI}-lkm" \
-            "${GITHUB_WORKSPACE}/out/aarch64/${KMI}_kernelsu.ko"
+        echo "=== Preparing KDIR for x64 ==="
 
-      - name: Build kernelsu.ko for x64
-        run: |
-          set -eux
-          cd kernel
-          make clean
+        mkdir -p /opt/ddk/kdir-x64
+        unset ARCH
+        unset CROSS_COMPILE
+        export ARCH=x86_64
+        kmi=${{ inputs.kmi }}
+        pushd /opt/ddk/src/$kmi
+        export KDIR=/opt/ddk/kdir-x64/$kmi
 
-          echo "=== Preparing KDIR for x64 ==="
+        # ddk-min images contain the source tarball, whose modpost patch is
+        # not applied to the fresh x86 kdir.  Keep the patch idempotent so
+        # this also works when the image already contains one or more fixes.
+        MODPOST=scripts/mod/modpost.c
+        sed -i -E 's/^([[:space:]]*)check_exports\(mod\);/\1\/\/ check_exports(mod);/' "$MODPOST"
+        sed -i -E 's/^([[:space:]]*)s->module = exp->module;/\1\/\/ s->module = exp->module;/' "$MODPOST"
+        sed -i 's/^static void check_exports(/static void __attribute__((unused)) check_exports(/' "$MODPOST"
+        sed -i 's/__version_ext_names\\") =\\n/__version_ext_names\\") = \\"\\"\\n/' "$MODPOST"
 
-          mkdir -p /opt/ddk/kdir-x64
-          unset ARCH
-          unset CROSS_COMPILE
-          export ARCH=x86_64
-          kmi="$KMI"
-          pushd "/opt/ddk/src/${kmi}"
-          export KDIR="/opt/ddk/kdir-x64/${kmi}"
+        make O=$KDIR gki_defconfig
+        scripts/config --file $KDIR/.config -d LTO_CLANG -e LTO_NONE -d LTO_CLANG_THIN -d LTO_CLANG_FULL -d THINLTO
+        if [ "$kmi" == "android16-6.12" ] || [ "$kmi" == "android17-6.18" ]; then
+            scripts/config --file $KDIR/.config -e CONFIG_CFI_ICALL_NORMALIZE_INTEGERS
+        fi
+        make O=$KDIR modules_prepare
+        # Generate SELinux headers through Kbuild in this x86 output tree.
+        make O=$KDIR security/selinux/built-in.a
+        popd
+        
+        echo "=== Building x64 kernelsu.ko for KMI: ${{ inputs.kmi }} ==="
 
-          # ddk-min images contain the source tarball, whose modpost patch is
-          # not applied to the fresh x86 kdir.  Keep the patch idempotent so
-          # this also works when the image already contains one or more fixes.
-          MODPOST=scripts/mod/modpost.c
-          sed -i -E 's/^([[:space:]]*)check_exports\(mod\);/\1\/\/ check_exports(mod);/' "$MODPOST"
-          sed -i -E 's/^([[:space:]]*)s->module = exp->module;/\1\/\/ s->module = exp->module;/' "$MODPOST"
-          sed -i 's/^static void check_exports(/static void __attribute__((unused)) check_exports(/' "$MODPOST"
-          sed -i 's/__version_ext_names\\") =\\n/__version_ext_names\\") = \\"\\"\\n/' "$MODPOST"
+        EXTRA_ARGS=""
+        if [ -n "$EXPECTED_PR_BUILD_SIZE" ] && [ -z "$EXPECTED_PR_BUILD_HASH" ]; then
+          echo "ERROR: pr_build_hash must be provided when pr_build_size is set."
+          exit 1
+        fi
+        if [ -z "$EXPECTED_PR_BUILD_SIZE" ] && [ -n "$EXPECTED_PR_BUILD_HASH" ]; then
+          echo "ERROR: pr_build_size must be provided when pr_build_hash is set."
+          exit 1
+        fi
+        if [ -n "$EXPECTED_PR_BUILD_SIZE" ]; then
+          EXTRA_ARGS="KSU_EXPECTED_PR_BUILD_SIZE=$EXPECTED_PR_BUILD_SIZE KSU_EXPECTED_PR_BUILD_HASH=$EXPECTED_PR_BUILD_HASH"
+        fi
+        
+        MDIR=$(realpath .)
 
-          make O="$KDIR" gki_defconfig
-          scripts/config --file "$KDIR/.config" -d LTO_CLANG -e LTO_NONE \
-            -d LTO_CLANG_THIN -d LTO_CLANG_FULL -d THINLTO
-          if [ "$kmi" = "android16-6.12" ] || [ "$kmi" = "android17-6.18" ]; then
-            scripts/config --file "$KDIR/.config" -e CONFIG_CFI_ICALL_NORMALIZE_INTEGERS
-          fi
-          make O="$KDIR" modules_prepare
-          # Generate SELinux headers through Kbuild in this x86 output tree.
-          make O="$KDIR" security/selinux/built-in.a
-          popd
+        if [ "$kmi" == "android17-6.18" ]; then
+          make -C $KDIR M=$MDIR MO=$MDIR compile_commands.json modules CONFIG_KSU=m CONFIG_KSU_MULTI_MANAGER_SUPPORT=y CONFIG_KSU_${{ inputs.hook }}=y CONFIG_KSU_X86_PATCH_SYSCALL_DISPATCHER=y $EXTRA_ARGS
+        else
+          make -C $KDIR M=$MDIR src=$MDIR compile_commands.json modules CONFIG_KSU=m CONFIG_KSU_MULTI_MANAGER_SUPPORT=y CONFIG_KSU_${{ inputs.hook }}=y CONFIG_KSU_X86_PATCH_SYSCALL_DISPATCHER=y $EXTRA_ARGS
+        fi
 
-          echo "=== Building x64 kernelsu.ko for KMI: ${KMI} ==="
+        echo "=== Build completed ==="
 
-          set -- CONFIG_KSU=m CONFIG_KSU_X86_PATCH_SYSCALL_DISPATCHER=y
-          if [ -n "$PACKAGE_NAME" ]; then
-            set -- "$@" "KSU_PACKAGE_NAME=$PACKAGE_NAME"
-          fi
-          if [ -n "$EXPECTED_SIZE" ]; then
-            set -- "$@" "KSU_EXPECTED_SIZE=$EXPECTED_SIZE"
-          fi
-          if [ -n "$EXPECTED_HASH" ]; then
-            set -- "$@" "KSU_EXPECTED_HASH=$EXPECTED_HASH"
-          fi
-          if [ -n "$KSU_VERSION_CODE" ]; then
-            set -- "$@" "KSU_VERSION=$KSU_VERSION_CODE"
-          fi
-          if [ "$RELEASE_BUILD" = "true" ]; then
-            set -- "$@" "KSU_BUILD_REF=release"
-          fi
-          if [ "${GITHUB_EVENT_NAME:-}" = "pull_request" ]; then
-            set -- "$@" "KSU_IS_PR_BUILD=1"
-          fi
+        # Create output directory in GitHub workspace
+        OUT_DIR=/github/workspace/out/x86_64
+        mkdir -p $OUT_DIR
 
-          MDIR="$(realpath .)"
+        # Copy with KMI-specific naming
+        OUTPUT_NAME="${{ inputs.kmi }}_kernelsu.ko"
+        cp kernelsu.ko "$OUT_DIR/$OUTPUT_NAME"
+        
+        echo "Copied to: $OUT_DIR/$OUTPUT_NAME"
+        ls -la "$OUT_DIR/$OUTPUT_NAME"
+        echo "Size: $(du -h "$OUT_DIR/$OUTPUT_NAME" | cut -f1)"
+        llvm-strip -d "$OUT_DIR/$OUTPUT_NAME"
+        echo "Size after stripping: $(du -h "$OUT_DIR/$OUTPUT_NAME" | cut -f1)"
 
-          if [ "$kmi" = "android17-6.18" ]; then
-            make -C "$KDIR" M="$MDIR" MO="$MDIR" compile_commands.json modules "$@"
-          else
-            make -C "$KDIR" M="$MDIR" src="$MDIR" compile_commands.json modules "$@"
-          fi
-
-          echo "=== Build completed ==="
-
-          OUT_DIR="${GITHUB_WORKSPACE}/out/x86_64"
-          mkdir -p "$OUT_DIR"
-
-          cp kernelsu.ko "${OUT_DIR}/${KMI}_kernelsu.ko"
-
-          echo "Copied to: ${OUT_DIR}/${KMI}_kernelsu.ko"
-          ls -la "${OUT_DIR}/${KMI}_kernelsu.ko"
-          echo "Size: $(du -h "${OUT_DIR}/${KMI}_kernelsu.ko" | cut -f1)"
-          llvm-strip -d "${OUT_DIR}/${KMI}_kernelsu.ko"
-          echo "Size after stripping: $(du -h "${OUT_DIR}/${KMI}_kernelsu.ko" | cut -f1)"
-
-      - name: Upload x64 kernelsu.ko artifact
-        run: |
-          set -eux
-          . .github/scripts/ci/common.sh
-          ci_artifact_put "x86_64-${KMI}-lkm" \
-            "${GITHUB_WORKSPACE}/out/x86_64/${KMI}_kernelsu.ko"
-
-      - name: Release the parallelism slot
-        if: always()
-        run: |
-          set -eux
-          . .github/scripts/ci/parallel.sh
-          ci_parallel_release "${GITHUB_RUN_ID}-${KMI}"
+    - name: Upload x64 kernelsu.ko artifact
+      if: ${{ inputs.arch == 'x86_64' }}
+      uses: actions/upload-artifact@v7
+      with:
+        name: x86_64-${{ inputs.kmi }}-lkm${{ inputs.hook == 'TAMPER_SYSCALL_TABLE' && '-tamper' || '' }}
+        path: |
+          /github/workspace/out/x86_64/${{ inputs.kmi }}_kernelsu.ko

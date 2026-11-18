@@ -30,6 +30,11 @@ val defaultManagerName = if (isPrBuild) "KazeSU PR" else "KazeSU"
 val managerPackageName = project.findProperty("KSU_PACKAGE_NAME")?.toString() ?: defaultManagerPackageName
 val managerName = project.findProperty("KSU_NAME")?.toString() ?: defaultManagerName
 
+// Only release builds are split per ABI; debug stays a single universal APK so
+// the tests and local installs stay simple.
+val isReleaseTask =
+    project.gradle.startParameter.taskNames.any { it.contains("Release", ignoreCase = true) }
+
 apksign {
     storeFileProperty = "KEYSTORE_FILE"
     storePasswordProperty = "KEYSTORE_PASSWORD"
@@ -99,6 +104,15 @@ android {
                     )
                 }
             }
+        }
+    }
+
+    splits {
+        abi {
+            isEnable = isReleaseTask
+            reset()
+            include("arm64-v8a", "x86_64", "armeabi-v7a", "riscv64")
+            isUniversalApk = true
         }
     }
 

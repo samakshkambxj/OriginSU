@@ -1,9 +1,5 @@
 name: Build ksuinit
-
-# Self-hosted runner variant: no marketplace actions. NDK/rustup come from
-# .github/scripts/ci and artifacts go to ${CI_ARTIFACT_ROOT} on the runner host.
 on:
-  workflow_dispatch:
   workflow_call:
     inputs:
       os:
@@ -11,182 +7,134 @@ on:
         type: string
         default: ubuntu-latest
 jobs:
-  build:
+  build-aarch64:
     runs-on: ${{ inputs.os }}
-    env:
-      CARGO_HOME: /ci/tools/cargo
-      RUSTUP_HOME: /usr/local/rustup
-      # Same reason as MAKEFLAGS in ddk-lkm: cap per-job parallelism.
-      CARGO_BUILD_JOBS: "6"
     steps:
-      - name: Checkout
-        env:
-          TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          set -eux
-          remote="https://git.zako.shirkneko.top:20004"
-          mirror="/ci/repo-cache/${GITHUB_REPOSITORY}.git"
-          # New repositories may not be writable under /ci on shared runners.
-          if ! mkdir -p "$(dirname "$mirror")" 2>/dev/null; then
-            mirror="${RUNNER_TEMP:-/tmp}/repo-cache/${GITHUB_REPOSITORY}.git"
-            mkdir -p "$(dirname "$mirror")"
-          fi
-          # Missing mirrors (new or renamed repositories) fall back to GitHub.
-          if ! timeout 15 git ls-remote "$remote/${GITHUB_REPOSITORY}.git" >/dev/null 2>&1; then
-            remote="https://github.com"
-          fi
-          # One bare mirror per repository lives on the runner host, shared by
-          # every job through the /ci volume. Re-downloading the whole history
-          # per job made parallel jobs stall on the same fetch.
-          if [ ! -d "$mirror" ]; then
-            # The token must not appear in the trace of `set -x`.
-            set +x
-            if [ "$remote" = "https://github.com" ]; then
-              # Anonymous clone: GITHUB_TOKEN is not accepted by every runner.
-              GIT_TERMINAL_PROMPT=0 git clone -q --mirror "https://github.com/${GITHUB_REPOSITORY}.git" "$mirror"
-            else
-              git -c "http.${remote}/.extraHeader=Authorization: token ${TOKEN}" \
-                clone -q --mirror "${remote}/${GITHUB_REPOSITORY}.git" "$mirror"
-            fi
-            set -x
-          elif command -v flock >/dev/null 2>&1; then
-            (
-              flock 9
-              git --git-dir="$mirror" fetch -q --prune origin \
-                "+refs/heads/*:refs/heads/*" "+refs/tags/*:refs/tags/*"
-            ) 9>"${mirror}.lock"
-          else
-            git --git-dir="$mirror" fetch -q --prune origin \
-              "+refs/heads/*:refs/heads/*" "+refs/tags/*:refs/tags/*"
-          fi
-          git clone -q --shared --no-checkout "$mirror" .
-          git checkout -q "${GITHUB_SHA}"
+    - uses: actions/checkout@v7
+      with:
+        fetch-depth: 0
+        
+    - name: Setup rustup
+      run: |
+        rustup update nightly
+        rustup target add aarch64-linux-android
 
-      - name: Check toolchain
-        run: |
-          set -eux
-          rustup toolchain list
-          rustup target list --installed
-          test -x "${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin/clang"
+    - name: Setup NDK
+      uses: nttld/setup-ndk@v1
+      id: setup-ndk
+      with:
+        ndk-version: r29
 
-      - name: Build ksuinit
-        run: |
-          set -eux
-          source .github/scripts/setup-rust-build.sh aarch64-linux-android 26
-          BUILTINS="$($CLANG_PATH --print-resource-dir)/lib/linux/libclang_rt.builtins-aarch64-android.a"
-          test -f "$BUILTINS"
-          export RUSTFLAGS="-C target-feature=+crt-static -C link-arg=-Wl,-z,max-page-size=16384 -C link-arg=-Wno-unused-command-line-argument -C link-arg=$BUILTINS"
-          cargo build --package ksuinit --target=aarch64-linux-android --release
+    - name: Setup aarch64 rust cache
+      uses: Swatinem/rust-cache@v2
+      with:
+        prefix-key: ksuinit-aarch64
+        workspaces: userspace/ksuinit
+        cache-targets: true
+        add-job-id-key: false
+        add-rust-environment-hash-key: false
+        save-if: ${{ github.event_name != 'pull_request' }}
 
-      - name: Upload ksuinit artifact
-        run: |
-          set -eux
-          . .github/scripts/ci/common.sh
-          ci_artifact_put ksuinit-aarch64 \
-            target/aarch64-linux-android/release/ksuinit
+    - name: Build ksuinit
+      env:
+        ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
+      run: |
+        source .github/scripts/setup-rust-build.sh aarch64-linux-android 26
+        BUILTINS="$($CLANG_PATH --print-resource-dir)/lib/linux/libclang_rt.builtins-aarch64-android.a"
+        test -f "$BUILTINS"
+        export RUSTFLAGS="-C target-feature=+crt-static -C link-arg=-Wl,-z,max-page-size=16384 -C link-arg=-Wno-unused-command-line-argument -C link-arg=$BUILTINS"
+        cd userspace/ksuinit
+        cargo build --package ksuinit --target=aarch64-linux-android --release
 
-      - name: Build ksuinit ARMv7
-        run: |
-          set -eux
-          source .github/scripts/setup-rust-build.sh armv7-linux-androideabi 26
-          BUILTINS="$($CLANG_PATH --print-resource-dir)/lib/linux/libclang_rt.builtins-arm-android.a"
-          test -f "$BUILTINS"
-          export RUSTFLAGS="-C target-feature=+crt-static -C link-arg=-Wl,-z,max-page-size=16384 -C link-arg=-Wno-unused-command-line-argument -C link-arg=$BUILTINS"
-          cargo build --package ksuinit --target=armv7-linux-androideabi --release
+    - name: Upload ksuinit artifact
+      uses: actions/upload-artifact@v7
+      with:
+        name: ksuinit-aarch64
+        path: userspace/ksuinit/target/aarch64-linux-android/release/ksuinit
 
-      - name: Upload ARMv7 ksuinit artifact
-        run: |
-          set -eux
-          . .github/scripts/ci/common.sh
-          ci_artifact_put ksuinit-arm \
-            target/armv7-linux-androideabi/release/ksuinit
+  build-x86_64:
+    runs-on: ${{ inputs.os }}
+    steps:
+    - uses: actions/checkout@v7
+      with:
+        fetch-depth: 0
+        
+    - name: Setup rustup
+      run: |
+        rustup update nightly
+        rustup target add x86_64-linux-android
 
-      - name: Build ksuinit x64
-        run: |
-          set -eux
-          source .github/scripts/setup-rust-build.sh x86_64-linux-android 26
-          BUILTINS="$($CLANG_PATH --print-resource-dir)/lib/linux/libclang_rt.builtins-x86_64-android.a"
-          test -f "$BUILTINS"
-          export RUSTFLAGS="-C target-feature=+crt-static -C link-arg=-Wl,-z,max-page-size=16384 -C link-arg=-Wno-unused-command-line-argument -C link-arg=$BUILTINS"
-          cargo build --package ksuinit --target=x86_64-linux-android --release
+    - name: Setup NDK
+      uses: nttld/setup-ndk@v1
+      id: setup-ndk
+      with:
+        ndk-version: r29
 
-      - name: Upload x64 ksuinit artifact
-        run: |
-          set -eux
-          . .github/scripts/ci/common.sh
-          ci_artifact_put ksuinit-x86_64 \
-            target/x86_64-linux-android/release/ksuinit
+    - name: Setup x86_64 rust cache
+      uses: Swatinem/rust-cache@v2
+      with:
+        prefix-key: ksuinit-x86_64
+        workspaces: userspace/ksuinit
+        cache-targets: true
+        add-job-id-key: false
+        add-rust-environment-hash-key: false
+        save-if: ${{ github.event_name != 'pull_request' }}
+
+    - name: Build ksuinit
+      env:
+        ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
+      run: |
+        source .github/scripts/setup-rust-build.sh x86_64-linux-android 26
+        BUILTINS="$($CLANG_PATH --print-resource-dir)/lib/linux/libclang_rt.builtins-x86_64-android.a"
+        test -f "$BUILTINS"
+        export RUSTFLAGS="-C target-feature=+crt-static -C link-arg=-Wl,-z,max-page-size=16384 -C link-arg=-Wno-unused-command-line-argument -C link-arg=$BUILTINS"
+        cd userspace/ksuinit
+        cargo build --package ksuinit --target=x86_64-linux-android --release
+
+    - name: Upload ksuinit artifact
+      uses: actions/upload-artifact@v7
+      with:
+        name: ksuinit-x86_64
+        path: userspace/ksuinit/target/x86_64-linux-android/release/ksuinit
 
   build-riscv64:
     runs-on: ${{ inputs.os }}
-    env:
-      CARGO_HOME: /ci/tools/cargo
-      RUSTUP_HOME: /usr/local/rustup
     steps:
-      - name: Checkout
-        env:
-          TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          set -eux
-          remote="https://git.zako.shirkneko.top:20004"
-          mirror="/ci/repo-cache/${GITHUB_REPOSITORY}.git"
-          # New repositories may not be writable under /ci on shared runners.
-          if ! mkdir -p "$(dirname "$mirror")" 2>/dev/null; then
-            mirror="${RUNNER_TEMP:-/tmp}/repo-cache/${GITHUB_REPOSITORY}.git"
-            mkdir -p "$(dirname "$mirror")"
-          fi
-          # Missing mirrors (new or renamed repositories) fall back to GitHub.
-          if ! timeout 15 git ls-remote "$remote/${GITHUB_REPOSITORY}.git" >/dev/null 2>&1; then
-            remote="https://github.com"
-          fi
-          # One bare mirror per repository lives on the runner host, shared by
-          # every job through the /ci volume. Re-downloading the whole history
-          # per job made parallel jobs stall on the same fetch.
-          if [ ! -d "$mirror" ]; then
-            # The token must not appear in the trace of `set -x`.
-            set +x
-            if [ "$remote" = "https://github.com" ]; then
-              # Anonymous clone: GITHUB_TOKEN is not accepted by every runner.
-              GIT_TERMINAL_PROMPT=0 git clone -q --mirror "https://github.com/${GITHUB_REPOSITORY}.git" "$mirror"
-            else
-              git -c "http.${remote}/.extraHeader=Authorization: token ${TOKEN}" \
-                clone -q --mirror "${remote}/${GITHUB_REPOSITORY}.git" "$mirror"
-            fi
-            set -x
-          elif command -v flock >/dev/null 2>&1; then
-            (
-              flock 9
-              git --git-dir="$mirror" fetch -q --prune origin \
-                "+refs/heads/*:refs/heads/*" "+refs/tags/*:refs/tags/*"
-            ) 9>"${mirror}.lock"
-          else
-            git --git-dir="$mirror" fetch -q --prune origin \
-              "+refs/heads/*:refs/heads/*" "+refs/tags/*:refs/tags/*"
-          fi
-          git clone -q --shared --no-checkout "$mirror" .
-          git checkout -q "${GITHUB_SHA}"
+    - uses: actions/checkout@v7
+      with:
+        fetch-depth: 0
 
-      - name: Check toolchain
-        run: |
-          set -eux
-          rustup toolchain list
-          rustup target list --installed
-          test -x "${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin/clang"
+    - name: Setup Rust
+      run: rustup toolchain install nightly --profile minimal --component rust-src
 
-      - name: Build RISC-V ksuinit
-        run: |
-          set -eux
-          source .github/scripts/setup-rust-build.sh riscv64-linux-android 35
-          BUILTINS="$($CLANG_PATH --print-resource-dir)/lib/linux/libclang_rt.builtins-riscv64-android.a"
-          test -f "$BUILTINS"
-          export RUSTFLAGS="-C target-feature=+crt-static -C link-arg=-Wl,-z,max-page-size=16384 -C link-arg=-Wno-unused-command-line-argument -C link-arg=$BUILTINS"
-          cargo +nightly-2026-09-23 build --config .github/riscv64-cargo.toml \
-            -Z build-std=std,panic_abort --package ksuinit \
-            --target=riscv64-linux-android --release
+    - name: Setup NDK
+      uses: nttld/setup-ndk@v1
+      id: setup-ndk
+      with:
+        ndk-version: r29
 
-      - name: Upload RISC-V ksuinit artifact
-        run: |
-          set -eux
-          . .github/scripts/ci/common.sh
-          ci_artifact_put ksuinit-riscv64 \
-            target/riscv64-linux-android/release/ksuinit
+    - name: Setup riscv64 rust cache
+      uses: Swatinem/rust-cache@v2
+      with:
+        prefix-key: ksuinit-riscv64
+        workspaces: userspace/ksuinit
+        cache-targets: true
+        add-job-id-key: false
+        add-rust-environment-hash-key: false
+        save-if: ${{ github.event_name != 'pull_request' }}
+
+    - name: Build RISC-V ksuinit
+      env:
+        ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
+      run: |
+        source .github/scripts/setup-rust-build.sh riscv64-linux-android 35
+        BUILTINS="$($CLANG_PATH --print-resource-dir)/lib/linux/libclang_rt.builtins-riscv64-android.a"
+        export RUSTFLAGS="-C target-feature=+crt-static -C link-arg=-Wl,-z,max-page-size=16384 -C link-arg=-Wno-unused-command-line-argument -C link-arg=$BUILTINS"
+        cd userspace/ksuinit
+        cargo +nightly build -Z build-std=std,panic_abort --package ksuinit --target=riscv64-linux-android --release
+
+    - name: Upload ksuinit artifact
+      uses: actions/upload-artifact@v7
+      with:
+        name: ksuinit-riscv64
+        path: userspace/ksuinit/target/riscv64-linux-android/release/ksuinit
