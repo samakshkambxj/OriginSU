@@ -417,15 +417,20 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
       - name: Clone Telegram Bot API
-        run: |
-          git clone --recursive https://github.com/tdlib/telegram-bot-api.git
-          git status telegram-bot-api >> telegram-bot-api-status
+        run: git clone --recursive https://github.com/tdlib/telegram-bot-api.git
+      # Key the cache on the checked-out tdlib commit. The old key hashed
+      # `git status telegram-bot-api`, whose output starts with "On branch X" or
+      # "HEAD detached at <sha>", so it changed for every branch and every tag
+      # and the binary was recompiled on almost every release.
+      - name: Resolve Telegram Bot API revision
+        id: bot-api-rev
+        run: echo "rev=$(git -C telegram-bot-api rev-parse HEAD)" >> "$GITHUB_OUTPUT"
       - name: Cache Bot API Binary
         id: cache-bot-api
         uses: actions/cache@v6.1.0
         with:
           path: telegram-bot-api-binary
-          key: CI-telegram-bot-api-${{ hashFiles('telegram-bot-api-status') }}
+          key: CI-telegram-bot-api-${{ steps.bot-api-rev.outputs.rev }}
       - name: Compile Telegram Bot API
         if: steps.cache-bot-api.outputs.cache-hit != 'true'
         run: |
