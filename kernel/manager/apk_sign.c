@@ -117,24 +117,39 @@ static bool check_block(struct file *fp, loff_t *pos, loff_t block_end, unsigned
     if (certificate_size > INT_MAX || certificate_size > (u64)(certificates_end - *pos))
         return false;
 
-#define CERT_MAX_LENGTH 1024
-    if (certificate_size != expected_size)
+    if (certificate_size != expected_size) {
+        pr_info("cert size mismatch: %u, expected: %u\n", certificate_size, expected_size);
         return false;
+    }
 
+/*
+ * 2048 covers 4096-bit RSA certificates. The KazeSU/OriginSU manager cert is
+ * 0x51c (1308) bytes, so the old 1024-byte stack buffer rejected every
+ * legitimate KazeSU APK with "cert length overlimit" and the manager kept
+ * reporting "Not installed". Heap-allocate it: a stack array this size trips
+ * the kernel's frame-size limit.
+ */
+#define CERT_MAX_LENGTH 2048
     if (certificate_size > CERT_MAX_LENGTH) {
         pr_info("cert length overlimit\n");
         return false;
     }
 
-    char cert[CERT_MAX_LENGTH];
-    if (!read_exact(fp, cert, certificate_size, pos, certificates_end))
+    char *cert = kmalloc(CERT_MAX_LENGTH, GFP_KERNEL);
+    if (!cert)
         return false;
+    if (!read_exact(fp, cert, certificate_size, pos, certificates_end)) {
+        kfree(cert);
+        return false;
+    }
 
     unsigned char digest[SHA256_DIGEST_SIZE];
     if (ksu_sha256(cert, certificate_size, digest)) {
+        kfree(cert);
         pr_info("sha256 error\n");
         return false;
     }
+    kfree(cert);
 
     char hash_str[SHA256_DIGEST_SIZE * 2 + 1];
     hash_str[SHA256_DIGEST_SIZE * 2] = '\0';
