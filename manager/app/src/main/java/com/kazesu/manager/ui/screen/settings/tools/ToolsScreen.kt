@@ -20,6 +20,8 @@ import com.kazesu.manager.ui.LocalUiMode
 import com.kazesu.manager.ui.UiMode
 import com.kazesu.manager.ui.navigation3.LocalNavigator
 import com.kazesu.manager.ui.navigation3.Route
+import com.kazesu.manager.ui.util.disableAllModules
+import com.kazesu.manager.ui.util.uninstallAllModules
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
