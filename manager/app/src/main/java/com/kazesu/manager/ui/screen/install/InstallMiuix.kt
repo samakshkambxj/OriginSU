@@ -222,7 +222,10 @@ internal fun InstallScreenMiuix(
                     }
 
                     // LKM 上传（仅 GKI）
-                    if (isGkiDevice && uiState.installMethod !is InstallMethod.HorizonKernel) {
+                    if (isGkiDevice &&
+                        uiState.installMethod !is InstallMethod.HorizonKernel &&
+                        uiState.installMethod !is InstallMethod.PatchBootImage
+                    ) {
                         AppCard(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -275,7 +278,7 @@ internal fun InstallScreenMiuix(
                         }
                     }
 
-                    if (uiState.canPatchKpm) {
+                    if (uiState.canPatchKpm && uiState.installMethod !is InstallMethod.PatchBootImage) {
                         AppCard(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -433,6 +436,60 @@ internal fun InstallScreenMiuix(
                         }
                     }
 
+                    // GKI: files picked for the AnyKernel boot-image patch.
+                    (uiState.installMethod as? InstallMethod.PatchBootImage)?.let { method ->
+                        AppCard(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 12.dp),
+                        ) {
+                            BasicComponent(
+                                title = stringResource(R.string.patch_boot_boot_image),
+                                summary = method.bootUri?.lastPathSegment
+                                    ?: stringResource(R.string.select_boot_image_first),
+                                onClick = actions.onPickPatchBootImage,
+                                startAction = {
+                                    Icon(
+                                        MiuixIcons.ConvertFile,
+                                        tint = colorScheme.onSurface,
+                                        modifier = Modifier.padding(end = 12.dp),
+                                        contentDescription = null,
+                                    )
+                                },
+                                endActions = {
+                                    Icon(
+                                        MiuixIcons.Basic.ArrowRight,
+                                        modifier = Modifier.size(16.dp),
+                                        contentDescription = null,
+                                        tint = colorScheme.onSurfaceVariantActions,
+                                    )
+                                },
+                            )
+                            BasicComponent(
+                                title = stringResource(R.string.patch_boot_zip),
+                                summary = method.zipUri?.lastPathSegment
+                                    ?: stringResource(R.string.select_anykernel_zip_next),
+                                onClick = actions.onPickPatchZip,
+                                startAction = {
+                                    Icon(
+                                        MiuixIcons.MoveFile,
+                                        tint = colorScheme.onSurface,
+                                        modifier = Modifier.padding(end = 12.dp),
+                                        contentDescription = null,
+                                    )
+                                },
+                                endActions = {
+                                    Icon(
+                                        MiuixIcons.Basic.ArrowRight,
+                                        modifier = Modifier.size(16.dp),
+                                        contentDescription = null,
+                                        tint = colorScheme.onSurfaceVariantActions,
+                                    )
+                                },
+                            )
+                        }
+                    }
+
                     // AnyKernel3 刷写
                     (uiState.installMethod as? InstallMethod.HorizonKernel)?.let { method ->
                         if (isAbDevice && method.slot != null) {
@@ -505,6 +562,7 @@ private fun SelectInstallMethod(
         when (option) {
             is InstallMethod.SelectFile -> onSelectBootImage(option)
             is InstallMethod.HorizonKernel -> onSelectBootImage(option)
+            is InstallMethod.PatchBootImage -> onSelectBootImage(option)
             is InstallMethod.DownloadFile -> onDownloadFile()
             is InstallMethod.DirectInstall -> onSelected(option)
             is InstallMethod.DirectInstallToInactiveSlot -> confirmDialog.showConfirm(dialogTitle, dialogContent)
@@ -516,53 +574,81 @@ private fun SelectInstallMethod(
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         state.installMethodOptions.forEach { option ->
-            val selected = state.installMethod?.let { option::class == it::class } ?: false
-            AppCard(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .semantics { role = Role.RadioButton; this.selected = selected },
-                colors = CardDefaults.defaultColors(
-                    color = if (selected) colorScheme.secondaryContainer else backgroundAwareColor(colorScheme.surfaceContainer)
-                ),
-                insideMargin = PaddingValues(0.dp),
+            InstallMethodRow(
+                option = option,
+                selected = state.installMethod?.let { option::class == it::class } ?: false,
                 onClick = { onClick(option) },
-                pressFeedbackType = PressFeedbackType.Sink,
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .border(
-                            width = 2.dp,
-                            color = if (selected) colorScheme.primary else Color.Transparent,
-                            shape = RoundedCornerShape(CardDefaults.CornerRadius),
-                        )
-                        .padding(horizontal = 16.dp, vertical = 14.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                        Text(
-                            text = stringResource(id = option.label),
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = colorScheme.onSurface,
-                        )
-                        if (!option.summary.isNullOrBlank()) {
-                            Text(
-                                text = option.summary.orEmpty(),
-                                fontSize = 13.sp,
-                                color = colorScheme.onSurfaceVariantSummary,
-                            )
-                        }
-                    }
-                    if (selected) {
-                        Icon(
-                            imageVector = Icons.Rounded.CheckCircleOutline,
-                            contentDescription = null,
-                            tint = colorScheme.primary,
-                        )
-                    }
+            )
+        }
+        if (state.gkiMethodOptions.isNotEmpty()) {
+            Text(
+                text = stringResource(R.string.install_section_gki),
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold,
+                color = colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 8.dp),
+            )
+            state.gkiMethodOptions.forEach { option ->
+                InstallMethodRow(
+                    option = option,
+                    selected = state.installMethod?.let { option::class == it::class } ?: false,
+                    onClick = { onClick(option) },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun InstallMethodRow(
+    option: InstallMethod,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    AppCard(
+        modifier = Modifier
+            .fillMaxWidth()
+            .semantics { role = Role.RadioButton; this.selected = selected },
+        colors = CardDefaults.defaultColors(
+            color = if (selected) colorScheme.secondaryContainer else backgroundAwareColor(colorScheme.surfaceContainer)
+        ),
+        insideMargin = PaddingValues(0.dp),
+        onClick = onClick,
+        pressFeedbackType = PressFeedbackType.Sink,
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .border(
+                    width = 2.dp,
+                    color = if (selected) colorScheme.primary else Color.Transparent,
+                    shape = RoundedCornerShape(CardDefaults.CornerRadius),
+                )
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(
+                    text = stringResource(id = option.label),
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = colorScheme.onSurface,
+                )
+                if (!option.summary.isNullOrBlank()) {
+                    Text(
+                        text = option.summary.orEmpty(),
+                        fontSize = 13.sp,
+                        color = colorScheme.onSurfaceVariantSummary,
+                    )
                 }
+            }
+            if (selected) {
+                Icon(
+                    imageVector = Icons.Rounded.CheckCircleOutline,
+                    contentDescription = null,
+                    tint = colorScheme.primary,
+                )
             }
         }
     }

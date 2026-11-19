@@ -542,6 +542,19 @@
     <string name="horizon_kernel_summary">刷入AnyKernel3格式的内核zip包</string>
     <string name="external_kernel_flash_prompt">是否刷写 AnyKernel3 内核“%1$s”？请确认内核适配当前设备，接下来将选择槽位和 KPM 模式。</string>
     <string name="external_kernel_separate_files">请单独打开一个内核 ZIP，不要与模块文件一起选择。</string>
+    <!-- GKI -->
+    <string name="install_section_gki">GKI</string>
+    <string name="patch_boot_anykernel">使用 AnyKernel 内核补丁启动映像</string>
+    <string name="patch_boot_anykernel_summary">原厂启动映像 + AnyKernel ZIP 中的内核。生成可刷写的启动映像并保存到下载目录。</string>
+    <string name="patch_boot_boot_image">启动映像</string>
+    <string name="patch_boot_zip">AnyKernel ZIP</string>
+    <string name="select_boot_image_first">选择启动映像</string>
+    <string name="select_anykernel_zip_next">选择 AnyKernel ZIP</string>
+    <string name="invalid_anykernel_kernel">该 ZIP 中未找到内核映像（Image、Image.gz 或 zImage）。</string>
+    <string name="patch_workdir_failed">无法创建工作目录。</string>
+    <string name="patch_repack_failed">重新打包启动映像失败。</string>
+    <string name="patch_boot_failed">启动映像补丁失败：%1$s</string>
+    <string name="patch_boot_saved">已保存补丁后的启动映像：%1$s</string>
     <string name="kpm_title">KPM</string>
     <string name="kpm_modules_title">内核模块</string>
     <string name="kpm_overview_description">管理当前内核中加载的模块</string>

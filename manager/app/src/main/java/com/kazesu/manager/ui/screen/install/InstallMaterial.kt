@@ -18,6 +18,7 @@ import androidx.compose.material.icons.automirrored.filled.DriveFileMove
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.SdStorage
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material3.Button
@@ -133,7 +134,10 @@ internal fun InstallScreenMaterial(
                     } else {
                         uiState.partitionSelectionIndex
                     }
-                    if (isGkiDevice && partitionItems.isNotEmpty() && uiState.installMethod !is InstallMethod.HorizonKernel) add {
+                    if (isGkiDevice && partitionItems.isNotEmpty() &&
+                        uiState.installMethod !is InstallMethod.HorizonKernel &&
+                        uiState.installMethod !is InstallMethod.PatchBootImage
+                    ) add {
                         SegmentedDropdownItem(
                             enabled = uiState.canSelectPartition,
                             items = partitionItems,
@@ -155,7 +159,10 @@ internal fun InstallScreenMaterial(
                             checked = uiState.forceBackup,
                         )
                     }
-                    if (isGkiDevice && uiState.installMethod !is InstallMethod.HorizonKernel) add {
+                    if (isGkiDevice &&
+                        uiState.installMethod !is InstallMethod.HorizonKernel &&
+                        uiState.installMethod !is InstallMethod.PatchBootImage
+                    ) add {
                         SegmentedListItem(
                             leadingContent = {
                                 IconTile(Icons.AutoMirrored.Filled.DriveFileMove, null)
@@ -188,7 +195,7 @@ internal fun InstallScreenMaterial(
                     }
                 }
             )
-            if (uiState.canPatchKpm) {
+            if (uiState.canPatchKpm && uiState.installMethod !is InstallMethod.PatchBootImage) {
                 SegmentedColumn(
                     modifier = Modifier.padding(horizontal = 16.dp),
                 ) {
@@ -328,6 +335,45 @@ internal fun InstallScreenMaterial(
                     )
                 }
             }
+            // GKI: files picked for the AnyKernel boot-image patch.
+            (uiState.installMethod as? InstallMethod.PatchBootImage)?.let { method ->
+                SegmentedColumn(
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                ) {
+                    item {
+                        SegmentedListItem(
+                            onClick = actions.onPickPatchBootImage,
+                            leadingContent = { IconTile(Icons.Filled.SdStorage, null) },
+                            headlineContent = { Text(stringResource(R.string.patch_boot_boot_image)) },
+                            supportingContent = {
+                                Text(
+                                    method.bootUri?.lastPathSegment
+                                        ?: stringResource(R.string.select_boot_image_first)
+                                )
+                            },
+                            trailingContent = {
+                                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null)
+                            },
+                        )
+                    }
+                    item {
+                        SegmentedListItem(
+                            onClick = actions.onPickPatchZip,
+                            leadingContent = { IconTile(Icons.Filled.Folder, null) },
+                            headlineContent = { Text(stringResource(R.string.patch_boot_zip)) },
+                            supportingContent = {
+                                Text(
+                                    method.zipUri?.lastPathSegment
+                                        ?: stringResource(R.string.select_anykernel_zip_next)
+                                )
+                            },
+                            trailingContent = {
+                                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null)
+                            },
+                        )
+                    }
+                }
+            }
             // AnyKernel3 刷写
             (uiState.installMethod as? InstallMethod.HorizonKernel)?.let { method ->
                 SegmentedColumn(
@@ -388,6 +434,7 @@ private fun SelectInstallMethod(
         when (option) {
             is InstallMethod.SelectFile -> onSelectBootImage(option)
             is InstallMethod.HorizonKernel -> onSelectBootImage(option)
+            is InstallMethod.PatchBootImage -> onSelectBootImage(option)
             is InstallMethod.DownloadFile -> onDownloadFile()
             is InstallMethod.DirectInstall -> onSelected(option)
             is InstallMethod.DirectInstallToInactiveSlot -> confirmDialog.showConfirm(dialogTitle, dialogContent)
@@ -395,7 +442,7 @@ private fun SelectInstallMethod(
     }
 
     val haptic = LocalHapticFeedback.current
-    key(state.installMethodOptions.size) {
+    key(state.installMethodOptions.size + state.gkiMethodOptions.size) {
         Column(
             modifier = Modifier
                 .padding(horizontal = 16.dp)
@@ -412,6 +459,25 @@ private fun SelectInstallMethod(
                         onClick(option)
                     },
                 )
+            }
+            if (state.gkiMethodOptions.isNotEmpty()) {
+                Text(
+                    text = stringResource(R.string.install_section_gki),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 8.dp),
+                )
+                state.gkiMethodOptions.forEach { option ->
+                    InstallMethodCard(
+                        title = stringResource(option.label),
+                        summary = option.summary,
+                        selected = state.installMethod?.let { option::class == it::class } ?: false,
+                        onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.VirtualKey)
+                            onClick(option)
+                        },
+                    )
+                }
             }
         }
     }

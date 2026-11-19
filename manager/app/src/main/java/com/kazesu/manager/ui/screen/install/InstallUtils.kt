@@ -41,6 +41,17 @@ sealed class InstallMethod : Parcelable {
         override val summary: String? = null
     ) : InstallMethod()
 
+    /**
+     * Patch a stock boot image with the kernel from an AnyKernel zip.
+     * Produces a flashable boot image; no KPM or module injection is involved.
+     */
+    data class PatchBootImage(
+        val bootUri: Uri? = null,
+        val zipUri: Uri? = null,
+        @get:StringRes override val label: Int = R.string.patch_boot_anykernel,
+        override val summary: String? = null
+    ) : InstallMethod()
+
     abstract val label: Int
 
     @IgnoredOnParcel

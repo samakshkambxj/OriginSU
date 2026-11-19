@@ -545,6 +545,19 @@
     <string name="horizon_kernel_summary">Flash AnyKernel3 format kernel zip</string>
     <string name="external_kernel_flash_prompt">Flash the AnyKernel3 kernel ?%1$s?? Confirm that it is compatible with your device. You will select the slot and KPM mode before flashing.</string>
     <string name="external_kernel_separate_files">Open one kernel ZIP at a time, separately from module files.</string>
+    <!-- GKI -->
+    <string name="install_section_gki">GKI</string>
+    <string name="patch_boot_anykernel">Patch boot image with AnyKernel kernel</string>
+    <string name="patch_boot_anykernel_summary">Stock boot image + kernel from an AnyKernel zip. Produces a flashable boot image and saves it to Downloads.</string>
+    <string name="patch_boot_boot_image">Boot image</string>
+    <string name="patch_boot_zip">AnyKernel zip</string>
+    <string name="select_boot_image_first">Select boot image</string>
+    <string name="select_anykernel_zip_next">Select AnyKernel zip</string>
+    <string name="invalid_anykernel_kernel">No kernel image (Image, Image.gz or zImage) found in this zip.</string>
+    <string name="patch_workdir_failed">Could not create a working directory.</string>
+    <string name="patch_repack_failed">Repacking the boot image failed.</string>
+    <string name="patch_boot_failed">Failed to patch the boot image: %1$s</string>
+    <string name="patch_boot_saved">Patched boot image saved: %1$s</string>
     <!-- KPM -->
     <string name="kpm_title">KPM</string>
     <string name="kpm_modules_title">Kernel modules</string>
