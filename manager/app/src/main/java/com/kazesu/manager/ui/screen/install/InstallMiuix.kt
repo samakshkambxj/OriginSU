@@ -585,7 +585,7 @@ private fun SelectInstallMethod(
                 text = stringResource(R.string.install_section_gki),
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Bold,
-                color = colorScheme.onSurfaceVariant,
+                color = colorScheme.onSurfaceVariantSummary,
                 modifier = Modifier.padding(top = 8.dp),
             )
             state.gkiMethodOptions.forEach { option ->

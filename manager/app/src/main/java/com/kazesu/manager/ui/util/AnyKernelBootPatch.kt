@@ -3,7 +3,6 @@ package com.kazesu.manager.ui.util
 import android.content.Context
 import android.net.Uri
 import com.kazesu.manager.R
-import com.kazesu.manager.getKsuDaemonPath
 import java.io.File
 import java.io.IOException
 import java.util.zip.GZIPInputStream
