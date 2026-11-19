@@ -96,6 +96,14 @@
     <string name="metamodule_uninstall_confirm">Are you sure you want to uninstall module %s? This action will affect all modules, and certain features provided by the metamodule (such as mounting) will no longer work.</string>
     <string name="module_uninstall_success">%s uninstalled</string>
     <string name="module_uninstall_failed">Failed to uninstall: %s</string>
+    <string name="module_disable_all_success">All modules disabled</string>
+    <string name="module_disable_all_failed">Failed to disable all modules</string>
+    <string name="module_uninstall_all_success">All modules uninstalled</string>
+    <string name="module_uninstall_all_failed">Failed to uninstall all modules</string>
+    <string name="module_disable_all_title">Disable all modules</string>
+    <string name="module_disable_all_summary">Disable every installed module (takes effect after reboot)</string>
+    <string name="module_uninstall_all_title">Uninstall all modules</string>
+    <string name="module_uninstall_all_summary">Uninstall every installed module (takes effect after reboot)</string>
     <string name="module_version">Version</string>
     <string name="module_author">Author</string>
     <string name="module_preinit_no_space">preinit skipped: not enough space on /metadata</string>
@@ -613,6 +621,22 @@
     <string name="allowlist_restore_summary_picker">Choose a backup file to import</string>
     <string name="allowlist_restore_success">Restoration successful. Changes will take effect after restart</string>
     <string name="allowlist_restore_failed">Restore failed</string>
+    <string name="modules_backup_title">Backup modules</string>
+    <string name="modules_backup_summary_tar">Export /data/adb/modules as a tar archive</string>
+    <string name="modules_backup_success">Modules backup succeeded</string>
+    <string name="modules_backup_failed">Modules backup failed</string>
+    <string name="modules_restore_title">Restore modules</string>
+    <string name="modules_restore_summary_tar">Import modules into /data/adb/modules_update (active after reboot)</string>
+    <string name="modules_restore_success">Modules restore succeeded</string>
+    <string name="modules_restore_failed">Modules restore failed</string>
+    <string name="allowlist_tar_backup_title">Backup allowlist (tar)</string>
+    <string name="allowlist_tar_backup_summary_picker">Choose a location to export the allowlist as tar</string>
+    <string name="allowlist_tar_backup_success">Allowlist tar backup succeeded</string>
+    <string name="allowlist_tar_backup_failed">Allowlist tar backup failed</string>
+    <string name="allowlist_tar_restore_title">Restore allowlist (tar)</string>
+    <string name="allowlist_tar_restore_summary_picker">Choose a tar backup file to import</string>
+    <string name="allowlist_tar_restore_success">Allowlist tar restore succeeded</string>
+    <string name="allowlist_tar_restore_failed">Allowlist tar restore failed</string>
     <!-- CPU Spoof -->
     <string name="spoof_cpu_dialog_title">CPU Identity Spoofing</string>
     <string name="spoof_cpu_apply">Apply</string>

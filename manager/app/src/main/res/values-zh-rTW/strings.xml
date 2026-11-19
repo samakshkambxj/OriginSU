@@ -51,6 +51,14 @@
     <string name="module_uninstall_confirm">你是否要解除安裝「%s」模組？</string>
     <string name="module_uninstall_success">「%s」已解除安裝</string>
     <string name="module_uninstall_failed">無法解除安裝：%s</string>
+    <string name="module_disable_all_success">所有模組已停用</string>
+    <string name="module_disable_all_failed">停用所有模組失敗</string>
+    <string name="module_uninstall_all_success">所有模組已解除安裝</string>
+    <string name="module_uninstall_all_failed">解除安裝所有模組失敗</string>
+    <string name="module_disable_all_title">停用所有模組</string>
+    <string name="module_disable_all_summary">停用所有已安裝模組（重新啟動後生效）</string>
+    <string name="module_uninstall_all_title">解除安裝所有模組</string>
+    <string name="module_uninstall_all_summary">解除安裝所有已安裝模組（重新啟動後生效）</string>
     <string name="module_version">版本</string>
     <string name="module_author">作者</string>
     <string name="show_system_apps">顯示系統程式</string>
@@ -423,6 +431,22 @@
     <string name="allowlist_restore_summary_picker">選擇備份文件進行導入</string>
     <string name="allowlist_restore_success">還原成功,重啟生效</string>
     <string name="allowlist_restore_failed">還原失敗</string>
+    <string name="modules_backup_title">備份模組</string>
+    <string name="modules_backup_summary_tar">將 /data/adb/modules 匯出為 tar 檔案</string>
+    <string name="modules_backup_success">模組備份成功</string>
+    <string name="modules_backup_failed">模組備份失敗</string>
+    <string name="modules_restore_title">還原模組</string>
+    <string name="modules_restore_summary_tar">將模組匯入 /data/adb/modules_update（重新啟動後生效）</string>
+    <string name="modules_restore_success">模組還原成功</string>
+    <string name="modules_restore_failed">模組還原失敗</string>
+    <string name="allowlist_tar_backup_title">備份允許清單 (tar)</string>
+    <string name="allowlist_tar_backup_summary_picker">選擇位置以將允許清單匯出為 tar</string>
+    <string name="allowlist_tar_backup_success">允許清單 tar 備份成功</string>
+    <string name="allowlist_tar_backup_failed">允許清單 tar 備份失敗</string>
+    <string name="allowlist_tar_restore_title">還原允許清單 (tar)</string>
+    <string name="allowlist_tar_restore_summary_picker">選擇 tar 備份文件進行匯入</string>
+    <string name="allowlist_tar_restore_success">允許清單 tar 還原成功</string>
+    <string name="allowlist_tar_restore_failed">允許清單 tar 還原失敗</string>
     <!-- CPU Spoof -->
     <string name="spoof_cpu_dialog_title">CPU 身份偽裝</string>
     <string name="spoof_cpu_apply">應用</string>

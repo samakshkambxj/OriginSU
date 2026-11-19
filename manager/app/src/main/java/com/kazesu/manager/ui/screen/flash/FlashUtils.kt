@@ -132,8 +132,13 @@ fun flashModulesSequentially(
     deleteInstalledZips: Boolean = false,
     guardConfirmed: Boolean = false,
 ): FlashResult {
+    val failures = mutableListOf<Pair<String, String>>()
     var needsReboot = false
+    var anySuccess = false
     for (uri in uris) {
+        val name = runCatching { uri.lastPathSegment ?: uri.toString() }.getOrNull()
+            ?: uri.toString()
+        onStdout("- Installing: $name")
         flashModule(
             uri,
             onStdout,
@@ -143,11 +148,26 @@ fun flashModulesSequentially(
         ).apply {
             needsReboot = needsReboot || showReboot
             if (code != 0) {
-                return FlashResult(code, err, needsReboot)
+                onStdout("  ! FAILED: $name (code=$code)")
+                failures.add(name to err)
+            } else {
+                anySuccess = true
+                onStdout("  - OK: $name")
             }
         }
     }
-    return FlashResult(0, "", needsReboot)
+    if (failures.isEmpty()) {
+        return FlashResult(0, "", needsReboot)
+    }
+    val summary = buildString {
+        append("Batch install finished: ${uris.size - failures.size} ok, ${failures.size} failed\n")
+        failures.forEachIndexed { i, (name, err) ->
+            append("\n${i + 1}. $name\n")
+            val firstErr = err.lineSequence().firstOrNull { it.isNotBlank() }.orEmpty()
+            if (firstErr.isNotBlank()) append("   $firstErr\n")
+        }
+    }
+    return FlashResult(1, summary, anySuccess)
 }
 
 fun flashIt(

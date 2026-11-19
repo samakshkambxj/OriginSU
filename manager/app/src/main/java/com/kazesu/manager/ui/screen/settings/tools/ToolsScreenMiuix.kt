@@ -143,6 +143,15 @@ fun ToolsMiuix(
                         onBackup = actions.onBackupAllowlist,
                         onRestore = actions.onRestoreAllowlist
                     )
+
+                    ModuleBackupSectionMiuix(
+                        onBackupModules = actions.onBackupModules,
+                        onRestoreModules = actions.onRestoreModules,
+                        onBackupAllowlistTar = actions.onBackupAllowlistTar,
+                        onRestoreAllowlistTar = actions.onRestoreAllowlistTar,
+                        onDisableAllModules = actions.onDisableAllModules,
+                        onUninstallAllModules = actions.onUninstallAllModules
+                    )
                 }
             }
         }
@@ -364,6 +373,106 @@ private fun AllowlistBackupSectionMiuix(
                 )
             },
             onClick = onRestore
+        )
+    }
+}
+
+@Composable
+private fun ModuleBackupSectionMiuix(
+    onBackupModules: () -> Unit,
+    onRestoreModules: () -> Unit,
+    onBackupAllowlistTar: () -> Unit,
+    onRestoreAllowlistTar: () -> Unit,
+    onDisableAllModules: () -> Unit,
+    onUninstallAllModules: () -> Unit
+) {
+    AppCard(
+        modifier = Modifier
+            .padding(vertical = 12.dp)
+            .fillMaxWidth(),
+    ) {
+        ArrowPreference(
+            title = stringResource(R.string.modules_backup_title),
+            summary = stringResource(R.string.modules_backup_summary_tar),
+            startAction = {
+                Icon(
+                    imageVector = Icons.Rounded.Backup,
+                    modifier = Modifier.padding(end = 6.dp),
+                    contentDescription = stringResource(R.string.modules_backup_title),
+                    tint = colorScheme.onBackground
+                )
+            },
+            onClick = onBackupModules
+        )
+
+        ArrowPreference(
+            title = stringResource(R.string.modules_restore_title),
+            summary = stringResource(R.string.modules_restore_summary_tar),
+            startAction = {
+                Icon(
+                    imageVector = Icons.Rounded.Restore,
+                    modifier = Modifier.padding(end = 6.dp),
+                    contentDescription = stringResource(R.string.modules_restore_title),
+                    tint = colorScheme.onBackground
+                )
+            },
+            onClick = onRestoreModules
+        )
+
+        ArrowPreference(
+            title = stringResource(R.string.allowlist_tar_backup_title),
+            summary = stringResource(R.string.allowlist_tar_backup_summary_picker),
+            startAction = {
+                Icon(
+                    imageVector = Icons.Rounded.Backup,
+                    modifier = Modifier.padding(end = 6.dp),
+                    contentDescription = stringResource(R.string.allowlist_tar_backup_title),
+                    tint = colorScheme.onBackground
+                )
+            },
+            onClick = onBackupAllowlistTar
+        )
+
+        ArrowPreference(
+            title = stringResource(R.string.allowlist_tar_restore_title),
+            summary = stringResource(R.string.allowlist_tar_restore_summary_picker),
+            startAction = {
+                Icon(
+                    imageVector = Icons.Rounded.Restore,
+                    modifier = Modifier.padding(end = 6.dp),
+                    contentDescription = stringResource(R.string.allowlist_tar_restore_title),
+                    tint = colorScheme.onBackground
+                )
+            },
+            onClick = onRestoreAllowlistTar
+        )
+
+        ArrowPreference(
+            title = stringResource(R.string.module_disable_all_title),
+            summary = stringResource(R.string.module_disable_all_summary),
+            startAction = {
+                Icon(
+                    imageVector = Icons.Rounded.Block,
+                    modifier = Modifier.padding(end = 6.dp),
+                    contentDescription = stringResource(R.string.module_disable_all_title),
+                    tint = colorScheme.onBackground
+                )
+            },
+            onClick = onDisableAllModules
+        )
+
+        ArrowPreference(
+            title = stringResource(R.string.module_uninstall_all_title),
+            summary = stringResource(R.string.module_uninstall_all_summary),
+            startAction = {
+                Icon(
+                    imageVector = Icons.Rounded.DeleteForever,
+                    modifier = Modifier.padding(end = 6.dp),
+                    contentDescription = stringResource(R.string.module_uninstall_all_title),
+                    tint = colorScheme.onBackground
+                )
+            },
+            onClick = onUninstallAllModules
         )
     }
 }

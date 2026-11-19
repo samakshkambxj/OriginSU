@@ -198,3 +198,120 @@ suspend fun readCurrentCpuIdentity(): CpuInfo? = withContext(Dispatchers.IO) {
         )
     }.getOrNull()
 }
+
+private const val BUSYBOX = "/data/adb/ksu/bin/busybox"
+
+private fun backupTimestamp(): String =
+    java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.getDefault())
+        .format(java.util.Date())
+
+/** Suggested filename for a modules backup tar (user-visible in the SAF picker). */
+fun modulesBackupSuggestedName(): String =
+    "kazesu_modules_backup_${backupTimestamp()}.tar"
+
+/** Suggested filename for an allowlist backup tar (user-visible in the SAF picker). */
+fun allowlistBackupSuggestedName(): String =
+    "kazesu_allowlist_backup_${backupTimestamp()}.tar"
+
+/** Run a shell command as root and report success/failure. */
+private fun shellOk(cmd: String): Boolean =
+    runCatching { Shell.cmd(cmd).exec().isSuccess }.getOrDefault(false)
+
+/**
+ * Back up /data/adb/modules as a tar archive, streamed to [destUri].
+ * Skips when the modules directory is empty.
+ */
+suspend fun backupModulesToUri(context: Context, destUri: android.net.Uri): Boolean =
+    withContext(Dispatchers.IO) {
+        val modulesDir = java.io.File("/data/adb/modules")
+        if (modulesDir.listFiles()?.isEmpty() != false) return@withContext false
+
+        val tmpPath = "${context.cacheDir}/modules_backup_${backupTimestamp()}.tar"
+        val tarCmd = "$BUSYBOX tar -cpf '$tmpPath' -C /data/adb/modules \$(ls /data/adb/modules)"
+        if (!shellOk(tarCmd)) return@withContext false
+
+        return@withContext try {
+            java.io.File(tmpPath).inputStream().use { input ->
+                context.contentResolver.openOutputStream(destUri)?.use { out ->
+                    input.copyTo(out)
+                }
+            }
+            true
+        } catch (e: Exception) {
+            false
+        } finally {
+            java.io.File(tmpPath).delete()
+        }
+    }
+
+/**
+ * Back up /data/adb/ksu/.allowlist as a tar archive, streamed to [destUri].
+ */
+suspend fun backupAllowlistToUriTar(context: Context, destUri: android.net.Uri): Boolean =
+    withContext(Dispatchers.IO) {
+        val allowlist = java.io.File("/data/adb/ksu/.allowlist")
+        if (!allowlist.exists()) return@withContext false
+
+        val tmpPath = "${context.cacheDir}/allowlist_backup_${backupTimestamp()}.tar"
+        val tarCmd = "$BUSYBOX tar -cpf '$tmpPath' -C /data/adb/ksu .allowlist"
+        if (!shellOk(tarCmd)) return@withContext false
+
+        return@withContext try {
+            java.io.File(tmpPath).inputStream().use { input ->
+                context.contentResolver.openOutputStream(destUri)?.use { out ->
+                    input.copyTo(out)
+                }
+            }
+            true
+        } catch (e: Exception) {
+            false
+        } finally {
+            java.io.File(tmpPath).delete()
+        }
+    }
+
+/**
+ * Restore modules from a tar [srcUri] into /data/adb/modules_update (takes effect on reboot).
+ */
+suspend fun restoreModulesFromUri(context: Context, srcUri: android.net.Uri): Boolean =
+    withContext(Dispatchers.IO) {
+        val tmpPath = "${context.cacheDir}/modules_restore_${backupTimestamp()}.tar"
+        try {
+            context.contentResolver.openInputStream(srcUri)?.use { input ->
+                java.io.File(tmpPath).outputStream().use { out ->
+                    input.copyTo(out)
+                }
+            }
+        } catch (e: Exception) {
+            return@withContext false
+        }
+
+        val extractCmd = "mkdir -p '/data/adb/modules_update' && $BUSYBOX tar -xpf '$tmpPath' -C /data/adb/modules_update"
+        val result = shellOk(extractCmd)
+
+        java.io.File(tmpPath).delete()
+        return@withContext result
+    }
+
+/**
+ * Restore allowlist from a tar [srcUri] into /data/adb/ksu.
+ */
+suspend fun restoreAllowlistFromUriTar(context: Context, srcUri: android.net.Uri): Boolean =
+    withContext(Dispatchers.IO) {
+        val tmpPath = "${context.cacheDir}/allowlist_restore_${backupTimestamp()}.tar"
+        try {
+            context.contentResolver.openInputStream(srcUri)?.use { input ->
+                java.io.File(tmpPath).outputStream().use { out ->
+                    input.copyTo(out)
+                }
+            }
+        } catch (e: Exception) {
+            return@withContext false
+        }
+
+        val extractCmd = "$BUSYBOX tar -xpf '$tmpPath' -C /data/adb/ksu"
+        val result = shellOk(extractCmd)
+
+        java.io.File(tmpPath).delete()
+        return@withContext result
+    }

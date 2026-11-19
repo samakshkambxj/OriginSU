@@ -59,6 +59,38 @@ fun ToolsScreen() {
         }
     }
 
+    val backupModulesLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/octet-stream")
+    ) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        scope.launch {
+            val success = backupModulesToUri(context, uri)
+            Toast.makeText(
+                context,
+                context.getString(
+                    if (success) R.string.modules_backup_success else R.string.modules_backup_failed
+                ),
+                Toast.LENGTH_SHORT
+            ).show()
+        }
+    }
+
+    val backupAllowlistTarLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/octet-stream")
+    ) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        scope.launch {
+            val success = backupAllowlistToUriTar(context, uri)
+            Toast.makeText(
+                context,
+                context.getString(
+                    if (success) R.string.allowlist_tar_backup_success else R.string.allowlist_tar_backup_failed
+                ),
+                Toast.LENGTH_SHORT
+            ).show()
+        }
+    }
+
     val restoreLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
     ) { uri ->
@@ -69,6 +101,38 @@ fun ToolsScreen() {
                 context,
                 context.getString(
                     if (success) R.string.allowlist_restore_success else R.string.allowlist_restore_failed
+                ),
+                Toast.LENGTH_SHORT
+            ).show()
+        }
+    }
+
+    val restoreModulesLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        scope.launch {
+            val success = restoreModulesFromUri(context, uri)
+            Toast.makeText(
+                context,
+                context.getString(
+                    if (success) R.string.modules_restore_success else R.string.modules_restore_failed
+                ),
+                Toast.LENGTH_SHORT
+            ).show()
+        }
+    }
+
+    val restoreAllowlistTarLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        scope.launch {
+            val success = restoreAllowlistFromUriTar(context, uri)
+            Toast.makeText(
+                context,
+                context.getString(
+                    if (success) R.string.allowlist_tar_restore_success else R.string.allowlist_tar_restore_failed
                 ),
                 Toast.LENGTH_SHORT
             ).show()
@@ -121,6 +185,42 @@ fun ToolsScreen() {
         },
         onRestoreAllowlist = {
             restoreLauncher.launch(arrayOf("*/*"))
+        },
+        onBackupModules = {
+            backupModulesLauncher.launch(modulesBackupSuggestedName())
+        },
+        onRestoreModules = {
+            restoreModulesLauncher.launch(arrayOf("*/*"))
+        },
+        onBackupAllowlistTar = {
+            backupAllowlistTarLauncher.launch(allowlistBackupSuggestedName())
+        },
+        onRestoreAllowlistTar = {
+            restoreAllowlistTarLauncher.launch(arrayOf("*/*"))
+        },
+        onDisableAllModules = {
+            scope.launch {
+                val success = disableAllModules()
+                Toast.makeText(
+                    context,
+                    context.getString(
+                        if (success) R.string.module_disable_all_success else R.string.module_disable_all_failed
+                    ),
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+        },
+        onUninstallAllModules = {
+            scope.launch {
+                val success = uninstallAllModules()
+                Toast.makeText(
+                    context,
+                    context.getString(
+                        if (success) R.string.module_uninstall_all_success else R.string.module_uninstall_all_failed
+                    ),
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
         },
         onOpenKernelModules = {
             navigator.push(Route.KernelModules)

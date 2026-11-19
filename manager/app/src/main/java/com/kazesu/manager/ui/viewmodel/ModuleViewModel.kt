@@ -53,6 +53,8 @@ import okhttp3.Request
 import org.json.JSONArray
 import kotlin.time.Duration.Companion.milliseconds
 import com.kazesu.manager.ui.util.toggleModule as toggleModuleUtil
+import com.kazesu.manager.ui.util.disableAllModules as disableAllModulesUtil
+import com.kazesu.manager.ui.util.uninstallAllModules as uninstallAllModulesUtil
 import com.kazesu.manager.ui.util.undoUninstallModule as undoUninstallModuleUtil
 import com.kazesu.manager.ui.util.uninstallModule as uninstallModuleUtil
 
@@ -571,6 +573,36 @@ class ModuleViewModel(
                     ).format(module.name)
                 )
             )
+        }
+    }
+
+    fun disableAllModules() {
+        viewModelScope.launch {
+            val res = ksuApp.resources
+            val success = withContext(Dispatchers.IO) {
+                disableAllModulesUtil()
+            }
+            if (success) {
+                fetchModuleList(checkUpdate = true, resort = false)
+                emitEffect(ModuleEffect.SnackBar(res.getString(R.string.module_disable_all_success)))
+            } else {
+                emitEffect(ModuleEffect.SnackBar(res.getString(R.string.module_disable_all_failed)))
+            }
+        }
+    }
+
+    fun uninstallAllModules() {
+        viewModelScope.launch {
+            val res = ksuApp.resources
+            val success = withContext(Dispatchers.IO) {
+                uninstallAllModulesUtil()
+            }
+            if (success) {
+                fetchModuleList(checkUpdate = true, resort = false)
+                emitEffect(ModuleEffect.SnackBar(res.getString(R.string.module_uninstall_all_success)))
+            } else {
+                emitEffect(ModuleEffect.SnackBar(res.getString(R.string.module_uninstall_all_failed)))
+            }
         }
     }
 

@@ -192,6 +192,18 @@ fun uninstallModule(id: String): Boolean {
     return result
 }
 
+fun disableAllModules(): Boolean {
+    val result = execKsud("module disable-all", true)
+    Log.i(TAG, "module disable-all result: $result")
+    return result
+}
+
+fun uninstallAllModules(): Boolean {
+    val result = execKsud("module uninstall-all", true)
+    Log.i(TAG, "module uninstall-all result: $result")
+    return result
+}
+
 private fun flashWithIO(
     cmd: String,
     onStdout: (String) -> Unit,

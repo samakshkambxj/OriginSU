@@ -23,6 +23,8 @@ import androidx.compose.material.icons.rounded.Restore
 import androidx.compose.material.icons.rounded.Security
 import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material.icons.rounded.Warning
+import androidx.compose.material.icons.rounded.Block
+import androidx.compose.material.icons.rounded.DeleteForever
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LargeFlexibleTopAppBar
 import androidx.compose.material3.MaterialTheme
@@ -119,6 +121,15 @@ fun ToolsMaterial(
                     AllowlistBackupSectionMaterial(
                         onBackup = actions.onBackupAllowlist,
                         onRestore = actions.onRestoreAllowlist
+                    )
+
+                    ModuleBackupSectionMaterial(
+                        onBackupModules = actions.onBackupModules,
+                        onRestoreModules = actions.onRestoreModules,
+                        onBackupAllowlistTar = actions.onBackupAllowlistTar,
+                        onRestoreAllowlistTar = actions.onRestoreAllowlistTar,
+                        onDisableAllModules = actions.onDisableAllModules,
+                        onUninstallAllModules = actions.onUninstallAllModules
                     )
                 }
             }
@@ -323,6 +334,82 @@ private fun AllowlistBackupSectionMaterial(
                         IconTile(Icons.Rounded.Restore, stringResource(R.string.allowlist_restore_title))
                     },
                     onClick = onRestore
+                )
+            }
+        )
+    )
+}
+
+@Composable
+private fun ModuleBackupSectionMaterial(
+    onBackupModules: () -> Unit,
+    onRestoreModules: () -> Unit,
+    onBackupAllowlistTar: () -> Unit,
+    onRestoreAllowlistTar: () -> Unit,
+    onDisableAllModules: () -> Unit,
+    onUninstallAllModules: () -> Unit
+) {
+    SegmentedColumn(
+        modifier = Modifier.padding(vertical = 12.dp),
+        content = listOf(
+            {
+                SegmentedListItem(
+                    headlineContent = { Text(stringResource(R.string.modules_backup_title)) },
+                    supportingContent = { Text(stringResource(R.string.modules_backup_summary_tar)) },
+                    leadingContent = {
+                        IconTile(Icons.Rounded.Backup, stringResource(R.string.modules_backup_title))
+                    },
+                    onClick = onBackupModules
+                )
+            },
+            {
+                SegmentedListItem(
+                    headlineContent = { Text(stringResource(R.string.modules_restore_title)) },
+                    supportingContent = { Text(stringResource(R.string.modules_restore_summary_tar)) },
+                    leadingContent = {
+                        IconTile(Icons.Rounded.Restore, stringResource(R.string.modules_restore_title))
+                    },
+                    onClick = onRestoreModules
+                )
+            },
+            {
+                SegmentedListItem(
+                    headlineContent = { Text(stringResource(R.string.allowlist_tar_backup_title)) },
+                    supportingContent = { Text(stringResource(R.string.allowlist_tar_backup_summary_picker)) },
+                    leadingContent = {
+                        IconTile(Icons.Rounded.Backup, stringResource(R.string.allowlist_tar_backup_title))
+                    },
+                    onClick = onBackupAllowlistTar
+                )
+            },
+            {
+                SegmentedListItem(
+                    headlineContent = { Text(stringResource(R.string.allowlist_tar_restore_title)) },
+                    supportingContent = { Text(stringResource(R.string.allowlist_tar_restore_summary_picker)) },
+                    leadingContent = {
+                        IconTile(Icons.Rounded.Restore, stringResource(R.string.allowlist_tar_restore_title))
+                    },
+                    onClick = onRestoreAllowlistTar
+                )
+            },
+            {
+                SegmentedListItem(
+                    headlineContent = { Text(stringResource(R.string.module_disable_all_title)) },
+                    supportingContent = { Text(stringResource(R.string.module_disable_all_summary)) },
+                    leadingContent = {
+                        IconTile(Icons.Rounded.Block, stringResource(R.string.module_disable_all_title))
+                    },
+                    onClick = onDisableAllModules
+                )
+            },
+            {
+                SegmentedListItem(
+                    headlineContent = { Text(stringResource(R.string.module_uninstall_all_title)) },
+                    supportingContent = { Text(stringResource(R.string.module_uninstall_all_summary)) },
+                    leadingContent = {
+                        IconTile(Icons.Rounded.DeleteForever, stringResource(R.string.module_uninstall_all_title))
+                    },
+                    onClick = onUninstallAllModules
                 )
             }
         )
