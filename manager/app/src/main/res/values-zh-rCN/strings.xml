@@ -388,6 +388,9 @@
     <string name="settings_mount_hide_summary">从隔离进程与应用进程的 /proc 挂载视图中过滤 KazeSU 与模块的挂载记录</string>
     <string name="settings_mount_hide_reboot_required">重启后生效</string>
     <string name="settings_mount_hide_failed">错误：%d</string>
+    <string name="settings_stealth">隐身模式</string>
+    <string name="settings_stealth_summary">对检测应用隐藏管理器状态；GET_INFO 不再上报管理器标志</string>
+    <string name="settings_stealth_failed">该内核不支持隐身模式</string>
     <string name="menu_sort">排序</string>
     <string name="sort_by_name">应用名</string>
     <string name="sort_by_package_name">包名</string>

@@ -274,6 +274,20 @@ bool is_avc_spoof_enabled() {
 DEFINE_CACHED_GETTER(full_version, KSU_IOCTL_GET_FULL_VERSION, ksu_get_full_version_cmd, version_full, 255)
 DEFINE_CACHED_GETTER(hook_type, KSU_IOCTL_HOOK_TYPE, ksu_hook_type_cmd, hook_type, 32)
 
+int get_stealth_state() {
+    struct ksu_stealth_cmd cmd = {};
+    if (ksuctl(KSU_IOCTL_STEALTH_GET, &cmd) < 0) {
+        return -1;
+    }
+    return cmd.enabled != 0 ? 1 : 0;
+}
+
+bool set_stealth_enabled(bool enabled) {
+    struct ksu_stealth_cmd cmd = {};
+    cmd.enabled = enabled ? 1 : 0;
+    return ksuctl(KSU_IOCTL_STEALTH_SET, &cmd) == 0;
+}
+
 static int ksu_extension_call(struct ksu_extension_cmd *cmd) {
     return ksuctl(KSU_IOCTL_EXTENSION, cmd);
 }

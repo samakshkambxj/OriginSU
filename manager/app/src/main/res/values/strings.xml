@@ -281,6 +281,9 @@
     <string name="settings_mount_hide_summary">Filter KazeSU and module mount records from the /proc mount views of isolated and app processes</string>
     <string name="settings_mount_hide_reboot_required">Reboot to take effect</string>
     <string name="settings_mount_hide_failed">Error: %d</string>
+    <string name="settings_stealth">Stealth mode</string>
+    <string name="settings_stealth_summary">Hide manager status from detection apps; GET_INFO stops reporting the manager flag</string>
+    <string name="settings_stealth_failed">Stealth mode is not supported by this kernel</string>
     <string name="settings_sulog">SU Log</string>
     <string name="settings_sulog_summary">Record Root-related events into KazeSU sulog files</string>
     <string name="feature_status_unsupported_summary">Kernel does not support this feature</string>

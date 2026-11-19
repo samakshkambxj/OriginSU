@@ -40,6 +40,7 @@ import androidx.compose.material.icons.filled.Policy
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.rounded.Language
 import androidx.compose.material.icons.filled.VerifiedUser
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LargeFlexibleTopAppBar
@@ -392,6 +393,17 @@ fun SettingPagerMaterial(
                                 enabled = uiState.mountHideStatus == "supported",
                                 checked = uiState.isMountHideEnabled,
                                 onCheckedChange = actions.onSetMountHideEnabled
+                            )
+                        },
+                        {
+                            val stealthSummary = stringResource(id = R.string.settings_stealth_summary)
+                            SegmentedSwitchItem(
+                                icon = Icons.Filled.VisibilityOff,
+                                title = stringResource(id = R.string.settings_stealth),
+                                summary = stealthSummary,
+                                enabled = uiState.stealthStatus == "supported",
+                                checked = uiState.isStealthEnabled,
+                                onCheckedChange = actions.onSetStealthEnabled
                             )
                         },
                         {

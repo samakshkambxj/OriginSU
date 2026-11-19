@@ -1144,6 +1144,92 @@ fn mark_all_modules(flag_file: &str) -> Result<()> {
     Ok(())
 }
 
+fn read_hosts_lines() -> Result<Vec<String>> {
+    match std::fs::read_to_string(defs::HOSTS_FILE) {
+        Ok(content) => Ok(content
+            .lines()
+            .map(str::trim)
+            .filter(|line| !line.is_empty() && !line.starts_with('#'))
+            .map(ToString::to_string)
+            .collect()),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(Vec::new()),
+        Err(e) => Err(e).with_context(|| format!("read {}", defs::HOSTS_FILE)),
+    }
+}
+
+fn write_hosts_lines(lines: &[String]) -> Result<()> {
+    if let Some(parent) = Path::new(defs::HOSTS_FILE).parent() {
+        std::fs::create_dir_all(parent)
+            .with_context(|| format!("create {}", parent.display()))?;
+    }
+    let mut content = String::new();
+    for line in lines {
+        content.push_str(line);
+        content.push('\n');
+    }
+    std::fs::write(defs::HOSTS_FILE, content)
+        .with_context(|| format!("write {}", defs::HOSTS_FILE))
+}
+
+/// Manage the shared hosts hiding list. Entries use the standard
+/// `ip host` format and default to `0.0.0.0`.
+pub fn hosts_hide(action: &str, hosts: &[String]) -> Result<()> {
+    let mut lines = read_hosts_lines()?;
+
+    match action {
+        "status" => {
+            if lines.is_empty() {
+                println!("hosts file {}: not present (0 entries)", defs::HOSTS_FILE);
+            } else {
+                println!(
+                    "hosts file {}: {} entr{}",
+                    defs::HOSTS_FILE,
+                    lines.len(),
+                    if lines.len() == 1 { "y" } else { "ies" }
+                );
+            }
+        }
+        "list" => {
+            for line in &lines {
+                println!("{line}");
+            }
+        }
+        "add" => {
+            let host = hosts
+                .first()
+                .ok_or_else(|| anyhow!("usage: ksud module hosts add <host> [ip]"))?;
+            let ip = hosts.get(1).map_or("0.0.0.0", String::as_str);
+            let replaced = lines.iter_mut().find(|line| {
+                line.split_whitespace().nth(1) == Some(host.as_str())
+            });
+            if let Some(line) = replaced {
+                *line = format!("{ip} {host}");
+                println!("updated hosts entry: {ip} {host}");
+            } else {
+                lines.push(format!("{ip} {host}"));
+                println!("added hosts entry: {ip} {host}");
+            }
+            write_hosts_lines(&lines)?;
+        }
+        "remove" => {
+            let host = hosts
+                .first()
+                .ok_or_else(|| anyhow!("usage: ksud module hosts remove <host>"))?;
+            let before = lines.len();
+            lines.retain(|line| line.split_whitespace().nth(1) != Some(host.as_str()));
+            if lines.len() == before {
+                println!("no hosts entry for {host}");
+            } else {
+                write_hosts_lines(&lines)?;
+                println!("removed hosts entry: {host}");
+            }
+        }
+        other => bail!("unknown hosts action '{other}'; use status|list|add|remove"),
+    }
+
+    Ok(())
+}
+
 /// Read module.prop from the given module path and return as a HashMap
 pub fn read_module_prop(module_path: &Path) -> Result<HashMap<String, String>> {
     let module_prop = module_path.join("module.prop");

@@ -139,6 +139,13 @@ object Natives {
 
     external fun getHookType(): String
 
+    /**
+     * Stealth mode: 1 = on, 0 = off, negative = the kernel does not expose it.
+     * While on, GET_INFO hides the manager flag so the UI looks uninstalled.
+     */
+    external fun stealthState(): Int
+    external fun stealthSet(enabled: Boolean): Boolean
+
     private const val NON_ROOT_DEFAULT_PROFILE_KEY = "$"
     private const val NOBODY_UID = 9999
 

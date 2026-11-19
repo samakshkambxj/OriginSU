@@ -61,4 +61,24 @@ config KSU_X86_PATCH_SYSCALL_DISPATCHER
 	  Dynamically patch x64's hardened syscall dispatcher to support syscall hooks. This is a
 	  replacement for a kernel source code patch, and is useful for x86_64 LKM mode.
 
+config KSU_STEALTH
+	bool "KazeSU stealth mode"
+	depends on KSU
+	default y
+	help
+	  While the stealth switch is on, GET_INFO stops reporting
+	  KSU_GET_INFO_FLAG_MANAGER so the manager app looks "not installed".
+	  Real permission checks and the crowned manager are unchanged, so the
+	  manager (or root) can always toggle it back. State is persisted at
+	  /data/adb/ksu/stealth and reloaded on POST_FS_DATA.
+
+config KSU_KPROBES_HIDE
+	bool "KazeSU KPROBES hook hiding (experimental, default off)"
+	depends on KSU
+	default n
+	help
+	  Report only the generic tracepoint backend through GET_HOOK_TYPE
+	  instead of the syscall-redirect detail. KPROBES shares probe slots
+	  with KPM; turn this on only after validating KPM coexistence.
+
 endmenu

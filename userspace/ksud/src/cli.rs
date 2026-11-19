@@ -171,6 +171,12 @@ enum Commands {
         command: BootloopOp,
     },
 
+    /// Enable, disable or query stealth mode
+    Stealth {
+        #[command(subcommand)]
+        command: StealthOp,
+    },
+
     /// For developers
     Debug {
         #[command(subcommand)]
@@ -489,6 +495,20 @@ enum Module {
     Disable {
         // module id
         id: String,
+    },
+
+    /// disable every module
+    DisableAll,
+
+    /// uninstall every module
+    UninstallAll,
+
+    /// manage the shared hosts hiding list
+    Hosts {
+        /// status, list, add or remove
+        action: String,
+        /// host (and optional IP for add)
+        hosts: Vec<String>,
     },
 
     /// run action for module <id>
@@ -845,6 +865,16 @@ enum BootloopOp {
 }
 
 #[derive(clap::Subcommand, Debug)]
+enum StealthOp {
+    /// Print enabled, disabled or unsupported
+    Status,
+    /// Hide the manager flag from GET_INFO
+    Enable,
+    /// Report the manager flag again
+    Disable,
+}
+
+#[derive(clap::Subcommand, Debug)]
 enum Umount {
     /// Add mount point to umount list
     Add {
@@ -1123,6 +1153,12 @@ pub fn run() -> Result<()> {
             BootloopOp::ClearRescued => crate::bootloop::clear_rescued(),
         },
 
+        Commands::Stealth { command } => match command {
+            StealthOp::Status => crate::stealth::print_status(),
+            StealthOp::Enable => crate::stealth::set_enabled(true),
+            StealthOp::Disable => crate::stealth::set_enabled(false),
+        },
+
         Commands::SoftReboot => crate::soft_reboot::soft_reboot(),
 
         Commands::Insmod { module, params } => debug::insmod(&module, &params),
@@ -1160,6 +1196,9 @@ pub fn run() -> Result<()> {
                 Module::Uninstall { id } => module::uninstall_module(&id),
                 Module::Enable { id } => module::enable_module(&id),
                 Module::Disable { id } => module::disable_module(&id),
+                Module::DisableAll => module::disable_all_modules(),
+                Module::UninstallAll => module::uninstall_all_modules(),
+                Module::Hosts { action, hosts } => module::hosts_hide(&action, &hosts),
                 Module::Action { id } => module::run_action(&id),
                 #[cfg(all(target_os = "android", target_arch = "aarch64"))]
                 Module::Lua { id, function } => {

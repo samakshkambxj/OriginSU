@@ -78,6 +78,10 @@ mod android {
 
     pub const UMOUNT_CONFIG_PATH: &str = concatcp!(WORKING_DIR, ".umount");
 
+    /// Global hosts entries maintained by `ksud module hosts`. A module can
+    /// mount or merge this file into /system/etc/hosts.
+    pub const HOSTS_FILE: &str = concatcp!(WORKING_DIR, "hosts");
+
     pub const KAZEZYGISK_FLAG: &str = concatcp!(WORKING_DIR, ".kazezygisk");
     /// Flag used by the NyaZygisk-backed built-in. Renamed in place on the first
     /// KazeZygisk start so an upgrade does not silently turn Zygisk off.

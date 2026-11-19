@@ -81,6 +81,10 @@ bool get_allow_list(struct ksu_new_get_allow_list_cmd *);
 bool get_full_version(char* buff);
 bool get_hook_type(char *buff);
 
+// Stealth mode
+int get_stealth_state();
+bool set_stealth_enabled(bool enabled);
+
 inline std::pair<int, int> legacy_get_info() {
     int32_t version = -1;
     int32_t flags = 0;

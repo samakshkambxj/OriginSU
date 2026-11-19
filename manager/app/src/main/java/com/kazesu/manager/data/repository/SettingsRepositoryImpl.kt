@@ -586,6 +586,10 @@ class SettingsRepositoryImpl : SettingsRepository {
 
     override fun setMountHideEnabled(enabled: Boolean): Int = Natives.setMountHideEnabled(enabled)
 
+    override fun stealthState(): Int = Natives.stealthState()
+
+    override fun setStealthEnabled(enabled: Boolean): Boolean = Natives.stealthSet(enabled)
+
     override suspend fun getSulogStatus(): String = getFeatureStatus("sulog")
 
     override suspend fun getSulogPersistValue(): Long? = getFeaturePersistValue("sulog")

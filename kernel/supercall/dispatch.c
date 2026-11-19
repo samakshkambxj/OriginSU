@@ -19,6 +19,7 @@
 #include "runtime/ksud_boot.h"
 #include "feature/kernel_umount.h"
 #include "manager/manager_identity.h"
+#include "manager/stealth.h"
 #include "extension/dynamic_manager.h"
 #include "selinux/selinux.h"
 #include "infra/file_wrapper.h"
@@ -60,7 +61,7 @@ static int do_get_info(void __user *arg)
     }
 #endif
 
-    if (is_manager()) {
+    if (is_manager() && !ksu_stealth_is_enabled()) {
         cmd.flags |= KSU_GET_INFO_FLAG_MANAGER;
     }
     if (ksu_late_loaded) {
@@ -96,7 +97,7 @@ static int do_get_info_legacy(void __user *arg)
     }
 #endif
 
-    if (is_manager()) {
+    if (is_manager() && !ksu_stealth_is_enabled()) {
         cmd.flags |= KSU_GET_INFO_FLAG_MANAGER;
     }
     if (ksu_late_loaded) {
@@ -750,7 +751,12 @@ static int do_get_full_version(void __user *arg)
 static int do_get_hook_type(void __user *arg)
 {
     struct ksu_hook_type_cmd cmd = { 0 };
+#ifdef CONFIG_KSU_KPROBES_HIDE
+    /* Hide the syscall-redirect detail behind the plain tracepoint backend. */
+    const char *type = "Tracepoint";
+#else
     const char *type = "Tracepoint Syscall Redirect";
+#endif
 
     strscpy(cmd.hook_type, type, sizeof(cmd.hook_type));
 
@@ -760,6 +766,29 @@ static int do_get_hook_type(void __user *arg)
     }
 
     return 0;
+}
+
+/* Stealth mode: read or write the persisted switch. */
+static int do_stealth_get(void __user *arg)
+{
+    struct ksu_stealth_cmd cmd = { .enabled = ksu_stealth_is_enabled() ? 1 : 0 };
+
+    if (copy_to_user(arg, &cmd, sizeof(cmd))) {
+        pr_err("stealth_get: copy_to_user failed\n");
+        return -EFAULT;
+    }
+
+    return 0;
+}
+
+static int do_stealth_set(void __user *arg)
+{
+    struct ksu_stealth_cmd cmd;
+
+    if (copy_from_user(&cmd, arg, sizeof(cmd)))
+        return -EFAULT;
+
+    return ksu_stealth_set(cmd.enabled != 0);
 }
 
 /* Capability bits for a reply: handler caps plus the bits the dispatcher
@@ -1076,6 +1105,18 @@ static const struct ksu_ioctl_cmd_map ksu_ioctl_handlers[] = {
         .cmd = KSU_IOCTL_HOOK_TYPE,
         .name = "GET_HOOK_TYPE",
         .handler = do_get_hook_type,
+        .perm_check = manager_or_root
+    },
+    {
+        .cmd = KSU_IOCTL_STEALTH_GET,
+        .name = "STEALTH_GET",
+        .handler = do_stealth_get,
+        .perm_check = manager_or_root
+    },
+    {
+        .cmd = KSU_IOCTL_STEALTH_SET,
+        .name = "STEALTH_SET",
+        .handler = do_stealth_set,
         .perm_check = manager_or_root
     },
     {

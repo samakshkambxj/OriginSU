@@ -81,6 +81,18 @@ Java_com_kazesu_manager_Natives_isPrBuild(JNIEnv *env, jclass clazz) {
     return is_pr_build();
 }
 
+extern "C"
+JNIEXPORT jint JNICALL
+Java_com_kazesu_manager_Natives_stealthState(JNIEnv *env, jclass clazz) {
+    return get_stealth_state();
+}
+
+extern "C"
+JNIEXPORT jboolean JNICALL
+Java_com_kazesu_manager_Natives_stealthSet(JNIEnv *env, jclass clazz, jboolean enabled) {
+    return set_stealth_enabled(enabled);
+}
+
 static void fillIntArray(JNIEnv *env, jobject list, int *data, int count) {
     auto cls = env->GetObjectClass(list);
     auto add = env->GetMethodID(cls, "add", "(Ljava/lang/Object;)Z");

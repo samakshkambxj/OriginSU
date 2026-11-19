@@ -150,6 +150,10 @@ interface SettingsRepository {
     fun isMountHideEnabled(): Boolean
     fun setMountHideEnabled(enabled: Boolean): Int
 
+    /** Stealth mode: 1 on, 0 off, negative when unsupported. */
+    fun stealthState(): Int
+    fun setStealthEnabled(enabled: Boolean): Boolean
+
     suspend fun getSulogStatus(): String
     suspend fun getSulogPersistValue(): Long?
     suspend fun getSulogValue(): Long?

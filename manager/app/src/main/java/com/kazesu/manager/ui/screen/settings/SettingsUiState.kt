@@ -64,6 +64,10 @@ data class SettingsUiState(
     val mountHideStatus: String = "",
     val isMountHideEnabled: Boolean = false,
 
+    // Stealth mode
+    val stealthStatus: String = "",
+    val isStealthEnabled: Boolean = false,
+
     // SU Log
     val sulogStatus: String = "",
     val isSulogEnabled: Boolean = false,
@@ -245,6 +249,7 @@ data class SettingsScreenActions(
     val onSetSelinuxHideEnabled: (Boolean) -> Unit,
     val onSetAvcSpoofEnabled: (Boolean) -> Unit,
     val onSetMountHideEnabled: (Boolean) -> Unit,
+    val onSetStealthEnabled: (Boolean) -> Unit,
     val onSetSulogEnabled: (Boolean) -> Unit,
     val onSetAdbRootEnabled: (Boolean) -> Unit,
     val onSetShellSuAdbOnlyEnabled: (Boolean) -> Unit,

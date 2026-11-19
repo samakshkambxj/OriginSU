@@ -36,6 +36,10 @@ kernelsu-objs += extension/dynamic_manager.o
 kernelsu-objs += extension/dynamic_sig_fallback.o
 endif
 
+ifeq ($(CONFIG_KSU_STEALTH),y)
+kernelsu-objs += manager/stealth.o
+endif
+
 kernelsu-objs += policy/allowlist.o
 kernelsu-objs += policy/app_profile.o
 kernelsu-objs += policy/feature.o

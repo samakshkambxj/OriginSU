@@ -195,6 +195,13 @@ class SettingsViewModel(
             val isAvcSpoofEnabled = repo.isAvcSpoofEnabled()
             val mountHideStatus = repo.getMountHideStatus()
             val isMountHideEnabled = repo.isMountHideEnabled()
+            val stealthState = repo.stealthState()
+            val stealthStatus = if (stealthState == 1 || stealthState == 0) {
+                "supported"
+            } else {
+                "unsupported"
+            }
+            val isStealthEnabled = stealthState == 1
             val sulogStatus = repo.getSulogStatus()
             val isSulogEnabled = if (sulogStatus == "forced") {
                 repo.getSulogValue() == 1L
@@ -300,6 +307,8 @@ homePillScale = HomeStatusStyle.coercePillScale(repo.homePillScale),
                     isAvcSpoofEnabled = isAvcSpoofEnabled,
                     mountHideStatus = mountHideStatus,
                     isMountHideEnabled = isMountHideEnabled,
+                    stealthStatus = stealthStatus,
+                    isStealthEnabled = isStealthEnabled,
                     sulogStatus = sulogStatus,
                     isSulogEnabled = isSulogEnabled,
                     isDefaultUmountModules = isDefaultUmountModules,
@@ -2956,6 +2965,19 @@ homePillScale = repo.homePillScale,
                         Toast.makeText(ksuApp, ksuApp.getString(R.string.settings_mount_hide_failed, status),
                             Toast.LENGTH_LONG).show()
                     }
+                }
+            }
+        }
+    }
+
+    fun setStealthEnabled(enabled: Boolean) {
+        viewModelScope.launch(Dispatchers.IO) {
+            if (repo.setStealthEnabled(enabled)) {
+                _uiState.update { it.copy(isStealthEnabled = enabled) }
+            } else {
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(ksuApp, R.string.settings_stealth_failed,
+                        Toast.LENGTH_LONG).show()
                 }
             }
         }

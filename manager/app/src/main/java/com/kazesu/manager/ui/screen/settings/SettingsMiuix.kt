@@ -483,6 +483,23 @@ fun SettingPagerMiuix(
                                 onCheckedChange = actions.onSetMountHideEnabled
                             )
 
+                            val stealthSummary = stringResource(id = R.string.settings_stealth_summary)
+                            SwitchPreference(
+                                title = stringResource(id = R.string.settings_stealth),
+                                summary = stealthSummary,
+                                startAction = {
+                                    Icon(
+                                        Icons.Rounded.VisibilityOff,
+                                        modifier = Modifier.padding(end = 6.dp),
+                                        contentDescription = stringResource(id = R.string.settings_stealth),
+                                        tint = colorScheme.onBackground
+                                    )
+                                },
+                                enabled = uiState.stealthStatus == "supported",
+                                checked = uiState.isStealthEnabled,
+                                onCheckedChange = actions.onSetStealthEnabled
+                            )
+
                             val sulogSummary = when (uiState.sulogStatus) {
                                 "unsupported" -> stringResource(id = R.string.feature_status_unsupported_summary)
                                 "managed" -> stringResource(id = R.string.feature_status_managed_summary)

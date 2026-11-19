@@ -12,7 +12,8 @@
 // 4: add KSU_GET_INFO_FLAG_BUNDLED
 // 5: add EVENT_SERVICES with a start/skip result
 // 6: add KSU_IOCTL_LOOKUP_SYMBOLS and KSU_GET_INFO_FLAG_PREINIT; modules.rc and preinit may live under /metadata/vold/ksu
-static const __u32 KERNEL_SU_UAPI_VERSION = 6;
+// 7: add KSU_IOCTL_STEALTH_GET / KSU_IOCTL_STEALTH_SET
+static const __u32 KERNEL_SU_UAPI_VERSION = 7;
 
 /* Magic numbers for reboot hook to install fd */
 static const __u32 KSU_INSTALL_MAGIC1 = 0xDEADBEEF;
@@ -188,6 +189,14 @@ struct ksu_hook_type_cmd {
     char hook_type[32]; // Output: hook type string
 };
 
+/*
+ * Stealth mode switch. While on, GET_INFO stops reporting the manager flag so
+ * the app looks uninstalled. Real permission checks are unaffected.
+ */
+struct ksu_stealth_cmd {
+    __u8 enabled; /* Input for SET, output for GET */
+};
+
 struct ksu_set_spoof_version_cmd {
     __u8 release[65]; /* Input: e.g., "5.10.115-android12-9-g00000000" */
     __u8 version[65]; /* Input: e.g., "#1 SMP PREEMPT Thu Jan 1 00:00:00 UTC 2026" */
@@ -222,6 +231,8 @@ static const __u32 KSU_IOCTL_SET_INIT_PGRP = _IO('K', 19);
 static const __u32 KSU_IOCTL_GET_SULOG_FD = _IOW('K', 20, struct ksu_get_sulog_fd_cmd);
 static const __u32 KSU_IOCTL_DISABLE_ESCAPE_TO_ROOT = _IO('K', 21);
 static const __u32 KSU_IOCTL_LOOKUP_SYMBOLS = _IOW('K', 22, struct ksu_lookup_symbols_cmd);
+static const __u32 KSU_IOCTL_STEALTH_GET = _IOR('K', 23, struct ksu_stealth_cmd);
+static const __u32 KSU_IOCTL_STEALTH_SET = _IOW('K', 24, struct ksu_stealth_cmd);
 // Other IOCTL command definitions
 static const __u32 KSU_IOCTL_GET_FULL_VERSION = _IOC(_IOC_READ, 'K', 100, 0);
 static const __u32 KSU_IOCTL_HOOK_TYPE = _IOC(_IOC_READ, 'K', 101, 0);
