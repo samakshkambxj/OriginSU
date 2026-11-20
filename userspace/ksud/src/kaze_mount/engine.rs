@@ -1,18 +1,18 @@
-//! Magic Mount: Magisk-style userspace mounting of module `system/` trees.
+//! KazeMount's built-in mounting engine.
 //!
-//! KazeSU delegates mounting to a metamodule when one owns it (e.g.
-//! ZeroMount). When no enabled metamodule provides a mount script, this pass
-//! merges every active module's `system/` tree and mounts the result:
+//! Merges every active module's `system/` (and partition) tree and injects it
+//! into the live root. Two mechanisms are available:
 //!
-//! - `auto` (default) tries overlayfs first and falls back to bind mounts.
-//! - `overlay` always uses overlayfs (falling back to bind if it cannot be
-//!   set up).
-//! - `bind` uses Magisk-style tmpfs skeletons and bind mounts only.
+//! - [`Backend::Overlay`] stages the merged tree on a tmpfs and mounts it with
+//!   overlayfs, falling back to bind mounts when overlayfs is unavailable or
+//!   staging fails.
+//! - [`Backend::Bind`] uses Magisk-style tmpfs skeletons and bind mounts only.
+//! - [`Backend::Auto`] prefers overlayfs and falls back to bind mounts.
 //!
-//! Both engines merge modules in a deterministic order (later module ids win)
-//! and support directories, regular files, symlinks, whiteouts (a character
-//! device with rdev 0) and `.replace` directories. The marker itself is never
-//! exposed.
+//! Both mechanisms merge modules in a deterministic order (later module ids
+//! win) and support directories, regular files, symlinks, whiteouts (a
+//! character device with rdev 0) and `.replace` directories. The marker itself
+//! is never exposed.
 //!
 //! Modules with `skip_mount`, or disabled/removed modules, are skipped.
 //!
@@ -23,9 +23,8 @@
 //! tmpfs runs out of space), the pass falls back to bind mounts, which never
 //! copy module payloads into RAM.
 //!
-//! State is a single flag file ([defs::MAGIC_MOUNT_ENABLE_FILE]):
-//! present means enabled, absent means disabled. It takes effect on the next
-//! boot; the `ksud module magic-mount` CLI manages it.
+//! The engine is driven exclusively by [`crate::kaze_mount`]; it has no
+//! persisted enable flag or backend of its own.
 
 use std::{
     collections::BTreeMap,
@@ -42,7 +41,7 @@ use anyhow::{Context, Result, bail};
 use log::{debug, info, warn};
 
 use crate::{
-    defs, metamodule,
+    defs,
     module::{self, ModuleType::Active},
     utils::switch_mnt_ns,
 };
@@ -67,88 +66,27 @@ pub fn read_opaque(path: &Path) -> Result<bool> {
     }
 }
 
-/// Magic Mount is enabled only when the enable flag file exists (disabled by
-/// default while the feature is turned off).
-pub fn is_enabled() -> bool {
-    Path::new(defs::MAGIC_MOUNT_ENABLE_FILE).exists()
-}
-
-/// Persist the Magic Mount toggle. Takes effect on the next boot.
-pub fn set_enabled(enabled: bool) -> Result<()> {
-    let flag = Path::new(defs::MAGIC_MOUNT_ENABLE_FILE);
-    if enabled {
-        if let Some(parent) = flag.parent() {
-            std::fs::create_dir_all(parent)
-                .with_context(|| format!("Failed to create {}", parent.display()))?;
-        }
-        std::fs::write(flag, b"1")
-            .with_context(|| format!("Failed to write {}", flag.display()))?;
-        info!("Magic Mount enabled (takes effect on next boot)");
-    } else {
-        if flag.exists() {
-            std::fs::remove_file(flag)
-                .with_context(|| format!("Failed to remove {}", flag.display()))?;
-        }
-        info!("Magic Mount disabled (takes effect on next boot)");
-    }
-    Ok(())
-}
-
-/// Which mount engine Magic Mount uses. `Auto` (default) prefers overlayfs
-/// and falls back to Magisk-style bind mounts on kernels without it.
+/// Mounting mechanism used by the built-in KazeMount engine.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum MountBackend {
+pub enum Backend {
+    /// Prefer overlayfs, then fall back to bind mounts.
     Auto,
+    /// Stage an overlayfs mount, falling back to bind mounts if it cannot be
+    /// set up.
     Overlay,
+    /// Use Magisk-style tmpfs skeletons and bind mounts only.
     Bind,
 }
 
-impl MountBackend {
-    pub fn as_str(self) -> &'static str {
+impl Backend {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
         match self {
             Self::Auto => "auto",
             Self::Overlay => "overlay",
             Self::Bind => "bind",
         }
     }
-
-    fn parse(s: &str) -> Result<Self> {
-        match s.trim() {
-            "auto" => Ok(Self::Auto),
-            "overlay" => Ok(Self::Overlay),
-            "bind" => Ok(Self::Bind),
-            other => bail!("unknown Magic Mount backend '{other}' (want auto/overlay/bind)"),
-        }
-    }
-}
-
-/// Read the persisted backend (`auto` when unset or unreadable).
-pub fn backend() -> MountBackend {
-    std::fs::read_to_string(defs::MAGIC_MOUNT_BACKEND_FILE)
-        .ok()
-        .and_then(|s| MountBackend::parse(&s).ok())
-        .unwrap_or(MountBackend::Auto)
-}
-
-/// Persist the backend (`auto`/`overlay`/`bind`). Takes effect next boot.
-pub fn set_backend(mode: &str) -> Result<()> {
-    let parsed = MountBackend::parse(mode)?;
-    if let Some(parent) = Path::new(defs::MAGIC_MOUNT_BACKEND_FILE).parent() {
-        std::fs::create_dir_all(parent)
-            .with_context(|| format!("Failed to create {}", parent.display()))?;
-    }
-    std::fs::write(defs::MAGIC_MOUNT_BACKEND_FILE, parsed.as_str())
-        .with_context(|| format!("Failed to write {}", defs::MAGIC_MOUNT_BACKEND_FILE))?;
-    info!(
-        "Magic Mount backend set to {} (takes effect on next boot)",
-        parsed.as_str()
-    );
-    Ok(())
-}
-
-pub fn print_backend() -> Result<()> {
-    println!("{}", backend().as_str());
-    Ok(())
 }
 
 fn overlay_supported() -> bool {
@@ -474,7 +412,7 @@ fn collect_mountable_modules(partitions: &[String]) -> Vec<(String, PathBuf)> {
             return Ok(());
         }
         if path.join("skip_mount").exists() {
-            info!("{id}: skip_mount present, skipping magic mount");
+            info!("{id}: skip_mount present, skipping mount");
             return Ok(());
         }
         modules.push((id.to_string(), path.to_path_buf()));
@@ -792,7 +730,7 @@ fn overlay_top(
 }
 
 fn run_overlay_mount(root: &Node) -> Result<()> {
-    let work = Path::new(defs::MAGIC_MOUNT_WORK_DIR);
+    let work = Path::new(defs::KAZE_MOUNT_WORK_DIR);
     prepare_work(work)?;
 
     let stage = work.join("stage");
@@ -868,7 +806,7 @@ fn run_overlay_mount(root: &Node) -> Result<()> {
         cleanup_work(work);
         bail!("no overlay could be mounted");
     }
-    info!("overlay-backed Magic Mount staged {mounted} top-level mount(s)");
+    info!("overlay-backed KazeMount staged {mounted} top-level mount(s)");
     Ok(())
 }
 
@@ -1046,30 +984,21 @@ fn do_bind_mount(base: &Path, work: &Path, mut node: Node, has_tmpfs: bool) -> R
 }
 
 fn run_bind_mount(root: &Node) -> Result<()> {
-    let work = Path::new(defs::MAGIC_MOUNT_WORK_DIR);
+    let work = Path::new(defs::KAZE_MOUNT_WORK_DIR);
     prepare_work(work)?;
     let result = do_bind_mount(Path::new("/"), work, root.clone(), false);
     cleanup_work(work);
     result
 }
 
-/// Run the Magic Mount pass regardless of the legacy enable flag or an
-/// installed metamodule. KazeMount calls this after it has already resolved
-/// the provider for the boot, so the old gating has already been applied.
-pub fn run_magic_mount_forced() -> Result<()> {
-    run_magic_mount_impl(true)
-}
-
-fn run_magic_mount_impl(forced: bool) -> Result<()> {
-    if !forced && !is_enabled() {
-        info!("Magic Mount disabled, skipping");
-        return Ok(());
-    }
-    if !forced && metamodule::owns_mounting() {
-        info!("Metamodule owns mounting, Magic Mount stands down");
-        return Ok(());
-    }
-
+/// Run the built-in KazeMount pass with the requested mechanism.
+///
+/// KazeMount calls this after it has already resolved the provider for the
+/// boot, so the engine itself does no gating beyond the mechanism choice.
+///
+/// # Errors
+/// Returns an error when the selected mechanism cannot mount anything.
+pub fn run(backend: Backend) -> Result<()> {
     // Mounts must be visible system-wide: join init's mount namespace.
     // Best-effort: post-fs-data normally already runs there.
     if let Err(e) = switch_mnt_ns(1) {
@@ -1077,17 +1006,16 @@ fn run_magic_mount_impl(forced: bool) -> Result<()> {
     }
 
     let Some(root) = collect_modules()? else {
-        info!("Magic Mount: no mountable modules");
+        info!("KazeMount: no mountable modules");
         return Ok(());
     };
 
-    let backend = backend();
     let overlay_available = match backend {
-        MountBackend::Bind => false,
-        MountBackend::Overlay | MountBackend::Auto => overlay_supported(),
+        Backend::Bind => false,
+        Backend::Overlay | Backend::Auto => overlay_supported(),
     };
-    if matches!(backend, MountBackend::Overlay) && !overlay_available {
-        warn!("backend forced to overlay but the kernel lacks overlayfs; using bind mounts");
+    if backend == Backend::Overlay && !overlay_available {
+        warn!("overlay selected but the kernel lacks overlayfs; using bind mounts");
     }
 
     let mut used_overlay = false;
@@ -1100,11 +1028,11 @@ fn run_magic_mount_impl(forced: bool) -> Result<()> {
         }
     }
     if !used_overlay {
-        run_bind_mount(&root).context("bind-backed Magic Mount failed")?;
+        run_bind_mount(&root).context("bind-backed KazeMount failed")?;
     }
 
     info!(
-        "Magic Mount pass complete (backend {}, engine {})",
+        "KazeMount pass complete (requested {}, engine {})",
         backend.as_str(),
         if used_overlay { "overlayfs" } else { "bind" }
     );

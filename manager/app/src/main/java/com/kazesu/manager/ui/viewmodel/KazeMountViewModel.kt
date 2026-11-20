@@ -56,16 +56,6 @@ class KazeMountViewModel : ViewModel() {
         operation = { repository.setMode(mode) },
     )
 
-    fun setMagicMountEnabled(enabled: Boolean) = perform(
-        successMessage = R.string.kaze_mount_magic_updated,
-        operation = { repository.setMagicMountEnabled(enabled) },
-    )
-
-    fun setMagicMountBackend(backend: String) = perform(
-        successMessage = R.string.kaze_mount_magic_updated,
-        operation = { repository.setMagicMountBackend(backend) },
-    )
-
     fun mountNow() = perform(
         successMessage = R.string.kaze_mount_mount_succeeded,
         failureMessage = R.string.kaze_mount_mount_failed,

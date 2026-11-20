@@ -13,7 +13,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.outlined.Info
-import androidx.compose.material.icons.rounded.Memory
 import androidx.compose.material.icons.rounded.RestartAlt
 import androidx.compose.material.icons.rounded.Security
 import androidx.compose.material3.Button
@@ -62,7 +61,6 @@ fun KazeMountMaterial(
         KazeMountMode.entries.filter { it != KazeMountMode.ZeroMount }
     }
     val modeLabels = modes.map { kazeMountModeLabel(it) }
-    val backendLabels = listOf("auto", "overlay", "bind").map { magicMountBackendLabel(it) }
     var uidInput by rememberSaveable { mutableStateOf("") }
     LaunchedEffect(state.uidState.stored) {
         uidInput = state.uidState.stored.joinToString(", ")
@@ -157,33 +155,6 @@ fun KazeMountMaterial(
                             selectedIndex = modes.indexOf(status.mode).coerceAtLeast(0),
                             enabled = status.available && !state.isWorking,
                             onItemSelected = { index -> actions.onModeChange(modes[index]) },
-                        )
-                    }
-                }
-            }
-            item {
-                SegmentedColumn(title = stringResource(R.string.kaze_mount_magic_section)) {
-                    item {
-                        SegmentedSwitchItem(
-                            icon = Icons.Rounded.Security,
-                            title = stringResource(R.string.kaze_mount_magic_enable),
-                            summary = stringResource(R.string.kaze_mount_magic_enable_summary),
-                            checked = status.magicMountEnabled,
-                            enabled = status.available && !state.isWorking,
-                            onCheckedChange = actions.onMagicEnabledChange,
-                        )
-                    }
-                    item {
-                        SegmentedDropdownItem(
-                            icon = Icons.Rounded.Memory,
-                            title = stringResource(R.string.kaze_mount_magic_backend),
-                            summary = stringResource(R.string.kaze_mount_magic_backend_summary),
-                            items = backendLabels,
-                            selectedIndex = listOf("auto", "overlay", "bind").indexOf(status.backend).coerceAtLeast(0),
-                            enabled = status.available && !state.isWorking,
-                            onItemSelected = { index ->
-                                actions.onBackendChange(listOf("auto", "overlay", "bind")[index])
-                            },
                         )
                     }
                 }

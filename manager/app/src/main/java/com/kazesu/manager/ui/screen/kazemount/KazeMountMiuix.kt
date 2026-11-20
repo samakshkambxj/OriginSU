@@ -71,8 +71,6 @@ fun KazeMountMiuix(
         KazeMountMode.entries.filter { it != KazeMountMode.ZeroMount }
     }
     val modeLabels = modes.map { kazeMountModeLabel(it) }
-    val backendIds = listOf("auto", "overlay", "bind")
-    val backendLabels = backendIds.map { magicMountBackendLabel(it) }
     var uidInput by rememberSaveable { mutableStateOf("") }
     LaunchedEffect(state.uidState.stored) {
         uidInput = state.uidState.stored.joinToString(", ")
@@ -193,25 +191,6 @@ fun KazeMountMiuix(
                         selectedIndex = modes.indexOf(status.mode).coerceAtLeast(0),
                         enabled = status.available && !state.isWorking,
                         onSelectedIndexChange = { index -> actions.onModeChange(modes[index]) },
-                    )
-                }
-            }
-            item {
-                AppCard(modifier = Modifier.fillMaxWidth()) {
-                    SwitchPreference(
-                        title = stringResource(R.string.kaze_mount_magic_enable),
-                        summary = stringResource(R.string.kaze_mount_magic_enable_summary),
-                        checked = status.magicMountEnabled,
-                        enabled = status.available && !state.isWorking,
-                        onCheckedChange = actions.onMagicEnabledChange,
-                    )
-                    OverlayDropdownPreference(
-                        title = stringResource(R.string.kaze_mount_magic_backend),
-                        summary = stringResource(R.string.kaze_mount_magic_backend_summary),
-                        items = backendLabels,
-                        selectedIndex = backendIds.indexOf(status.backend).coerceAtLeast(0),
-                        enabled = status.available && !state.isWorking,
-                        onSelectedIndexChange = { index -> actions.onBackendChange(backendIds[index]) },
                     )
                 }
             }

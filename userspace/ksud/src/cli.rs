@@ -539,12 +539,6 @@ enum Module {
         function: String,
     },
 
-    /// configure the built-in Magic Mount engine
-    MagicMount {
-        #[command(subcommand)]
-        command: MagicMountCmd,
-    },
-
     /// list all modules
     List,
 
@@ -565,25 +559,6 @@ enum Module {
 }
 
 #[derive(clap::Subcommand, Debug)]
-enum MagicMountCmd {
-    /// print enabled or disabled
-    Status,
-    /// enable Magic Mount for the next boot
-    Enable,
-    /// disable Magic Mount for the next boot
-    Disable,
-    /// run Magic Mount now
-    Mount,
-    /// get or set the backend: auto, overlay, or bind
-    Backend {
-        /// omit to print the current backend
-        mode: Option<String>,
-    },
-    /// print the detected mount-engine owner
-    Engine,
-}
-
-#[derive(clap::Subcommand, Debug)]
 enum KazeMountCmd {
     /// print the selected mode, resolved provider and last boot result
     Status {
@@ -593,7 +568,7 @@ enum KazeMountCmd {
     },
     /// set the provider mode
     SetMode {
-        /// auto, builtin, metamodule, zeromount, nomount, or off
+        /// auto, overlay, bind, metamodule, zeromount, nomount, or off
         mode: String,
     },
     /// run the selected provider now
@@ -1367,20 +1342,6 @@ pub fn run() -> Result<()> {
                 Module::Lua { id, function } => {
                     module::run_lua(&id, &function, false, true).map_err(|e| anyhow::anyhow!("{e}"))
                 }
-                Module::MagicMount { command } => match command {
-                    MagicMountCmd::Status => kaze_mount::legacy_status(),
-                    MagicMountCmd::Enable => kaze_mount::legacy_set_enabled(true),
-                    MagicMountCmd::Disable => kaze_mount::legacy_set_enabled(false),
-                    MagicMountCmd::Mount => crate::magic_mount::run_magic_mount_forced(),
-                    MagicMountCmd::Backend { mode } => match mode {
-                        Some(mode) => crate::magic_mount::set_backend(&mode),
-                        None => crate::magic_mount::print_backend(),
-                    },
-                    MagicMountCmd::Engine => {
-                        crate::mount_engine::Status::detect().print();
-                        Ok(())
-                    }
-                },
                 Module::List => module::list_modules(),
                 Module::Preinit { command } => match command {
                     PreinitCmd::Status => {

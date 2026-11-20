@@ -36,16 +36,6 @@ class KazeMountRepository {
         runCatching { execKsud("kaze-mount set-mode ${mode.id}") }.getOrDefault(false)
     }
 
-    suspend fun setMagicMountEnabled(enabled: Boolean): Boolean = withContext(Dispatchers.IO) {
-        val operation = if (enabled) "enable" else "disable"
-        runCatching { execKsud("module magic-mount $operation") }.getOrDefault(false)
-    }
-
-    suspend fun setMagicMountBackend(backend: String): Boolean = withContext(Dispatchers.IO) {
-        if (backend !in MAGIC_MOUNT_BACKENDS) return@withContext false
-        runCatching { execKsud("module magic-mount backend $backend") }.getOrDefault(false)
-    }
-
     suspend fun mountNow(): Boolean = withContext(Dispatchers.IO) {
         runCatching { execKsud("kaze-mount mount") }.getOrDefault(false)
     }
