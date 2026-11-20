@@ -58,10 +58,25 @@ kernel extension center, without a pile of companion apps.
     finish, and disables every module once the threshold (2–10, default 3) is
     crossed. A rescue notice with Dismiss tells you what happened so you can
     re-enable modules one by one to find the culprit.
-11. KazeTune kernel tuning: live read/write of CPU frequency, GPU clocks, block
+11. KazeMount module mounting: provider selection from Settings > Tools —
+    `overlay` (KazeMount overlayfs engine, bind fallback), `bind` (bind-mount
+    engine), `metamodule` (ZeroMount/Kagami/Hybrid Mount), `zeromount`,
+    `nomount` or `off`. Changes apply on the next boot, and there's a Run Now
+    button to mount without rebooting. The old Magic Mount enable flag and
+    backend toggle are gone; KazeMount is the single mount engine.
+12. KazeTune kernel tuning: live read/write of CPU frequency, GPU clocks, block
     I/O, VM presets, scheduler extras, LMK levels, TCP congestion control, BORE
     scheduler, ZRAM and a generic sysctl editor. Tunables can be persisted so
     they re-apply on every boot through ksud's boot-completed hook.
+13. Hiding: SUSFS root hiding plus kernel-extension mount view hiding
+    (overlayfs/bind) and CPU/vvar spoofing, AVC log spoofing and version
+    spoofing — all from the Kernel Extension Center, no separate module needed.
+14. Stealth mode: `ksud stealth enable/disable` (and a manager toggle) hides
+    KazeSU's presence from detection apps — process name, package, zygote and
+    mount-visible footprints all go quiet.
+15. Module convenience: batch install, disable-all / uninstall-all, per-module
+    action scripts, backup/restore of module state, and hot install so modules
+    land without a reboot.
 
 ## Compatibility
 
