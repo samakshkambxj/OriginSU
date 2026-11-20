@@ -137,6 +137,10 @@ fun ToolsMiuix(
                         onUpdate = actions.onGuardUpdate,
                     )
 
+                    KazeMountSectionMiuix(
+                        onOpen = actions.onOpenKazeMount
+                    )
+
                     KernelModulesSectionMiuix(
                         onOpen = actions.onOpenKernelModules
                     )
@@ -311,6 +315,31 @@ private fun BootloopRescuedCardMiuix(
             )
         }
     )
+}
+
+@Composable
+private fun KazeMountSectionMiuix(
+    onOpen: () -> Unit,
+) {
+    AppCard(
+        modifier = Modifier
+            .padding(top = 12.dp)
+            .fillMaxWidth(),
+    ) {
+        ArrowPreference(
+            title = stringResource(R.string.kaze_mount_title),
+            summary = stringResource(R.string.kaze_mount_tools_summary),
+            startAction = {
+                Icon(
+                    imageVector = Icons.Rounded.RestartAlt,
+                    modifier = Modifier.padding(end = 6.dp),
+                    contentDescription = stringResource(R.string.kaze_mount_title),
+                    tint = colorScheme.onBackground
+                )
+            },
+            onClick = onOpen
+        )
+    }
 }
 
 @Composable

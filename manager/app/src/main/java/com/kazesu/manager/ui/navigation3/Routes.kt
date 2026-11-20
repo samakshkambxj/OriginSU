@@ -173,6 +173,10 @@ sealed interface Route : NavKey, Parcelable {
 
     @Parcelize
     @Serializable
+    data object KazeMount: Route
+
+    @Parcelize
+    @Serializable
     data object UmountManager: Route
 
     

@@ -69,6 +69,29 @@ mod android {
     pub const METAMODULE_METAINSTALL_SCRIPT: &str = "metainstall.sh";
     pub const METAMODULE_METAUNINSTALL_SCRIPT: &str = "metauninstall.sh";
 
+    /// Presence enables Magic Mount (absent = disabled, the current default).
+    pub const MAGIC_MOUNT_ENABLE_FILE: &str = concatcp!(WORKING_DIR, ".magic_mount_enable");
+    /// Backend override: file content is one of `auto` (default), `overlay`, `bind`.
+    pub const MAGIC_MOUNT_BACKEND_FILE: &str = concatcp!(WORKING_DIR, ".magic_mount_backend");
+    /// Scratch directory shared by the overlay and bind staging engines.
+    pub const MAGIC_MOUNT_WORK_DIR: &str = concatcp!(WORKING_DIR, "magic_mount/");
+
+    // KazeMount provider selection and runtime records. The paths intentionally
+    // match OriginMount so upgrades retain the selected provider and diagnostics.
+    /// Selected provider: `auto`, `builtin`, `metamodule`, `zeromount`, `nomount`, or `off`.
+    pub const MOUNT_MODE_FILE: &str = concatcp!(WORKING_DIR, "mount_mode");
+    pub const MOUNT_RUNTIME: &str = concatcp!(WORKING_DIR, "mount_runtime");
+    pub const MOUNT_INFLIGHT: &str = concatcp!(WORKING_DIR, "mount_inflight");
+    pub const MOUNT_LOG: &str = concatcp!(LOG_DIR, "mount.log");
+    pub const MOUNT_LOG_MAX_BYTES: u64 = 512 * 1024;
+
+    // Built-in NoMount backend.
+    pub const NOMOUNT_RUNTIME: &str = concatcp!(WORKING_DIR, "nomount_runtime");
+    pub const NOMOUNT_UIDS: &str = concatcp!(WORKING_DIR, "nomount_uids");
+    pub const NOMOUNT_LAST_ACTION: &str = concatcp!(WORKING_DIR, "nomount_last_action");
+    pub const NOMOUNT_LOAD_ATTEMPT: &str = concatcp!(WORKING_DIR, "nomount_load_attempt");
+    pub const NOMOUNT_LOAD_LOCK: &str = concatcp!(WORKING_DIR, "nomount_load.lock");
+
     pub const KSU_BACKUP_DIR: &str = WORKING_DIR;
     pub const KSU_BACKUP_FILE_PREFIX: &str = "ksu_backup_";
     pub const BACKUP_FILENAME: &str = "stock_image.sha1";

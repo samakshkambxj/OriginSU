@@ -66,8 +66,6 @@ pub fn on_post_fs_data() -> Result<()> {
         }
     }
 
-    let module_dir = defs::MODULE_DIR;
-
     assets::ensure_binaries(true).with_context(|| "Failed to extract bin assets")?;
 
     crate::hot_install::clean_trash();
@@ -149,6 +147,11 @@ pub fn on_post_fs_data() -> Result<()> {
         warn!("exec metamodule post-fs-data script failed: {e}");
     }
 
+    // KazeMount runs exactly one selected provider before module scripts.
+    if let Err(e) = crate::kaze_mount::run_boot_pass() {
+        warn!("KazeMount boot pass failed: {e:#}");
+    }
+
     // exec modules post-fs-data scripts
     if let Err(e) = crate::module::exec_stage_script("post-fs-data", wait) {
         warn!("exec post-fs-data scripts failed: {e}");
@@ -165,8 +168,10 @@ pub fn on_post_fs_data() -> Result<()> {
         warn!("load system.prop failed: {e}");
     }
 
-    // execute metamodule mount script
-    if let Err(e) = metamodule::exec_mount_script(module_dir) {
+    // Only the selected metamodule provider reaches its mount script.
+    if crate::kaze_mount::should_run_metamodule_mount()
+        && let Err(e) = crate::kaze_mount::run_metamodule_mount()
+    {
         warn!("execute metamodule mount failed: {e}");
     }
 

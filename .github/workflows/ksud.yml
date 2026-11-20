@@ -48,8 +48,19 @@ jobs:
               [ -f "$f" ] || continue
               cp "$f" ./userspace/ksud/bin/aarch64/
             done
+            for f in "$d"*_nomount.ko; do
+              [ -f "$f" ] || continue
+              cp "$f" ./userspace/ksud/bin/aarch64/
+            done
           done
           cp x86_64-android*-lkm/*_kernelsu.ko ./userspace/ksud/bin/x86_64/
+          for d in x86_64-android*-lkm/; do
+            [ -d "$d" ] || continue
+            for f in "$d"*_nomount.ko; do
+              [ -f "$f" ] || continue
+              cp "$f" ./userspace/ksud/bin/x86_64/
+            done
+          done
           ls ./userspace/ksud/bin/aarch64/ ./userspace/ksud/bin/x86_64/
 
       - name: Prepare ksuinit

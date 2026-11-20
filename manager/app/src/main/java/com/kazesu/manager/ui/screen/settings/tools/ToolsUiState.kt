@@ -29,6 +29,7 @@ data class ToolsActions(
     val onRestoreAllowlistTar: () -> Unit = {},
     val onDisableAllModules: () -> Unit = {},
     val onUninstallAllModules: () -> Unit = {},
+    val onOpenKazeMount: () -> Unit = {},
     val onOpenKernelModules: () -> Unit = {},
     val onBootloopToggle: (Boolean) -> Unit = {},
     val onBootloopThresholdChange: (Int) -> Unit = {},
