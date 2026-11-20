@@ -29,8 +29,6 @@ fun KazeMountScreen() {
         onBack = { navigator.pop() },
         onRefresh = { viewModel.refresh(showLoading = true) },
         onModeChange = viewModel::setMode,
-        onMagicEnabledChange = viewModel::setMagicMountEnabled,
-        onBackendChange = viewModel::setMagicMountBackend,
         onMountNow = viewModel::mountNow,
         onSaveUids = viewModel::setUids,
         onIsolatedChange = viewModel::setIsolated,

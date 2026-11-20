@@ -908,7 +908,7 @@ fn collect_plan_filtered(only: Option<&str>) -> Result<crate::nomount_plan::Plan
         std::path::Path::new("/system"),
     );
     let fs = crate::nomount_plan::StdFs::new(
-        crate::magic_mount::read_opaque as fn(&std::path::Path) -> Result<bool>,
+        crate::kaze_mount::engine::read_opaque as fn(&std::path::Path) -> Result<bool>,
     );
     only.map_or_else(
         || crate::nomount_plan::collect_rules(&fs, &cfg),
@@ -928,7 +928,7 @@ pub fn collect_rule_counts() -> Result<Vec<(String, usize)>> {
         std::path::Path::new("/system"),
     );
     let fs = crate::nomount_plan::StdFs::new(
-        crate::magic_mount::read_opaque as fn(&std::path::Path) -> Result<bool>,
+        crate::kaze_mount::engine::read_opaque as fn(&std::path::Path) -> Result<bool>,
     );
     crate::nomount_plan::rule_counts(&fs, &cfg)
 }
@@ -976,7 +976,7 @@ pub fn hot_unload(id: &str) -> Result<usize> {
         std::path::Path::new("/system"),
     );
     let fs = crate::nomount_plan::StdFs::new(
-        crate::magic_mount::read_opaque as fn(&std::path::Path) -> Result<bool>,
+        crate::kaze_mount::engine::read_opaque as fn(&std::path::Path) -> Result<bool>,
     );
     let plan = crate::nomount_plan::collect_rules_ignoring_marks(&fs, &cfg, id)?;
     let paths: Vec<String> = plan
@@ -1849,7 +1849,7 @@ fn unavailable_reason(probe: &DriverProbe) -> (&'static str, Option<String>) {
 ///
 /// The test is deliberately narrow: a metamodule whose id is `nomount`, that
 /// ships `bin/nm`, or that carries a NoMount LKM. A metamodule that only mounts
-/// files (overlayfs, magic mount) is not one.
+/// files (overlayfs, bind mount) is not one.
 #[cfg(target_os = "android")]
 #[must_use]
 pub fn installed_driver_module() -> Option<String> {

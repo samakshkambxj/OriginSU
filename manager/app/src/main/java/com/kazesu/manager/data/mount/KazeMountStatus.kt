@@ -5,18 +5,21 @@ import org.json.JSONObject
 /** Provider mode persisted by ksud. Ids are part of the CLI/config ABI. */
 enum class KazeMountMode(val id: String) {
     Auto("auto"),
-    MagicMount("builtin"),
-    OverlayFs("metamodule"),
+    OverlayFs("overlay"),
+    BindMount("bind"),
+    Metamodule("metamodule"),
     ZeroMount("zeromount"),
     NoMount("nomount"),
     Off("off");
 
     companion object {
-        fun fromId(id: String): KazeMountMode = entries.firstOrNull { it.id == id } ?: Auto
+        fun fromId(id: String): KazeMountMode = when (id) {
+            // Earlier builds persisted the built-in engine as `builtin`.
+            "builtin" -> OverlayFs
+            else -> entries.firstOrNull { it.id == id } ?: Auto
+        }
     }
 }
-
-val MAGIC_MOUNT_BACKENDS = listOf("auto", "overlay", "bind")
 
 data class KazeMountRuntime(
     val bootId: String = "",
@@ -48,8 +51,6 @@ data class KazeMountStatus(
     val mode: KazeMountMode = KazeMountMode.Auto,
     val provider: String = "none",
     val metamoduleId: String = "",
-    val magicMountEnabled: Boolean = false,
-    val backend: String = "auto",
     val kernelEngines: List<String> = emptyList(),
     val runtime: KazeMountRuntime? = null,
     val nomount: NoMountStatus? = null,
@@ -105,9 +106,6 @@ fun parseKazeMountStatus(output: String): KazeMountStatus {
             mode = KazeMountMode.fromId(root.optString("mode", "auto")),
             provider = root.optString("provider", "none"),
             metamoduleId = root.optString("metamodule"),
-            magicMountEnabled = root.optBoolean("magic_mount"),
-            backend = root.optString("backend", "auto")
-                .takeIf { it in MAGIC_MOUNT_BACKENDS } ?: "auto",
             kernelEngines = root.optJSONArray("kernel")?.let { array ->
                 (0 until array.length()).mapNotNull { index ->
                     array.optString(index).takeIf { it.isNotBlank() }

@@ -11,8 +11,6 @@ data class KazeMountActions(
     val onBack: () -> Unit = {},
     val onRefresh: () -> Unit = {},
     val onModeChange: (KazeMountMode) -> Unit = {},
-    val onMagicEnabledChange: (Boolean) -> Unit = {},
-    val onBackendChange: (String) -> Unit = {},
     val onMountNow: () -> Unit = {},
     val onSaveUids: (String) -> Unit = {},
     val onIsolatedChange: (Boolean) -> Unit = {},
@@ -23,8 +21,9 @@ data class KazeMountActions(
 fun kazeMountModeLabel(mode: KazeMountMode): String = stringResource(
     when (mode) {
         KazeMountMode.Auto -> R.string.kaze_mount_mode_auto
-        KazeMountMode.MagicMount -> R.string.kaze_mount_mode_magic
         KazeMountMode.OverlayFs -> R.string.kaze_mount_mode_overlay
+        KazeMountMode.BindMount -> R.string.kaze_mount_mode_bind
+        KazeMountMode.Metamodule -> R.string.kaze_mount_mode_metamodule
         KazeMountMode.ZeroMount -> R.string.kaze_mount_mode_zeromount
         KazeMountMode.NoMount -> R.string.kaze_mount_mode_nomount
         KazeMountMode.Off -> R.string.kaze_mount_mode_off
@@ -33,19 +32,11 @@ fun kazeMountModeLabel(mode: KazeMountMode): String = stringResource(
 
 @Composable
 fun kazeMountProviderLabel(provider: String): String = when (provider) {
-    "builtin", "magic_mount" -> stringResource(R.string.kaze_mount_mode_magic)
-    "metamodule" -> stringResource(R.string.kaze_mount_mode_overlay)
+    "overlay" -> stringResource(R.string.kaze_mount_mode_overlay)
+    "bind" -> stringResource(R.string.kaze_mount_mode_bind)
+    "metamodule" -> stringResource(R.string.kaze_mount_mode_metamodule)
     "zeromount" -> stringResource(R.string.kaze_mount_mode_zeromount)
     "nomount" -> stringResource(R.string.kaze_mount_mode_nomount)
     "none" -> stringResource(R.string.kaze_mount_mode_off)
     else -> provider.ifBlank { stringResource(R.string.kaze_mount_unavailable) }
 }
-
-@Composable
-fun magicMountBackendLabel(backend: String): String = stringResource(
-    when (backend) {
-        "overlay" -> R.string.kaze_mount_backend_overlay
-        "bind" -> R.string.kaze_mount_backend_bind
-        else -> R.string.kaze_mount_backend_auto
-    }
-)
