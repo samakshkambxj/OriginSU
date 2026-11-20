@@ -11,8 +11,8 @@ use crate::module::regenerate_preinit;
 #[cfg(target_arch = "aarch64")]
 use crate::susfs;
 use crate::{
-    apk_sign, assets, debug, defs, init_event, ksu_uapi, ksucalls, module, module_config, sulog,
-    umount, utils,
+    apk_sign, assets, debug, defs, init_event, kaze_mount, ksu_uapi, ksucalls, module,
+    module_config, nomount, sulog, umount, utils,
 };
 
 /// KernelSU userspace cli
@@ -35,6 +35,19 @@ enum Commands {
     Module {
         #[command(subcommand)]
         command: Module,
+    },
+
+    /// Manage KazeMount provider selection and the built-in mount engines
+    #[command(name = "kaze-mount", alias = "origin-mount")]
+    KazeMount {
+        #[command(subcommand)]
+        command: KazeMountCmd,
+    },
+
+    /// Manage the built-in NoMount backend
+    Nomount {
+        #[command(subcommand)]
+        command: NomountCmd,
     },
 
     /// Manage KazeZygisk, the built-in Zygisk engine
@@ -526,6 +539,12 @@ enum Module {
         function: String,
     },
 
+    /// configure the built-in Magic Mount engine
+    MagicMount {
+        #[command(subcommand)]
+        command: MagicMountCmd,
+    },
+
     /// list all modules
     List,
 
@@ -543,6 +562,101 @@ enum Module {
         #[command(subcommand)]
         command: ModuleConfigCmd,
     },
+}
+
+#[derive(clap::Subcommand, Debug)]
+enum MagicMountCmd {
+    /// print enabled or disabled
+    Status,
+    /// enable Magic Mount for the next boot
+    Enable,
+    /// disable Magic Mount for the next boot
+    Disable,
+    /// run Magic Mount now
+    Mount,
+    /// get or set the backend: auto, overlay, or bind
+    Backend {
+        /// omit to print the current backend
+        mode: Option<String>,
+    },
+    /// print the detected mount-engine owner
+    Engine,
+}
+
+#[derive(clap::Subcommand, Debug)]
+enum KazeMountCmd {
+    /// print the selected mode, resolved provider and last boot result
+    Status {
+        /// emit a single JSON object instead of key=value lines
+        #[arg(long)]
+        json: bool,
+    },
+    /// set the provider mode
+    SetMode {
+        /// auto, builtin, metamodule, zeromount, nomount, or off
+        mode: String,
+    },
+    /// run the selected provider now
+    Mount,
+}
+
+#[derive(clap::Subcommand, Debug)]
+enum NomountCmd {
+    /// print driver state, rule counts and UID exclusions
+    Status {
+        #[arg(long)]
+        json: bool,
+    },
+    /// build and apply the module rule list
+    Inject {
+        /// report what would be applied without talking to the kernel
+        #[arg(long)]
+        dry_run: bool,
+        #[arg(long)]
+        json: bool,
+        /// with --dry-run, print every rule and skip reason
+        #[arg(long)]
+        verbose: bool,
+    },
+    /// show the rules the kernel currently holds
+    List {
+        #[arg(long)]
+        json: bool,
+    },
+    /// drop every redirection rule; UID exclusions are kept
+    Clear,
+    /// add one module's rules without a reboot
+    HotLoad { id: String },
+    /// remove one module's rules without a reboot
+    HotUnload { id: String },
+    /// manage UID exclusions (apps that see the stock filesystem)
+    Uid {
+        #[command(subcommand)]
+        command: NomountUidCmd,
+    },
+}
+
+#[derive(clap::Subcommand, Debug)]
+enum NomountUidCmd {
+    /// show active and stored UID exclusions
+    List {
+        #[arg(long)]
+        json: bool,
+    },
+    /// replace the stored list; omit UIDs to clear it
+    Set { uids: Vec<u32> },
+    /// add UIDs to the stored list
+    Add {
+        #[arg(required = true)]
+        uids: Vec<u32>,
+    },
+    /// remove UIDs from the stored list
+    Del {
+        #[arg(required = true)]
+        uids: Vec<u32>,
+    },
+    /// whether isolated processes also see the stock filesystem
+    Isolated { state: String },
 }
 
 #[derive(clap::Subcommand, Debug)]
@@ -1163,6 +1277,55 @@ pub fn run() -> Result<()> {
 
         Commands::Insmod { module, params } => debug::insmod(&module, &params),
 
+        Commands::KazeMount { command } => match command {
+            KazeMountCmd::Status { json } => kaze_mount::Status::collect().print(json),
+            KazeMountCmd::SetMode { mode } => kaze_mount::set_mode(&mode),
+            KazeMountCmd::Mount => kaze_mount::run_now(),
+        },
+        Commands::Nomount { command } => match command {
+            NomountCmd::Status { json } => {
+                let status = nomount::Status::collect()?;
+                nomount::log_probe(&status.probe);
+                status.print(json)
+            }
+            NomountCmd::Inject { dry_run, json, verbose } => {
+                nomount::inject(dry_run, json, verbose)
+            }
+            NomountCmd::List { json } => nomount::print_rules(json),
+            NomountCmd::Clear => nomount::clear_rules(),
+            NomountCmd::HotLoad { id } => {
+                let applied = nomount::hot_load(&id)?;
+                println!("rules_applied={applied}");
+                Ok(())
+            }
+            NomountCmd::HotUnload { id } => {
+                let removed = nomount::hot_unload(&id)?;
+                println!("rules_removed={removed}");
+                Ok(())
+            }
+            NomountCmd::Uid { command } => match command {
+                NomountUidCmd::List { json } => nomount::uid_edit(None, &[], json),
+                NomountUidCmd::Set { uids } => {
+                    nomount::uid_edit(Some(nomount::UidEdit::Set), &uids, false)
+                }
+                NomountUidCmd::Add { uids } => {
+                    nomount::uid_edit(Some(nomount::UidEdit::Add), &uids, false)
+                }
+                NomountUidCmd::Del { uids } => {
+                    nomount::uid_edit(Some(nomount::UidEdit::Del), &uids, false)
+                }
+                NomountUidCmd::Isolated { state } => {
+                    let on = match state.as_str() {
+                        "on" | "1" | "true" => true,
+                        "off" | "0" | "false" => false,
+                        other => anyhow::bail!(
+                            "invalid isolated state {other:?}; expected on or off"
+                        ),
+                    };
+                    nomount::uid_edit(Some(nomount::UidEdit::Isolated(on)), &[], false)
+                }
+            },
+        },
         Commands::Module { command } => {
             utils::switch_mnt_ns(1)?;
             match command {
@@ -1204,6 +1367,20 @@ pub fn run() -> Result<()> {
                 Module::Lua { id, function } => {
                     module::run_lua(&id, &function, false, true).map_err(|e| anyhow::anyhow!("{e}"))
                 }
+                Module::MagicMount { command } => match command {
+                    MagicMountCmd::Status => kaze_mount::legacy_status(),
+                    MagicMountCmd::Enable => kaze_mount::legacy_set_enabled(true),
+                    MagicMountCmd::Disable => kaze_mount::legacy_set_enabled(false),
+                    MagicMountCmd::Mount => crate::magic_mount::run_magic_mount_forced(),
+                    MagicMountCmd::Backend { mode } => match mode {
+                        Some(mode) => crate::magic_mount::set_backend(&mode),
+                        None => crate::magic_mount::print_backend(),
+                    },
+                    MagicMountCmd::Engine => {
+                        crate::mount_engine::Status::detect().print();
+                        Ok(())
+                    }
+                },
                 Module::List => module::list_modules(),
                 Module::Preinit { command } => match command {
                     PreinitCmd::Status => {

@@ -93,6 +93,14 @@ jobs:
         llvm-strip -d "$OUT_DIR/$OUTPUT_NAME"
         echo "Size after stripping: $(du -h "$OUT_DIR/$OUTPUT_NAME" | cut -f1)"
 
+    - name: Build nomount.ko
+      if: ${{ inputs.arch == 'arm64' }}
+      run: |
+        echo "=== Building NoMount for KMI: ${{ inputs.kmi }} ==="
+        NOMOUNT_OUT="/github/workspace/out/aarch64/${{ inputs.kmi }}_nomount.ko" \
+          sh "$GITHUB_WORKSPACE/userspace/nomount/build-lkm.sh"
+        echo "Size: $(du -h "/github/workspace/out/aarch64/${{ inputs.kmi }}_nomount.ko" | cut -f1)"
+
     - name: Upload kernelsu.ko artifact
       if: ${{ inputs.arch == 'arm64' }}
       uses: actions/upload-artifact@v7
@@ -100,6 +108,7 @@ jobs:
         name: aarch64-${{ inputs.kmi }}-lkm${{ inputs.hook == 'TAMPER_SYSCALL_TABLE' && '-tamper' || '' }}
         path: |
           /github/workspace/out/aarch64/${{ inputs.kmi }}_kernelsu.ko
+          /github/workspace/out/aarch64/${{ inputs.kmi }}_nomount.ko
 
     - name: Build kernelsu.ko for x64
       if: ${{ inputs.arch == 'x86_64' }}
@@ -177,6 +186,16 @@ jobs:
         llvm-strip -d "$OUT_DIR/$OUTPUT_NAME"
         echo "Size after stripping: $(du -h "$OUT_DIR/$OUTPUT_NAME" | cut -f1)"
 
+    - name: Build nomount.ko for x64
+      if: ${{ inputs.arch == 'x86_64' }}
+      run: |
+        echo "=== Building x64 NoMount for KMI: ${{ inputs.kmi }} ==="
+        NOMOUNT_ARCH=x86_64 \
+        KDIR="/opt/ddk/kdir-x64/${{ inputs.kmi }}" \
+        NOMOUNT_OUT="/github/workspace/out/x86_64/${{ inputs.kmi }}_nomount.ko" \
+          sh "$GITHUB_WORKSPACE/userspace/nomount/build-lkm.sh"
+        echo "Size: $(du -h "/github/workspace/out/x86_64/${{ inputs.kmi }}_nomount.ko" | cut -f1)"
+
     - name: Upload x64 kernelsu.ko artifact
       if: ${{ inputs.arch == 'x86_64' }}
       uses: actions/upload-artifact@v7
@@ -184,3 +203,4 @@ jobs:
         name: x86_64-${{ inputs.kmi }}-lkm${{ inputs.hook == 'TAMPER_SYSCALL_TABLE' && '-tamper' || '' }}
         path: |
           /github/workspace/out/x86_64/${{ inputs.kmi }}_kernelsu.ko
+          /github/workspace/out/x86_64/${{ inputs.kmi }}_nomount.ko

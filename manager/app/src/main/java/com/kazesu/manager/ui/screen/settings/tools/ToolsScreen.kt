@@ -224,6 +224,9 @@ fun ToolsScreen() {
                 ).show()
             }
         },
+        onOpenKazeMount = {
+            navigator.push(Route.KazeMount)
+        },
         onOpenKernelModules = {
             navigator.push(Route.KernelModules)
         },

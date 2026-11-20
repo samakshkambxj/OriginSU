@@ -4,7 +4,7 @@ use std::fmt::Write as FmtWrite;
 use std::{process::Command, time::Instant};
 
 use crate::module::{ScriptWait, handle_updated_modules, prune_modules};
-use crate::{assets, defs, init_event, metamodule, restorecon, utils};
+use crate::{assets, defs, init_event, restorecon, utils};
 
 fn dump_process_info(label: &str) {
     use rustix::process::{getgid, getgroups, getpid, getuid};
@@ -148,7 +148,12 @@ pub fn run(
         warn!("init extensions failed: {e}");
     }
 
-    // 8. Execute late-load stage scripts with a shared boot deadline
+    // 8. Run KazeMount before late-load scripts so they see installed files.
+    if let Err(e) = crate::kaze_mount::run_boot_pass() {
+        warn!("KazeMount late-load pass failed: {e:#}");
+    }
+
+    // 9. Execute late-load stage scripts with a shared boot deadline
     if let Err(e) = crate::kazezygisk::apply_sepolicy() {
         warn!("late-load: apply builtin zygisk sepolicy failed: {e}");
     }
@@ -158,17 +163,19 @@ pub fn run(
     let wait = ScriptWait::Until(Instant::now() + defs::BOOT_STAGE_TIMEOUT);
     init_event::run_stage("late-load", wait);
 
-    // 9. Load system.prop
+    // 10. Load system.prop
     if let Err(e) = crate::module::load_system_prop() {
         warn!("load system.prop failed: {e}");
     }
 
-    // 10. Execute metamodule mount script (OverlayFS)
-    if let Err(e) = metamodule::exec_mount_script(defs::MODULE_DIR) {
+    // 11. Execute only the selected metamodule provider's mount script.
+    if crate::kaze_mount::should_run_metamodule_mount()
+        && let Err(e) = crate::kaze_mount::run_metamodule_mount()
+    {
         warn!("execute metamodule mount failed: {e}");
     }
 
-    // 11. Execute post-mount stage scripts using the same deadline
+    // 12. Execute post-mount stage scripts using the same deadline
     init_event::run_stage("post-mount", wait);
     if let Err(e) = crate::kazezygisk::rearm() {
         warn!("late-load: rearm builtin zygisk failed: {e}");

@@ -118,6 +118,7 @@ import com.kazesu.manager.ui.screen.executemoduleaction.ExecuteModuleActionScree
 import com.kazesu.manager.ui.screen.flash.FlashScreen
 import com.kazesu.manager.ui.screen.home.HomePager
 import com.kazesu.manager.ui.screen.install.InstallScreen
+import com.kazesu.manager.ui.screen.kazemount.KazeMountScreen
 import com.kazesu.manager.ui.screen.kernelmodules.KernelModulesScreen
 import com.kazesu.manager.ui.screen.kpm.KpmScreen
 import com.kazesu.manager.ui.screen.module.ModulePager
@@ -422,6 +423,7 @@ class MainActivity : ComponentActivity() {
                                 entry<Route.Kpm>(swipeDismiss = swipeDismiss)  { KpmScreen() }
                                 entry<Route.SuSFS>(swipeDismiss = swipeDismiss)  { key -> SuSFSScreen(key.tab) }
                                 entry<Route.Tool>(swipeDismiss = swipeDismiss)  { ToolsScreen() }
+                                entry<Route.KazeMount>(swipeDismiss = swipeDismiss) { KazeMountScreen() }
                                 entry<Route.UmountManager>(swipeDismiss = swipeDismiss)  { UmountManagerScreen() }
                                 entry<Route.KernelModules>(swipeDismiss = swipeDismiss)  { KernelModulesScreen() }
                                 entry<Route.DynamicManagers>(swipeDismiss = swipeDismiss) { DynamicManagersScreen() }

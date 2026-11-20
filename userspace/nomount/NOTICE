@@ -1,0 +1,11 @@
+NoMount
+https://github.com/maxsteeel/nomount
+Copyright (C) maxsteeel and NoMount contributors
+
+The vendored kernel module sources in kernel/ are licensed under the GNU
+General Public License version 2.0. See kernel/LICENSE for the full text.
+
+The upstream project licenses everything outside its kernel/ directory under
+the GNU General Public License version 3.0. That text is retained verbatim as
+LICENSE for provenance. See UPSTREAM.md for the pinned revision, the imported
+file list and the license mapping.

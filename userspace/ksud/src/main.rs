@@ -38,6 +38,8 @@ mod hot_install;
 #[cfg(target_os = "android")]
 mod init_event;
 #[cfg(target_os = "android")]
+mod kaze_mount;
+#[cfg(target_os = "android")]
 pub mod kazezygisk;
 #[cfg(target_arch = "aarch64")]
 mod kpm;
@@ -50,11 +52,19 @@ mod lkm_image_btf;
 #[cfg(target_os = "android")]
 mod magica;
 #[cfg(target_os = "android")]
+mod magic_mount;
+#[cfg(target_os = "android")]
 mod metamodule;
 #[cfg(target_os = "android")]
 mod module;
 #[cfg(target_os = "android")]
 mod module_config;
+#[cfg(target_os = "android")]
+mod mount_engine;
+#[cfg(target_os = "android")]
+mod nomount;
+#[cfg(target_os = "android")]
+mod nomount_plan;
 #[cfg(target_os = "android")]
 mod preinit;
 #[cfg(target_os = "android")]

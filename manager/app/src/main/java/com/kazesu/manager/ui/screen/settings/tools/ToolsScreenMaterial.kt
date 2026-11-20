@@ -114,6 +114,10 @@ fun ToolsMaterial(
                         onUpdate = actions.onGuardUpdate,
                     )
 
+                    KazeMountSectionMaterial(
+                        onOpen = actions.onOpenKazeMount
+                    )
+
                     KernelModulesSectionMaterial(
                         onOpen = actions.onOpenKernelModules
                     )
@@ -280,6 +284,28 @@ private fun GuardSectionMaterial(
                         Text(stringResource(R.string.settings_guard_update_action))
                     }
                 }
+            )
+        })
+    )
+}
+
+@Composable
+private fun KazeMountSectionMaterial(
+    onOpen: () -> Unit,
+) {
+    SegmentedColumn(
+        modifier = Modifier.padding(top = 12.dp),
+        content = listOf({
+            SegmentedListItem(
+                headlineContent = { Text(stringResource(R.string.kaze_mount_title)) },
+                supportingContent = { Text(stringResource(R.string.kaze_mount_tools_summary)) },
+                leadingContent = {
+                    IconTile(
+                        Icons.Rounded.RestartAlt,
+                        stringResource(R.string.kaze_mount_title),
+                    )
+                },
+                onClick = onOpen,
             )
         })
     )
