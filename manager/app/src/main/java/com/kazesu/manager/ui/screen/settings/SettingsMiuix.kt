@@ -39,6 +39,7 @@ import androidx.compose.material.icons.rounded.Extension
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Policy
 import androidx.compose.material.icons.rounded.Security
+import androidx.compose.material.icons.rounded.SystemUpdate
 import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material.icons.rounded.VerifiedUser
 import androidx.compose.runtime.Composable
@@ -748,6 +749,20 @@ fun SettingPagerMiuix(
                             show = showSendLogDialog.value,
                             onDismissRequest = { showSendLogDialog.value = false },
                             loadingDialog = loadingDialog
+                        )
+                        val updater = stringResource(R.string.updater)
+                        ArrowPreference(
+                            title = updater,
+                            summary = stringResource(R.string.updater_summary),
+                            startAction = {
+                                Icon(
+                                    Icons.Rounded.SystemUpdate,
+                                    modifier = Modifier.padding(end = 6.dp),
+                                    contentDescription = updater,
+                                    tint = colorScheme.onBackground,
+                                )
+                            },
+                            onClick = actions.onOpenUpdater,
                         )
                         val about = customText(CustomTextKey.PAGE_ABOUT)
                         ArrowPreference(

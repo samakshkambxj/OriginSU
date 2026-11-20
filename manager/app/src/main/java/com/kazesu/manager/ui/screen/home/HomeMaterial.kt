@@ -78,7 +78,6 @@ import com.kazesu.manager.R
 import com.kazesu.manager.ai.api.AiFeatureBridge
 import com.kazesu.manager.ui.component.HomeCardStickerOverlays
 import com.kazesu.manager.ui.component.WarningLevel
-import com.kazesu.manager.ui.component.dialog.rememberConfirmDialog
 import com.kazesu.manager.ui.component.material.ExpressiveScaffold
 import com.kazesu.manager.ui.component.material.IconTile
 import com.kazesu.manager.ui.component.material.SegmentedColumn
@@ -195,48 +194,24 @@ private fun UpdateCard(
     actions: HomeActions,
 ) {
     val ciInfo = state.ciLatestVersionInfo
-    val ciDialog = rememberConfirmDialog(onConfirm = actions.onCiUpdateClick)
-    val ciTitle = customText(CustomTextKey.HOME_UPDATE_NEW_VERSION, ciInfo.versionCode)
-    val ciConfirm = stringResource(R.string.module_update)
-    val ciContent = ciInfo.changelog
     if (state.checkCiUpdateEnabled && ciInfo.versionCode > state.currentManagerVersionCode) {
         WarningCard(
-            message = if (state.ciUpdateBusy) customText(CustomTextKey.HOME_CI_UPDATE_BUSY)
-            else customText(CustomTextKey.HOME_CI_UPDATE_AVAILABLE, ciInfo.versionCode),
+            message = customText(CustomTextKey.HOME_CI_UPDATE_AVAILABLE, ciInfo.versionCode),
             level = WarningLevel.Notice,
-            onClick = {
-                if (!state.ciUpdateBusy) ciDialog.showConfirm(
-                    title = ciTitle, content = ciContent, confirm = ciConfirm, markdown = true,
-                )
-            },
+            onClick = actions.onCiUpdateClick,
         )
     }
     val newVersion = state.latestVersionInfo
-    val title = stringResource(id = R.string.module_changelog)
-    val updateText = stringResource(id = R.string.module_update)
-
     AnimatedVisibility(
         visible = state.hasUpdate,
         enter = fadeIn() + expandVertically(),
         exit = shrinkVertically() + fadeOut()
     ) {
-        val updateDialog = rememberConfirmDialog(onConfirm = { actions.onReleaseUpdateClick() })
         WarningCard(
             message = customText(CustomTextKey.HOME_UPDATE_NEW_VERSION, newVersion.versionCode),
-            level = WarningLevel.Notice
-        ) {
-            if (state.ciUpdateBusy) return@WarningCard
-            if (newVersion.changelog.isEmpty()) {
-                actions.onReleaseUpdateClick()
-            } else {
-                updateDialog.showConfirm(
-                    title = title,
-                    content = newVersion.changelog,
-                    markdown = true,
-                    confirm = updateText
-                )
-            }
-        }
+            level = WarningLevel.Notice,
+            onClick = actions.onReleaseUpdateClick,
+        )
     }
 }
 

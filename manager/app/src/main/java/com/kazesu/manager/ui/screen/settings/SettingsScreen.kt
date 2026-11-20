@@ -87,6 +87,7 @@ fun SettingPager(
         onDismissBuiltinZygiskFailure = viewModel::dismissBuiltinZygiskFailure,
         onSetUseSoftReboot = viewModel::setUseSoftReboot,
         onOpenAbout = { navigator.push(Route.About) },
+        onOpenUpdater = { navigator.push(Route.Updater()) },
         onOpenTools = { navigator.push(Route.Tool) },
         onOpenSusfsConfig = { navigator.push(Route.SuSFS()) },
         onOpenExtensions = { navigator.push(Route.Extensions) },

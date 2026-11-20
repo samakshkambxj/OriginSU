@@ -10,6 +10,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import com.kazesu.manager.data.model.ManagerApkSource
+import com.kazesu.manager.data.model.ManagerUpdateInfo
 import com.kazesu.manager.data.registry.DownloadVerificationException
 import com.kazesu.manager.data.registry.ExpectedFile
 import com.kazesu.manager.data.registry.RegistryUrls
@@ -64,6 +66,15 @@ object DownloadManager {
         return id
     }
 
+    fun enqueueManagerUpdate(context: Context, update: ManagerUpdateInfo): Int = enqueue(
+        context = context,
+        url = update.source.url,
+        fileName = update.fileName,
+        mimeType = "application/vnd.android.package-archive",
+        completionAction = DownloadCompletionAction.INSTALL_PACKAGE,
+        managerUpdate = update,
+    )
+
     fun enqueue(
         context: Context,
         url: String,
@@ -75,6 +86,7 @@ object DownloadManager {
         completionAction: DownloadCompletionAction = DownloadCompletionAction.INSTALL_MODULE,
         onCompleted: ((Uri) -> Unit)? = null,
         expected: ExpectedFile? = null,
+        managerUpdate: ManagerUpdateInfo? = null,
     ): Int {
         // Only share an in-flight download that is verified exactly like this request.
         val existing = _downloads.value.values.find {
@@ -121,10 +133,34 @@ object DownloadManager {
         }
 
         val intent = Intent(context, DownloadService::class.java).apply {
-            action = DownloadService.ACTION_DOWNLOAD
+            action = if (managerUpdate == null) {
+                DownloadService.ACTION_DOWNLOAD
+            } else {
+                DownloadService.ACTION_DOWNLOAD_MANAGER_APK
+            }
             putExtra(DownloadService.EXTRA_DOWNLOAD_ID, id)
             putExtra(DownloadService.EXTRA_URL, url)
             putExtra(DownloadService.EXTRA_FILE_NAME, fileName)
+            when (val source = managerUpdate?.source) {
+                is ManagerApkSource.DirectApk -> putExtra(
+                    DownloadService.EXTRA_MANAGER_SOURCE,
+                    DownloadService.SOURCE_DIRECT_APK,
+                )
+
+                is ManagerApkSource.NightlyArtifact -> {
+                    putExtra(
+                        DownloadService.EXTRA_MANAGER_SOURCE,
+                        DownloadService.SOURCE_NIGHTLY_ARTIFACT,
+                    )
+                    putExtra(DownloadService.EXTRA_MANAGER_ABI, source.preferredAbi)
+                    putExtra(
+                        DownloadService.EXTRA_MANAGER_EXPECTED_VERSION_CODE,
+                        source.expectedVersionCode,
+                    )
+                }
+
+                null -> Unit
+            }
             if (expected != null) {
                 putExtra(DownloadService.EXTRA_EXPECTED_SIZE, expected.size)
                 putExtra(DownloadService.EXTRA_EXPECTED_SHA256, expected.sha256)

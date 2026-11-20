@@ -38,6 +38,7 @@ import com.kazesu.manager.ui.component.Storefront
 import androidx.compose.material.icons.filled.RestartAlt
 import androidx.compose.material.icons.filled.Policy
 import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material.icons.rounded.Language
 import androidx.compose.material.icons.filled.VerifiedUser
 import androidx.compose.material.icons.filled.VisibilityOff
@@ -575,6 +576,15 @@ fun SettingPagerMaterial(
                                     customText(CustomTextKey.SETTING_SEND_LOG)
                                 )
                             },
+                        )
+                    },
+                    {
+                        val updaterTitle = stringResource(R.string.updater)
+                        SegmentedListItem(
+                            onClick = actions.onOpenUpdater,
+                            headlineContent = { Text(updaterTitle) },
+                            supportingContent = { Text(stringResource(R.string.updater_summary)) },
+                            leadingContent = { IconTile(Icons.Filled.SystemUpdate, updaterTitle) },
                         )
                     },
                     {

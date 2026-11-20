@@ -95,6 +95,7 @@ import com.kazesu.manager.ui.navigation3.Navigator
 import com.kazesu.manager.ui.navigation3.Route
 import com.kazesu.manager.ui.navigation3.rememberNavigator
 import com.kazesu.manager.ui.screen.about.AboutScreen
+import com.kazesu.manager.ui.screen.updater.UpdaterScreen
 import com.kazesu.manager.ai.api.AiFeatureBridge
 import com.kazesu.manager.ai.host.ManagerAiTarget
 import com.kazesu.manager.ui.screen.appicon.AppIconScreen
@@ -339,6 +340,11 @@ class MainActivity : ComponentActivity() {
                             }) {
                             entry<Route.Main>(swipeDismiss = swipeDismiss) { mainScreenEntry() }
                             entry<Route.About>(swipeDismiss = swipeDismiss) { AboutScreen() }
+                            entry<Route.Updater>(swipeDismiss = swipeDismiss) { key ->
+                                MaterialExpressivePalette {
+                                    UpdaterScreen(initialChannel = key.channel, initialVariant = key.variant)
+                                }
+                            }
                             entry<Route.Sulog>(swipeDismiss = swipeDismiss) { SulogScreen() }
                             entry<Route.ColorPalette>(swipeDismiss = swipeDismiss) { key -> ColorPaletteScreen(key.section, key.importUri) }
                             entry<Route.AppearanceOverlay>(swipeDismiss = swipeDismiss) {

@@ -260,6 +260,7 @@ data class SettingsScreenActions(
     val onDismissBuiltinZygiskFailure: () -> Unit,
     val onSetUseSoftReboot: (Boolean) -> Unit,
     val onOpenAbout: () -> Unit,
+    val onOpenUpdater: () -> Unit,
     val onOpenTools: () -> Unit,
     val onOpenSusfsConfig: () -> Unit,
     val onOpenExtensions: () -> Unit,

@@ -47,6 +47,13 @@ sealed interface Route : NavKey, Parcelable {
 
     @Parcelize
     @Serializable
+    data class Updater(
+        val channel: String = "STABLE",
+        val variant: String = "NORMAL",
+    ) : Route
+
+    @Parcelize
+    @Serializable
     data object Sulog : Route
 
     

@@ -26,6 +26,8 @@ import com.kazesu.manager.data.registry.ExpectedFile
 import com.kazesu.manager.data.registry.RegistryDownloadStore
 import com.kazesu.manager.data.registry.RegistryUrls
 import com.kazesu.manager.data.repository.SettingsRepositoryImpl
+import com.kazesu.manager.data.update.ManagerUpdateRepository
+import com.kazesu.manager.data.update.ZipRangeArchive
 import com.kazesu.manager.ksuApp
 import com.kazesu.manager.ui.MainActivity
 import okhttp3.Call
@@ -38,6 +40,7 @@ import java.util.concurrent.ConcurrentHashMap
 
 enum class DownloadCompletionAction {
     INSTALL_MODULE,
+    INSTALL_PACKAGE,
     OPEN_FILE,
 }
 
@@ -51,6 +54,7 @@ class DownloadService : Service() {
     companion object {
         const val CHANNEL_ID = "download_channel"
         const val ACTION_DOWNLOAD = "com.kazesu.manager.action.DOWNLOAD"
+        const val ACTION_DOWNLOAD_MANAGER_APK = "com.kazesu.manager.action.DOWNLOAD_MANAGER_APK"
         const val ACTION_CANCEL = "com.kazesu.manager.action.CANCEL_DOWNLOAD"
         const val ACTION_DISMISS_DOWNLOAD = "com.kazesu.manager.action.DISMISS_DOWNLOAD"
         const val ACTION_INSTALL_MODULE = "com.kazesu.manager.action.INSTALL_MODULE"
@@ -67,8 +71,15 @@ class DownloadService : Service() {
         const val EXTRA_USER_AGENT = "userAgent"
         const val EXTRA_COMPLETION_ACTION = "completionAction"
         const val EXTRA_DELETE_FILE_ON_DISMISS = "deleteFileOnDismiss"
+        const val EXTRA_MANAGER_SOURCE = "managerSource"
+        const val EXTRA_MANAGER_ABI = "managerAbi"
+        const val EXTRA_MANAGER_EXPECTED_VERSION_CODE = "managerExpectedVersionCode"
+
+        const val SOURCE_DIRECT_APK = "direct_apk"
+        const val SOURCE_NIGHTLY_ARTIFACT = "nightly_artifact"
 
         private const val COMPLETION_NOTIFICATION_ID_BASE = 100000
+        private const val LISTING_PROGRESS_WEIGHT = 5
         private const val REGISTRY_DOWNLOAD_MAX_AGE_MS = 24L * 60 * 60 * 1000
     }
 
@@ -99,20 +110,52 @@ class DownloadService : Service() {
                     ?: DownloadCompletionAction.INSTALL_MODULE
                 if (downloadId == -1) return START_NOT_STICKY
 
-                val notification = buildProgressNotification(downloadId, fileName, 0)
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-                    startForeground(
-                        downloadId, notification,
-                        ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
-                    )
-                } else {
-                    startForeground(downloadId, notification)
-                }
+                startForegroundDownload(downloadId, fileName)
 
                 val expectedSha256 = intent.getStringExtra(EXTRA_EXPECTED_SHA256)
                 val expectedSize = intent.getLongExtra(EXTRA_EXPECTED_SIZE, -1L)
                 val expected = expectedSha256?.let { ExpectedFile(expectedSize, it) }
                 startDownload(downloadId, url, fileName, mimeType, cookie, userAgent, completionAction, expected)
+            }
+
+            ACTION_DOWNLOAD_MANAGER_APK -> {
+                val url = intent.getStringExtra(EXTRA_URL) ?: return START_NOT_STICKY
+                val fileName = intent.getStringExtra(EXTRA_FILE_NAME) ?: return START_NOT_STICKY
+                val source = intent.getStringExtra(EXTRA_MANAGER_SOURCE) ?: return START_NOT_STICKY
+                val downloadId = intent.getIntExtra(EXTRA_DOWNLOAD_ID, -1)
+                val preferredAbi = intent.getStringExtra(EXTRA_MANAGER_ABI)
+                val expectedVersionCode = intent.getIntExtra(EXTRA_MANAGER_EXPECTED_VERSION_CODE, -1)
+                if (downloadId == -1) return START_NOT_STICKY
+                if (source == SOURCE_NIGHTLY_ARTIFACT &&
+                    (preferredAbi.isNullOrBlank() || expectedVersionCode <= 0)
+                ) {
+                    DownloadManager.markFailed(downloadId, "Missing manager artifact metadata")
+                    return START_NOT_STICKY
+                }
+
+                startForegroundDownload(downloadId, fileName)
+                if (source == SOURCE_DIRECT_APK) {
+                    startDownload(
+                        downloadId,
+                        url,
+                        fileName,
+                        "application/vnd.android.package-archive",
+                        null,
+                        null,
+                        DownloadCompletionAction.INSTALL_PACKAGE,
+                        null,
+                    )
+                } else if (source == SOURCE_NIGHTLY_ARTIFACT) {
+                    startNightlyManagerApkDownload(
+                        downloadId,
+                        url,
+                        fileName,
+                        preferredAbi!!,
+                        expectedVersionCode,
+                    )
+                } else {
+                    DownloadManager.markFailed(downloadId, "Unknown manager APK source")
+                }
             }
 
             ACTION_CANCEL -> {
@@ -156,6 +199,133 @@ class DownloadService : Service() {
             chain.proceed(chain.request())
         }
         .build()
+
+    private fun startForegroundDownload(downloadId: Int, fileName: String) {
+        val notification = buildProgressNotification(downloadId, fileName, 0)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            startForeground(
+                downloadId,
+                notification,
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC,
+            )
+        } else {
+            startForeground(downloadId, notification)
+        }
+    }
+
+    private fun startNightlyManagerApkDownload(
+        id: Int,
+        url: String,
+        fileName: String,
+        preferredAbi: String,
+        expectedVersionCode: Int,
+    ) {
+        val job = serviceScope.launch(start = CoroutineStart.LAZY) {
+            var pendingUri: Uri? = null
+            var temporaryApk: File? = null
+            var displayName = fileName
+            var lastNotifiedProgress = -1
+
+            fun reportProgress(progress: Int) {
+                val clamped = progress.coerceIn(0, 100)
+                DownloadManager.updateProgress(id, clamped)
+                if (clamped - lastNotifiedProgress >= 2 || clamped == 100) {
+                    notificationManager.notify(id, buildProgressNotification(id, displayName, clamped))
+                    lastNotifiedProgress = clamped
+                }
+            }
+
+            try {
+                val archive = ZipRangeArchive(ksuApp.okhttpClient)
+                val entries = archive.listEntries(url) { listingProgress ->
+                    ensureActive()
+                    reportProgress(listingProgress * LISTING_PROGRESS_WEIGHT / 100)
+                }
+                val entry = ManagerUpdateRepository(ksuApp.okhttpClient).findNightlyApkEntry(
+                    entries = entries,
+                    expectedVersionCode = expectedVersionCode,
+                    preferredAbi = preferredAbi,
+                ) ?: throw IOException(getString(R.string.updater_apk_not_found))
+
+                val apk = File.createTempFile("manager-update-", ".apk", cacheDir)
+                temporaryApk = apk
+                archive.extractEntry(url, entry, apk) { extractProgress ->
+                    ensureActive()
+                    reportProgress(
+                        LISTING_PROGRESS_WEIGHT +
+                            extractProgress * (90 - LISTING_PROGRESS_WEIGHT) / 100
+                    )
+                }
+
+                ensureActive()
+                val destination = DownloadDestination.create(
+                    this@DownloadService,
+                    fileName,
+                    "application/vnd.android.package-archive",
+                )
+                pendingUri = destination.uri
+                displayName = destination.displayName
+                val total = apk.length().coerceAtLeast(1L)
+                apk.inputStream().use { input ->
+                    destination.openOutputStream().use { output ->
+                        val buffer = ByteArray(64 * 1024)
+                        var copied = 0L
+                        while (true) {
+                            ensureActive()
+                            val count = input.read(buffer)
+                            if (count < 0) break
+                            output.write(buffer, 0, count)
+                            copied += count
+                            reportProgress(90 + (copied * 10L / total).toInt())
+                        }
+                        output.flush()
+                    }
+                }
+                ensureActive()
+                destination.publish()
+                reportProgress(100)
+
+                val uri = destination.uri
+                pendingUri = null
+                DownloadManager.markCompleted(id, uri)
+                notificationManager.cancel(id)
+                notificationManager.notify(
+                    COMPLETION_NOTIFICATION_ID_BASE + id,
+                    buildCompletionNotification(
+                        id,
+                        displayName,
+                        uri,
+                        "application/vnd.android.package-archive",
+                        DownloadCompletionAction.INSTALL_PACKAGE,
+                    ),
+                )
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                DownloadManager.markFailed(id, error.message ?: "Unknown error")
+                notificationManager.cancel(id)
+                notificationManager.notify(
+                    COMPLETION_NOTIFICATION_ID_BASE + id,
+                    buildFailureNotification(displayName),
+                )
+            } finally {
+                temporaryApk?.delete()
+                pendingUri?.let { deleteDownload(it) }
+            }
+        }
+        activeJobs[id] = job
+        job.invokeOnCompletion { cause ->
+            if (cause is CancellationException &&
+                DownloadManager.downloads.value[id]?.status != DownloadManager.Status.COMPLETED
+            ) {
+                DownloadManager.markFailed(id, "Cancelled")
+                notificationManager.cancel(id)
+            }
+            activeJobs.remove(id)
+            stopForegroundIfIdle()
+        }
+        job.start()
+    }
 
     private fun startDownload(
         id: Int,
@@ -361,6 +531,15 @@ class DownloadService : Service() {
                     addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_NEW_TASK)
                 }, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             ).also { builder.addAction(android.R.drawable.ic_menu_save, getString(R.string.download_install), it) }
+            DownloadCompletionAction.INSTALL_PACKAGE -> PendingIntent.getActivity(
+                this, id, Intent(Intent.ACTION_VIEW).apply {
+                    setDataAndType(uri, "application/vnd.android.package-archive")
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+                }, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            ).also {
+                builder.addAction(android.R.drawable.ic_menu_save, getString(R.string.download_install), it)
+            }
+
             DownloadCompletionAction.OPEN_FILE -> PendingIntent.getActivity(
                 this, id, Intent.createChooser(Intent(Intent.ACTION_VIEW).apply {
                     setDataAndType(uri, resolveDownloadMimeType(fileName, mimeType))

@@ -1,11 +1,5 @@
 package com.kazesu.manager.ui.screen.home
 
-import android.Manifest
-import android.content.pm.PackageManager
-import android.os.Build
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.core.content.ContextCompat
 import android.content.Intent
 import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
@@ -48,10 +42,8 @@ import com.kazesu.manager.ui.util.CustomTextKey
 import com.kazesu.manager.ui.util.customText
 import com.kazesu.manager.ui.navigation3.Navigator
 import com.kazesu.manager.ui.navigation3.Route
-import com.kazesu.manager.ui.util.rootAvailable
 import com.kazesu.manager.ui.viewmodel.HomeViewModel
 import kotlin.time.Duration.Companion.milliseconds
-import androidx.core.net.toUri
 
 @Composable
 fun HomePager(
@@ -99,33 +91,6 @@ fun HomePager(
         return
     }
 
-    var pendingCiInstall by rememberSaveable { mutableStateOf(false) }
-    val storagePermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        if (granted) {
-            if (pendingCiInstall) viewModel.installCiUpdate() else viewModel.installReleaseUpdate()
-        }
-    }
-    val startUpdate: (Boolean) -> Unit = { isCi ->
-        scope.launch {
-            val hasRoot = withContext(Dispatchers.IO) { rootAvailable() }
-            val installsBlocked = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
-                !context.packageManager.canRequestPackageInstalls()
-            when {
-                !hasRoot && installsBlocked -> {
-                    Toast.makeText(context, R.string.ci_update_install_permission, Toast.LENGTH_LONG).show()
-                    context.startActivity(Intent(android.provider.Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
-                        "package:${context.packageName}".toUri()))
-                }
-                Build.VERSION.SDK_INT <= Build.VERSION_CODES.P &&
-                    ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED -> {
-                    pendingCiInstall = isCi
-                    storagePermission.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE)
-                }
-                else -> if (isCi) viewModel.installCiUpdate() else viewModel.installReleaseUpdate()
-            }
-        }
-    }
-
     val mainPagerState = LocalMainPagerState.current
     val themeStoreTitle = customText(CustomTextKey.PAGE_THEME_STORE)
     val themeStoreConfirmContent = stringResource(R.string.theme_store_open_confirm)
@@ -137,8 +102,12 @@ fun HomePager(
         onSuperuserClick = { mainPagerState.animateToPage(BottomBarDestination.SuperUser.ordinal) },
         onModuleClick = { mainPagerState.animateToPage(BottomBarDestination.Module.ordinal) },
         onOpenUrl = uriHandler::openUri,
-        onCiUpdateClick = { startUpdate(true) },
-        onReleaseUpdateClick = { startUpdate(false) },
+        onCiUpdateClick = {
+            navigator.push(Route.Updater(channel = "BETA", variant = "NORMAL"))
+        },
+        onReleaseUpdateClick = {
+            navigator.push(Route.Updater(channel = "STABLE", variant = "NORMAL"))
+        },
         onOpenVersionSpoof = { navigator.push(Route.VersionSpoof) },
         onOpenAi = { navigator.push(Route.AiAssistant) },
         onOpenTune = { navigator.push(Route.Tune) },
