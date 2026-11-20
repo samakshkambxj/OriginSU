@@ -5,6 +5,8 @@
 //! - [`Provider::Overlay`] runs KazeMount's built-in overlayfs engine, falling
 //!   back to bind mounts if overlayfs cannot be set up.
 //! - [`Provider::Bind`] runs KazeMount's built-in bind-mount engine.
+//! - [`Provider::Kagami`] runs the Kagami magic-mount backend ported from
+//!   Rouyashiki/YukiSU, with its mount journal and per-app umount registration.
 //! - [`Provider::Metamodule`] runs the installed metamodule's `metamount.sh`
 //!   (Kagami, Hybrid Mount, ...).
 //! - [`Provider::Zeromount`] delegates to the installed ZeroMount metamodule
@@ -14,11 +16,11 @@
 //! - [`Provider::None`] leaves modules inert.
 //!
 //! The provider is selected by a persisted mode (`auto`, `overlay`, `bind`,
-//! `metamodule`, `zeromount`, `nomount`, `off`). NoMount and the metamodule
-//! step aside on a failure so a bad driver never leaves a device with unmounted
-//! modules; a metamodule failure is reported and never silently replaced,
-//! because the user explicitly delegated mounting to it. The built-in overlay
-//! and bind engines are implemented in [`engine`].
+//! `kagami`, `metamodule`, `zeromount`, `nomount`, `off`). NoMount and the
+//! metamodule step aside on a failure so a bad driver never leaves a device
+//! with unmounted modules; a metamodule failure is reported and never silently
+//! replaced, because the user explicitly delegated mounting to it. The built-in
+//! overlay, bind and Kagami engines are implemented in [`engine`].
 
 pub mod engine;
 
@@ -39,6 +41,8 @@ pub enum Mode {
     Overlay,
     /// Built-in bind mount.
     Bind,
+    /// Kagami magic-mount backend (bind mounts, journal, per-app umount).
+    Kagami,
     Metamodule,
     Zeromount,
     Nomount,
@@ -53,6 +57,7 @@ impl Mode {
             Self::Auto => "auto",
             Self::Overlay => "overlay",
             Self::Bind => "bind",
+            Self::Kagami => "kagami",
             Self::Metamodule => "metamodule",
             Self::Zeromount => "zeromount",
             Self::Nomount => "nomount",
@@ -70,6 +75,7 @@ impl Mode {
             "auto" => Some(Self::Auto),
             "overlay" | "overlayfs" | "builtin" => Some(Self::Overlay),
             "bind" => Some(Self::Bind),
+            "kagami" | "kagami-mount" => Some(Self::Kagami),
             "metamodule" => Some(Self::Metamodule),
             "zeromount" => Some(Self::Zeromount),
             "nomount" => Some(Self::Nomount),
@@ -84,6 +90,7 @@ impl Mode {
 pub enum Provider {
     Overlay,
     Bind,
+    Kagami,
     Metamodule,
     Zeromount,
     Nomount,
@@ -97,6 +104,7 @@ impl Provider {
         match self {
             Self::Overlay => "overlay",
             Self::Bind => "bind",
+            Self::Kagami => "kagami",
             Self::Metamodule => "metamodule",
             Self::Zeromount => "zeromount",
             Self::Nomount => "nomount",
@@ -110,6 +118,7 @@ impl Provider {
         match self {
             Self::Overlay => Some(engine::Backend::Overlay),
             Self::Bind => Some(engine::Backend::Bind),
+            Self::Kagami => Some(engine::Backend::Kagami),
             _ => None,
         }
     }
@@ -184,7 +193,7 @@ pub fn write_mode(mode: Mode) -> Result<()> {
 pub fn set_mode(value: &str) -> Result<()> {
     let mode = Mode::parse(value).ok_or_else(|| {
         anyhow::anyhow!(
-            "unknown mount mode {value:?} (want auto/overlay/bind/metamodule/zeromount/nomount/off)"
+            "unknown mount mode {value:?} (want auto/overlay/bind/kagami/metamodule/zeromount/nomount/off)"
         )
     })?;
     write_mode(mode)?;
@@ -233,6 +242,7 @@ const fn provider_for(mode: Mode, metamodule_enabled: bool) -> Provider {
         Mode::Nomount => Provider::Nomount,
         Mode::Overlay => Provider::Overlay,
         Mode::Bind => Provider::Bind,
+        Mode::Kagami => Provider::Kagami,
         // Preserve the historical default: a metamodule wins, then the
         // built-in overlay engine runs.
         Mode::Auto if metamodule_enabled => Provider::Metamodule,
@@ -529,7 +539,7 @@ pub fn run_boot_pass() -> Result<()> {
             );
             Ok(())
         }
-        Provider::Overlay | Provider::Bind => {
+        Provider::Overlay | Provider::Bind | Provider::Kagami => {
             let Some(backend) = configured.engine() else {
                 unreachable!("built-in provider without an engine")
             };
@@ -908,6 +918,7 @@ mod tests {
             Mode::Auto,
             Mode::Overlay,
             Mode::Bind,
+            Mode::Kagami,
             Mode::Metamodule,
             Mode::Zeromount,
             Mode::Nomount,
@@ -917,6 +928,7 @@ mod tests {
         }
         assert_eq!(Mode::parse(" builtin "), Some(Mode::Overlay));
         assert_eq!(Mode::parse("overlayfs"), Some(Mode::Overlay));
+        assert_eq!(Mode::parse("kagami"), Some(Mode::Kagami));
         assert_eq!(Mode::parse(" nope "), None);
     }
 
@@ -928,6 +940,7 @@ mod tests {
         assert_eq!(provider_for(Mode::Zeromount, true), Provider::Zeromount);
         assert_eq!(provider_for(Mode::Overlay, true), Provider::Overlay);
         assert_eq!(provider_for(Mode::Bind, true), Provider::Bind);
+        assert_eq!(provider_for(Mode::Kagami, true), Provider::Kagami);
         assert_eq!(provider_for(Mode::Off, true), Provider::None);
     }
 }

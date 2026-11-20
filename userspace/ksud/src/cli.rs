@@ -568,7 +568,7 @@ enum KazeMountCmd {
     },
     /// set the provider mode
     SetMode {
-        /// auto, overlay, bind, metamodule, zeromount, nomount, or off
+        /// auto, overlay, bind, kagami, metamodule, zeromount, nomount, or off
         mode: String,
     },
     /// run the selected provider now

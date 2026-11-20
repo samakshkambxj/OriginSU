@@ -23,6 +23,7 @@ fun kazeMountModeLabel(mode: KazeMountMode): String = stringResource(
         KazeMountMode.Auto -> R.string.kaze_mount_mode_auto
         KazeMountMode.OverlayFs -> R.string.kaze_mount_mode_overlay
         KazeMountMode.BindMount -> R.string.kaze_mount_mode_bind
+        KazeMountMode.Kagami -> R.string.kaze_mount_mode_kagami
         KazeMountMode.Metamodule -> R.string.kaze_mount_mode_metamodule
         KazeMountMode.ZeroMount -> R.string.kaze_mount_mode_zeromount
         KazeMountMode.NoMount -> R.string.kaze_mount_mode_nomount
@@ -34,6 +35,7 @@ fun kazeMountModeLabel(mode: KazeMountMode): String = stringResource(
 fun kazeMountProviderLabel(provider: String): String = when (provider) {
     "overlay" -> stringResource(R.string.kaze_mount_mode_overlay)
     "bind" -> stringResource(R.string.kaze_mount_mode_bind)
+    "kagami" -> stringResource(R.string.kaze_mount_mode_kagami)
     "metamodule" -> stringResource(R.string.kaze_mount_mode_metamodule)
     "zeromount" -> stringResource(R.string.kaze_mount_mode_zeromount)
     "nomount" -> stringResource(R.string.kaze_mount_mode_nomount)

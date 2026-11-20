@@ -72,10 +72,14 @@ mod android {
     /// Scratch directory shared by KazeMount's overlay and bind staging engines.
     pub const KAZE_MOUNT_WORK_DIR: &str = concatcp!(WORKING_DIR, "kaze_mount/");
 
+    /// Kagami provider mount journal. Entries are scoped to one boot and carry
+    /// the mount id so teardown never detaches a recycled path.
+    pub const KAZE_MOUNT_KAGAMI_JOURNAL: &str = concatcp!(WORKING_DIR, "kaze_mount/kagami_mounts");
+
     // KazeMount provider selection and runtime records. The paths intentionally
     // match OriginMount so upgrades retain the selected provider and diagnostics.
-    /// Selected provider: `auto`, `overlay`, `bind`, `metamodule`, `zeromount`,
-    /// `nomount`, or `off`.
+    /// Selected provider: `auto`, `overlay`, `bind`, `kagami`, `metamodule`,
+    /// `zeromount`, `nomount`, or `off`.
     pub const MOUNT_MODE_FILE: &str = concatcp!(WORKING_DIR, "mount_mode");
     pub const MOUNT_RUNTIME: &str = concatcp!(WORKING_DIR, "mount_runtime");
     pub const MOUNT_INFLIGHT: &str = concatcp!(WORKING_DIR, "mount_inflight");

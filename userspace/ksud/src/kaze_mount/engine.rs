@@ -7,6 +7,10 @@
 //!   overlayfs, falling back to bind mounts when overlayfs is unavailable or
 //!   staging fails.
 //! - [`Backend::Bind`] uses Magisk-style tmpfs skeletons and bind mounts only.
+//! - [`Backend::Kagami`] runs the Kagami magic-mount backend ported from
+//!   [Rouyashiki/YukiSU](https://github.com/Rouyashiki/YukiSU): the same lazy
+//!   tmpfs skeletons and bind mounts, plus a boot-scoped mount journal,
+//!   journal-based teardown and per-app umount registration.
 //! - [`Backend::Auto`] prefers overlayfs and falls back to bind mounts.
 //!
 //! Both mechanisms merge modules in a deterministic order (later module ids
@@ -41,7 +45,7 @@ use anyhow::{Context, Result, bail};
 use log::{debug, info, warn};
 
 use crate::{
-    defs,
+    defs, ksucalls,
     module::{self, ModuleType::Active},
     utils::switch_mnt_ns,
 };
@@ -76,6 +80,9 @@ pub enum Backend {
     Overlay,
     /// Use Magisk-style tmpfs skeletons and bind mounts only.
     Bind,
+    /// Kagami's magic-mount backend: bind mounts, a mount journal and per-app
+    /// umount registration.
+    Kagami,
 }
 
 impl Backend {
@@ -85,6 +92,7 @@ impl Backend {
             Self::Auto => "auto",
             Self::Overlay => "overlay",
             Self::Bind => "bind",
+            Self::Kagami => "kagami",
         }
     }
 }
@@ -307,6 +315,19 @@ fn move_mount(source: &Path, target: &Path) -> Result<()> {
             target.display()
         )
     })
+}
+
+/// Lazily detach a mount. Used by the Kagami backend's teardown.
+fn detach_mount(path: &Path) -> Result<()> {
+    let path_c = path_cstring(path)?;
+    if unsafe { libc::umount2(path_c.as_ptr(), libc::MNT_DETACH) } != 0 {
+        bail!(
+            "detach {} failed: {}",
+            path.display(),
+            std::io::Error::last_os_error()
+        );
+    }
+    Ok(())
 }
 
 fn cleanup_work(work: &Path) {
@@ -860,7 +881,13 @@ fn child_needs_tmpfs(target: &Path, child: &Node) -> bool {
     }
 }
 
-fn do_bind_mount(base: &Path, work: &Path, mut node: Node, has_tmpfs: bool) -> Result<()> {
+fn do_bind_mount(
+    base: &Path,
+    work: &Path,
+    mut node: Node,
+    has_tmpfs: bool,
+    committed: &mut Vec<PathBuf>,
+) -> Result<()> {
     let target = base.join(&node.name);
     let stage = work.join(&node.name);
 
@@ -882,6 +909,7 @@ fn do_bind_mount(base: &Path, work: &Path, mut node: Node, has_tmpfs: bool) -> R
             } else {
                 bind_mount(src, &target)?;
                 remount_readonly(&target, true);
+                committed.push(target.clone());
             }
             debug!("bind-mounted {} -> {}", src.display(), target.display());
         }
@@ -948,7 +976,7 @@ fn do_bind_mount(base: &Path, work: &Path, mut node: Node, has_tmpfs: bool) -> R
                         if child.skip {
                             continue;
                         }
-                        if let Err(e) = do_bind_mount(&target, &stage, child, has_tmpfs) {
+                        if let Err(e) = do_bind_mount(&target, &stage, child, has_tmpfs, committed) {
                             if has_tmpfs {
                                 return Err(e);
                             }
@@ -964,7 +992,7 @@ fn do_bind_mount(base: &Path, work: &Path, mut node: Node, has_tmpfs: bool) -> R
                 if child.skip {
                     continue;
                 }
-                if let Err(e) = do_bind_mount(&target, &stage, child, has_tmpfs) {
+                if let Err(e) = do_bind_mount(&target, &stage, child, has_tmpfs, committed) {
                     if has_tmpfs {
                         return Err(e);
                     }
@@ -976,6 +1004,7 @@ fn do_bind_mount(base: &Path, work: &Path, mut node: Node, has_tmpfs: bool) -> R
                 remount_readonly(&stage, true);
                 move_mount(&stage, &target)?;
                 make_private(&target);
+                committed.push(target.clone());
                 info!("bind-mounted module tree onto {}", target.display());
             }
         }
@@ -983,11 +1012,214 @@ fn do_bind_mount(base: &Path, work: &Path, mut node: Node, has_tmpfs: bool) -> R
     Ok(())
 }
 
-fn run_bind_mount(root: &Node) -> Result<()> {
+/// Kagami journal header. The boot id after the tab scopes entries to one boot.
+const KAGAMI_JOURNAL_MAGIC: &str = "KAGAMI_MOUNTS_V1";
+
+/// Library directories left out of per-app umount registration. PairIP-protected
+/// APKs verify native libraries after the zygote fork, and detaching the mount
+/// mid-flight crashes them. Same list as Kagami's `ksu_umount_add`.
+const KAGAMI_UMOUNT_SKIP: [&str; 4] = [
+    "/system/lib",
+    "/system/lib64",
+    "/vendor/lib",
+    "/vendor/lib64",
+];
+
+fn kagami_boot_id() -> String {
+    std::fs::read_to_string("/proc/sys/kernel/random/boot_id")
+        .map_or_else(|_| String::new(), |value| value.trim().to_string())
+}
+
+/// Decode the octal escapes (`\040`, ...) used by `/proc/self/mountinfo`.
+fn decode_mount_field(value: &str) -> String {
+    let bytes = value.as_bytes();
+    let mut out = String::with_capacity(value.len());
+    let mut index = 0;
+    while index < bytes.len() {
+        if bytes[index] == b'\\'
+            && index + 3 < bytes.len()
+            && bytes[index + 1].is_ascii_digit()
+            && bytes[index + 2].is_ascii_digit()
+            && bytes[index + 3].is_ascii_digit()
+        {
+            let code = u32::from(bytes[index + 1] - b'0') * 64
+                + u32::from(bytes[index + 2] - b'0') * 8
+                + u32::from(bytes[index + 3] - b'0');
+            if let Some(character) = char::from_u32(code) {
+                out.push(character);
+            }
+            index += 4;
+        } else {
+            out.push(char::from(bytes[index]));
+            index += 1;
+        }
+    }
+    out
+}
+
+/// Mount id of `path` when it is currently a mount point.
+fn kagami_mount_id(path: &Path) -> Option<u64> {
+    let target = path.to_string_lossy().into_owned();
+    let contents = std::fs::read_to_string("/proc/self/mountinfo").ok()?;
+    contents.lines().find_map(|line| {
+        let mut fields = line.split_whitespace();
+        let id = fields.next()?.parse::<u64>().ok()?;
+        // Skip parent id, device and root before the mount point.
+        fields.next()?;
+        fields.next()?;
+        fields.next()?;
+        let mount_point = decode_mount_field(fields.next()?);
+        (mount_point == target).then_some(id)
+    })
+}
+
+fn kagami_write_journal(committed: &[PathBuf]) -> Result<()> {
+    let boot = kagami_boot_id();
+    if boot.is_empty() {
+        bail!("cannot read the boot id");
+    }
+    let mut data = format!("{KAGAMI_JOURNAL_MAGIC}\t{boot}\n");
+    for path in committed {
+        let text = path.to_string_lossy();
+        if text.contains(['\n', '\r', '\t']) {
+            bail!("refusing to journal an unsafe mount path: {text:?}");
+        }
+        let Some(id) = kagami_mount_id(path) else {
+            warn!(
+                "Kagami: {} is not a mount point; leaving it out of the journal",
+                path.display()
+            );
+            continue;
+        };
+        data.push_str(&format!("{id}\t{text}\n"));
+    }
+    let journal = Path::new(defs::KAZE_MOUNT_KAGAMI_JOURNAL);
+    if let Some(parent) = journal.parent() {
+        std::fs::create_dir_all(parent)
+            .with_context(|| format!("create {}", parent.display()))?;
+    }
+    let temporary = journal.with_extension("tmp");
+    std::fs::write(&temporary, data.as_bytes())
+        .with_context(|| format!("write {}", temporary.display()))?;
+    std::fs::rename(&temporary, journal)
+        .with_context(|| format!("replace {}", journal.display()))?;
+    Ok(())
+}
+
+fn kagami_skip_umount(path: &str) -> bool {
+    KAGAMI_UMOUNT_SKIP.iter().any(|prefix| {
+        path == *prefix
+            || path
+                .strip_prefix(prefix)
+                .is_some_and(|rest| rest.starts_with('/'))
+    })
+}
+
+fn kagami_umount_register(path: &Path, add: bool) {
+    let text = path.to_string_lossy();
+    if kagami_skip_umount(&text) {
+        return;
+    }
+    let result = if add {
+        ksucalls::umount_list_add(&text, 0)
+    } else {
+        ksucalls::umount_list_del(&text)
+    };
+    if let Err(error) = result {
+        warn!(
+            "Kagami: could not {} umount entry {}: {error:#}",
+            if add { "add" } else { "remove" },
+            path.display()
+        );
+    }
+}
+
+fn kagami_record_mounts(committed: &[PathBuf]) {
+    if let Err(error) = kagami_write_journal(committed) {
+        warn!("Kagami: could not write the mount journal: {error:#}");
+    }
+    for path in committed {
+        kagami_umount_register(path, true);
+    }
+}
+
+fn kagami_rollback(committed: &[PathBuf]) {
+    // Deepest mount first, so a nested skeleton is detached before its parent.
+    let mut paths: Vec<&PathBuf> = committed.iter().collect();
+    paths.sort_by(|a, b| b.cmp(a));
+    for path in paths {
+        if let Err(error) = detach_mount(path) {
+            warn!("Kagami: rollback {error:#}");
+        }
+        kagami_umount_register(path, false);
+    }
+    let _ = std::fs::remove_file(defs::KAZE_MOUNT_KAGAMI_JOURNAL);
+}
+
+/// Tear down the mount set recorded by a previous Kagami run in this boot,
+/// verifying each mount id so a recycled path is never detached. Journal entries
+/// from an earlier boot are discarded: those mounts no longer exist.
+fn kagami_unmount_previous() -> Result<()> {
+    let journal = Path::new(defs::KAZE_MOUNT_KAGAMI_JOURNAL);
+    let contents = match std::fs::read_to_string(journal) {
+        Ok(contents) => contents,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+        Err(error) => return Err(error).with_context(|| format!("read {}", journal.display())),
+    };
+    let expected = format!("{KAGAMI_JOURNAL_MAGIC}\t{}", kagami_boot_id());
+    let mut lines = contents.lines();
+    if lines.next().unwrap_or_default() != expected.as_str() {
+        let _ = std::fs::remove_file(journal);
+        return Ok(());
+    }
+    let mut records: Vec<(u64, String)> = Vec::new();
+    for line in lines {
+        let Some((id, path)) = line.split_once('\t') else {
+            continue;
+        };
+        let Ok(id) = id.parse::<u64>() else {
+            continue;
+        };
+        if path.starts_with('/') {
+            records.push((id, path.to_string()));
+        }
+    }
+    records.sort_by(|a, b| b.1.cmp(&a.1));
+    for (id, path) in records {
+        let target = Path::new(&path);
+        if kagami_mount_id(target) == Some(id)
+            && let Err(error) = detach_mount(target)
+        {
+            warn!("Kagami: {error:#}");
+        }
+        kagami_umount_register(target, false);
+    }
+    match std::fs::remove_file(journal) {
+        Ok(()) => {}
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+        Err(error) => warn!("Kagami: could not remove {}: {error}", journal.display()),
+    }
+    Ok(())
+}
+
+fn run_bind_mount(root: &Node, kagami: bool) -> Result<()> {
     let work = Path::new(defs::KAZE_MOUNT_WORK_DIR);
+    if kagami
+        && let Err(error) = kagami_unmount_previous()
+    {
+        warn!("Kagami: could not tear down the previous mount set: {error:#}");
+    }
     prepare_work(work)?;
-    let result = do_bind_mount(Path::new("/"), work, root.clone(), false);
+    let mut committed = Vec::new();
+    let result = do_bind_mount(Path::new("/"), work, root.clone(), false, &mut committed);
     cleanup_work(work);
+    if kagami {
+        if result.is_ok() {
+            kagami_record_mounts(&committed);
+        } else {
+            kagami_rollback(&committed);
+        }
+    }
     result
 }
 
@@ -1010,8 +1242,14 @@ pub fn run(backend: Backend) -> Result<()> {
         return Ok(());
     };
 
+    if backend == Backend::Kagami {
+        run_bind_mount(&root, true).context("Kagami-backed KazeMount failed")?;
+        info!("KazeMount pass complete (requested kagami, engine kagami)");
+        return Ok(());
+    }
+
     let overlay_available = match backend {
-        Backend::Bind => false,
+        Backend::Bind | Backend::Kagami => false,
         Backend::Overlay | Backend::Auto => overlay_supported(),
     };
     if backend == Backend::Overlay && !overlay_available {
@@ -1028,7 +1266,7 @@ pub fn run(backend: Backend) -> Result<()> {
         }
     }
     if !used_overlay {
-        run_bind_mount(&root).context("bind-backed KazeMount failed")?;
+        run_bind_mount(&root, false).context("bind-backed KazeMount failed")?;
     }
 
     info!(
