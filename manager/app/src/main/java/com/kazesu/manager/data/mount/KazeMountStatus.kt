@@ -7,6 +7,7 @@ enum class KazeMountMode(val id: String) {
     Auto("auto"),
     OverlayFs("overlay"),
     BindMount("bind"),
+    Kagami("kagami"),
     Metamodule("metamodule"),
     ZeroMount("zeromount"),
     NoMount("nomount"),

@@ -60,10 +60,12 @@ kernel extension center, without a pile of companion apps.
     re-enable modules one by one to find the culprit.
 11. KazeMount module mounting: provider selection from Settings > Tools —
     `overlay` (KazeMount overlayfs engine, bind fallback), `bind` (bind-mount
-    engine), `metamodule` (ZeroMount/Kagami/Hybrid Mount), `zeromount`,
-    `nomount` or `off`. Changes apply on the next boot, and there's a Run Now
-    button to mount without rebooting. The old Magic Mount enable flag and
-    backend toggle are gone; KazeMount is the single mount engine.
+    engine), `kagami` (built-in port of Kagami's magic-mount backend, with a
+    mount journal and per-app unmount registration), `metamodule`
+    (ZeroMount/Kagami/Hybrid Mount), `zeromount`, `nomount` or `off`. Changes
+    apply on the next boot, and there's a Run Now button to mount without
+    rebooting. The old Magic Mount enable flag and backend toggle are gone;
+    KazeMount is the single mount engine.
 12. KazeTune kernel tuning: live read/write of CPU frequency, GPU clocks, block
     I/O, VM presets, scheduler extras, LMK levels, TCP congestion control, BORE
     scheduler, ZRAM and a generic sysctl editor. Tunables can be persisted so
@@ -158,6 +160,12 @@ just bk   # ksud only
 ## Acknowledgements
 
 - [KernelSU](https://github.com/tiann/KernelSU): upstream.
+- [Kagami](https://github.com/Rouyashiki/YukiSU) (Rouyashiki/YukiSU): KazeMount's
+  `kagami` provider is a Rust port of Kagami's magic-mount backend — the lazy
+  tmpfs skeleton walk, the mount journal and the per-app umount registration,
+  including the native-library directories that are deliberately left alone.
+  Kagami is GPL-3.0-or-later, matching KazeSU outside `kernel/`; the ported code
+  stays under the same license and this credit is part of that compliance.
 - [SukiSU Nova](https://github.com/SukiSU-Nova/SukiSU-Nova) and
   [SukiSU-Ultra](https://github.com/SukiSU-Ultra/SukiSU-Ultra): fork lineage.
 - [/xxksu](https://github.com/backslashxx/KernelSU): kernel compatibility reference.

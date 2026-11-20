@@ -2084,6 +2084,7 @@
     <string name="kaze_mount_mode_auto">Auto</string>
     <string name="kaze_mount_mode_overlay">OverlayFS</string>
     <string name="kaze_mount_mode_bind">Bind mount</string>
+    <string name="kaze_mount_mode_kagami">Kagami</string>
     <string name="kaze_mount_mode_metamodule">Metamodule</string>
     <string name="kaze_mount_mode_zeromount">ZeroMount</string>
     <string name="kaze_mount_mode_nomount">NoMount</string>
